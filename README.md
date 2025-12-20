@@ -41,3 +41,5 @@ cd jobelix
 npm run dev
 npm i @supabase/supabase-js
 ```
+
+Test
