@@ -51,7 +51,7 @@ Test
 ## Etapes setup: 
 - Installer docker (https://www.docker.com/products/docker-desktop/)
 - Installer supabase CLI (Via poweshell pour Windows)
-- supabase link --project-ref project_id_sur_supabase (après login et init)
+- (à la base du repo) 'supabase login' puis 'supabase init' puis 'supabase link --project-ref project_id_sur_supabase'
 - 'supabase start' permet de lancer le client supabase sur: http://localhost:54323
 
 
@@ -70,7 +70,7 @@ supabase db diff --use-migra -f nom_de_la_migration -> rajoute le code EQL entre
 supabase db push -> update la version du site web. 
 
 ### A propos des mocks datas:
-Les mocks datas sont regénérés à partir du fichier seed.sql. Si on veut extraire des vrais datas, on peut le faire depuis un csv téléchargeable sur le site supabase.com
+Les mocks datas sont regénérés à partir du fichier seed.sql. On peut quand même extraire des vrais datas de notre base de données au besoin (en utilisant un csv téléchargeable sur le site de la db de prod (supabase.com)). 
 
 Commande:
 supabase db dump --local --data-only > supabase/nom.sql -> Permet de sauvegarder les données actuelles dans le fichier "nom.sql" (comme ca elles sont sauvegardées quelquepart avant un reset)
