@@ -1,3 +1,5 @@
+# Frontend:
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -43,3 +45,41 @@ npm i @supabase/supabase-js
 ```
 
 Test
+
+# Backend: 
+
+## Etapes setup: 
+- Installer docker (https://www.docker.com/products/docker-desktop/)
+- Installer supabase CLI (Via poweshell pour Windows)
+- supabase link --project-ref project_id_sur_supabase (après login et init)
+- 'supabase start' permet de lancer le client supabase sur: http://localhost:54323
+
+
+## Commandes supabase utiles:
+### Lancement env et arret
+Commandes:
+supabase start -> lance le venv (il faut que docker soit activé)
+supabase stop -> stop le venv (pas besoin de le stop normalement il consomme pas trop)
+supabase stop --no-backup -> reset le venv à la dernière migration (supprime les nouvelles tables/fonctions/trigers)
+
+### Sauvegarde, pull et pushs - DB:
+Commandes:
+supabase db pull -> recupére ce qui est sur le site (s'il y a eu des migration faites directement dessus)
+supabase db reset -> update la db supabase après une migration (supprime toutes les mocks datas. Voir plus bas pour les sauvegarder)
+supabase db diff --use-migra -f nom_de_la_migration -> rajoute le code EQL entre l'ancienne version et la nouvelle. 
+supabase db push -> update la version du site web. 
+
+### A propos des mocks datas:
+Les mocks datas sont regénérés à partir du fichier seed.sql. Si on veut extraire des vrais datas, on peut le faire depuis un csv téléchargeable sur le site supabase.com
+
+Commande:
+supabase db dump --local --data-only > supabase/nom.sql -> Permet de sauvegarder les données actuelles dans le fichier "nom.sql" (comme ca elles sont sauvegardées quelquepart avant un reset)
+
+
+Remarque: Si le seed.sql ne marche pas à cause du auth, on peut rajouter les lignes de la table auth à la main:
+"""
+INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at)
+VALUES 
+  ('le-uuid-que-tu-utilises-dans-students', 'moi@test.com', crypt('password123', gen_salt('bf')), now())
+ON CONFLICT (id) DO NOTHING;
+"""
