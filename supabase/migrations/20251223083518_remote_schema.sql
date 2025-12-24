@@ -179,10 +179,9 @@ ALTER TABLE "public"."profile_searched" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."resume" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "student_id" "uuid" NOT NULL,
-    "file_name" "text" NOT NULL
+    "file_name" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 
@@ -237,7 +236,7 @@ ALTER TABLE ONLY "public"."profile_searched"
 
 
 ALTER TABLE ONLY "public"."resume"
-    ADD CONSTRAINT "resume_pkey" PRIMARY KEY ("id");
+    ADD CONSTRAINT "resume_pkey" PRIMARY KEY ("student_id");
 
 
 

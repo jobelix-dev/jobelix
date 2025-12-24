@@ -2,34 +2,69 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/types';
+import { createClient } from '@/lib/supabaseClient';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
-    // In mock mode: read profile from localStorage
-    // In real mode: fetch from getProfile() API
-    const mockProfileStr = localStorage.getItem('mockProfile');
-    if (mockProfileStr) {
-      try {
-        const parsed = JSON.parse(mockProfileStr);
-        setProfile(parsed);
-      } catch {
-        // invalid profile, redirect to login
-        router.push('/login');
+    async function loadProfile() {
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/'); // Redirect to home page if not logged in
+        return;
       }
-    } else {
-      // no profile found, redirect to login
-      router.push('/login');
-    }
-    setLoading(false);
-  }, [router]);
 
-  function handleLogout() {
-    localStorage.removeItem('mockProfile');
+      // Fetch user profile from database
+      // First check if they're a student
+      const { data: studentData } = await supabase
+        .from('student')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (studentData) {
+        setProfile({
+          id: studentData.id,
+          role: 'student',
+          created_at: studentData.created_at,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // If not student, check if they're a company
+      const { data: companyData } = await supabase
+        .from('company')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (companyData) {
+        setProfile({
+          id: companyData.id,
+          role: 'company',
+          created_at: companyData.created_at,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // No profile found - redirect to home
+      router.push('/');
+    }
+
+    loadProfile();
+  }, [router, supabase]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
     router.push('/');
   }
 
@@ -76,6 +111,29 @@ function StudentDashboard() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [resumeInfo, setResumeInfo] = useState<{ filename?: string; uploaded_at?: string } | null>(null);
+  const supabase = createClient();
+
+  // Load existing resume info on mount
+  useEffect(() => {
+    async function loadResumeInfo() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data } = await supabase
+        .from('resume')
+        .select('file_name, created_at')
+        .eq('student_id', session.user.id)
+        .single();
+
+      if (data) {
+        setResumeInfo({
+          filename: data.file_name,
+          uploaded_at: data.created_at,
+        });
+      }
+    }
+    loadResumeInfo();
+  }, [supabase]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0];
@@ -110,24 +168,53 @@ function StudentDashboard() {
     setUploadSuccess(false);
 
     try {
-      const formData = new FormData();
-      formData.append('file', fileToUpload);
-
-      const result = await fetch('/api/mock/resume', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await result.json();
-
-      if (result.ok) {
-        setUploadSuccess(true);
-        setResumeInfo({ filename: data.filename, uploaded_at: data.uploaded_at });
-      } else {
-        setUploadError(data.error || 'Upload failed');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setUploadError('You must be logged in to upload');
+        return;
       }
-    } catch (err) {
-      setUploadError('Network error. Please try again.');
+
+      const userId = session.user.id;
+      const filePath = `${userId}/resume.pdf`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('resumes')
+        .upload(filePath, fileToUpload, {
+          upsert: true, // Replace if exists
+          contentType: 'application/pdf',
+        });
+
+      if (uploadError) {
+        setUploadError(uploadError.message);
+        return;
+      }
+
+      // Save metadata to database (upsert since student_id is primary key)
+      const { error: dbError } = await supabase
+        .from('resume')
+        .upsert(
+          {
+            student_id: userId,
+            file_name: fileToUpload.name,
+          },
+          {
+            onConflict: 'student_id',
+          }
+        );
+
+      if (dbError) {
+        setUploadError(dbError.message);
+        return;
+      }
+
+      setUploadSuccess(true);
+      setResumeInfo({
+        filename: fileToUpload.name,
+        uploaded_at: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -201,6 +288,7 @@ function CompanyDashboard() {
   const [createSuccess, setCreateSuccess] = useState(false);
   const [offers, setOffers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   // Fetch offers on mount
   useEffect(() => {
@@ -210,10 +298,21 @@ function CompanyDashboard() {
   async function fetchOffers() {
     setLoading(true);
     try {
-      const result = await fetch('/api/mock/offers');
-      if (result.ok) {
-        const data = await result.json();
-        setOffers(data);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // company_id in company_offer table references company.id (which equals auth.user.id)
+      const { data, error } = await supabase
+        .from('company_offer')
+        .select('*')
+        .eq('company_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to fetch offers:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+      } else {
+        setOffers(data || []);
       }
     } catch (err) {
       console.error('Failed to fetch offers:', err);
@@ -234,15 +333,24 @@ function CompanyDashboard() {
     setCreateSuccess(false);
 
     try {
-      const result = await fetch('/api/mock/offers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description }),
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setCreateError('You must be logged in');
+        return;
+      }
 
-      const data = await result.json();
+      // Insert new offer into database
+      const { error } = await supabase
+        .from('company_offer')
+        .insert({
+          company_id: session.user.id,
+          position_name: title,
+          description: description || null,
+        });
 
-      if (result.ok) {
+      if (error) {
+        setCreateError(error.message);
+      } else {
         setCreateSuccess(true);
         setTitle('');
         setDescription('');
@@ -250,20 +358,32 @@ function CompanyDashboard() {
         await fetchOffers();
         // Clear success message after 3 seconds
         setTimeout(() => setCreateSuccess(false), 3000);
-      } else {
-        setCreateError(data.error || 'Failed to create offer');
       }
-    } catch (err) {
-      setCreateError('Network error. Please try again.');
+    } catch (err: any) {
+      setCreateError(err.message || 'Network error. Please try again.');
     } finally {
       setCreating(false);
     }
   }
 
   async function handleDeleteOffer(offerId: string) {
-    // In mock mode, just remove from local state
-    // In real mode, this would call DELETE /api/offers/:id
-    setOffers((prev) => prev.filter((o) => o.id !== offerId));
+    try {
+      const { error } = await supabase
+        .from('company_offer')
+        .delete()
+        .eq('id', offerId);
+
+      if (error) {
+        console.error('Failed to delete offer:', error);
+        alert('Failed to delete offer');
+      } else {
+        // Remove from local state
+        setOffers((prev) => prev.filter((o) => o.id !== offerId));
+      }
+    } catch (err) {
+      console.error('Failed to delete offer:', err);
+      alert('Failed to delete offer');
+    }
   }
 
   return (
@@ -338,7 +458,7 @@ function CompanyDashboard() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-lg">{offer.title}</h3>
+                    <h3 className="font-semibold text-lg">{offer.position_name}</h3>
                     {offer.description && (
                       <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                         {offer.description}

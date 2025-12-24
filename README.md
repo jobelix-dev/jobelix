@@ -42,6 +42,7 @@ npx create-next-app@latest jobelix
 cd jobelix
 npm run dev
 npm i @supabase/supabase-js
+npm i @supabase/ssr
 ```
 
 Test
@@ -49,11 +50,15 @@ Test
 # Backend: 
 
 ## Etapes setup: 
-- Installer docker (https://www.docker.com/products/docker-desktop/)
-- Installer supabase CLI (Via poweshell pour Windows)
-- (à la base du repo) 'supabase login' puis 'supabase init' puis 'supabase link --project-ref project_id_sur_supabase'
+- Installer docker (https://www.docker.com/products/docker-desktop/) et start (`sudo systemctl start docker` sur linux)
+- Installer supabase CLI (https://supabase.com/docs/guides/local-development/cli/getting-started?queryGroups=platform&platform=linux)
+- (ne faire que si le dossier supabase n'existe pas) 'supabase login' puis 'supabase init' puis 'supabase link --project-ref project_id_sur_supabase'
 - 'supabase start' permet de lancer le client supabase sur: http://localhost:54323
-
+- dans .env.local rajouter les champs : 
+```
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=#récupérer ANON KEY depuis supabase status -o env | grep -E "(ANON_KEY|SERVICE_ROLE_KEY)"
+```
 
 ## Commandes supabase utiles:
 ### Lancement env et arret
