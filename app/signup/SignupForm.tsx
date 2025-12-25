@@ -40,6 +40,8 @@ export default function SignupForm({ role }: { role: string }) {
       
       if (error) {
         setError(error.message);
+        // Clear error after 2 seconds
+        setTimeout(() => setError(''), 2000);
       } else if (data.user && data.session) {
         // Auto-confirm is enabled (local dev), redirect to dashboard
         console.log('Redirecting to dashboard...');
@@ -62,7 +64,7 @@ export default function SignupForm({ role }: { role: string }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Gestion des erreurs */}
       {error && (
-        <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-600 border border-red-200">
+        <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}

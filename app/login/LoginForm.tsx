@@ -30,6 +30,8 @@ export default function LoginForm() {
 
       if (error) {
         setError(error.message); // On pourra custom l'erreur mais celles de supabase par défault sont claires
+        // Clear error after 2 seconds
+        setTimeout(() => setError(''), 2000);
       } else {
         // PLUS BESOIN DU LOCALSTORAGE ! 
         // -> Supabase gère la session automatiquement via des cookies sécurisés -> On se fait pas chier avec vérifier des tokens et tt.

@@ -221,6 +221,9 @@ function StudentDashboard() {
         filename: fileToUpload.name,
         uploaded_at: new Date().toISOString(),
       });
+      
+      // Clear success message after 2 seconds
+      setTimeout(() => setUploadSuccess(false), 2000);
     } catch (err: any) {
       setUploadError(err.message || 'Upload failed. Please try again.');
     } finally {
@@ -426,14 +429,14 @@ function CompanyDashboard() {
     <div className="space-y-6">
       {/* Create Offer Form */}
       <div className="bg-white dark:bg-[#0b0b0b] p-6 rounded shadow">
-        <h2 className="text-xl font-semibold mb-4">Create Job Offer</h2>
+        <h2 className="text-xl font-semibold mb-4">Post a Position</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-          Post a simple job offer (title + description).
+          Create a new job listing to attract qualified candidates.
         </p>
 
         {createSuccess && (
           <div className="mb-4 rounded bg-green-50 px-3 py-2 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
-            Job offer created successfully!
+            Position posted successfully!
           </div>
         )}
 
@@ -445,25 +448,25 @@ function CompanyDashboard() {
 
         <form onSubmit={handleCreateOffer} className="space-y-4">
           <label className="flex flex-col">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">Title *</span>
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">Position Title *</span>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="mt-1 rounded border px-3 py-2"
-              placeholder="e.g. Frontend Intern"
+              placeholder="e.g. Junior Frontend Developer"
               required
             />
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">Description</span>
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">Job Description</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="mt-1 rounded border px-3 py-2"
               rows={4}
-              placeholder="Job description, requirements, etc."
+              placeholder="Describe the role, responsibilities, and requirements..."
             />
           </label>
 
@@ -472,19 +475,19 @@ function CompanyDashboard() {
             disabled={creating}
             className="rounded bg-foreground px-4 py-2 text-background disabled:opacity-60"
           >
-            {creating ? 'Creating...' : 'Create Offer'}
+            {creating ? 'Posting...' : 'Post Position'}
           </button>
         </form>
       </div>
 
       {/* Offers List */}
       <div className="bg-white dark:bg-[#0b0b0b] p-6 rounded shadow">
-        <h2 className="text-xl font-semibold mb-4">Your Job Offers</h2>
+        <h2 className="text-xl font-semibold mb-4">Active Positions</h2>
         
         {loading ? (
-          <p className="text-sm text-zinc-500">Loading offers...</p>
+          <p className="text-sm text-zinc-500">Loading positions...</p>
         ) : offers.length === 0 ? (
-          <p className="text-sm text-zinc-500">No job offers yet. Create your first one above!</p>
+          <p className="text-sm text-zinc-500">No active positions. Post your first opening above.</p>
         ) : (
           <div className="space-y-4">
             {offers.map((offer) => (
@@ -496,19 +499,19 @@ function CompanyDashboard() {
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg">{offer.position_name}</h3>
                     {offer.description && (
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 whitespace-pre-wrap">
                         {offer.description}
                       </p>
                     )}
                     <p className="text-xs text-zinc-500 mt-2">
-                      Created: {new Date(offer.created_at).toLocaleString()}
+                      Posted {new Date(offer.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <button
                     onClick={() => handleDeleteOffer(offer.id)}
                     className="ml-4 text-sm text-red-600 hover:text-red-700 dark:text-red-400"
                   >
-                    Delete
+                    Remove
                   </button>
                 </div>
               </div>
