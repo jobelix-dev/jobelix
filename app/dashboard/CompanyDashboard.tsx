@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabaseClient';
+import { api } from '@/lib/api';
+import { OfferData } from '@/lib/types';
 
 export default function CompanyDashboard() {
   const [title, setTitle] = useState('');
@@ -8,9 +9,8 @@ export default function CompanyDashboard() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState(false);
-  const [offers, setOffers] = useState<any[]>([]);
+  const [offers, setOffers] = useState<OfferData[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   // Fetch offers on mount
   useEffect(() => {
@@ -20,22 +20,8 @@ export default function CompanyDashboard() {
   async function fetchOffers() {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // company_id in company_offer table references company.id (which equals auth.user.id)
-      const { data, error } = await supabase
-        .from('company_offer')
-        .select('*')
-        .eq('company_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Failed to fetch offers:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-      } else {
-        setOffers(data || []);
-      }
+      const response = await api.getOffers();
+      setOffers(response.offers);
     } catch (err) {
       console.error('Failed to fetch offers:', err);
     } finally {
@@ -55,32 +41,20 @@ export default function CompanyDashboard() {
     setCreateSuccess(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setCreateError('You must be logged in');
-        return;
-      }
+      await api.createOffer({
+        position_name: title,
+        description: description || undefined,
+      });
 
-      // Insert new offer into database
-      const { error } = await supabase
-        .from('company_offer')
-        .insert({
-          company_id: session.user.id,
-          position_name: title,
-          description: description || null,
-        });
-
-      if (error) {
-        setCreateError(error.message);
-      } else {
-        setCreateSuccess(true);
-        setTitle('');
-        setDescription('');
-        // Refresh offers list
-        await fetchOffers();
-        // Clear success message after 3 seconds
-        setTimeout(() => setCreateSuccess(false), 3000);
-      }
+      setCreateSuccess(true);
+      setTitle('');
+      setDescription('');
+      
+      // Refresh offers list
+      await fetchOffers();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setCreateSuccess(false), 3000);
     } catch (err: any) {
       setCreateError(err.message || 'Network error. Please try again.');
     } finally {
@@ -90,21 +64,13 @@ export default function CompanyDashboard() {
 
   async function handleDeleteOffer(offerId: string) {
     try {
-      const { error } = await supabase
-        .from('company_offer')
-        .delete()
-        .eq('id', offerId);
-
-      if (error) {
-        console.error('Failed to delete offer:', error);
-        alert('Failed to delete offer');
-      } else {
-        // Remove from local state
-        setOffers((prev) => prev.filter((o) => o.id !== offerId));
-      }
-    } catch (err) {
+      await api.deleteOffer(offerId);
+      
+      // Remove from local state
+      setOffers((prev) => prev.filter((o) => o.id !== offerId));
+    } catch (err: any) {
       console.error('Failed to delete offer:', err);
-      alert('Failed to delete offer');
+      alert(err.message || 'Failed to delete offer');
     }
   }
 

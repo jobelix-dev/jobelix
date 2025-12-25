@@ -1,19 +1,15 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-import { createClient } from '@/lib/supabaseClient';
+import { api } from '@/lib/api';
 
 export default function SignupForm({ role }: { role: string }) {
   const router = useRouter();
-
-  const supabase = createClient();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
   const [message, setMessage] = useState('');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -23,38 +19,25 @@ export default function SignupForm({ role }: { role: string }) {
     setMessage('');
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const response = await api.signup({
         email,
         password,
-        options: {
-          data: {
-            role: role, 
-            full_name: '', // On peut ajouter d'autres metadata si besoin
-          },
-          // Lien de redirection après confirmation d'email
-          emailRedirectTo: `${location.origin}/auth/callback`,
-        },
+        role: role as 'student' | 'company',
       });
 
-      console.log('Signup response:', { user: data.user?.id, session: !!data.session, error });
-      
-      if (error) {
-        setError(error.message);
-        // Clear error after 2 seconds
-        setTimeout(() => setError(''), 2000);
-      } else if (data.user && data.session) {
-        // Auto-confirm is enabled (local dev), redirect to dashboard
-        console.log('Redirecting to dashboard...');
-        router.refresh();
-        router.push('/dashboard');
-      } else if (data.user && !data.session) {
-        // Email confirmation required (production)
-        setMessage('Inscription réussie ! Veuillez vérifier vos emails pour confirmer votre compte.');
-      } else {
-        console.log('Unexpected signup state:', data);
+      if (response.success) {
+        if (response.message) {
+          // Email confirmation required
+          setMessage(response.message);
+        } else {
+          // Auto-confirm enabled, redirect to dashboard
+          router.refresh();
+          router.push('/dashboard');
+        }
       }
-    } catch (err) {
-      setError('Une erreur inattendue est survenue.');
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred');
+      setTimeout(() => setError(''), 1500);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabaseClient';
+import { api } from '@/lib/api';
 
 export default function StudentDashboard() {
   const [file, setFile] = useState<File | null>(null);
@@ -8,29 +8,26 @@ export default function StudentDashboard() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [resumeInfo, setResumeInfo] = useState<{ filename?: string; uploaded_at?: string } | null>(null);
-  const supabase = createClient();
 
   // Load existing resume info on mount
   useEffect(() => {
     async function loadResumeInfo() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { data } = await supabase
-        .from('resume')
-        .select('file_name, created_at')
-        .eq('student_id', session.user.id)
-        .single();
-
-      if (data) {
-        setResumeInfo({
-          filename: data.file_name,
-          uploaded_at: data.created_at,
-        });
+      try {
+        const response = await api.getResume();
+        
+        if (response.data) {
+          setResumeInfo({
+            filename: response.data.file_name,
+            uploaded_at: response.data.created_at,
+          });
+        }
+      } catch (error) {
+        // No resume found, that's okay
+        console.log('No resume found');
       }
     }
     loadResumeInfo();
-  }, [supabase]);
+  }, []);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0];
@@ -65,45 +62,7 @@ export default function StudentDashboard() {
     setUploadSuccess(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setUploadError('You must be logged in to upload');
-        return;
-      }
-
-      const userId = session.user.id;
-      const filePath = `${userId}/resume.pdf`;
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, fileToUpload, {
-          upsert: true, // Replace if exists
-          contentType: 'application/pdf',
-        });
-
-      if (uploadError) {
-        setUploadError(uploadError.message);
-        return;
-      }
-
-      // Save metadata to database (upsert since student_id is primary key)
-      const { error: dbError } = await supabase
-        .from('resume')
-        .upsert(
-          {
-            student_id: userId,
-            file_name: fileToUpload.name,
-          },
-          {
-            onConflict: 'student_id',
-          }
-        );
-
-      if (dbError) {
-        setUploadError(dbError.message);
-        return;
-      }
+      await api.uploadResume(fileToUpload);
 
       setUploadSuccess(true);
       setResumeInfo({
@@ -121,30 +80,21 @@ export default function StudentDashboard() {
   }
 
   async function handleDownload() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const userId = session.user.id;
-    const filePath = `${userId}/resume.pdf`;
-
-    const { data, error } = await supabase.storage
-      .from('resumes')
-      .download(filePath);
-
-    if (error) {
-      setUploadError('Failed to download resume');
-      return;
+    try {
+      const blob = await api.downloadResume();
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = resumeInfo?.filename || 'resume.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setUploadError(err.message || 'Failed to download resume');
     }
-
-    // Create download link
-    const url = URL.createObjectURL(data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = resumeInfo?.filename || 'resume.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   }
 
   return (

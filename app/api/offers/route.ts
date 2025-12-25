@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabaseServer'
+
+// GET - List all offers for the authenticated company
+export async function GET() {
+  try {
+    const supabase = await createClient()
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const { data, error } = await supabase
+      .from('company_offer')
+      .select('*')
+      .eq('company_id', session.user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ offers: data || [] })
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch offers' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Create a new offer
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const { position_name, description } = await request.json()
+
+    if (!position_name?.trim()) {
+      return NextResponse.json(
+        { error: 'Position name is required' },
+        { status: 400 }
+      )
+    }
+
+    const { data, error } = await supabase
+      .from('company_offer')
+      .insert({
+        company_id: session.user.id,
+        position_name,
+        description: description || null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true, offer: data })
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to create offer' },
+      { status: 500 }
+    )
+  }
+}

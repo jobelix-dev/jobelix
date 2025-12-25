@@ -1,15 +1,10 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-// On oubli l'API interne
-import { createClient } from '@/lib/supabaseClient'; 
+import { api } from '@/lib/api';
 
 export default function LoginForm() {
   const router = useRouter();
-
-  // Initialisation du client supabase
-  const supabase = createClient(); 
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,29 +17,12 @@ export default function LoginForm() {
     setError('');
 
     try {
-      // On utilise plutot le auth directement disponible dans la librairie supabase
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setError(error.message); // On pourra custom l'erreur mais celles de supabase par défault sont claires
-        // Clear error after 2 seconds
-        setTimeout(() => setError(''), 2000);
-      } else {
-        // PLUS BESOIN DU LOCALSTORAGE ! 
-        // -> Supabase gère la session automatiquement via des cookies sécurisés -> On se fait pas chier avec vérifier des tokens et tt.
-        
-        // Aussi Ca sert à rien de stocker le ôle coté frontend pcq on lui fait pas confiance, et c'est la base de donnée qui doit être interrogé pour savoir quoi faire. 
-
-
-        // On rafraichit pcq l'user est désormais connecté (pour rafraichir les composants vu que les cookies ont changés) (-> Spécificité de Next.js selon Gemini)
-        router.refresh();
-        router.push('/dashboard');
-      }
-    } catch (err) {
-      setError('Une erreur inattendue est survenue.');
+      await api.login({ email, password });
+      router.refresh();
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred');
+      setTimeout(() => setError(''), 1500);
     } finally {
       setLoading(false);
     }
