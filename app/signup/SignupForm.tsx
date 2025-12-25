@@ -36,15 +36,20 @@ export default function SignupForm({ role }: { role: string }) {
         },
       });
 
+      console.log('Signup response:', { user: data.user?.id, session: !!data.session, error });
+      
       if (error) {
         setError(error.message);
-      } else if (data.user && !data.session) {
-        // Cas le plus fréquent : L'inscription a marché, mais l'email doit être vérifié.
-        setMessage('Inscription réussie ! Veuillez vérifier vos emails pour confirmer votre compte.');
-      } else {
-        // Cas rare : L'auto-confirm est activé sur Supabase, on connecte direct. -> Pas compris son utilité (c'est Gemini qui l'a mis)
+      } else if (data.user && data.session) {
+        // Auto-confirm is enabled (local dev), redirect to dashboard
+        console.log('Redirecting to dashboard...');
         router.refresh();
         router.push('/dashboard');
+      } else if (data.user && !data.session) {
+        // Email confirmation required (production)
+        setMessage('Inscription réussie ! Veuillez vérifier vos emails pour confirmer votre compte.');
+      } else {
+        console.log('Unexpected signup state:', data);
       }
     } catch (err) {
       setError('Une erreur inattendue est survenue.');

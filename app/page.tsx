@@ -8,22 +8,21 @@ export default function Home() {
         <header className="mb-8">
           <h1 className="text-4xl font-bold">Jobelix</h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            A minimalist job marketplace MVP — students upload one resume, companies post
-            simple offers.
+            A modern job marketplace connecting skilled professionals with top employers.
           </p>
         </header>
 
         <section className="flex flex-col sm:flex-row gap-4">
           <Link
             href="/signup?role=student"
-            className="inline-flex items-center justify-center rounded-md bg-foreground px-6 py-3 text-background hover:opacity-95"
+            className="inline-flex items-center justify-center rounded-md bg-foreground px-6 py-3 text-background hover:ring-2 hover:ring-foreground hover:ring-offset-2 transition-all"
           >
             Sign up as Student
           </Link>
 
           <Link
             href="/signup?role=company"
-            className="inline-flex items-center justify-center rounded-md border border-neutral-300 px-6 py-3 hover:bg-neutral-50"
+            className="inline-flex items-center justify-center rounded-md border-2 border-zinc-300 dark:border-zinc-700 px-6 py-3 text-foreground hover:border-foreground transition-colors"
           >
             Sign up as Company
           </Link>
@@ -36,7 +35,6 @@ export default function Home() {
           </Link>
         </div>
 
-        <footer className="mt-12 text-sm text-zinc-500">Built for fast validation. Phase 2: auth & roles</footer>
       </main>
     </div>
   );

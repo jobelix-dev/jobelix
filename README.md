@@ -63,6 +63,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=#récupérer ANON KEY depuis supabase status -o en
 ## Commandes supabase utiles:
 ### Lancement env et arret
 Commandes:
+
+supabase stop --project-id Jobelix && supabase start
+
 supabase start -> lance le venv (il faut que docker soit activé)
 supabase stop -> stop le venv (pas besoin de le stop normalement il consomme pas trop)
 supabase stop --no-backup -> reset le venv à la dernière migration (supprime les nouvelles tables/fonctions/trigers)

@@ -17,17 +17,22 @@ export default function DashboardPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.log('No session, redirecting to home');
         router.push('/'); // Redirect to home page if not logged in
         return;
       }
 
+      console.log('Session found, user ID:', session.user.id);
+
       // Fetch user profile from database
       // First check if they're a student
-      const { data: studentData } = await supabase
+      const { data: studentData, error: studentError } = await supabase
         .from('student')
         .select('*')
         .eq('id', session.user.id)
         .single();
+
+      console.log('Student query:', { studentData, studentError });
 
       if (studentData) {
         setProfile({
@@ -40,11 +45,13 @@ export default function DashboardPage() {
       }
 
       // If not student, check if they're a company
-      const { data: companyData } = await supabase
+      const { data: companyData, error: companyError } = await supabase
         .from('company')
         .select('*')
         .eq('id', session.user.id)
         .single();
+
+      console.log('Company query:', { companyData, companyError });
 
       if (companyData) {
         setProfile({
@@ -57,6 +64,7 @@ export default function DashboardPage() {
       }
 
       // No profile found - redirect to home
+      console.log('No profile found, redirecting to home');
       router.push('/');
     }
 
@@ -220,12 +228,36 @@ function StudentDashboard() {
     }
   }
 
+  async function handleDownload() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const userId = session.user.id;
+    const filePath = `${userId}/resume.pdf`;
+
+    const { data, error } = await supabase.storage
+      .from('resumes')
+      .download(filePath);
+
+    if (error) {
+      setUploadError('Failed to download resume');
+      return;
+    }
+
+    // Create download link
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = resumeInfo?.filename || 'resume.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="bg-white dark:bg-[#0b0b0b] p-6 rounded shadow">
-      <h2 className="text-xl font-semibold mb-4">Your Resume</h2>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-        Upload your resume (PDF only, max 5MB). You can replace it anytime.
-      </p>
+      <h2 className="text-xl font-semibold mb-6">Resume</h2>
 
       {uploadSuccess && (
         <div className="mb-4 rounded bg-green-50 px-3 py-2 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
@@ -239,41 +271,45 @@ function StudentDashboard() {
         </div>
       )}
 
-      {resumeInfo && (
-        <div className="mb-4 p-3 bg-zinc-50 dark:bg-zinc-900 rounded">
-          <p className="text-sm font-medium">Current Resume:</p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{resumeInfo.filename}</p>
-          <p className="text-xs text-zinc-500">
-            Uploaded: {resumeInfo.uploaded_at ? new Date(resumeInfo.uploaded_at).toLocaleString() : 'N/A'}
-          </p>
+      {resumeInfo ? (
+        <div className="mb-6 p-4 bg-zinc-50 dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm mb-1">{resumeInfo.filename}</p>
+              <p className="text-xs text-zinc-500">
+                Uploaded {resumeInfo.uploaded_at ? new Date(resumeInfo.uploaded_at).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
+            <button
+              onClick={handleDownload}
+              className="px-4 py-2 text-sm font-medium rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Download
+            </button>
+          </div>
         </div>
+      ) : (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+          Upload your resume (PDF only, max 5MB)
+        </p>
       )}
 
-      <div className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded p-8">
-        <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            disabled={uploading}
-            className="block w-full text-sm text-zinc-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded file:border-0
-              file:text-sm file:font-semibold
-              file:bg-zinc-100 file:text-zinc-700
-              hover:file:bg-zinc-200
-              dark:file:bg-zinc-800 dark:file:text-zinc-300
-              disabled:opacity-60"
-          />
-          {uploading && (
-            <span className="text-sm text-zinc-500">Uploading...</span>
-          )}
-        </div>
-
-        {file && !uploading && (
-          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-            Selected: <strong>{file.name}</strong> ({(file.size / 1024).toFixed(1)} KB)
-          </p>
+      <div className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded p-6">
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileChange}
+          disabled={uploading}
+          className="block w-full text-sm text-zinc-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded file:border-0
+            file:text-sm file:font-semibold
+            file:bg-foreground file:text-background
+            hover:file:opacity-90
+            disabled:opacity-60 transition-opacity"
+        />
+        {uploading && (
+          <p className="mt-2 text-sm text-zinc-500">Uploading...</p>
         )}
       </div>
     </div>
