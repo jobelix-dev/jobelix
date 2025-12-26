@@ -8,8 +8,8 @@ export async function DELETE(
   try {
     const supabase = await createClient()
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -22,7 +22,7 @@ export async function DELETE(
       .from('company_offer')
       .delete()
       .eq('id', id)
-      .eq('company_id', session.user.id) // Ensure user owns this offer
+      .eq('company_id', user.id) // Ensure user owns this offer
 
     if (error) {
       return NextResponse.json(

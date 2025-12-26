@@ -6,8 +6,8 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -17,7 +17,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('resume')
       .select('*')
-      .eq('student_id', session.user.id)
+      .eq('student_id', user.id)
       .single()
 
     if (error) {
@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userId = session.user.id
+    const userId = user.id
     const filePath = `${userId}/resume.pdf`
 
     // Upload to Supabase Storage

@@ -5,10 +5,10 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession()
+    // Check if user is authenticated (secure method)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json({ profile: null })
     }
 
@@ -16,7 +16,7 @@ export async function GET() {
     const { data: studentData } = await supabase
       .from('student')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (studentData) {
@@ -33,7 +33,7 @@ export async function GET() {
     const { data: companyData } = await supabase
       .from('company')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (companyData) {

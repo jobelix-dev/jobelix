@@ -6,8 +6,8 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -17,7 +17,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('company_offer')
       .select('*')
-      .eq('company_id', session.user.id)
+      .eq('company_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('company_offer')
       .insert({
-        company_id: session.user.id,
+        company_id: user.id,
         position_name,
         description: description || null,
       })
