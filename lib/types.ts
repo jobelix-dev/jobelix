@@ -80,6 +80,34 @@ export interface DeleteOfferResponse {
   error?: string;
 }
 
+export interface ExtractDataResponse {
+  success: boolean;
+  draftId: string;
+  extracted: {
+    student_name: string | null;
+    education: Array<{
+      school_name: string;
+      degree: string;
+      description: string | null;
+      starting_date: string | null;
+      ending_date: string | null;
+      confidence: 'high' | 'medium' | 'low';
+    }>;
+    experience: Array<{
+      organisation_name: string;
+      position_name: string;
+      description: string | null;
+      starting_date: string | null;
+      ending_date: string | null;
+      confidence: 'high' | 'medium' | 'low';
+    }>;
+    missing_fields: string[];
+    uncertain_fields: string[];
+  };
+  needsReview: boolean;
+  error?: string;
+}
+
 export interface StudentResume {
   user_id: string;
   storage_path: string;

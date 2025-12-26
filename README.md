@@ -43,7 +43,7 @@ cd jobelix
 npm run dev
 npm i @supabase/supabase-js
 npm i @supabase/ssr
-npm i pdf-parse ai zod
+npm i pdf-img-convert openai zob 
 ```
 
 Test

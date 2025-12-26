@@ -10,6 +10,7 @@ import {
   CreateOfferPayload,
   CreateOfferResponse,
   DeleteOfferResponse,
+  ExtractDataResponse,
 } from './types'
 
 class ApiClient {
@@ -91,6 +92,12 @@ class ApiClient {
     }
 
     return response.blob()
+  }
+
+  async extractResumeData(): Promise<ExtractDataResponse> {
+    return this.request<ExtractDataResponse>('/api/resume/extract-data', {
+      method: 'POST',
+    })
   }
 
   // ========== OFFERS ==========
