@@ -1,3 +1,12 @@
+/**
+ * Login API Route
+ * 
+ * Authenticates users with email/password via Supabase Auth.
+ * Route: POST /api/auth/login
+ * Called by: lib/api.ts login() function
+ * Returns: Success/error status with session cookies
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

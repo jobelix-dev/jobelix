@@ -1,3 +1,11 @@
+/**
+ * Header Component
+ * 
+ * Navigation header with "Back to Home" link.
+ * Used by: app/login/page.tsx, app/signup/page.tsx
+ * Provides consistent navigation across authentication pages.
+ */
+
 import Link from 'next/link';
 
 export default function Header() {

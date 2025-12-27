@@ -1,3 +1,14 @@
+/**
+ * Resume Data Extraction API Route
+ * 
+ * Extracts structured data from PDF using OpenAI GPT-4o with vision.
+ * Route: POST /api/resume/extract-data
+ * Called by: StudentDashboard after PDF upload
+ * Uses: lib/resumeSchema.ts for structured parsing, lib/fieldValidation.ts
+ * Creates: student_profile_draft with invalid/missing/uncertain field lists
+ * Returns: Extracted data + validation categorization
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 import OpenAI from 'openai'

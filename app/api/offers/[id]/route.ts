@@ -1,3 +1,12 @@
+/**
+ * Offer Delete API Route
+ * 
+ * Deletes specific job offer by ID.
+ * Route: DELETE /api/offers/[id]
+ * Called by: CompanyDashboard delete button
+ * Security: Companies can only delete their own offers
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

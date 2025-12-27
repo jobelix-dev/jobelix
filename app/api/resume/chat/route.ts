@@ -1,3 +1,14 @@
+/**
+ * Resume Chat Validation API Route
+ * 
+ * Handles interactive chat for validating/completing resume fields.
+ * Route: POST /api/resume/chat
+ * Called by: components/ResumeChat.tsx via Vercel AI SDK
+ * Uses: lib/fieldValidation.ts for server-side validation
+ * Updates: student_profile_draft with validated answers
+ * Flow: Ask field → validate answer → update DB → ask next field
+ */
+
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 import { UIMessage } from 'ai'

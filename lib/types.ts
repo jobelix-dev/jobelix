@@ -1,3 +1,12 @@
+/**
+ * TypeScript Type Definitions
+ * 
+ * Central type definitions for the entire application.
+ * Used by: All components and API routes for type safety.
+ * Defines User, Student, Resume, Offer, Draft, and Validation types.
+ * Ensures consistency between frontend, backend, and database schemas.
+ */
+
 export interface UserProfile {
   id: string;
   role: 'student' | 'company';

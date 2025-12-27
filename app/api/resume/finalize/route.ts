@@ -1,3 +1,14 @@
+/**
+ * Finalize Profile API Route
+ * 
+ * Transfers validated data from draft to permanent student/academic/experience tables.
+ * Route: POST /api/resume/finalize
+ * Called by: StudentDashboard after all fields are validated
+ * Creates: student, academic_background, and work_experience entries
+ * Normalizes: Dates to PostgreSQL format (YYYY-MM-DD)
+ * Deletes: student_profile_draft after successful transfer
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

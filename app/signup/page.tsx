@@ -1,3 +1,21 @@
+/**
+ * Signup Page
+ * 
+ * User registration interface for students and companies.
+ * Route: /signup?role=student or /signup?role=company
+ * Uses: SignupForm component for account creation.
+ * Defaults to student role if not specified.
+ */
+
+/**
+ * Signup Page
+ * 
+ * User registration interface with role selection (student/company).
+ * Route: /signup?role=student or /signup?role=company
+ * Uses: SignupForm component
+ * Redirects to /login after successful registration
+ */
+
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
 import "../globals.css";

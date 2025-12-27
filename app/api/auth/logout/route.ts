@@ -1,3 +1,12 @@
+/**
+ * Logout API Route
+ * 
+ * Signs out the current user and clears session.
+ * Route: POST /api/auth/logout
+ * Called by: Dashboard logout buttons
+ * Clears: Supabase auth cookies and session data
+ */
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

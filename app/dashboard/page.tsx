@@ -1,3 +1,12 @@
+/**
+ * Dashboard Router Page
+ * 
+ * Main dashboard that routes to student or company views based on user role.
+ * Route: /dashboard
+ * Requires: Authentication (redirects to /login if not authenticated)
+ * Renders: StudentDashboard or CompanyDashboard based on user profile.
+ */
+
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';

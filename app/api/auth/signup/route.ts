@@ -1,3 +1,13 @@
+/**
+ * Signup API Route
+ * 
+ * Creates new user account with Supabase Auth and initializes profile.
+ * Route: POST /api/auth/signup
+ * Called by: lib/api.ts signup() function
+ * Creates: auth.users entry + student/company table entry
+ * Validates: Email, password, role (student or company)
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

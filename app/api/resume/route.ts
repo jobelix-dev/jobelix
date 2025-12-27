@@ -1,3 +1,13 @@
+/**
+ * Resume Upload/Retrieve API Route
+ * 
+ * Handles PDF upload to Supabase Storage and fetches resume metadata.
+ * Routes: GET /api/resume (fetch info), POST /api/resume (upload PDF)
+ * Called by: StudentDashboard for resume management
+ * Storage: Supabase 'resumes' bucket
+ * Returns: Upload success, filename, and upload timestamp
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

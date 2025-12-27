@@ -1,3 +1,11 @@
+/**
+ * Root Layout
+ * 
+ * Top-level layout wrapping all pages in the application.
+ * Defines global fonts, metadata, and HTML structure.
+ * Used by: All pages automatically via Next.js App Router.
+ */
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

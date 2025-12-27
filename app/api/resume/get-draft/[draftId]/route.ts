@@ -1,3 +1,13 @@
+/**
+ * Get Draft API Route
+ * 
+ * Retrieves specific student_profile_draft by ID.
+ * Route: GET /api/resume/get-draft/[draftId]
+ * Called by: ResumeChat component for loading draft state
+ * Returns: Draft data including extracted_data and validation lists
+ * Security: Ensures user can only access their own drafts
+ */
+
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

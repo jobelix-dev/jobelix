@@ -1,3 +1,13 @@
+/**
+ * Profile API Route
+ * 
+ * Retrieves current user's profile with role information.
+ * Route: GET /api/auth/profile
+ * Called by: app/dashboard/page.tsx on mount
+ * Returns: User ID, role (student/company), and creation timestamp
+ * Used for: Role-based dashboard routing
+ */
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

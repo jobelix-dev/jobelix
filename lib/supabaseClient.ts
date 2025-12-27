@@ -1,3 +1,12 @@
+/**
+ * Supabase Client-Side Instance
+ * 
+ * Creates browser-based Supabase client for client components.
+ * Used by: Client components that need direct database access.
+ * Handles authentication state and real-time subscriptions on the frontend.
+ * Use createClient() in client components, not server components.
+ */
+
 // import { createClient } from "@supabase/supabase-js";
 
 // export const supabase = createClient(

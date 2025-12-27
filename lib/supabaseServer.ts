@@ -1,3 +1,12 @@
+/**
+ * Supabase Server-Side Instance
+ * 
+ * Creates server-based Supabase client for API routes and server components.
+ * Used by: All API routes in app/api/* for secure database operations.
+ * Manages cookies for authentication in server context.
+ * Use this in server components and API routes, NOT in client components.
+ */
+
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 

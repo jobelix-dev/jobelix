@@ -1,3 +1,12 @@
+/**
+ * Client-Side API Helper Functions
+ * 
+ * Frontend utilities for making API calls to backend routes.
+ * Used by: All client components (LoginForm, SignupForm, StudentDashboard, etc.)
+ * Provides typed wrappers around fetch() for auth, resume, and offer operations.
+ * Handles request/response formatting and error handling.
+ */
+
 import {
   LoginPayload,
   LoginResponse,

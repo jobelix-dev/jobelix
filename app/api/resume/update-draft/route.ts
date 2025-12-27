@@ -1,3 +1,13 @@
+/**
+ * Update Draft API Route
+ * 
+ * Updates student_profile_draft with validated field values.
+ * Route: POST /api/resume/update-draft
+ * Called by: app/api/resume/chat/route.ts after validating user answers
+ * Updates: extracted_data and extraction_confidence fields in draft
+ * Security: Users can only update their own drafts
+ */
+
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

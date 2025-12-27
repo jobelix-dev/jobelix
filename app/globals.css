@@ -1,3 +1,11 @@
+/**
+ * Global Styles
+ * 
+ * Application-wide CSS with Tailwind imports and theme configuration.
+ * Used by: All pages via app/layout.tsx
+ * Defines: Color scheme, fonts, dark mode support
+ */
+
 @import "tailwindcss";
 
 :root {

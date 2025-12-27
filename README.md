@@ -1,52 +1,194 @@
-# Frontend:
+# Jobelix - Job Application Platform
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Jobelix is a modern job application platform built with Next.js that connects students with companies. It features AI-powered resume parsing, real-time chat validation, and a comprehensive application tracking system.
 
-## Getting Started
+## 🎯 What is Jobelix?
 
-First, run the development server:
+Jobelix helps students:
+- Upload their resume (PDF) and have it automatically parsed by AI
+- Complete their profile through an intelligent chat interface
+- Browse and apply for job offers from companies
+- Track their application status
 
+For companies:
+- Post job offers
+- Review student applications
+- Manage hiring pipeline
+
+## 🏗️ Technology Stack
+
+- **Framework**: Next.js 16.1.0 (React, App Router, Turbopack)
+- **Database**: Supabase (PostgreSQL)
+- **AI**: OpenAI GPT-4o for resume parsing
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Authentication**: Supabase Auth
+
+## 📚 Documentation Structure
+
+**Start here if you're new:**
+1. [Complete Beginner's Guide](docs/BEGINNERS_GUIDE.md) - Start here if you've never used TypeScript or Next.js
+2. [Project Setup Guide](docs/SETUP.md) - How to install and run the project
+3. [Project Architecture](docs/ARCHITECTURE.md) - How the codebase is organized
+4. [Resume Validation System](docs/RESUME_VALIDATION.md) - How the AI validation works
+5. [API Reference](docs/API_REFERENCE.md) - All API endpoints explained
+6. [Database Schema](docs/DATABASE.md) - Database tables and relationships
+
+## ⚡ Quick Start (5 minutes)
+
+### Prerequisites
+You need these installed on your computer:
+- [Node.js](https://nodejs.org/) version 18 or higher
+- npm (comes with Node.js)
+- A code editor like [VS Code](https://code.visualstudio.com/)
+
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone <repository-url>
+cd jobelix
+```
+
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Set up environment variables**
+Create a `.env.local` file in the root directory:
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key
+```
+
+4. **Run the development server**
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. **Open your browser**
+Navigate to [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🎓 For Complete Beginners
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+If you're new to web development or TypeScript, don't worry! We've created detailed guides:
 
-## Learn More
+- **Never used TypeScript?** Read our [TypeScript Basics Guide](docs/BEGINNERS_GUIDE.md#typescript-basics)
+- **Never used Next.js?** Read our [Next.js Basics Guide](docs/BEGINNERS_GUIDE.md#nextjs-basics)
+- **Never used React?** Read our [React Basics Guide](docs/BEGINNERS_GUIDE.md#react-basics)
 
-To learn more about Next.js, take a look at the following resources:
+## 📖 Key Concepts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Resume Validation Flow
+1. Student uploads PDF resume
+2. OpenAI GPT-4o extracts information
+3. Backend validates all fields with hard checks
+4. Chat interface asks for missing/invalid fields
+5. Student provides answers one by one
+6. Backend validates each answer immediately
+7. Profile is saved when all fields are valid
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Three-Category Validation System
+- **Invalid**: Fields that failed validation (wrong format, vague answers)
+- **Missing**: Fields not found in the resume
+- **Uncertain**: Fields extracted with low confidence
 
-## Deploy on Vercel
+### Security Features
+- Server-side validation (no client bypass possible)
+- Vague answer rejection ("idk", "none", "skip", etc.)
+- Format validation (phone numbers, emails, dates)
+- Anti-bypass measures
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🗂️ Project Structure
 
 ```
-npx create-next-app@latest jobelix
-cd jobelix
+jobelix/
+├── app/                      # Next.js App Router pages
+│   ├── api/                  # API routes (backend)
+│   │   ├── auth/            # Authentication endpoints
+│   │   ├── offers/          # Job offers endpoints
+│   │   └── resume/          # Resume processing endpoints
+│   ├── dashboard/           # Student/Company dashboards
+│   ├── login/               # Login page
+│   └── signup/              # Signup page
+├── components/              # Reusable React components
+├── lib/                     # Utility functions and helpers
+│   ├── api.ts              # API client functions
+│   ├── fieldValidation.ts  # Server-side validation logic
+│   ├── supabaseClient.ts   # Supabase browser client
+│   ├── supabaseServer.ts   # Supabase server client
+│   └── types.ts            # TypeScript type definitions
+├── supabase/               # Database migrations and config
+│   └── migrations/         # SQL migration files
+├── docs/                   # Documentation
+└── public/                 # Static files
+```
+
+## 🔑 Important Files to Know
+
+- `app/api/resume/extract-data/route.ts` - AI resume parsing
+- `app/api/resume/chat/route.ts` - Validation chat logic
+- `app/api/resume/finalize/route.ts` - Save validated data
+- `lib/fieldValidation.ts` - All validation rules
+- `components/ResumeChat.tsx` - Chat UI component
+
+## 🐛 Common Issues
+
+### "Module not found" errors
+```bash
+npm install
+```
+
+### "Supabase error" or "401 Unauthorized"
+Check your `.env.local` file has the correct Supabase credentials
+
+### "OpenAI API error"
+Verify your `OPENAI_API_KEY` in `.env.local`
+
+### Build errors
+```bash
+npm run build
+```
+This will show all TypeScript errors
+
+## 🧪 Testing
+
+```bash
+# Run development server
 npm run dev
-npm i @supabase/supabase-js
-npm i @supabase/ssr
-npm i pdf-parse-fork openai zob 
-npm install @ai-sdk/openai
-npm install @ai-sdk/react lucide-react
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
 ```
+
+## 📝 Contributing
+
+1. Create a new branch
+2. Make your changes
+3. Test thoroughly
+4. Submit a pull request
+
+## 🆘 Getting Help
+
+- Read the [Beginner's Guide](docs/BEGINNERS_GUIDE.md)
+- Check the [API Reference](docs/API_REFERENCE.md)
+- Review the [Architecture](docs/ARCHITECTURE.md)
+
+## 📄 License
+
+[Add your license here]
+
+---
+
+**Ready to dive in?** Start with the [Complete Beginner's Guide](docs/BEGINNERS_GUIDE.md)!
 
 Test
 

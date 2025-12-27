@@ -1,3 +1,12 @@
+/**
+ * Company Dashboard Component
+ * 
+ * Main interface for companies to create and manage job offers.
+ * Used by: app/dashboard/page.tsx (when user role is 'company')
+ * Features: Create offers, view all offers, delete offers.
+ * Calls: /api/offers (GET, POST, DELETE)
+ */
+
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';

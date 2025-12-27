@@ -1,3 +1,12 @@
+/**
+ * Home Page (Landing Page)
+ * 
+ * Public landing page with Login/Signup buttons.
+ * Route: / (root)
+ * Accessible to: Everyone (non-authenticated users)
+ * Links to: /login and /signup pages
+ */
+
 import Link from "next/link";
 import "./globals.css";
 

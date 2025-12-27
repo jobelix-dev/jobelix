@@ -1,3 +1,13 @@
+/**
+ * Student Dashboard Component
+ * 
+ * Main interface for students to upload resume, validate data, and view profile.
+ * Used by: app/dashboard/page.tsx (when user role is 'student')
+ * Features: PDF upload, AI extraction, chat validation, profile finalization.
+ * Integrates: ResumeChat component for field validation.
+ * Calls: /api/resume/*, /api/resume/chat, /api/resume/finalize
+ */
+
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';

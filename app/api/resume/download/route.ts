@@ -1,3 +1,13 @@
+/**
+ * Resume Download API Route
+ * 
+ * Downloads user's resume PDF from Supabase Storage.
+ * Route: GET /api/resume/download
+ * Called by: StudentDashboard "Download Resume" button
+ * Returns: PDF file as blob with proper Content-Disposition header
+ * Security: Users can only download their own resumes
+ */
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

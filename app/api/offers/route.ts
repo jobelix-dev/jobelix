@@ -1,3 +1,13 @@
+/**
+ * Offers API Route (List & Create)
+ * 
+ * Manages job offers for companies.
+ * Routes: GET /api/offers (list all), POST /api/offers (create new)
+ * Called by: CompanyDashboard for offer management
+ * GET: Returns all offers for authenticated company
+ * POST: Creates new offer with title and description
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 

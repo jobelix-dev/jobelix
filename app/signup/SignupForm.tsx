@@ -1,3 +1,12 @@
+/**
+ * Signup Form Component
+ * 
+ * Client-side registration form with role selection.
+ * Used by: app/signup/page.tsx
+ * Calls: lib/api.ts -> app/api/auth/signup/route.ts
+ * Creates user account and initializes student/company profile.
+ */
+
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';

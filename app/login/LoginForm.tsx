@@ -1,3 +1,12 @@
+/**
+ * Login Form Component
+ * 
+ * Client-side form for user authentication.
+ * Used by: app/login/page.tsx
+ * Calls: lib/api.ts -> app/api/auth/login/route.ts
+ * Handles form validation, loading states, and error display.
+ */
+
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';

@@ -1,3 +1,13 @@
+/**
+ * Resume Chat Component
+ * 
+ * Interactive chat interface for validating and completing resume data.
+ * Used by: app/dashboard/StudentDashboard.tsx after PDF upload.
+ * Guides students through fixing invalid/missing/uncertain fields.
+ * Uses Vercel AI SDK for streaming chat with validation feedback.
+ * Communicates with: app/api/resume/chat/route.ts
+ */
+
 'use client'
 
 import { useChat } from '@ai-sdk/react'

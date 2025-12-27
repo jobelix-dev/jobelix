@@ -1,3 +1,12 @@
+/**
+ * Login Page
+ * 
+ * User login interface for both students and companies.
+ * Route: /login
+ * Uses: LoginForm component for authentication.
+ * Redirects to /dashboard after successful login.
+ */
+
 import LoginForm from "./LoginForm";
 import Header from "../components/Header";
 import "../globals.css";
