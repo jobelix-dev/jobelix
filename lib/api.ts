@@ -11,6 +11,7 @@ import {
   CreateOfferResponse,
   DeleteOfferResponse,
   ExtractDataResponse,
+  FinalizeProfileResponse,
 } from './types'
 
 class ApiClient {
@@ -97,6 +98,13 @@ class ApiClient {
   async extractResumeData(): Promise<ExtractDataResponse> {
     return this.request<ExtractDataResponse>('/api/resume/extract-data', {
       method: 'POST',
+    })
+  }
+
+  async finalizeProfile(draftId: string): Promise<FinalizeProfileResponse> {
+    return this.request<FinalizeProfileResponse>('/api/resume/finalize', {
+      method: 'POST',
+      body: JSON.stringify({ draftId }),
     })
   }
 

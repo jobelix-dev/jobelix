@@ -85,6 +85,9 @@ export interface ExtractDataResponse {
   draftId: string;
   extracted: {
     student_name: string | null;
+    phone_number: string | null;
+    email: string | null;
+    address: string | null;
     education: Array<{
       school_name: string;
       degree: string;
@@ -101,10 +104,17 @@ export interface ExtractDataResponse {
       ending_date: string | null;
       confidence: 'high' | 'medium' | 'low';
     }>;
-    missing_fields: string[];
-    uncertain_fields: string[];
+    invalid_fields: Array<{field_path: string, display_name: string, context?: string, error?: string}>;
+    missing_fields: Array<{field_path: string, display_name: string, context?: string}>;
+    uncertain_fields: Array<{field_path: string, display_name: string, context?: string}>;
   };
   needsReview: boolean;
+  error?: string;
+}
+
+export interface FinalizeProfileResponse {
+  success: boolean;
+  message?: string;
   error?: string;
 }
 

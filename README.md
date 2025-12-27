@@ -43,7 +43,9 @@ cd jobelix
 npm run dev
 npm i @supabase/supabase-js
 npm i @supabase/ssr
-npm i pdf-img-convert openai zob 
+npm i pdf-parse-fork openai zob 
+npm install @ai-sdk/openai
+npm install @ai-sdk/react lucide-react
 ```
 
 Test

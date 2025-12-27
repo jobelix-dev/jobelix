@@ -8,7 +8,7 @@ export default function Home() {
         <header className="mb-8">
           <h1 className="text-4xl font-bold">Jobelix</h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            A modern job marketplace connecting skilled professionals with top employers.
+            A modern job marketplace connecting skilled students with top companies.
           </p>
         </header>
 
