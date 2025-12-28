@@ -1,0 +1,10 @@
+{
+  "git": {
+    "ignore": [
+      "main.js",
+      "loader.html",
+      "resources/",
+      "python_src/"
+    ]
+  }
+}

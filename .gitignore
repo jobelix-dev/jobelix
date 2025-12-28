@@ -40,5 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# electron
+dist/
 
+# python executables
+resources/linux/engine
+resources/mac/engine
+resources/win/engine.exe
+
+# other
 helper_kheng.md

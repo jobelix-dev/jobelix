@@ -1,12 +1,55 @@
 {
   "name": "jobelix",
   "version": "0.1.0",
+  "main": "main.js",
+  "description": "Jobelix Desktop Application",
+  "author": "Team Poh",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"next dev\" \"electron .\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build-installer": "next build && electron-builder"
+  },
+  "build": {
+    "appId": "com.jobelix.poc",
+    "productName": "Jobelix",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js", 
+      "loader.html"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/${os}/",
+        "to": ".",
+        "filter": [
+          "engine",
+          "engine.exe"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Utility"
+    }
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.1",
@@ -28,6 +71,9 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
     "eslint": "^9",
     "eslint-config-next": "16.1.0",
     "tailwindcss": "^4",

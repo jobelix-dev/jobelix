@@ -152,6 +152,17 @@ export default function StudentDashboard() {
     }
   }
 
+  const handleLaunchPython = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/start-chromium', { method: 'POST' });
+      const json = await res.json();
+      alert(json.message);
+    } catch (err) {
+      alert("Cette fonctionnalité nécessite l'application de bureau Jobelix.");
+      console.error(err);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-[#0b0b0b] p-6 rounded shadow">
@@ -226,6 +237,13 @@ export default function StudentDashboard() {
           onFinalize={handleFinalize}
         />
       )}
+      <div style={{ padding: 50 }}>
+        <h1>Test Python</h1>
+        <button onClick={handleLaunchPython} style={{ padding: '10px 20px', fontSize: 20 }}>
+          Mass Apply
+        </button>
+      </div>
     </div>
+    
   );
 }
