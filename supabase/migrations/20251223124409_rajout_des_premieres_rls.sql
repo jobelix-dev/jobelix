@@ -149,12 +149,14 @@ using ((( SELECT auth.uid() AS uid) = id));
 
 
 
-  create policy "Students can view all offers"
+  create policy "Enable elligible students (application table) to see the  offer"
   on "public"."company_offer"
   as permissive
   for select
   to authenticated
-using (true);
+using ((EXISTS ( SELECT 1
+   FROM public.application
+  WHERE ((company_offer.id = application.offer_id) AND (application.student_id = ( SELECT auth.uid() AS uid))))));
 
 
 
