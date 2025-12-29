@@ -48,9 +48,26 @@ function startPython() {
 }
 
 
-function createWindow() {
+// Wait for Next.js server to be ready
+async function waitForNextJs(url, maxAttempts = 30, delayMs = 500) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        console.log(`✓ Next.js is ready after ${i * delayMs}ms`);
+        return true;
+      }
+    } catch (err) {
+      console.log(`Waiting for Next.js... (attempt ${i + 1}/${maxAttempts})`);
+    }
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  console.error('Next.js failed to start in time');
+  return false;
+}
 
-const splash = new BrowserWindow({
+async function createWindow() {
+  const splash = new BrowserWindow({
     width: 400, 
     height: 300, 
     transparent: false, 
@@ -73,10 +90,15 @@ const splash = new BrowserWindow({
     }
   });
   
-
   const startUrl = app.isPackaged 
     ? 'https://vercel-app-url'  
     : 'http://localhost:3000';
+  
+  // Wait for Next.js to be ready before loading
+  if (!app.isPackaged) {
+    console.log("Waiting for Next.js server...");
+    await waitForNextJs(startUrl);
+  }
   
   console.log("Chargement de l'URL :", startUrl);
   mainWin.loadURL(startUrl);

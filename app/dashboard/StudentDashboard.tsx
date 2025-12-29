@@ -24,7 +24,7 @@ export default function StudentDashboard() {
   const [extractedData, setExtractedData] = useState<ExtractDataResponse | null>(null);
   const [finalizing, setFinalizing] = useState(false);
 
-  // Load existing resume info on mount
+  // Load existing resume info on mount (after function is rendered)
   useEffect(() => {
     async function loadResumeInfo() {
       try {
@@ -42,7 +42,7 @@ export default function StudentDashboard() {
       }
     }
     loadResumeInfo();
-  }, []);
+  }, []); // [] = “no dependencies” only runs on first mount
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0];
