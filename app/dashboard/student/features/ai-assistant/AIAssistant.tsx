@@ -5,7 +5,7 @@
  * Shows when PDF uploaded or user clicks "Get AI Help".
  * Guides students through fixing invalid/missing/uncertain fields.
  * Uses Vercel AI SDK for streaming chat with validation feedback.
- * Communicates with: app/api/resume/chat/route.ts
+ * Communicates with: app/api/student/ai-assistant/route.ts
  */
 
 'use client';
@@ -40,14 +40,14 @@ export default function AIAssistant({ draftId, currentData: initialData, onUpdat
     // when sendMessage is called, status becomes streaming then ready
     // messages updates live as new data arrives
     transport: new TextStreamChatTransport({
-      api: '/api/resume/chat',
+      api: '/api/student/ai-assistant',
       body: { draftId },
     }),
     async onFinish() {
       // Fetch updated draft from database after AI responds
       console.log('Chat message finished, fetching updated draft...');
       try {
-        const response = await fetch(`/api/resume/get-draft/${draftId}`);
+        const response = await fetch(`/api/student/profile/draft`);
         if (response.ok) {
           const data = await response.json();
           if (data.draft) {

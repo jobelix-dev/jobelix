@@ -5,7 +5,7 @@
  * Validates format and data integrity (no content policing).
  * Only used when processing pdf using AI extraction on the server, 
  * to classify each field as invalid missing or uncertain.
- * Used by: app/api/resume/chat/route.ts, app/api/resume/extract-data/route.ts
+ * Used by: app/api/student/ai-assistant/route.ts, app/api/student/profile/draft/extract/route.ts
  * Ensures all user input meets proper format requirements before database storage.
  */
 

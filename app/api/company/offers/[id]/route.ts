@@ -2,8 +2,8 @@
  * Offer Delete API Route
  * 
  * Deletes specific job offer by ID.
- * Route: DELETE /api/offers/[id]
- * Called by: CompanyDashboard delete button
+ * Route: DELETE /api/company/offers/[id]
+ * Called by: OffersList delete button
  * Security: Companies can only delete their own offers
  */
 
