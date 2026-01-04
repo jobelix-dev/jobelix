@@ -12,8 +12,8 @@ import React from 'react';
 import { Plus, Save, AlertCircle } from 'lucide-react';
 import { ExtractedResumeData, EducationEntry, ExperienceEntry } from '@/lib/types';
 import { ProfileValidationResult } from '@/lib/profileValidation';
-import EducationForm from '@/app/dashboard/student/components/ProfileEditor/EducationForm';
-import ExperienceForm from '@/app/dashboard/student/components/ProfileEditor/ExperienceForm';
+import EducationForm from './components/EducationForm';
+import ExperienceForm from './components/ExperienceForm';
 
 interface ProfileEditorProps {
   data: ExtractedResumeData;

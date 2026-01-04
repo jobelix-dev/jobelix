@@ -13,7 +13,7 @@
 import { useChat } from '@ai-sdk/react';
 import { TextStreamChatTransport } from 'ai';
 import { useState, useRef, useEffect } from 'react';
-import ChatPanel from './AIAssistant/ChatPanel';
+import ChatPanel from './components/ChatPanel';
 import { ExtractedResumeData } from '@/lib/types';
 
 interface AIAssistantProps {
