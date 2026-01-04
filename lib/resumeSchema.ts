@@ -2,7 +2,7 @@
  * Resume Data Schema Definitions
  * 
  * Defines Zod schemas for structured resume data extraction from OpenAI GPT-4o.
- * Used by: app/api/resume/extract-data/route.ts for AI-powered parsing.
+ * Used by: app/api/student/profile/draft/extract/route.ts for AI-powered parsing.
  * Schemas validate education, experience, and personal info with confidence levels.
  */
 
