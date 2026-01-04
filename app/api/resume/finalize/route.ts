@@ -5,52 +5,12 @@
  * Route: POST /api/resume/finalize
  * Called by: StudentDashboard after all fields are validated
  * Creates: student, academic_background, and work_experience entries
- * Normalizes: Dates to PostgreSQL format (YYYY-MM-DD)
+ * Stores: Year/month as separate INTEGER fields
  * Deletes: student_profile_draft after successful transfer
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
-
-/**
- * Normalize date strings to PostgreSQL date format (YYYY-MM-DD)
- * Handles formats: "YYYY-MM-DD", "YYYY-MM", "YYYY"
- * Returns null if date is invalid or null
- * 
- * @param dateStr - The date string to normalize
- * @param isEndDate - If true, use end of period for partial dates (e.g., Dec 31 for year-only)
- */
-function normalizeDateForDB(dateStr: string | null | undefined, isEndDate: boolean = false): string | null {
-  if (!dateStr) return null;
-  
-  const trimmed = dateStr.trim();
-  
-  // Already in correct format (YYYY-MM-DD)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-  
-  // Year-Month format (YYYY-MM) -> use first or last day of month
-  if (/^\d{4}-\d{2}$/.test(trimmed)) {
-    if (isEndDate) {
-      // Get last day of the month
-      const [year, month] = trimmed.split('-').map(Number);
-      const lastDay = new Date(year, month, 0).getDate(); // Day 0 of next month = last day of current month
-      return `${trimmed}-${String(lastDay).padStart(2, '0')}`;
-    } else {
-      return `${trimmed}-01`;
-    }
-  }
-  
-  // Year only (YYYY) -> use January 1st or December 31st
-  if (/^\d{4}$/.test(trimmed)) {
-    return isEndDate ? `${trimmed}-12-31` : `${trimmed}-01-01`;
-  }
-  
-  // Invalid format
-  console.warn(`Invalid date format: "${dateStr}", setting to null`);
-  return null;
-}
 
 /**
  * Helper function to save education and experience records
@@ -64,14 +24,16 @@ async function saveEducationAndExperience(supabase: any, studentId: string, draf
       .delete()
       .eq('student_id', studentId)
 
-    // Insert new education records with normalized dates
+    // Insert new education records with year/month fields
     const educationRecords = draft.education.map((edu: any) => ({
       student_id: studentId,
       school_name: edu.school_name,
       degree: edu.degree,
       description: edu.description || null,
-      starting_date: normalizeDateForDB(edu.starting_date, false),
-      ending_date: normalizeDateForDB(edu.ending_date, true),
+      start_year: edu.start_year,
+      start_month: edu.start_month,
+      end_year: edu.end_year,
+      end_month: edu.end_month,
     }))
 
     if (educationRecords.length > 0) {
@@ -94,27 +56,17 @@ async function saveEducationAndExperience(supabase: any, studentId: string, draf
       .delete()
       .eq('student_id', studentId)
 
-    // Insert new experience records with normalized dates
-    const experienceRecords = draft.experience.map((exp: any) => {
-      const startDate = normalizeDateForDB(exp.starting_date, false)
-      const endDate = normalizeDateForDB(exp.ending_date, true)
-      
-      // Log date conversion for debugging
-      console.log('Experience date conversion:', {
-        organisation: exp.organisation_name,
-        original: { starting_date: exp.starting_date, ending_date: exp.ending_date },
-        normalized: { starting_date: startDate, ending_date: endDate }
-      })
-      
-      return {
-        student_id: studentId,
-        organisation_name: exp.organisation_name,
-        position_name: exp.position_name,
-        description: exp.description || null,
-        starting_date: startDate,
-        ending_date: endDate,
-      }
-    })
+    // Insert new experience records with year/month fields
+    const experienceRecords = draft.experience.map((exp: any) => ({
+      student_id: studentId,
+      organisation_name: exp.organisation_name,
+      position_name: exp.position_name,
+      description: exp.description || null,
+      start_year: exp.start_year,
+      start_month: exp.start_month || null,
+      end_year: exp.end_year || null,
+      end_month: exp.end_month || null,
+    }))
 
     if (experienceRecords.length > 0) {
       console.log('Attempting to insert experience records:', experienceRecords)

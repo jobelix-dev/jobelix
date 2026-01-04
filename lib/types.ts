@@ -89,36 +89,103 @@ export interface DeleteOfferResponse {
   error?: string;
 }
 
+// ============================================================================
+// Resume Data Structures (Shared across student dashboard components)
+// ============================================================================
+
+/**
+ * Education entry from resume extraction
+ */
+export interface EducationEntry {
+  school_name: string;
+  degree: string;
+  description: string | null;
+  start_year: number | null;
+  start_month: number | null;
+  end_year: number | null;
+  end_month: number | null;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Experience entry from resume extraction
+ */
+export interface ExperienceEntry {
+  organisation_name: string;
+  position_name: string;
+  description: string | null;
+  start_year: number | null;
+  start_month: number | null;
+  end_year: number | null;
+  end_month: number | null;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Validation issue types for resume data
+ */
+export interface InvalidField {
+  field_path: string;
+  display_name: string;
+  context?: string;
+  error?: string;
+}
+
+export interface MissingField {
+  field_path: string;
+  display_name: string;
+  context?: string;
+}
+
+export interface UncertainField {
+  field_path: string;
+  display_name: string;
+  context?: string;
+}
+
+/**
+ * Contact information structure
+ */
+export interface ContactInfo {
+  phone_number?: string | null;
+  email?: string | null;
+}
+
+/**
+ * Complete extracted resume data structure
+ * Used by: ProfileEditor and StudentDashboard
+ */
+export interface ExtractedResumeData {
+  student_name: string | null;
+  phone_number: string | null;
+  email: string | null;
+  address: string | null;
+  education: EducationEntry[];
+  experience: ExperienceEntry[];
+}
+
+/**
+ * API Response type for resume data extraction
+ */
 export interface ExtractDataResponse {
   success: boolean;
   draftId: string;
-  extracted: {
-    student_name: string | null;
-    phone_number: string | null;
-    email: string | null;
-    address: string | null;
-    education: Array<{
-      school_name: string;
-      degree: string;
-      description: string | null;
-      starting_date: string | null;
-      ending_date: string | null;
-      confidence: 'high' | 'medium' | 'low';
-    }>;
-    experience: Array<{
-      organisation_name: string;
-      position_name: string;
-      description: string | null;
-      starting_date: string | null;
-      ending_date: string | null;
-      confidence: 'high' | 'medium' | 'low';
-    }>;
-    invalid_fields: Array<{field_path: string, display_name: string, context?: string, error?: string}>;
-    missing_fields: Array<{field_path: string, display_name: string, context?: string}>;
-    uncertain_fields: Array<{field_path: string, display_name: string, context?: string}>;
-  };
+  extracted: ExtractedResumeData;
   needsReview: boolean;
   error?: string;
+}
+
+// ============================================================================
+// Chat Component Types
+// ============================================================================
+
+/**
+ * Chat message structure for resume validation chat
+ */
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface FinalizeProfileResponse {

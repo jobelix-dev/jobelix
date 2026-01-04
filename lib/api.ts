@@ -20,6 +20,7 @@ import {
   CreateOfferResponse,
   DeleteOfferResponse,
   ExtractDataResponse,
+  ExtractedResumeData,
   FinalizeProfileResponse,
 } from './types'
 
@@ -107,6 +108,17 @@ class ApiClient {
   async extractResumeData(): Promise<ExtractDataResponse> {
     return this.request<ExtractDataResponse>('/api/resume/extract-data', {
       method: 'POST',
+    })
+  }
+
+  async getDraft(): Promise<{ draft: any }> {
+    return this.request<{ draft: any }>('/api/resume/get-draft')
+  }
+
+  async updateDraft(draftId: string, updates: Partial<ExtractedResumeData>): Promise<{ success: boolean; draft: any }> {
+    return this.request<{ success: boolean; draft: any }>('/api/resume/update-draft', {
+      method: 'POST',
+      body: JSON.stringify({ draftId, updates }),
     })
   }
 

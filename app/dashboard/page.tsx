@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/types';
 import { api } from '@/lib/api';
-import StudentDashboard from './StudentDashboard';
+import StudentDashboard from './student/StudentDashboard';
 import CompanyDashboard from './CompanyDashboard';
 
 export default function DashboardPage() {

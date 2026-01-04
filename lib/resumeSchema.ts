@@ -13,8 +13,10 @@ export const EducationSchema = z.object({
   school_name: z.string().describe('Name of the educational institution'),
   degree: z.string().describe('Degree name and field of study'),
   description: z.string().nullable().describe('Additional details like GPA, honors, coursework'),
-  starting_date: z.string().nullable().describe('Start date in YYYY-MM or YYYY format'),
-  ending_date: z.string().nullable().describe('End date in YYYY-MM or YYYY format, null if current'),
+  start_year: z.number().nullable().describe('Start year (e.g., 2020)'),
+  start_month: z.number().nullable().describe('Start month (1-12)'),
+  end_year: z.number().nullable().describe('End year, null if currently studying'),
+  end_month: z.number().nullable().describe('End month (1-12), null if currently studying'),
   confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level of extracted data'),
 })
 
@@ -23,8 +25,10 @@ export const ExperienceSchema = z.object({
   organisation_name: z.string().describe('Company or organization name'),
   position_name: z.string().describe('Job title or position'),
   description: z.string().nullable().describe('Responsibilities, achievements, or key tasks'),
-  starting_date: z.string().nullable().describe('Start date in YYYY-MM or YYYY format'),
-  ending_date: z.string().nullable().describe('End date in YYYY-MM or YYYY format, null if current'),
+  start_year: z.number().nullable().describe('Start year (e.g., 2020)'),
+  start_month: z.number().nullable().describe('Start month (1-12)'),
+  end_year: z.number().nullable().describe('End year, null if currently working'),
+  end_month: z.number().nullable().describe('End month (1-12), null if currently working'),
   confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level of extracted data'),
 })
 
@@ -36,8 +40,6 @@ export const ResumeExtractionSchema = z.object({
   address: z.string().nullable().describe('Physical address or location'),
   education: z.array(EducationSchema).describe('Array of educational background entries'),
   experience: z.array(ExperienceSchema).describe('Array of work experience entries'),
-  missing_fields: z.array(z.string()).describe('List of important fields that could not be found'),
-  uncertain_fields: z.array(z.string()).describe('List of fields where extraction confidence is low'),
 })
 
 // Schema for individual field update
