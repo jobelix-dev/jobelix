@@ -2,8 +2,8 @@
  * Offers API Route (List & Create)
  * 
  * Manages job offers for companies.
- * Routes: GET /api/offers (list all), POST /api/offers (create new)
- * Called by: CompanyDashboard for offer management
+ * Routes: GET /api/company/offers (list all), POST /api/company/offers (create new)
+ * Called by: OffersManager for offer management
  * GET: Returns all offers for authenticated company
  * POST: Creates new offer with title and description
  */

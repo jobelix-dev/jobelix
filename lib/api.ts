@@ -71,16 +71,16 @@ class ApiClient {
     return this.request<ProfileResponse>('/api/auth/profile')
   }
 
-  // ========== RESUME ==========
+  // ========== STUDENT - RESUME ==========
   async getResume(): Promise<ResumeResponse> {
-    return this.request<ResumeResponse>('/api/resume')
+    return this.request<ResumeResponse>('/api/student/resume')
   }
 
   async uploadResume(file: File): Promise<UploadResponse> {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch('/api/resume', {
+    const response = await fetch('/api/student/resume', {
       method: 'POST',
       body: formData,
     })
@@ -95,7 +95,7 @@ class ApiClient {
   }
 
   async downloadResume(): Promise<Blob> {
-    const response = await fetch('/api/resume/download')
+    const response = await fetch('/api/student/resume/download')
 
     if (!response.ok) {
       const data = await response.json()
@@ -105,44 +105,45 @@ class ApiClient {
     return response.blob()
   }
 
+  // ========== STUDENT - PROFILE ==========
   async extractResumeData(): Promise<ExtractDataResponse> {
-    return this.request<ExtractDataResponse>('/api/resume/extract-data', {
+    return this.request<ExtractDataResponse>('/api/student/profile/draft/extract', {
       method: 'POST',
     })
   }
 
   async getDraft(): Promise<{ draft: any }> {
-    return this.request<{ draft: any }>('/api/resume/get-draft')
+    return this.request<{ draft: any }>('/api/student/profile/draft')
   }
 
   async updateDraft(draftId: string, updates: Partial<ExtractedResumeData>): Promise<{ success: boolean; draft: any }> {
-    return this.request<{ success: boolean; draft: any }>('/api/resume/update-draft', {
-      method: 'POST',
+    return this.request<{ success: boolean; draft: any }>('/api/student/profile/draft', {
+      method: 'PUT',
       body: JSON.stringify({ draftId, updates }),
     })
   }
 
   async finalizeProfile(draftId: string): Promise<FinalizeProfileResponse> {
-    return this.request<FinalizeProfileResponse>('/api/resume/finalize', {
+    return this.request<FinalizeProfileResponse>('/api/student/profile/draft/finalize', {
       method: 'POST',
       body: JSON.stringify({ draftId }),
     })
   }
 
-  // ========== OFFERS ==========
+  // ========== COMPANY - OFFERS ==========
   async getOffers(): Promise<OffersResponse> {
-    return this.request<OffersResponse>('/api/offers')
+    return this.request<OffersResponse>('/api/company/offers')
   }
 
   async createOffer(payload: CreateOfferPayload): Promise<CreateOfferResponse> {
-    return this.request<CreateOfferResponse>('/api/offers', {
+    return this.request<CreateOfferResponse>('/api/company/offers', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
   }
 
   async deleteOffer(id: string): Promise<DeleteOfferResponse> {
-    return this.request<DeleteOfferResponse>(`/api/offers/${id}`, {
+    return this.request<DeleteOfferResponse>(`/api/company/offers/${id}`, {
       method: 'DELETE',
     })
   }
