@@ -4,12 +4,17 @@
  * Transfers validated data from draft to permanent student/academic/experience tables.
  * Route: POST /api/student/profile/draft/finalize
  * Called by: ProfileEditor after all fields are validated
- * Strategy: Delete child records (academic/experience) then UPSERT student record
- * Stores: Year/month as separate INTEGER fields
+ * Strategy: Transform draft → DB records, then call PostgreSQL RPC for atomic save
+ * 
+ * Architecture:
+ * - Pure functions handle data transformation (lib/draftMappers.ts)
+ * - PostgreSQL RPC handles all DB operations atomically (single transaction)
+ * - API route is pure orchestration (no business logic)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
+import { mapDraftToStudent, mapDraftToAcademic, mapDraftToExperience } from '@/lib/draftMappers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,8 +23,8 @@ export async function POST(request: NextRequest) {
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
-
     const { draftId } = await request.json()
+    
     if (!draftId) {
       return NextResponse.json({ error: 'Draft ID required' }, { status: 400 })
     }
@@ -36,90 +41,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
     }
 
-    // Parse name
-    const nameParts = draft.student_name?.trim().split(/\s+/) || []
-    const firstName = nameParts[0] || null
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null
+    // Transform draft data using pure functions
+    const studentData = mapDraftToStudent(draft, user.id)
+    const academicData = mapDraftToAcademic(draft, user.id)
+    const experienceData = mapDraftToExperience(draft, user.id)
 
-    // === STEP 1: Delete child records (foreign key dependencies) ===
-    await supabase.from('experience').delete().eq('student_id', user.id)
-    await supabase.from('academic').delete().eq('student_id', user.id)
-    
-    // === STEP 2: Upsert student record (insert or update if exists) ===
-    const { error: studentError } = await supabase
-      .from('student')
-      .upsert({
-        id: user.id,
-        first_name: firstName,
-        last_name: lastName,
-        phone_number: draft.phone_number || null,
-        mail_adress: draft.email || null,
-        address: draft.address || null,
-      }, {
-        onConflict: 'id'
-      })
+    // Call PostgreSQL RPC for atomic database operations
+    const { data: result, error: rpcError } = await supabase.rpc('finalize_student_profile', {
+      p_user_id: user.id,
+      p_student: studentData,
+      p_education: academicData,
+      p_experience: experienceData
+    })
 
-    if (studentError) {
-      console.error('Failed to upsert student:', studentError)
+    if (rpcError) {
+      console.error('RPC error:', rpcError)
       return NextResponse.json(
-        { error: 'Failed to save student information', details: studentError.message },
+        { error: 'Failed to save profile', details: rpcError.message },
         { status: 500 }
       )
     }
 
-    // === STEP 3: Insert education records ===
-    if (draft.education?.length > 0) {
-      const educationRecords = draft.education.map((edu: any) => ({
-        student_id: user.id,
-        school_name: edu.school_name,
-        degree: edu.degree,
-        description: edu.description || null,
-        start_year: edu.start_year,
-        start_month: edu.start_month,
-        end_year: edu.end_year,
-        end_month: edu.end_month,
-      }))
-
-      const { error: eduError } = await supabase
-        .from('academic')
-        .insert(educationRecords)
-
-      if (eduError) {
-        console.error('Failed to insert education:', eduError)
-        return NextResponse.json(
-          { error: 'Failed to save education records', details: eduError.message },
-          { status: 500 }
-        )
-      }
+    // Check if RPC returned an error (in success:false format)
+    if (result && !result.success) {
+      console.error('Profile finalization failed:', result)
+      return NextResponse.json(
+        { error: result.error || 'Failed to save profile', details: result.detail },
+        { status: 500 }
+      )
     }
 
-    // === STEP 4: Insert experience records ===
-    if (draft.experience?.length > 0) {
-      const experienceRecords = draft.experience.map((exp: any) => ({
-        student_id: user.id,
-        organisation_name: exp.organisation_name,
-        position_name: exp.position_name,
-        description: exp.description || null,
-        start_year: exp.start_year,
-        start_month: exp.start_month || null,
-        end_year: exp.end_year || null,
-        end_month: exp.end_month || null,
-      }))
-
-      const { error: expError } = await supabase
-        .from('experience')
-        .insert(experienceRecords)
-
-      if (expError) {
-        console.error('Failed to insert experience:', expError)
-        return NextResponse.json(
-          { error: 'Failed to save experience records', details: expError.message },
-          { status: 500 }
-        )
-      }
-    }
-
-    // === STEP 5: Mark draft as confirmed ===
+    // Mark draft as confirmed
     await supabase
       .from('student_profile_draft')
       .update({ status: 'confirmed' })
@@ -129,6 +81,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Profile data saved successfully',
+      data: result
     })
   } catch (error: any) {
     console.error('Finalize profile error:', error)
