@@ -18,6 +18,7 @@ interface DatePickerProps {
   label?: string;
   yearError?: string;
   monthError?: string;
+  disabled?: boolean;
 }
 
 export default function DatePicker({ 
@@ -27,7 +28,8 @@ export default function DatePicker({
   onMonthChange, 
   label,
   yearError,
-  monthError
+  monthError,
+  disabled = false
 }: DatePickerProps) {
   
   const handleYearChange = (value: string) => {
@@ -75,7 +77,7 @@ export default function DatePicker({
             <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
               <AlertCircle className="w-3 h-3" />
               <span>
-                {yearError && monthError ? 'Required' : yearError ? 'Year required' : 'Month required'}
+                {yearError && monthError ? `${yearError}, ${monthError}` : yearError || monthError}
               </span>
             </span>
           )}
@@ -85,11 +87,12 @@ export default function DatePicker({
         <select
           value={month || ''}
           onChange={(e) => handleMonthChange(e.target.value)}
+          disabled={disabled}
           className={`w-full px-3 py-2 text-sm rounded border ${
             monthError 
               ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
               : 'border-zinc-300 dark:border-zinc-600'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent`}
+          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           <option value="">Month</option>
           {months.map(m => (
@@ -99,11 +102,12 @@ export default function DatePicker({
         <select
           value={year || ''}
           onChange={(e) => handleYearChange(e.target.value)}
+          disabled={disabled}
           className={`w-full px-3 py-2 text-sm rounded border ${
             yearError 
               ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
               : 'border-zinc-300 dark:border-zinc-600'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent`}
+          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           <option value="">Year</option>
           {years.map(y => (

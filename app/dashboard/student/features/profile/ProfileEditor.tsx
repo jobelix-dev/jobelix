@@ -9,11 +9,12 @@
 'use client';
 
 import React from 'react';
-import { Plus, Save, AlertCircle } from 'lucide-react';
+import { Plus, Save, AlertCircle, Check } from 'lucide-react';
 import { ExtractedResumeData, EducationEntry, ExperienceEntry } from '@/lib/types';
 import { ProfileValidationResult } from '@/lib/profileValidation';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
+import LoadingOverlay from '@/app/components/LoadingOverlay';
 
 interface ProfileEditorProps {
   data: ExtractedResumeData;
@@ -22,6 +23,10 @@ interface ProfileEditorProps {
   isSaving?: boolean;
   canSave?: boolean;
   validation?: ProfileValidationResult;
+  disabled?: boolean;
+  loadingMessage?: string;
+  loadingSubmessage?: string;
+  saveSuccess?: boolean;
 }
 
 export default function ProfileEditor({ 
@@ -30,7 +35,11 @@ export default function ProfileEditor({
   onSave, 
   isSaving = false,
   canSave = true,
-  validation
+  validation,
+  disabled = false,
+  loadingMessage,
+  loadingSubmessage,
+  saveSuccess = false
 }: ProfileEditorProps) {
   
   // Update a top-level field (name, phone, email, address)
@@ -109,7 +118,15 @@ export default function ProfileEditor({
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto relative">
+      {/* Loading Overlay */}
+      {disabled && (
+        <LoadingOverlay 
+          message={loadingMessage} 
+          submessage={loadingSubmessage}
+        />
+      )}
+      
       <div className="space-y-8">
         {/* Basic Information */}
         <div className="space-y-4">
@@ -122,7 +139,7 @@ export default function ProfileEditor({
                 {validation?.fieldErrors?.student_name && (
                   <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
                     <AlertCircle className="w-3 h-3" />
-                    <span>Required</span>
+                    <span>{validation.fieldErrors.student_name}</span>
                   </span>
                 )}
               </div>
@@ -131,11 +148,12 @@ export default function ProfileEditor({
                 value={data.student_name || ''}
                 onChange={(e) => updateField('student_name', e.target.value)}
                 placeholder="Enter your name"
+                disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.student_name 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
                     : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent`}
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -145,7 +163,7 @@ export default function ProfileEditor({
                 {validation?.fieldErrors?.email && (
                   <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
                     <AlertCircle className="w-3 h-3" />
-                    <span>Required</span>
+                    <span>{validation.fieldErrors.email}</span>
                   </span>
                 )}
               </div>
@@ -154,11 +172,12 @@ export default function ProfileEditor({
                 value={data.email || ''}
                 onChange={(e) => updateField('email', e.target.value)}
                 placeholder="your.email@example.com"
+                disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.email 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
                     : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent`}
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -168,7 +187,7 @@ export default function ProfileEditor({
                 {validation?.fieldErrors?.phone_number && (
                   <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
                     <AlertCircle className="w-3 h-3" />
-                    <span>Required</span>
+                    <span>{validation.fieldErrors.phone_number}</span>
                   </span>
                 )}
               </div>
@@ -177,11 +196,12 @@ export default function ProfileEditor({
                 value={data.phone_number || ''}
                 onChange={(e) => updateField('phone_number', e.target.value)}
                 placeholder="+1 (555) 123-4567"
+                disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.phone_number 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
                     : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent`}
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -191,7 +211,7 @@ export default function ProfileEditor({
                 {validation?.fieldErrors?.address && (
                   <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
                     <AlertCircle className="w-3 h-3" />
-                    <span>Required</span>
+                    <span>{validation.fieldErrors.address}</span>
                   </span>
                 )}
               </div>
@@ -200,11 +220,12 @@ export default function ProfileEditor({
                 value={data.address || ''}
                 onChange={(e) => updateField('address', e.target.value)}
                 placeholder="City, State/Country"
+                disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.address 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
                     : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent`}
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
           </div>
@@ -219,7 +240,8 @@ export default function ProfileEditor({
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Education</h3>
             <button
               onClick={addEducation}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
             >
               <Plus className="w-4 h-4" />
               Add Education
@@ -237,6 +259,7 @@ export default function ProfileEditor({
                   onChange={(field: keyof EducationEntry, value: any) => updateEducation(index, field, value)}
                   onRemove={() => removeEducation(index)}
                   fieldErrors={validation?.fieldErrors?.education?.[index]}
+                  disabled={disabled}
                 />
               ))}
             </div>
@@ -252,7 +275,8 @@ export default function ProfileEditor({
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Work Experience</h3>
             <button
               onClick={addExperience}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
             >
               <Plus className="w-4 h-4" />
               Add Experience
@@ -270,6 +294,7 @@ export default function ProfileEditor({
                   onChange={(field: keyof ExperienceEntry, value: any) => updateExperience(index, field, value)}
                   onRemove={() => removeExperience(index)}
                   fieldErrors={validation?.fieldErrors?.experience?.[index]}
+                  disabled={disabled}
                 />
               ))}
             </div>
@@ -279,11 +304,20 @@ export default function ProfileEditor({
         {/* Save Button */}
         <button
           onClick={onSave}
-          disabled={isSaving || !canSave}
+          disabled={isSaving || !canSave || disabled}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-foreground text-background hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
         >
-          <Save className="w-4 h-4" />
-          {isSaving ? 'Saving...' : canSave ? 'Save Profile' : 'Complete Required Fields'}
+          {saveSuccess ? (
+            <>
+              <Check className="w-4 h-4" />
+              Saved!
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : canSave ? 'Save Profile' : 'Complete Required Fields'}
+            </>
+          )}
         </button>
       </div>
     </div>

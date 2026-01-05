@@ -9,19 +9,18 @@
  */
 
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { authenticateRequest } from '@/lib/auth'
 
 /**
  * GET - Retrieve or create the current draft for logged-in user
  */
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return new Response('Unauthorized', { status: 401 })
-    }
+    // Authenticate user
+    const auth = await authenticateRequest()
+    if (auth.error) return auth.error
+    
+    const { user, supabase } = auth
 
     // Get most recent draft
     const { data: existingDraft, error: fetchError } = await supabase
@@ -77,13 +76,11 @@ export async function GET() {
  */
 export async function PUT(req: NextRequest) {
   try {
-    const supabase = await createClient()
-
     // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return new Response('Unauthorized', { status: 401 })
-    }
+    const auth = await authenticateRequest()
+    if (auth.error) return auth.error
+    
+    const { user, supabase } = auth
 
     const { draftId, updates } = await req.json()
 
