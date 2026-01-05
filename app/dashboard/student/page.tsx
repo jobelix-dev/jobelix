@@ -41,6 +41,7 @@ export default function StudentDashboard() {
   const [resumeInfo, setResumeInfo] = useState<{ filename?: string; uploaded_at?: string } | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Validate profile data - recalculates whenever profileData changes
   // useMemo runs only when profileData changes
@@ -92,6 +93,7 @@ export default function StudentDashboard() {
     if (selectedFile.type !== 'application/pdf') {
       setUploadError('Only PDF files are allowed');
       setFile(null);
+      e.target.value = ''; // Reset input
       return;
     }
 
@@ -100,6 +102,7 @@ export default function StudentDashboard() {
     if (selectedFile.size > maxSize) {
       setUploadError('File size must be less than 5MB');
       setFile(null);
+      e.target.value = ''; // Reset input
       return;
     }
 
@@ -109,6 +112,9 @@ export default function StudentDashboard() {
 
     // Auto-upload immediately after validation
     await uploadFile(selectedFile);
+    
+    // Reset input so same file can be selected again
+    e.target.value = '';
   }
 
   async function uploadFile(fileToUpload: File) {
@@ -218,6 +224,7 @@ export default function StudentDashboard() {
     // gets executed when user clicks Save Profile button
     setFinalizing(true);
     setUploadError('');
+    setSaveSuccess(false);
 
     try {
       if (!draftId) {
@@ -233,11 +240,11 @@ export default function StudentDashboard() {
       const response = await api.getDraft();
       setDraftId(response.draft.id);
       
-      setUploadSuccess(true);
+      setSaveSuccess(true);
       
       setTimeout(() => {
-        setUploadSuccess(false);
-      }, 3000);
+        setSaveSuccess(false);
+      }, 2000);
     } catch (err: any) {
       setUploadError(err.message || 'Failed to save profile');
     } finally {
@@ -300,6 +307,10 @@ export default function StudentDashboard() {
               isSaving={finalizing}
               canSave={canSave}
               validation={validation}
+              disabled={uploading || extracting}
+              loadingMessage={uploading ? 'Uploading Resume...' : extracting ? 'Extracting Data...' : undefined}
+              loadingSubmessage={uploading ? 'Please wait while we upload your resume' : extracting ? 'AI is analyzing your resume and extracting information' : undefined}
+              saveSuccess={saveSuccess}
             />
           </div>
 

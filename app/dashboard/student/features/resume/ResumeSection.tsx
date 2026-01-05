@@ -59,9 +59,6 @@ export default function ResumeSection({
       {uploadError && (
         <StatusAlert variant="error">{uploadError}</StatusAlert>
       )}
-      {extracting && (
-        <StatusAlert variant="info">Extracting data from your resume...</StatusAlert>
-      )}
 
       {/* Compact Resume Info */}
       {resumeInfo && (
