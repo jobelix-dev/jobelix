@@ -10,10 +10,16 @@
 
 import React from 'react';
 import { Plus, Save, AlertCircle, Check } from 'lucide-react';
-import { ExtractedResumeData, EducationEntry, ExperienceEntry } from '@/lib/types';
+import { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '@/lib/types';
 import { ProfileValidationResult } from '@/lib/profileValidation';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
+import ProjectForm from './components/ProjectForm';
+import SkillsInput from './components/SkillsInput';
+import LanguagesInput from './components/LanguagesInput';
+import PublicationForm from './components/PublicationForm';
+import CertificationForm from './components/CertificationForm';
+import SocialLinksInput from './components/SocialLinksInput';
 import LoadingOverlay from '@/app/components/LoadingOverlay';
 
 interface ProfileEditorProps {
@@ -115,6 +121,150 @@ export default function ProfileEditor({
       ...data,
       experience: data.experience.filter((_, i) => i !== index)
     });
+  };
+
+  // Add new project entry
+  const addProject = () => {
+    onChange({
+      ...data,
+      projects: [
+        ...data.projects,
+        {
+          project_name: '',
+          description: null,
+          link: null,
+        }
+      ]
+    });
+  };
+
+  // Update project entry
+  const updateProject = (index: number, field: keyof ProjectEntry, value: any) => {
+    const updated = [...data.projects];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange({ ...data, projects: updated });
+  };
+
+  // Remove project entry
+  const removeProject = (index: number) => {
+    onChange({
+      ...data,
+      projects: data.projects.filter((_, i) => i !== index)
+    });
+  };
+
+  // Update skills (simple array replacement)
+  const updateSkills = (skills: SkillEntry[]) => {
+    onChange({ ...data, skills });
+  };
+
+  // Add new skill entry
+  const addSkill = () => {
+    onChange({
+      ...data,
+      skills: [
+        ...data.skills,
+        { skill_name: '', skill_slug: '' }
+      ]
+    });
+  };
+
+  // Add new language entry
+  const addLanguage = () => {
+    onChange({
+      ...data,
+      languages: [
+        ...data.languages,
+        {
+          language_name: '',
+          proficiency_level: 'Intermediate' as const,
+        }
+      ]
+    });
+  };
+
+  // Update languages (simple array replacement)
+  const updateLanguages = (languages: LanguageEntry[]) => {
+    onChange({ ...data, languages });
+  };
+
+  // Add new publication entry
+  const addPublication = () => {
+    onChange({
+      ...data,
+      publications: [
+        ...data.publications,
+        {
+          title: '',
+          journal_name: null,
+          description: null,
+          publication_year: null,
+          publication_month: null,
+          link: null,
+        }
+      ]
+    });
+  };
+
+  // Update publication entry
+  const updatePublication = (index: number, field: keyof PublicationEntry, value: any) => {
+    const updated = [...data.publications];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange({ ...data, publications: updated });
+  };
+
+  // Remove publication entry
+  const removePublication = (index: number) => {
+    onChange({
+      ...data,
+      publications: data.publications.filter((_, i) => i !== index)
+    });
+  };
+
+  // Add new certification entry
+  const addCertification = () => {
+    onChange({
+      ...data,
+      certifications: [
+        ...data.certifications,
+        {
+          name: '',
+          issuing_organization: null,
+          url: null,
+        }
+      ]
+    });
+  };
+
+  // Update certification entry
+  const updateCertification = (index: number, field: keyof CertificationEntry, value: any) => {
+    const updated = [...data.certifications];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange({ ...data, certifications: updated });
+  };
+
+  // Remove certification entry
+  const removeCertification = (index: number) => {
+    onChange({
+      ...data,
+      certifications: data.certifications.filter((_, i) => i !== index)
+    });
+  };
+
+  // Add new social link entry
+  const addSocialLink = () => {
+    onChange({
+      ...data,
+      social_links: [
+        ...data.social_links,
+        { link: '' }
+      ]
+    });
+  };
+
+  // Update social links (simple array replacement)
+  const updateSocialLinks = (social_links: SocialLinkEntry[]) => {
+    onChange({ ...data, social_links });
   };
 
   return (
@@ -298,6 +448,198 @@ export default function ProfileEditor({
                 />
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+
+        {/* Projects */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Projects</h3>
+            <button
+              onClick={addProject}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+            >
+              <Plus className="w-4 h-4" />
+              Add Project
+            </button>
+          </div>
+
+          {data.projects.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-4">No projects added yet</p>
+          ) : (
+            <div className="space-y-4">
+              {data.projects.map((project, index) => (
+                <ProjectForm
+                  key={index}
+                  data={project}
+                  onChange={(field: keyof ProjectEntry, value: any) => updateProject(index, field, value)}
+                  onRemove={() => removeProject(index)}
+                  fieldErrors={validation?.fieldErrors?.projects?.[index]}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+
+        {/* Skills */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Skills</h3>
+            <button
+              onClick={addSkill}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+            >
+              <Plus className="w-4 h-4" />
+              Add Skill
+            </button>
+          </div>
+
+          {data.skills.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-4">No skills added yet</p>
+          ) : (
+            <SkillsInput
+              skills={data.skills}
+              onChange={updateSkills}
+              fieldErrors={validation?.fieldErrors.skills}
+              disabled={disabled}
+            />
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+
+        {/* Languages */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Languages</h3>
+            <button
+              onClick={addLanguage}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+            >
+              <Plus className="w-4 h-4" />
+              Add Language
+            </button>
+          </div>
+
+          {data.languages.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-4">No languages added yet</p>
+          ) : (
+            <LanguagesInput
+              languages={data.languages}
+              onChange={updateLanguages}
+              fieldErrors={validation?.fieldErrors.languages}
+              disabled={disabled}
+            />
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+
+        {/* Publications */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Publications</h3>
+            <button
+              onClick={addPublication}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+            >
+              <Plus className="w-4 h-4" />
+              Add Publication
+            </button>
+          </div>
+
+          {data.publications.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-4">No publications added yet</p>
+          ) : (
+            <div className="space-y-4">
+              {data.publications.map((publication, index) => (
+                <PublicationForm
+                  key={index}
+                  data={publication}
+                  onChange={(field: keyof PublicationEntry, value: any) => updatePublication(index, field, value)}
+                  onRemove={() => removePublication(index)}
+                  fieldErrors={validation?.fieldErrors?.publications?.[index]}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+
+        {/* Certifications */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Certifications & Awards</h3>
+            <button
+              onClick={addCertification}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+            >
+              <Plus className="w-4 h-4" />
+              Add Certification
+            </button>
+          </div>
+
+          {data.certifications.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-4">No certifications added yet</p>
+          ) : (
+            <div className="space-y-4">
+              {data.certifications.map((certification, index) => (
+                <CertificationForm
+                  key={index}
+                  data={certification}
+                  onChange={(field: keyof CertificationEntry, value: any) => updateCertification(index, field, value)}
+                  onRemove={() => removeCertification(index)}
+                  fieldErrors={validation?.fieldErrors?.certifications?.[index]}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+
+        {/* Social Links */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Social Links</h3>
+            <button
+              onClick={addSocialLink}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+            >
+              <Plus className="w-4 h-4" />
+              Add Social Link
+            </button>
+          </div>
+
+          {data.social_links.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-4">No social links added yet</p>
+          ) : (
+            <SocialLinksInput
+              social_links={data.social_links}
+              onChange={updateSocialLinks}
+              fieldErrors={validation?.fieldErrors.social_links}
+              disabled={disabled}
+            />
           )}
         </div>
 

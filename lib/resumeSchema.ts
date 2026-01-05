@@ -32,6 +32,47 @@ export const ExperienceSchema = z.object({
   confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level of extracted data'),
 })
 
+// Schema for a single project entry
+export const ProjectSchema = z.object({
+  project_name: z.string().describe('Name of the project'),
+  description: z.string().nullable().describe('Brief description of the project'),
+  link: z.string().nullable().describe('URL to project (GitHub, live demo, etc.)'),
+})
+
+// Schema for a single skill entry
+export const SkillSchema = z.object({
+  skill_name: z.string().describe('Name of the skill or technology'),
+  skill_slug: z.string().describe('Lowercase slug version (e.g., "javascript", "python")'),
+})
+
+// Schema for a single language entry
+export const LanguageSchema = z.object({
+  language_name: z.string().describe('Name of the language'),
+  proficiency_level: z.enum(['Beginner', 'Intermediate', 'Advanced', 'Fluent', 'Native']).describe('Proficiency level'),
+})
+
+// Schema for a single publication entry
+export const PublicationSchema = z.object({
+  title: z.string().describe('Title of the publication'),
+  journal_name: z.string().nullable().describe('Name of the journal or conference'),
+  description: z.string().nullable().describe('Brief description or abstract'),
+  publication_year: z.number().nullable().describe('Publication year (e.g., 2024)'),
+  publication_month: z.number().nullable().describe('Publication month (1-12)'),
+  link: z.string().nullable().describe('URL to the publication'),
+})
+
+// Schema for a single certification entry
+export const CertificationSchema = z.object({
+  name: z.string().describe('Name of the certification or award'),
+  issuing_organization: z.string().nullable().describe('Organization that issued it'),
+  url: z.string().nullable().describe('URL to verify or view the credential'),
+})
+
+// Schema for a single social link entry
+export const SocialLinkSchema = z.object({
+  link: z.string().describe('Full URL to social profile or website'),
+})
+
 // Complete resume extraction schema
 export const ResumeExtractionSchema = z.object({
   student_name: z.string().nullable().describe('Full name of the student'),
@@ -40,6 +81,12 @@ export const ResumeExtractionSchema = z.object({
   address: z.string().nullable().describe('Physical address or location'),
   education: z.array(EducationSchema).describe('Array of educational background entries'),
   experience: z.array(ExperienceSchema).describe('Array of work experience entries'),
+  projects: z.array(ProjectSchema).describe('Array of personal or academic projects'),
+  skills: z.array(SkillSchema).describe('Array of technical skills and technologies'),
+  languages: z.array(LanguageSchema).describe('Array of spoken languages'),
+  publications: z.array(PublicationSchema).describe('Array of publications or research papers'),
+  certifications: z.array(CertificationSchema).describe('Array of certifications and awards'),
+  social_links: z.array(SocialLinkSchema).describe('Array of social media profiles and websites'),
 })
 
 // Schema for individual field update
@@ -67,4 +114,10 @@ export const ChatUpdateSchema = z.object({
 export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>
 export type Education = z.infer<typeof EducationSchema>
 export type Experience = z.infer<typeof ExperienceSchema>
+export type Project = z.infer<typeof ProjectSchema>
+export type Skill = z.infer<typeof SkillSchema>
+export type Language = z.infer<typeof LanguageSchema>
+export type Publication = z.infer<typeof PublicationSchema>
+export type Certification = z.infer<typeof CertificationSchema>
+export type SocialLink = z.infer<typeof SocialLinkSchema>
 export type ChatUpdate = z.infer<typeof ChatUpdateSchema>

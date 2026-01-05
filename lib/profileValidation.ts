@@ -6,7 +6,7 @@
  * Used by: StudentDashboard to enable/disable Save button
  */
 
-import type { ExtractedResumeData, EducationEntry, ExperienceEntry } from './types'
+import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from './types'
 
 export interface FieldError {
   field: string
@@ -39,6 +39,41 @@ export interface ProfileValidationResult {
       end_year?: string
       end_month?: string
     }>
+    projects?: Record<number, {
+      project_name?: string
+      description?: string
+      link?: string
+    }>
+    skills?: Record<number, {
+      skill_name?: string
+      skill_slug?: string
+    }>
+    languages?: Record<number, {
+      language_name?: string
+      proficiency_level?: string
+    }>
+    publications?: Record<number, {
+      title?: string
+      journal_name?: string
+      description?: string
+      publication_year?: string
+      publication_month?: string
+      link?: string
+    }>
+    certifications?: Record<number, {
+      name?: string
+      issuing_organization?: string
+      description?: string
+      issue_year?: string
+      issue_month?: string
+      expiry_year?: string
+      expiry_month?: string
+      credential_id?: string
+      credential_url?: string
+    }>
+    social_links?: Record<number, {
+      link?: string
+    }>
   }
 }
 
@@ -46,7 +81,7 @@ export interface ProfileValidationResult {
  * Validates phone number format (client-side)
  */
 function validatePhoneNumber(value: string | null | undefined): string | null {
-  if (!value?.trim()) return 'Required'
+  if (!value?.trim()) return null // Phone number is optional
   
   const trimmed = value.trim()
   
@@ -231,7 +266,13 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
   const errors: string[] = []
   const fieldErrors: ProfileValidationResult['fieldErrors'] = {
     education: {},
-    experience: {}
+    experience: {},
+    projects: {},
+    skills: {},
+    languages: {},
+    publications: {},
+    certifications: {},
+    social_links: {}
   }
   
   // Validate basic contact info
@@ -259,10 +300,8 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
     fieldErrors.address = addressError
   }
   
-  // Validate education entries
-  if (!data.education || data.education.length === 0) {
-    errors.push('At least one education entry is required')
-  } else {
+  // Validate education entries (optional - no minimum required)
+  if (data.education && data.education.length > 0) {
     data.education.forEach((edu, index) => {
       fieldErrors.education[index] = {}
       
@@ -345,6 +384,95 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
         if (!fieldErrors.experience[index].end_year && !fieldErrors.experience[index].end_month) {
           fieldErrors.experience[index].end_year = rangeError
         }
+      }
+    })
+  }
+  
+  // Validate projects (optional, but if provided must have a name)
+  if (data.projects && data.projects.length > 0) {
+    data.projects.forEach((project, index) => {
+      if (!fieldErrors.projects) fieldErrors.projects = {}
+      fieldErrors.projects[index] = {}
+      
+      const nameError = validateTextField(project.project_name, `Project ${index + 1} - Name`)
+      if (nameError) {
+        errors.push(nameError)
+        fieldErrors.projects[index].project_name = 'Required'
+      }
+    })
+  }
+  
+  // Validate skills (optional, but if provided must have a name)
+  if (data.skills && data.skills.length > 0) {
+    data.skills.forEach((skill, index) => {
+      if (!fieldErrors.skills) fieldErrors.skills = {}
+      fieldErrors.skills[index] = {}
+      
+      const nameError = validateTextField(skill.skill_name, `Skill ${index + 1} - Name`)
+      if (nameError) {
+        errors.push(nameError)
+        fieldErrors.skills[index].skill_name = 'Required'
+      }
+      
+      const slugError = validateTextField(skill.skill_slug, `Skill ${index + 1} - Slug`)
+      if (slugError) {
+        errors.push(slugError)
+        fieldErrors.skills[index].skill_slug = 'Required'
+      }
+    })
+  }
+  
+  // Validate languages (optional, but if provided must have a name)
+  if (data.languages && data.languages.length > 0) {
+    data.languages.forEach((language, index) => {
+      if (!fieldErrors.languages) fieldErrors.languages = {}
+      fieldErrors.languages[index] = {}
+      
+      const nameError = validateTextField(language.language_name, `Language ${index + 1} - Name`)
+      if (nameError) {
+        errors.push(nameError)
+        fieldErrors.languages[index].language_name = 'Required'
+      }
+    })
+  }
+  
+  // Validate publications (optional, but if provided must have a title)
+  if (data.publications && data.publications.length > 0) {
+    data.publications.forEach((pub, index) => {
+      if (!fieldErrors.publications) fieldErrors.publications = {}
+      fieldErrors.publications[index] = {}
+      
+      const titleError = validateTextField(pub.title, `Publication ${index + 1} - Title`)
+      if (titleError) {
+        errors.push(titleError)
+        fieldErrors.publications[index].title = 'Required'
+      }
+    })
+  }
+  
+  // Validate certifications (optional, but if provided must have a name)
+  if (data.certifications && data.certifications.length > 0) {
+    data.certifications.forEach((cert, index) => {
+      if (!fieldErrors.certifications) fieldErrors.certifications = {}
+      fieldErrors.certifications[index] = {}
+      
+      const nameError = validateTextField(cert.name, `Certification ${index + 1} - Name`)
+      if (nameError) {
+        errors.push(nameError)
+        fieldErrors.certifications[index].name = 'Required'
+      }
+    })
+  }
+  
+  // Validate social links (optional, but if provided must have a URL)
+  if (data.social_links && data.social_links.length > 0) {
+    data.social_links.forEach((link, index) => {
+      if (!fieldErrors.social_links) fieldErrors.social_links = {}
+      fieldErrors.social_links[index] = {}
+      
+      if (!link.link?.trim()) {
+        errors.push(`Social Link ${index + 1} - URL is required`)
+        fieldErrors.social_links[index].link = 'Required'
       }
     })
   }
