@@ -9,19 +9,15 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { authenticateRequest } from '@/lib/auth'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    // Authenticate user
+    const auth = await authenticateRequest()
+    if (auth.error) return auth.error
+    
+    const { user, supabase } = auth
 
     const userId = user.id
     const filePath = `${userId}/resume.pdf`

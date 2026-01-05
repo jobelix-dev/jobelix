@@ -6,19 +6,17 @@
  */
 
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { authenticateRequest } from '@/lib/auth'
 
 export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-
     // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return new Response('Unauthorized', { status: 401 })
-    }
+    const auth = await authenticateRequest()
+    if (auth.error) return auth.error
+    
+    const { user, supabase } = auth
 
     // Return completion message since validation is now client-side
     const completionMessage = "Your profile data has been extracted. You can review and edit it in the form, then click 'Save Profile' when ready."
