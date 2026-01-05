@@ -14,7 +14,17 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
-import { mapDraftToStudent, mapDraftToAcademic, mapDraftToExperience } from '@/lib/draftMappers'
+import { 
+  mapDraftToStudent, 
+  mapDraftToAcademic, 
+  mapDraftToExperience,
+  mapDraftToProjects,
+  mapDraftToSkills,
+  mapDraftToLanguages,
+  mapDraftToPublications,
+  mapDraftToCertifications,
+  mapDraftToSocialLinks
+} from '@/lib/draftMappers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,13 +55,27 @@ export async function POST(request: NextRequest) {
     const studentData = mapDraftToStudent(draft, user.id)
     const academicData = mapDraftToAcademic(draft, user.id)
     const experienceData = mapDraftToExperience(draft, user.id)
+    const projectsData = mapDraftToProjects(draft, user.id)
+    const skillsData = mapDraftToSkills(draft, user.id)
+    const languagesData = mapDraftToLanguages(draft, user.id)
+    const publicationsData = mapDraftToPublications(draft, user.id)
+    const certificationsData = mapDraftToCertifications(draft, user.id)
+    const socialLinksData = mapDraftToSocialLinks(draft, user.id)
+
+    console.log('Social links data being sent to RPC:', JSON.stringify(socialLinksData, null, 2))
 
     // Call PostgreSQL RPC for atomic database operations
     const { data: result, error: rpcError } = await supabase.rpc('finalize_student_profile', {
       p_user_id: user.id,
-      p_student: studentData,
+      p_profile: studentData,
       p_education: academicData,
-      p_experience: experienceData
+      p_experience: experienceData,
+      p_projects: projectsData,
+      p_skills: skillsData,
+      p_languages: languagesData,
+      p_publications: publicationsData,
+      p_certifications: certificationsData,
+      p_social_links: socialLinksData
     })
 
     if (rpcError) {
