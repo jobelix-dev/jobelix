@@ -46,16 +46,13 @@ export default function ResumeSection({
               uploading || extracting ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {uploading ? 'uploading...' : 'upload your resume'}
+            upload your resume
           </label>
         </span>
         to auto-fill with AI assistance.
       </p>
 
       {/* Status Messages */}
-      {uploadSuccess && (
-        <StatusAlert variant="success">Resume uploaded successfully!</StatusAlert>
-      )}
       {uploadError && (
         <StatusAlert variant="error">{uploadError}</StatusAlert>
       )}

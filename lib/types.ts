@@ -122,6 +122,59 @@ export interface ExperienceEntry {
 }
 
 /**
+ * Project entry from resume extraction
+ */
+export interface ProjectEntry {
+  project_name: string;
+  description: string | null;
+  link: string | null;
+}
+
+/**
+ * Skill entry from resume extraction
+ */
+export interface SkillEntry {
+  skill_name: string;
+  skill_slug: string;
+}
+
+/**
+ * Language entry from resume extraction
+ */
+export interface LanguageEntry {
+  language_name: string;
+  proficiency_level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Fluent' | 'Native';
+}
+
+/**
+ * Publication entry from resume extraction
+ */
+export interface PublicationEntry {
+  title: string;
+  journal_name: string | null;
+  description: string | null;
+  publication_year: number | null;
+  publication_month: number | null;
+  link: string | null;
+}
+
+/**
+ * Certification entry from resume extraction
+ */
+export interface CertificationEntry {
+  name: string;
+  issuing_organization: string | null;
+  url: string | null;
+}
+
+/**
+ * Social link entry from resume extraction
+ */
+export interface SocialLinkEntry {
+  link: string;
+}
+
+/**
  * Validation issue types for resume data
  */
 export interface InvalidField {
@@ -162,6 +215,12 @@ export interface ExtractedResumeData {
   address: string | null;
   education: EducationEntry[];
   experience: ExperienceEntry[];
+  projects: ProjectEntry[];
+  skills: SkillEntry[];
+  languages: LanguageEntry[];
+  publications: PublicationEntry[];
+  certifications: CertificationEntry[];
+  social_links: SocialLinkEntry[];
 }
 
 /**

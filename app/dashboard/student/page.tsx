@@ -26,6 +26,12 @@ export default function StudentDashboard() {
     address: null,
     education: [],
     experience: [],
+    projects: [],
+    skills: [],
+    languages: [],
+    publications: [],
+    certifications: [],
+    social_links: [],
   });
 
   // AI assistant state
@@ -184,6 +190,12 @@ export default function StudentDashboard() {
             address: response.draft.address,
             education: response.draft.education || [],
             experience: response.draft.experience || [],
+            projects: response.draft.projects || [],
+            skills: response.draft.skills || [],
+            languages: response.draft.languages || [],
+            publications: response.draft.publications || [],
+            certifications: response.draft.certifications || [],
+            social_links: response.draft.social_links || [],
           });
         }
       } catch (error) {
@@ -209,6 +221,12 @@ export default function StudentDashboard() {
           address: profileData.address,
           education: profileData.education,
           experience: profileData.experience,
+          projects: profileData.projects,
+          skills: profileData.skills,
+          languages: profileData.languages,
+          publications: profileData.publications,
+          certifications: profileData.certifications,
+          social_links: profileData.social_links,
         });
         console.log('Draft auto-saved');
       } catch (error) {

@@ -71,22 +71,130 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'system',
-          content: `You are a professional resume parser. Extract structured information from the resume text.
+          content: `You are an expert resume parser. Extract ALL structured information from the resume with maximum accuracy.
 
-RULES:
-1. Extract ONLY information explicitly stated in the resume
-2. Set fields to null if not found
-3. For dates: extract year and month as separate integer values (start_year, start_month, end_year, end_month)
-4. For current positions/education: set end_year and end_month to null
-5. For contact info: extract phone_number and email if present in the resume
-6. For education: extract school name, full degree name, any honors/GPA if mentioned
-7. For experience: extract company, job title, and brief description of responsibilities
-8. Preserve chronological order (most recent first)
-9. Month should be 1-12 (January=1, December=12), year should be 4-digit (e.g., 2024)`,
+CRITICAL EXTRACTION RULES:
+
+1. PERSONAL INFORMATION:
+   - student_name: Full name as written (required)
+   - phone_number: Complete phone number with country code if present, only digits and '+' sign
+   - email: Email address (required)
+   - address: Full address including city, state/country
+
+2. EDUCATION (extract ALL education entries):
+   - school_name: Full institution name (required for each entry)
+   - degree: Complete degree name (e.g., "Bachelor of Science in Computer Science", "MBA", "High School Diploma")
+   - description: GPA, honors, relevant coursework, achievements - be detailed
+   - start_year, start_month: When studies began (integers, month 1-12)
+   - end_year, end_month: When studies ended (null if ongoing)
+   - Order: Most recent first
+
+3. EXPERIENCE (extract ALL work experience):
+   - organisation_name: Full company/organization name (required for each entry)
+   - position_name: Complete job title (required for each entry)
+   - description: Detailed responsibilities, achievements, technologies used - extract ALL bullet points
+   - start_year, start_month: Employment start date (integers)
+   - end_year, end_month: Employment end date (null if current position)
+   - Order: Most recent first
+
+4. PROJECTS (extract ALL projects):
+   - project_name: Project title (required for each entry)
+   - description: Detailed description, technologies used, your role, outcomes
+   - link: GitHub URL, live demo, or project website if mentioned
+
+5. SKILLS (extract ALL technical skills):
+   - skill_name: Technology/tool name (e.g., "JavaScript", "React", "Python", "Docker")
+   - skill_slug: Lowercase, hyphenated version (e.g., "javascript", "react", "python", "docker")
+   - Extract programming languages, frameworks, libraries, tools, platforms, methodologies
+
+6. LANGUAGES (extract ALL spoken languages):
+   - language_name: Language name (e.g., "English", "Spanish", "Mandarin")
+   - proficiency_level: Must be one of: "Native", "Fluent", "Advanced", "Intermediate", "Beginner"
+   - Estimate proficiency from context clues (e.g., "fluent", "conversational", "basic")
+
+7. PUBLICATIONS (extract ALL papers, articles, blog posts):
+   - title: Full publication title (required for each entry)
+   - journal_name: Where published (journal, conference, blog platform)
+   - description: Abstract summary, key findings, your contribution
+   - publication_year, publication_month: When published (integers)
+   - link: DOI, URL, or publication link
+
+8. CERTIFICATIONS & AWARDS (extract ALL certifications, licenses, awards):
+   - name: Full certification/award name (required for each entry)
+   - issuing_organization: Issuing body (e.g., "AWS", "Google", "Microsoft")
+   - url: Verification link or credential URL if mentioned
+
+9. SOCIAL LINKS (extract ALL online profiles and portfolios):
+   - link: Full URL to LinkedIn, GitHub, personal website, portfolio, Twitter, etc.
+   - Extract ANY URLs that appear in the resume
+
+10. DATE FORMATTING:
+    - year: 4-digit integer (e.g., 2024)
+    - month: Integer 1-12 (Jan=1, Feb=2, ..., Dec=12)
+    - Current/ongoing positions: set end_year and end_month to null
+    - If only year is mentioned, set month to null
+
+11. DATA QUALITY:
+    - Extract information EXACTLY as written in resume
+    - Do NOT invent or infer information not present
+    - Set fields to null if truly not found
+    - Preserve ALL details from descriptions and bullet points
+    - Maintain chronological order (recent first)`,
         },
         {
           role: 'user',
-          content: `Please extract the student's name, contact information (phone, email, and address), educational background, and work experience from this resume:\n\n${resumeText}`,
+          content: `Extract ALL information from this resume. Be thorough and detailed:
+
+**Personal Information:**
+- Full name, phone number, email address, physical address
+
+**Education History:**
+- All schools/universities attended
+- Degrees earned or in progress
+- GPA, honors, relevant coursework
+- Start and end dates (year and month)
+
+**Work Experience:**
+- All jobs, internships, volunteer positions
+- Company names and job titles
+- Detailed descriptions of responsibilities and achievements
+- Employment dates (year and month)
+
+**Projects:**
+- Personal, academic, or professional projects
+- Project names, descriptions, technologies used
+- GitHub links, live demos, or project websites
+
+**Technical Skills:**
+- Programming languages (Python, JavaScript, Java, etc.)
+- Frameworks and libraries (React, Django, TensorFlow, etc.)
+- Tools and platforms (Git, Docker, AWS, etc.)
+- Methodologies (Agile, DevOps, etc.)
+
+**Spoken Languages:**
+- All languages spoken
+- Proficiency levels (Native/Fluent/Advanced/Intermediate/Beginner)
+
+**Publications:**
+- Research papers, articles, blog posts
+- Publication titles, journals/venues, dates
+- Links to publications if available
+
+**Certifications & Awards:**
+- Professional certifications, licenses
+- Academic awards, honors, scholarships
+- Issuing organizations and dates
+- Verification URLs if available
+
+**Social Links & Online Presence:**
+- LinkedIn profile URL
+- GitHub profile URL
+- Personal website or portfolio
+- Twitter, Stack Overflow, or other professional profiles
+
+Resume text:
+
+${resumeText}`,
         },
       ],
       response_format: zodResponseFormat(ResumeExtractionSchema, 'resume_extraction'),
@@ -106,6 +214,12 @@ RULES:
         address: extractedData.address,
         education: extractedData.education,
         experience: extractedData.experience,
+        projects: extractedData.projects,
+        skills: extractedData.skills,
+        languages: extractedData.languages,
+        publications: extractedData.publications,
+        certifications: extractedData.certifications,
+        social_links: extractedData.social_links,
         status: 'reviewing',
       })
       .select()

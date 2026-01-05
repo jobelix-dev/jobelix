@@ -1,10 +1,10 @@
 /**
  * EducationForm Component
- * Form for editing a single education entry
+ * Collapsible form for editing a single education entry
  */
 
-import React from 'react';
-import { Trash2, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { EducationEntry } from '@/lib/types';
 import DatePicker from './DatePicker';
 
@@ -17,10 +17,65 @@ interface EducationFormProps {
 }
 
 export default function EducationForm({ data, onChange, onRemove, fieldErrors = {}, disabled = false }: EducationFormProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Create display title
+  const institution = data.school_name?.trim() || 'New Institution';
+  const degree = data.degree?.trim() || 'Degree';
+  const hasErrors = Object.keys(fieldErrors).length > 0;
+
   return (
-    <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 space-y-4">
+    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden">
+      {/* Header - Always visible */}
+      <div className="relative">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+        >
+          <div className="flex-1 min-w-0 pr-16">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm truncate">
+                {institution}
+              </span>
+              {hasErrors && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span className="font-medium">Needs update</span>
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+              {degree}
+            </div>
+          </div>
+          
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-zinc-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-zinc-400" />
+            )}
+          </div>
+        </button>
+        
+        {/* Delete button - positioned absolutely to avoid nesting */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!disabled) onRemove();
+          }}
+          className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors ${
+            disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+          }`}
+          title="Remove education"
+        >
+          <Trash2 className="w-4 h-4" />
+        </div>
+      </div>
+
+      {/* Expandable content */}
+      {isExpanded && (
+        <div className="px-4 pb-4 pt-2 border-t border-zinc-200 dark:border-zinc-700 space-y-4 bg-zinc-50/50 dark:bg-zinc-900/30">
           {/* Two column layout for short fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -111,16 +166,7 @@ export default function EducationForm({ data, onChange, onRemove, fieldErrors = 
             />
           </div>
         </div>
-
-        <button
-          onClick={onRemove}
-          disabled={disabled}
-          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-          title="Remove education"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
+      )}
     </div>
   );
 }
