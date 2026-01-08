@@ -33,7 +33,6 @@ export async function POST() {
       work_config: {
         remote_mode: null,
         employment_type: null,
-        start_date: null,
         availability: null,
       },
       startup_signals: {

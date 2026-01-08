@@ -12,12 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { OfferDraftData, CompanyOfferDraft } from '@/lib/types';
 import BasicInfoForm from './components/BasicInfoForm';
 import CompensationForm from './components/CompensationForm';
-import WorkConfigForm from './components/WorkConfigForm';
-import SkillsInput from './components/SkillsInput';
-import ResponsibilitiesInput from './components/ResponsibilitiesInput';
-import CapabilitiesInput from './components/CapabilitiesInput';
-import QuestionsInput from './components/QuestionsInput';
-import PerksInput from './components/PerksInput';
+import RoleRequirementsForm from './components/RoleRequirementsForm';
 
 interface OfferEditorProps {
   draftId: string; // The specific draft to edit
@@ -170,7 +165,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
   if (!data) return null;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -182,7 +177,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
           </p>
         )}
         {saving && (
-          <p className="text-sm text-blue-600 dark:text-blue-400">Saving...</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Saving...</p>
         )}
       </div>
 
@@ -195,7 +190,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
       {/* Form Sections */}
       <div className="space-y-8">
         {/* Basic Info */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+        <div className="space-y-4">
           <BasicInfoForm
             data={data.basic_info}
             onChange={(value) => handleDataChange('basic_info', value)}
@@ -205,79 +200,55 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
             onRemoteModeChange={(value) => handleDataChange('work_config', { ...data.work_config, remote_mode: value })}
             employmentType={data.work_config.employment_type}
             onEmploymentTypeChange={(value) => handleDataChange('work_config', { ...data.work_config, employment_type: value })}
+            availability={data.work_config.availability}
+            onAvailabilityChange={(value) => handleDataChange('work_config', { ...data.work_config, availability: value })}
           />
-        </section>
+        </div>
 
-        {/* Compensation */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800"></div>
+
+        {/* Compensation and Benefits */}
+        <div className="space-y-4">
           <CompensationForm
             data={data.compensation}
             onChange={(value) => handleDataChange('compensation', value)}
-          />
-        </section>
-
-        {/* Work Configuration */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <WorkConfigForm
-            data={data.work_config}
-            onChange={(value) => handleDataChange('work_config', value)}
-          />
-        </section>
-
-        {/* Skills */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <SkillsInput
-            skills={data.skills}
-            onChange={(value) => handleDataChange('skills', value)}
-          />
-        </section>
-
-        {/* Responsibilities */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <ResponsibilitiesInput
-            responsibilities={data.responsibilities}
-            onChange={(value) => handleDataChange('responsibilities', value)}
-          />
-        </section>
-
-        {/* Capabilities */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <CapabilitiesInput
-            capabilities={data.capabilities}
-            onChange={(value) => handleDataChange('capabilities', value)}
-          />
-        </section>
-
-        {/* Screening Questions */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <QuestionsInput
-            questions={data.questions}
-            onChange={(value) => handleDataChange('questions', value)}
-          />
-        </section>
-
-        {/* Perks */}
-        <section className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <PerksInput
             perks={data.perks}
-            onChange={(value) => handleDataChange('perks', value)}
+            onPerksChange={(value) => handleDataChange('perks', value)}
           />
-        </section>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800"></div>
+
+        {/* Role Requirements */}
+        <div className="space-y-4">
+          <RoleRequirementsForm
+            skills={data.skills}
+            onSkillsChange={(value) => handleDataChange('skills', value)}
+            responsibilities={data.responsibilities}
+            onResponsibilitiesChange={(value) => handleDataChange('responsibilities', value)}
+            capabilities={data.capabilities}
+            onCapabilitiesChange={(value) => handleDataChange('capabilities', value)}
+            questions={data.questions}
+            onQuestionsChange={(value) => handleDataChange('questions', value)}
+          />
+        </div>
       </div>
 
       {/* Bottom Actions */}
-      <div className="mt-8 flex justify-end gap-2 pb-8">
+      <div className="mt-8 flex justify-end gap-3 pb-8">
         <button
           onClick={handleSaveDraftAndClose}
           disabled={saving}
-          className="px-4 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 transition-colors disabled:opacity-50"
+          className="px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
         >
           Save Draft
         </button>
         <button
           onClick={handlePublish}
           disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 text-sm bg-foreground text-background hover:opacity-90 rounded-lg disabled:opacity-50 transition-opacity font-medium"
         >
           Publish Offer
         </button>

@@ -6,6 +6,7 @@
 
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
 import { OfferLocationEntry } from '@/lib/types';
 
 interface LocationsInputProps {
@@ -20,7 +21,6 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
       {
         city: null,
         country: null,
-        region: null,
       },
     ]);
   };
@@ -36,67 +36,50 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Work Locations</h3>
+        <label className="block text-sm font-medium">Work Locations</label>
         <button
           type="button"
           onClick={addLocation}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
         >
-          + Add Location
+          <Plus className="w-4 h-4" />
+          Add
         </button>
       </div>
 
       {locations.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">No locations added yet. Click "Add Location" to start.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No locations added yet</p>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {locations.map((location, index) => (
-          <div key={index} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30">
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">City</label>
-                <input
-                  type="text"
-                  value={location.city || ''}
-                  onChange={(e) => updateLocation(index, 'city', e.target.value || null)}
-                  className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                  placeholder="e.g. Paris"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">Country</label>
-                <input
-                  type="text"
-                  value={location.country || ''}
-                  onChange={(e) => updateLocation(index, 'country', e.target.value || null)}
-                  className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                  placeholder="e.g. France"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">Region (optional)</label>
-                <input
-                  type="text"
-                  value={location.region || ''}
-                  onChange={(e) => updateLocation(index, 'region', e.target.value || null)}
-                  className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                  placeholder="e.g. Île-de-France"
-                />
-              </div>
+          <div key={index} className="flex gap-2 items-start">
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={location.city || ''}
+                onChange={(e) => updateLocation(index, 'city', e.target.value || null)}
+                className="px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+                placeholder="City"
+              />
+              <input
+                type="text"
+                value={location.country || ''}
+                onChange={(e) => updateLocation(index, 'country', e.target.value || null)}
+                className="px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+                placeholder="Country"
+              />
             </div>
-
-            <div className="flex justify-end items-center">
-              <button
-                type="button"
-                onClick={() => removeLocation(index)}
-                className="text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 text-sm transition-colors"
-              >
-                Remove
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => removeLocation(index)}
+              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Remove location"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ))}
       </div>

@@ -6,6 +6,7 @@
 
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
 import { OfferQuestionEntry } from '@/lib/types';
 
 interface QuestionsInputProps {
@@ -34,23 +35,24 @@ export default function QuestionsInput({ questions, onChange }: QuestionsInputPr
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Screening Questions</h3>
+        <label className="block text-sm font-medium">Screening Questions</label>
         <button
           type="button"
           onClick={addQuestion}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
         >
-          + Add Question
+          <Plus className="w-4 h-4" />
+          Add Question
         </button>
       </div>
 
       {questions.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">No questions added yet. Click "Add Question" to start.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No questions added yet</p>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {questions.map((question, index) => (
           <div key={index} className="flex gap-2 items-start">
             <span className="text-zinc-500 dark:text-zinc-400 mt-2 flex-shrink-0">{index + 1}.</span>
@@ -58,15 +60,16 @@ export default function QuestionsInput({ questions, onChange }: QuestionsInputPr
               type="text"
               value={question.question}
               onChange={(e) => updateQuestion(index, e.target.value)}
-              className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
+              className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
               placeholder="e.g. What interests you about this role?"
             />
             <button
               type="button"
               onClick={() => removeQuestion(index)}
-              className="text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 text-sm px-2 py-2 transition-colors"
+              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Remove question"
             >
-              Remove
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         ))}

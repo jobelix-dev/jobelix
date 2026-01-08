@@ -87,7 +87,6 @@ export async function GET(
       work_config: {
         remote_mode: publishedOffer.remote_mode,
         employment_type: publishedOffer.employment_type,
-        start_date: publishedOffer.start_date ? convertDateToObject(publishedOffer.start_date) : null,
         availability: publishedOffer.availability,
       },
       startup_signals: {
@@ -106,7 +105,6 @@ export async function GET(
       locations: (locationsRes.data || []).map(l => ({
         city: l.city,
         country: l.country,
-        region: l.region,
       })),
       responsibilities: (responsibilitiesRes.data || []).map(r => ({
         text: r.text,

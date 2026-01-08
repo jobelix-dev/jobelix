@@ -6,6 +6,7 @@
 
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
 import { OfferPerkEntry } from '@/lib/types';
 
 interface PerksInputProps {
@@ -29,20 +30,21 @@ export default function PerksInput({ perks, onChange }: PerksInputProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Perks & Benefits</h3>
+        <label className="block text-sm font-medium">Perks & Benefits</label>
         <button
           type="button"
           onClick={addPerk}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
         >
-          + Add Perk
+          <Plus className="w-4 h-4" />
+          Add Perk
         </button>
       </div>
 
       {perks.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">No perks added yet. Click "Add Perk" to start.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No perks added yet</p>
       )}
 
       <div className="space-y-2">
@@ -53,15 +55,16 @@ export default function PerksInput({ perks, onChange }: PerksInputProps) {
               type="text"
               value={perk.text}
               onChange={(e) => updatePerk(index, e.target.value)}
-              className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
+              className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
               placeholder="e.g. Remote work flexibility"
             />
             <button
               type="button"
               onClick={() => removePerk(index)}
-              className="text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 text-sm px-2 py-2 transition-colors"
+              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Remove perk"
             >
-              Remove
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         ))}
