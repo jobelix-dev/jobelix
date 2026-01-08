@@ -294,16 +294,6 @@ export interface OfferWorkConfig {
 }
 
 /**
- * Startup Signals Section
- */
-export interface OfferStartupSignals {
-  mission: string | null;
-  stage: 'preseed' | 'seed' | 'series_a' | 'series_b' | 'series_c' | 'series_d' | 'growth' | 'public' | null;
-  team_size: number | null;
-  seniority: 'junior' | 'mid' | 'senior' | 'lead' | 'principal' | 'staff' | null;
-}
-
-/**
  * Skill Entry
  */
 export interface OfferSkillEntry {
@@ -359,7 +349,7 @@ export interface OfferDraftData {
   basic_info: OfferBasicInfo;
   compensation: OfferCompensation;
   work_config: OfferWorkConfig;
-  startup_signals: OfferStartupSignals;
+  seniority: 'junior' | 'mid' | 'senior' | 'lead' | 'executive' | null;
   skills: OfferSkillEntry[];
   locations: OfferLocationEntry[];
   responsibilities: OfferResponsibilityEntry[];
@@ -378,7 +368,7 @@ export interface CompanyOfferDraft {
   basic_info: OfferBasicInfo;
   compensation: OfferCompensation;
   work_config: OfferWorkConfig;
-  startup_signals: OfferStartupSignals;
+  seniority: 'junior' | 'mid' | 'senior' | 'lead' | 'executive' | null;
   skills: OfferSkillEntry[];
   locations: OfferLocationEntry[];
   responsibilities: OfferResponsibilityEntry[];

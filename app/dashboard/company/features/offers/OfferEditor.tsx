@@ -46,7 +46,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
         basic_info: loadedDraft.basic_info,
         compensation: loadedDraft.compensation,
         work_config: loadedDraft.work_config,
-        startup_signals: loadedDraft.startup_signals,
+        seniority: loadedDraft.seniority,
         skills: loadedDraft.skills || [],
         locations: loadedDraft.locations || [],
         responsibilities: loadedDraft.responsibilities || [],
@@ -120,22 +120,41 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
   const handlePublish = async () => {
     if (!draft || !data) return;
 
-    // TODO: Implement validation
-    if (!data.basic_info.position_name) {
+    // Validate required fields
+    if (!data.basic_info.position_name || data.basic_info.position_name.trim() === '') {
       setError('Position name is required');
       return;
     }
 
     try {
       setSaving(true);
-      // TODO: Call publish RPC function
-      console.log('Publishing offer:', data);
-      // For now, just save
+      setError(null);
+
+      // Save draft first to ensure latest data
       await saveDraft(data);
+
+      console.log('Publishing draft:', draft.id);
+
+      // Call publish API
+      const res = await fetch('/api/company/offer/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft_id: draft.id }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to publish offer');
+      }
+
+      const { offer_id } = await res.json();
+      console.log('Successfully published offer:', offer_id);
+
+      // Close editor and return to list (which will show published offer)
       onClose();
     } catch (err: any) {
-      setError(err.message);
-    } finally {
+      console.error('Publish error:', err);
+      setError(err.message || 'Failed to publish offer');
       setSaving(false);
     }
   };
@@ -202,6 +221,8 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
             onEmploymentTypeChange={(value) => handleDataChange('work_config', { ...data.work_config, employment_type: value })}
             availability={data.work_config.availability}
             onAvailabilityChange={(value) => handleDataChange('work_config', { ...data.work_config, availability: value })}
+            seniority={data.seniority}
+            onSeniorityChange={(value) => handleDataChange('seniority', value)}
           />
         </div>
 
