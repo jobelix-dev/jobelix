@@ -245,7 +245,6 @@ export interface CompanyOffer {
   equity_range?: string | null;
   remote_mode?: 'onsite' | 'hybrid' | 'remote' | null;
   employment_type?: 'full_time' | 'part_time' | 'contract' | 'intern' | null;
-  start_date?: string | null; // SQL date
   availability?: string | null;
   mission?: string | null;
   stage?: string | null;
@@ -291,7 +290,6 @@ export interface OfferCompensation {
 export interface OfferWorkConfig {
   remote_mode: 'onsite' | 'hybrid' | 'remote' | null;
   employment_type: 'full_time' | 'part_time' | 'contract' | 'intern' | null;
-  start_date: DateObject | null;
   availability: string | null;
 }
 
@@ -322,7 +320,6 @@ export interface OfferSkillEntry {
 export interface OfferLocationEntry {
   city?: string | null;
   country?: string | null;
-  region?: string | null;
 }
 
 /**

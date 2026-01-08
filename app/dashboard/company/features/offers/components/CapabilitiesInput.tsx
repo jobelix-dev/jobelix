@@ -6,6 +6,7 @@
 
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
 import { OfferCapabilityEntry } from '@/lib/types';
 
 interface CapabilitiesInputProps {
@@ -29,53 +30,49 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Desired Capabilities</h3>
+        <label className="block text-sm font-medium">Desired Capabilities</label>
         <button
           type="button"
           onClick={addCapability}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
         >
-          + Add Capability
+          <Plus className="w-4 h-4" />
+          Add Capability
         </button>
       </div>
 
       {capabilities.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">No capabilities added yet. Click "Add Capability" to start.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No capabilities added yet</p>
       )}
 
       <div className="space-y-2">
         {capabilities.map((capability, index) => (
-          <div key={index} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-900/30">
-            <div className="flex gap-2 items-start mb-2">
-              <span className="text-zinc-500 dark:text-zinc-400 mt-2 flex-shrink-0">•</span>
-              <input
-                type="text"
-                value={capability.text}
-                onChange={(e) => updateCapability(index, 'text', e.target.value)}
-                className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                placeholder="e.g. Strong communication skills"
-              />
-            </div>
-            <div className="flex gap-2 items-center ml-4">
-              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Importance:</label>
-              <select
-                value={capability.importance}
-                onChange={(e) => updateCapability(index, 'importance', e.target.value as 'must' | 'nice')}
-                className="px-3 py-1 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-              >
-                <option value="must">Required</option>
-                <option value="nice">Nice to Have</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => removeCapability(index)}
-                className="ml-auto text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 text-sm transition-colors"
-              >
-                Remove
-              </button>
-            </div>
+          <div key={index} className="flex gap-2 items-start">
+            <input
+              type="text"
+              value={capability.text}
+              onChange={(e) => updateCapability(index, 'text', e.target.value)}
+              className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              placeholder="e.g. Strong communication skills"
+            />
+            <select
+              value={capability.importance}
+              onChange={(e) => updateCapability(index, 'importance', e.target.value as 'must' | 'nice')}
+              className="w-32 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+            >
+              <option value="must">Required</option>
+              <option value="nice">Nice to Have</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => removeCapability(index)}
+              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Remove capability"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ))}
       </div>

@@ -6,6 +6,7 @@
 
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
 import { OfferResponsibilityEntry } from '@/lib/types';
 
 interface ResponsibilitiesInputProps {
@@ -29,20 +30,21 @@ export default function ResponsibilitiesInput({ responsibilities, onChange }: Re
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Key Responsibilities</h3>
+        <label className="block text-sm font-medium">Key Responsibilities</label>
         <button
           type="button"
           onClick={addResponsibility}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
         >
-          + Add Responsibility
+          <Plus className="w-4 h-4" />
+          Add Responsibility
         </button>
       </div>
 
       {responsibilities.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">No responsibilities added yet. Click "Add Responsibility" to start.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No responsibilities added yet</p>
       )}
 
       <div className="space-y-2">
@@ -53,15 +55,16 @@ export default function ResponsibilitiesInput({ responsibilities, onChange }: Re
               type="text"
               value={responsibility.text}
               onChange={(e) => updateResponsibility(index, e.target.value)}
-              className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
+              className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
               placeholder="e.g. Lead the development of new features"
             />
             <button
               type="button"
               onClick={() => removeResponsibility(index)}
-              className="text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 text-sm px-2 py-2 transition-colors"
+              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Remove responsibility"
             >
-              Remove
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         ))}

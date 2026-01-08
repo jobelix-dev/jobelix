@@ -193,10 +193,10 @@ Complete database schema for Jobelix with all student and company tables.
 | `offer_id` | uuid | Links to published offer if editing existing | `company_offer.id` |
 | `basic_info` | jsonb | Object: `{position_name, description}` | `company_offer.position_name`, `company_offer.description` |
 | `compensation` | jsonb | Object: `{salary_min, salary_max, salary_currency, salary_period, equity, equity_range}` | `company_offer.salary_*`, `company_offer.equity*` |
-| `work_config` | jsonb | Object: `{remote_mode, employment_type, start_date: {year, month}, availability}` | `company_offer.remote_mode`, `company_offer.employment_type`, etc. |
+| `work_config` | jsonb | Object: `{remote_mode, employment_type, availability}` | `company_offer.remote_mode`, `company_offer.employment_type`, etc. |
 | `startup_signals` | jsonb | Object: `{mission, stage, team_size, seniority}` | `company_offer.mission`, `company_offer.stage`, etc. |
 | `skills` | jsonb | Array: `[{skill_slug, skill_text, importance, level, years}]` | `offer_skills` table rows |
-| `locations` | jsonb | Array: `[{city, country, region}]` | `offer_locations` table rows |
+| `locations` | jsonb | Array: `[{city, country}]` | `offer_locations` table rows |
 | `responsibilities` | jsonb | Array: `[{text}]` | `offer_responsibilities` table rows |
 | `capabilities` | jsonb | Array: `[{text, importance}]` | `offer_capabilities` table rows |
 | `questions` | jsonb | Array: `[{question}]` | `offer_questions` table rows |
@@ -228,7 +228,6 @@ Complete database schema for Jobelix with all student and company tables.
 | `equity_range` | text | Equity range (e.g., "0.1-0.5%") | `compensation.equity_range` |
 | `remote_mode` | text | 'onsite', 'hybrid', 'remote' | `work_config.remote_mode` |
 | `employment_type` | text | 'full_time', 'part_time', 'contract', 'intern' | `work_config.employment_type` |
-| `start_date` | date | Preferred start date (SQL date type) | `work_config.start_date` (converted from `{year, month}`) |
 | `availability` | text | Availability description | `work_config.availability` |
 | `mission` | text | Company/team mission | `startup_signals.mission` |
 | `stage` | text | Funding stage: 'preseed' → 'public' | `startup_signals.stage` |
@@ -265,7 +264,6 @@ Complete database schema for Jobelix with all student and company tables.
 | `offer_id` | uuid | Foreign key to `company_offer.id` (CASCADE DELETE) | - |
 | `city` | text | City name (e.g., "San Francisco") | `locations[].city` |
 | `country` | text | Country (e.g., "USA", "Remote") | `locations[].country` |
-| `region` | text | State/region (e.g., "California") | `locations[].region` |
 | `created_at` | timestamptz | When location was added | - |
 
 **Purpose:** Supports multiple locations per offer (e.g., SF or NYC). Students can filter by preferred location.
