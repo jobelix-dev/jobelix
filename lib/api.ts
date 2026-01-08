@@ -3,7 +3,7 @@
  * 
  * Frontend utilities for making API calls to backend routes.
  * Used by: All client components (LoginForm, SignupForm, StudentDashboard, etc.)
- * Provides typed wrappers around fetch() for auth, resume, and offer operations.
+ * Provides typed wrappers around fetch() for auth and resume operations.
  * Handles request/response formatting and error handling.
  */
 
@@ -15,10 +15,6 @@ import {
   ProfileResponse,
   ResumeResponse,
   UploadResponse,
-  OffersResponse,
-  CreateOfferPayload,
-  CreateOfferResponse,
-  DeleteOfferResponse,
   ExtractDataResponse,
   ExtractedResumeData,
   FinalizeProfileResponse,
@@ -127,24 +123,6 @@ class ApiClient {
     return this.request<FinalizeProfileResponse>('/api/student/profile/draft/finalize', {
       method: 'POST',
       body: JSON.stringify({ draftId }),
-    })
-  }
-
-  // ========== COMPANY - OFFERS ==========
-  async getOffers(): Promise<OffersResponse> {
-    return this.request<OffersResponse>('/api/company/offers')
-  }
-
-  async createOffer(payload: CreateOfferPayload): Promise<CreateOfferResponse> {
-    return this.request<CreateOfferResponse>('/api/company/offers', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-  }
-
-  async deleteOffer(id: string): Promise<DeleteOfferResponse> {
-    return this.request<DeleteOfferResponse>(`/api/company/offers/${id}`, {
-      method: 'DELETE',
     })
   }
 }

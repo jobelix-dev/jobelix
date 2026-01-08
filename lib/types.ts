@@ -58,37 +58,6 @@ export interface UploadResponse {
   error?: string;
 }
 
-export interface OfferData {
-  id: string;
-  company_id: string;
-  position_name: string;
-  description?: string;
-  wage?: number;
-  starting_date?: string;
-  created_at: string;
-}
-
-export interface OffersResponse {
-  offers: OfferData[];
-  error?: string;
-}
-
-export interface CreateOfferPayload {
-  position_name: string;
-  description?: string;
-}
-
-export interface CreateOfferResponse {
-  success: boolean;
-  offer?: OfferData;
-  error?: string;
-}
-
-export interface DeleteOfferResponse {
-  success: boolean;
-  error?: string;
-}
-
 // ============================================================================
 // Resume Data Structures (Shared across student dashboard components)
 // ============================================================================
@@ -262,8 +231,164 @@ export interface StudentResume {
 
 export interface CompanyOffer {
   id: string;
-  user_id: string;
-  title: string;
-  description?: string;
+  company_id: string;
   created_at?: string;
+  position_name: string;
+  description?: string | null;
+  status?: 'draft' | 'published' | 'closed';
+  published_at?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  salary_period?: 'hour' | 'day' | 'month' | 'year' | null;
+  equity?: boolean | null;
+  equity_range?: string | null;
+  remote_mode?: 'onsite' | 'hybrid' | 'remote' | null;
+  employment_type?: 'full_time' | 'part_time' | 'contract' | 'intern' | null;
+  start_date?: string | null; // SQL date
+  availability?: string | null;
+  mission?: string | null;
+  stage?: string | null;
+  team_size?: number | null;
+  seniority?: string | null;
+}
+
+// ============================================================================
+// Company Offer Draft Types
+// ============================================================================
+
+/**
+ * Date object used in draft (flexible for UI)
+ */
+export interface DateObject {
+  year: number;
+  month: number | null; // 1-12, nullable for "just year"
+}
+
+/**
+ * Basic Info Section
+ */
+export interface OfferBasicInfo {
+  position_name: string;
+  description: string | null;
+}
+
+/**
+ * Compensation Section
+ */
+export interface OfferCompensation {
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string; // 3-char code (EUR, USD, GBP)
+  salary_period: 'hour' | 'day' | 'month' | 'year' | null;
+  equity: boolean;
+  equity_range: string | null;
+}
+
+/**
+ * Work Configuration Section
+ */
+export interface OfferWorkConfig {
+  remote_mode: 'onsite' | 'hybrid' | 'remote' | null;
+  employment_type: 'full_time' | 'part_time' | 'contract' | 'intern' | null;
+  start_date: DateObject | null;
+  availability: string | null;
+}
+
+/**
+ * Startup Signals Section
+ */
+export interface OfferStartupSignals {
+  mission: string | null;
+  stage: 'preseed' | 'seed' | 'series_a' | 'series_b' | 'series_c' | 'series_d' | 'growth' | 'public' | null;
+  team_size: number | null;
+  seniority: 'junior' | 'mid' | 'senior' | 'lead' | 'principal' | 'staff' | null;
+}
+
+/**
+ * Skill Entry
+ */
+export interface OfferSkillEntry {
+  skill_slug: string;
+  skill_text: string;
+  importance: 'must' | 'nice';
+  level?: string | null;
+  years?: number | null;
+}
+
+/**
+ * Location Entry
+ */
+export interface OfferLocationEntry {
+  city?: string | null;
+  country?: string | null;
+  region?: string | null;
+}
+
+/**
+ * Responsibility Entry
+ */
+export interface OfferResponsibilityEntry {
+  text: string;
+}
+
+/**
+ * Capability Entry
+ */
+export interface OfferCapabilityEntry {
+  text: string;
+  importance: 'must' | 'nice';
+}
+
+/**
+ * Question Entry
+ */
+export interface OfferQuestionEntry {
+  question: string;
+}
+
+/**
+ * Perk Entry
+ */
+export interface OfferPerkEntry {
+  text: string;
+}
+
+/**
+ * Complete Offer Draft Data Structure
+ * Used by: OfferEditor and CompanyDashboard
+ */
+export interface OfferDraftData {
+  basic_info: OfferBasicInfo;
+  compensation: OfferCompensation;
+  work_config: OfferWorkConfig;
+  startup_signals: OfferStartupSignals;
+  skills: OfferSkillEntry[];
+  locations: OfferLocationEntry[];
+  responsibilities: OfferResponsibilityEntry[];
+  capabilities: OfferCapabilityEntry[];
+  questions: OfferQuestionEntry[];
+  perks: OfferPerkEntry[];
+}
+
+/**
+ * Company Offer Draft Database Record
+ */
+export interface CompanyOfferDraft {
+  id: string;
+  company_id: string;
+  offer_id: string | null;
+  basic_info: OfferBasicInfo;
+  compensation: OfferCompensation;
+  work_config: OfferWorkConfig;
+  startup_signals: OfferStartupSignals;
+  skills: OfferSkillEntry[];
+  locations: OfferLocationEntry[];
+  responsibilities: OfferResponsibilityEntry[];
+  capabilities: OfferCapabilityEntry[];
+  questions: OfferQuestionEntry[];
+  perks: OfferPerkEntry[];
+  status: 'editing' | 'ready_to_publish';
+  created_at: string;
+  updated_at: string;
 }
