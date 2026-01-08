@@ -81,13 +81,13 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
             Period
           </label>
           <select
-            value={data.salary_period || 'yearly'}
+            value={data.salary_period || 'year'}
             onChange={(e) => handleChange('salary_period', e.target.value)}
             className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
           >
-            <option value="yearly">Yearly</option>
-            <option value="monthly">Monthly</option>
-            <option value="hourly">Hourly</option>
+            <option value="year">Yearly</option>
+            <option value="month">Monthly</option>
+            <option value="hour">Hourly</option>
           </select>
         </div>
       </div>
@@ -99,13 +99,12 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
             Equity Available
           </label>
           <select
-            value={data.equity === null ? '' : data.equity.toString()}
-            onChange={(e) => handleChange('equity', e.target.value === '' ? null : e.target.value === 'true')}
+            value={data.equity === true ? 'true' : 'false'}
+            onChange={(e) => handleChange('equity', e.target.value === 'true')}
             className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
           >
-            <option value="">Not specified</option>
-            <option value="true">Yes</option>
             <option value="false">No</option>
+            <option value="true">Yes</option>
           </select>
         </div>
         <div>

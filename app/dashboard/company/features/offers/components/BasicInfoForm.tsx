@@ -26,6 +26,8 @@ interface BasicInfoFormProps {
   onEmploymentTypeChange: (type: 'full_time' | 'part_time' | 'contract' | 'intern' | null) => void;
   availability: string | null;
   onAvailabilityChange: (availability: string | null) => void;
+  seniority: 'junior' | 'mid' | 'senior' | 'lead' | 'executive' | null;
+  onSeniorityChange: (seniority: 'junior' | 'mid' | 'senior' | 'lead' | 'executive' | null) => void;
 }
 
 export default function BasicInfoForm({ 
@@ -38,7 +40,9 @@ export default function BasicInfoForm({
   employmentType,
   onEmploymentTypeChange,
   availability,
-  onAvailabilityChange
+  onAvailabilityChange,
+  seniority,
+  onSeniorityChange
 }: BasicInfoFormProps) {
   const handleChange = (field: keyof OfferBasicInfo, value: string | null) => {
     onChange({ ...data, [field]: value });
@@ -139,6 +143,25 @@ export default function BasicInfoForm({
           <option value="1_month">Within 1 Month</option>
           <option value="3_months">Within 3 Months</option>
           <option value="flexible">Flexible</option>
+        </select>
+      </div>
+
+      {/* Seniority Level */}
+      <div>
+        <label className="block text-sm font-medium mb-2">
+          Seniority Level
+        </label>
+        <select
+          value={seniority || ''}
+          onChange={(e) => onSeniorityChange(e.target.value ? e.target.value as 'junior' | 'mid' | 'senior' | 'lead' | 'executive' : null)}
+          className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+        >
+          <option value="">Not specified</option>
+          <option value="junior">Junior</option>
+          <option value="mid">Mid-Level</option>
+          <option value="senior">Senior</option>
+          <option value="lead">Lead</option>
+          <option value="executive">Executive</option>
         </select>
       </div>
     </div>
