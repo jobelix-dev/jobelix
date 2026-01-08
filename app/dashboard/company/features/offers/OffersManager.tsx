@@ -1,29 +1,43 @@
 /**
  * OffersManager Component
  * Main component for managing job offers
+ * 
+ * Displays:
+ * - Published offers from company_offer
+ * - Unpublished drafts from company_offer_draft (where offer_id IS NULL)
  */
 
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { OfferData } from '@/lib/types';
-import CreateOfferForm from './components/CreateOfferForm';
+import { CompanyOffer, CompanyOfferDraft } from '@/lib/types';
+import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
 
+type ViewState = 'list' | 'editor';
+
 export default function OffersManager() {
-  const [offers, setOffers] = useState<OfferData[]>([]);
+  const [publishedOffers, setPublishedOffers] = useState<CompanyOffer[]>([]);
+  const [unpublishedDrafts, setUnpublishedDrafts] = useState<CompanyOfferDraft[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<ViewState>('list');
+  const [editingDraftId, setEditingDraftId] = useState<string | undefined>(undefined);
 
-  // Fetch offers on mount
+  // Fetch offers and drafts on mount and when returning to list view
   useEffect(() => {
-    fetchOffers();
-  }, []);
+    if (view === 'list') {
+      fetchOffersAndDrafts();
+    }
+  }, [view]);
 
-  async function fetchOffers() {
+  async function fetchOffersAndDrafts() {
     setLoading(true);
     try {
-      const response = await api.getOffers();
-      setOffers(response.offers);
+      const res = await fetch('/api/company/offer');
+      if (!res.ok) throw new Error('Failed to fetch offers');
+      
+      const data = await res.json();
+      setPublishedOffers(data.publishedOffers || []);
+      setUnpublishedDrafts(data.unpublishedDrafts || []);
     } catch (err) {
       console.error('Failed to fetch offers:', err);
     } finally {
@@ -33,23 +47,119 @@ export default function OffersManager() {
 
   async function handleDeleteOffer(offerId: string) {
     try {
-      await api.deleteOffer(offerId);
+      const res = await fetch(`/api/company/offer/${offerId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) throw new Error('Failed to delete offer');
       
       // Remove from local state
-      setOffers((prev) => prev.filter((o) => o.id !== offerId));
+      setPublishedOffers((prev) => prev.filter((o) => o.id !== offerId));
     } catch (err: any) {
       console.error('Failed to delete offer:', err);
       alert(err.message || 'Failed to delete offer');
     }
   }
 
+  async function handleDeleteDraft(draftId: string) {
+    try {
+      const res = await fetch(`/api/company/offer/draft/${draftId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) throw new Error('Failed to delete draft');
+      
+      // Remove from local state
+      setUnpublishedDrafts((prev) => prev.filter((d) => d.id !== draftId));
+    } catch (err: any) {
+      console.error('Failed to delete draft:', err);
+      alert(err.message || 'Failed to delete draft');
+    }
+  }
+
+  /**
+   * Create a brand new unpublished draft
+   */
+  async function handleCreateNew() {
+    try {
+      const res = await fetch('/api/company/offer/draft/new', {
+        method: 'POST',
+      });
+      
+      if (!res.ok) throw new Error('Failed to create new draft');
+      
+      const { draft } = await res.json();
+      setEditingDraftId(draft.id);
+      setView('editor');
+    } catch (err: any) {
+      console.error('Failed to create new draft:', err);
+      alert(err.message || 'Failed to create new draft');
+    }
+  }
+
+  /**
+   * Edit an existing published offer
+   * - Loads or creates a draft for that offer
+   */
+  async function handleEditOffer(offerId: string) {
+    try {
+      const res = await fetch(`/api/company/offer/draft/for-offer/${offerId}`);
+      
+      if (!res.ok) throw new Error('Failed to load draft for offer');
+      
+      const { draft } = await res.json();
+      setEditingDraftId(draft.id);
+      setView('editor');
+    } catch (err: any) {
+      console.error('Failed to load draft for offer:', err);
+      alert(err.message || 'Failed to load draft for offer');
+    }
+  }
+
+  /**
+   * Edit an unpublished draft
+   */
+  function handleEditDraft(draftId: string) {
+    setEditingDraftId(draftId);
+    setView('editor');
+  }
+
+  function handleEditorClose() {
+    setView('list');
+    setEditingDraftId(undefined);
+  }
+
+  // Show editor
+  if (view === 'editor' && editingDraftId) {
+    return (
+      <OfferEditor
+        draftId={editingDraftId}
+        onClose={handleEditorClose}
+      />
+    );
+  }
+
+  // Show list view
   return (
     <div className="space-y-6">
-      <CreateOfferForm onSuccess={fetchOffers} />
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Job Offers</h1>
+        <button
+          onClick={handleCreateNew}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+        >
+          + Create New Offer
+        </button>
+      </div>
+
       <OffersList 
-        offers={offers} 
+        publishedOffers={publishedOffers}
+        unpublishedDrafts={unpublishedDrafts}
         loading={loading} 
-        onDelete={handleDeleteOffer} 
+        onEditOffer={handleEditOffer}
+        onEditDraft={handleEditDraft}
+        onDeleteOffer={handleDeleteOffer}
+        onDeleteDraft={handleDeleteDraft}
       />
     </div>
   );
