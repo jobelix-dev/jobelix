@@ -220,7 +220,7 @@ ${resumeText}`,
         publications: extractedData.publications,
         certifications: extractedData.certifications,
         social_links: extractedData.social_links,
-        status: 'reviewing',
+        status: 'editing', // Extracted data needs review before publishing
       })
       .select()
       .single()
