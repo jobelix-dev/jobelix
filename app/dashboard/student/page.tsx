@@ -11,13 +11,18 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { validateProfile } from '@/lib/profileValidation';
-import { ProfileEditor } from './features/profile';
-import { AIAssistant } from './features/ai-assistant';
-import { ResumeSection } from './features/resume';
-import DevActions from './components/DevActions';
+import DashboardNav from './components/DashboardNav';
+import ProfileTab from './components/ProfileTab';
+import MatchesTab from './components/MatchesTab';
+import AutoApplyTab from './components/AutoApplyTab';
+import ActivityTab from './components/ActivityTab';
 import type { ExtractDataResponse, ExtractedResumeData } from '@/lib/types';
 
+type DashboardTab = 'profile' | 'matches' | 'auto-apply' | 'activity';
+
 export default function StudentDashboard() {
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<DashboardTab>('profile');
   // Single source of truth for profile data (manual + AI extracted)
   const [profileData, setProfileData] = useState<ExtractedResumeData>({
     student_name: null,
@@ -48,24 +53,15 @@ export default function StudentDashboard() {
   const [extracting, setExtracting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [showValidationMessage, setShowValidationMessage] = useState(false);
 
   // Validate profile data - recalculates whenever profileData changes
   // useMemo runs only when profileData changes
   // see lib/profileValidation.ts for details on validation
-  // Only show validation errors after data has been loaded to avoid showing errors on initial render
   const validation = useMemo(() => {
-    if (!isDataLoaded) {
-      return { 
-        isValid: false, 
-        errors: [], 
-        fieldErrors: {
-          education: {},
-          experience: {}
-        }
-      };
-    }
     return validateProfile(profileData);
-  }, [profileData, isDataLoaded]);
+  }, [profileData]);
   const canSave = validation.isValid;
 
   /////////////////RESUME SECTION/////////////////
@@ -240,6 +236,18 @@ export default function StudentDashboard() {
 
   async function handleFinalize() {
     // gets executed when user clicks Save Profile button
+    
+    // If profile is not valid, show errors and don't save
+    if (!validation.isValid) {
+      setShowValidationErrors(true); // Keep field errors visible permanently
+      setShowValidationMessage(true); // Show error message temporarily
+      // Hide validation error message after 1.5 seconds (but keep field errors visible)
+      setTimeout(() => {
+        setShowValidationMessage(false);
+      }, 1500);
+      return;
+    }
+    
     setFinalizing(true);
     setUploadError('');
     setSaveSuccess(false);
@@ -259,6 +267,9 @@ export default function StudentDashboard() {
       setDraftId(response.draft.id);
       
       setSaveSuccess(true);
+      
+      // Hide validation errors after successful save
+      setShowValidationErrors(false);
       
       setTimeout(() => {
         setSaveSuccess(false);
@@ -302,58 +313,42 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-        {/* Resume Upload Section with Page Header */}
-        <ResumeSection
-          resumeInfo={resumeInfo}
-          uploading={uploading}
-          extracting={extracting}
-          uploadSuccess={uploadSuccess}
-          uploadError={uploadError}
-          onFileChange={handleFileChange}
-          onDownload={handleDownload}
-        />
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* Dashboard Navigation */}
+        <DashboardNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {/* Grid layout: ProfileEditor (main) + AIAssistant (sidebar when active) */}
-        <div className={`grid grid-cols-1 ${showAIAssistant ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
-          {/* Main Profile Editor - always visible */}
-          <div className={showAIAssistant ? 'lg:col-span-2' : 'lg:col-span-1'}>
-            <ProfileEditor
-              data={profileData}
-              onChange={setProfileData}
-              onSave={handleFinalize}
-              isSaving={finalizing}
-              canSave={canSave}
+        {/* Tab Content */}
+        <div className="space-y-8">
+          {activeTab === 'profile' && (
+            <ProfileTab
+              profileData={profileData}
+              setProfileData={setProfileData}
               validation={validation}
-              disabled={uploading || extracting}
-              loadingMessage={uploading ? 'Uploading Resume...' : extracting ? 'Extracting Data...' : undefined}
-              loadingSubmessage={uploading ? 'Please wait while we upload your resume' : extracting ? 'AI is analyzing your resume and extracting information' : undefined}
-              saveSuccess={saveSuccess}
-            />
-          </div>
-
-          {/* AI Assistant - optional sidebar */}
-        {showAIAssistant && draftId && (
-          <div className="lg:col-span-1">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                🤖 AI Assistant Active
-              </h3>
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Your resume has been analyzed. Chat with AI to validate and complete your profile.
-              </p>
-            </div>
-            <AIAssistant
+              showValidationErrors={showValidationErrors}
+              showValidationMessage={showValidationMessage}
               draftId={draftId}
-              currentData={profileData}
-              onUpdate={setProfileData}
-              onFinalize={handleFinalize}
+              showAIAssistant={showAIAssistant}
+              resumeInfo={resumeInfo}
+              uploading={uploading}
+              extracting={extracting}
+              uploadSuccess={uploadSuccess}
+              uploadError={uploadError}
+              finalizing={finalizing}
+              saveSuccess={saveSuccess}
+              handleFileChange={handleFileChange}
+              handleDownload={handleDownload}
+              handleFinalize={handleFinalize}
             />
-          </div>
-        )}
-      </div>
+          )}
 
-      <DevActions onLaunchPython={handleLaunchPython} />
+          {activeTab === 'matches' && <MatchesTab />}
+
+          {activeTab === 'auto-apply' && (
+            <AutoApplyTab onLaunchPython={handleLaunchPython} />
+          )}
+
+          {activeTab === 'activity' && <ActivityTab />}
+        </div>
       </div>
     </div>
   );
