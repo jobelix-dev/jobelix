@@ -95,10 +95,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Mark draft as confirmed
+    // Mark draft as published (matches live profile now)
     await supabase
       .from('student_profile_draft')
-      .update({ status: 'confirmed' })
+      .update({ status: 'published' })
       .eq('id', draftId)
       .eq('student_id', user.id)
 

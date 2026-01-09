@@ -51,7 +51,7 @@ export async function GET() {
         address: null,
         education: [],
         experience: [],
-        status: 'extracting',
+        status: 'editing', // New drafts always start in editing state
       })
       .select()
       .single()
@@ -89,10 +89,12 @@ export async function PUT(req: NextRequest) {
     }
 
     // Update the draft with new data
+    // Always reset status to 'editing' when any changes are made
     const { data: draft, error: updateError } = await supabase
       .from('student_profile_draft')
       .update({
         ...updates,
+        status: 'editing', // Mark as having unpublished changes
         updated_at: new Date().toISOString(),
       })
       .eq('id', draftId)
