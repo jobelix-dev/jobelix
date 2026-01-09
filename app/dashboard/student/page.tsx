@@ -48,24 +48,15 @@ export default function StudentDashboard() {
   const [extracting, setExtracting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [showValidationMessage, setShowValidationMessage] = useState(false);
 
   // Validate profile data - recalculates whenever profileData changes
   // useMemo runs only when profileData changes
   // see lib/profileValidation.ts for details on validation
-  // Only show validation errors after data has been loaded to avoid showing errors on initial render
   const validation = useMemo(() => {
-    if (!isDataLoaded) {
-      return { 
-        isValid: false, 
-        errors: [], 
-        fieldErrors: {
-          education: {},
-          experience: {}
-        }
-      };
-    }
     return validateProfile(profileData);
-  }, [profileData, isDataLoaded]);
+  }, [profileData]);
   const canSave = validation.isValid;
 
   /////////////////RESUME SECTION/////////////////
@@ -240,6 +231,18 @@ export default function StudentDashboard() {
 
   async function handleFinalize() {
     // gets executed when user clicks Save Profile button
+    
+    // If profile is not valid, show errors and don't save
+    if (!validation.isValid) {
+      setShowValidationErrors(true); // Keep field errors visible permanently
+      setShowValidationMessage(true); // Show error message temporarily
+      // Hide validation error message after 1.5 seconds (but keep field errors visible)
+      setTimeout(() => {
+        setShowValidationMessage(false);
+      }, 1500);
+      return;
+    }
+    
     setFinalizing(true);
     setUploadError('');
     setSaveSuccess(false);
@@ -259,6 +262,9 @@ export default function StudentDashboard() {
       setDraftId(response.draft.id);
       
       setSaveSuccess(true);
+      
+      // Hide validation errors after successful save
+      setShowValidationErrors(false);
       
       setTimeout(() => {
         setSaveSuccess(false);
@@ -324,11 +330,12 @@ export default function StudentDashboard() {
               onSave={handleFinalize}
               isSaving={finalizing}
               canSave={canSave}
-              validation={validation}
+              validation={showValidationErrors ? validation : undefined}
               disabled={uploading || extracting}
               loadingMessage={uploading ? 'Uploading Resume...' : extracting ? 'Extracting Data...' : undefined}
               loadingSubmessage={uploading ? 'Please wait while we upload your resume' : extracting ? 'AI is analyzing your resume and extracting information' : undefined}
               saveSuccess={saveSuccess}
+              showValidationErrors={showValidationMessage}
             />
           </div>
 

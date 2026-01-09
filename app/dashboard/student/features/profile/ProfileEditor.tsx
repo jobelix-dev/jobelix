@@ -33,6 +33,7 @@ interface ProfileEditorProps {
   loadingMessage?: string;
   loadingSubmessage?: string;
   saveSuccess?: boolean;
+  showValidationErrors?: boolean;
 }
 
 export default function ProfileEditor({ 
@@ -45,7 +46,8 @@ export default function ProfileEditor({
   disabled = false,
   loadingMessage,
   loadingSubmessage,
-  saveSuccess = false
+  saveSuccess = false,
+  showValidationErrors = false
 }: ProfileEditorProps) {
   
   // Update a top-level field (name, phone, email, address)
@@ -646,7 +648,7 @@ export default function ProfileEditor({
         {/* Save Button */}
         <button
           onClick={onSave}
-          disabled={isSaving || !canSave || disabled}
+          disabled={isSaving || disabled}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-foreground text-background hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
         >
           {saveSuccess ? (
@@ -657,10 +659,19 @@ export default function ProfileEditor({
           ) : (
             <>
               <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : canSave ? 'Save Profile' : 'Complete Required Fields'}
+              {isSaving ? 'Saving...' : 'Save Profile'}
             </>
           )}
         </button>
+
+        {/* Validation Error Message */}
+        {showValidationErrors && validation && !validation.isValid && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+              Please fix all required fields before saving
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
