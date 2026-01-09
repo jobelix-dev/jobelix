@@ -659,7 +659,7 @@ export default function ProfileEditor({
           ) : (
             <>
               <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save Profile'}
+              {isSaving ? 'Saving...' : 'Publish Profile'}
             </>
           )}
         </button>
