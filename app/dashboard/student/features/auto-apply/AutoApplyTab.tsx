@@ -1,240 +1,272 @@
 /**
- * Auto Apply Tab Content
- * 
- * Mass application tools and automation features.
- * Includes development/testing tools for Python integration.
+ * Auto Apply Tab - Combined Bot Control and Job Preferences
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Zap, Rocket, AlertCircle } from 'lucide-react';
+import WorkPreferencesEditor from './components/WorkPreferencesEditor';
 
 interface AutoApplyTabProps {
   onLaunchPython: () => void;
 }
 
-interface TokenInfo {
-  id: string;
-  token: string;
-  uses_remaining: number;
-  max_uses: number;
-  revoked: boolean;
-  created_at: string;
-  last_used_at: string | null;
-  total_cost?: number;
+interface CreditBalance {
+  balance: number;
+  total_earned: number;
+  total_purchased: number;
+  total_used: number;
+  last_updated: string | null;
+}
+
+interface ClaimStatus {
+  can_claim: boolean;
+  claimed_today: boolean;
+  last_claim: string | null;
+  next_claim_available: string | null;
 }
 
 export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
-  const [hasToken, setHasToken] = useState(false);
+  const [credits, setCredits] = useState<CreditBalance | null>(null);
+  const [claimStatus, setClaimStatus] = useState<ClaimStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preferencesComplete, setPreferencesComplete] = useState(false);
+  const [checkingPreferences, setCheckingPreferences] = useState(true);
+  const [showLaunchWarning, setShowLaunchWarning] = useState(false);
+  const [showClaimWarning, setShowClaimWarning] = useState(false);
+  const [showBuyWarning, setShowBuyWarning] = useState(false);
 
-  // Fetch current token status
-  const fetchTokenStatus = async () => {
+  const checkPreferences = useCallback(async () => {
+    try {
+      const response = await fetch('/api/student/work-preferences');
+      const data = await response.json();
+      
+      if (data.preferences) {
+        const prefs = data.preferences;
+        const hasPositions = prefs.positions && prefs.positions.length > 0;
+        const hasLocations = prefs.locations && prefs.locations.length > 0;
+        const hasExperience = prefs.exp_internship || prefs.exp_entry || prefs.exp_associate ||
+          prefs.exp_mid_senior || prefs.exp_director || prefs.exp_executive;
+        const hasJobTypes = prefs.job_full_time || prefs.job_part_time || prefs.job_contract ||
+          prefs.job_temporary || prefs.job_internship || prefs.job_volunteer || prefs.job_other;
+        const hasDateFilters = prefs.date_24_hours || prefs.date_week || 
+          prefs.date_month || prefs.date_all_time;
+        const hasPersonalInfo = prefs.date_of_birth && prefs.notice_period && prefs.salary_expectation_usd && prefs.salary_expectation_usd > 0;
+        
+        setPreferencesComplete(hasPositions && hasLocations && hasExperience && 
+          hasJobTypes && hasDateFilters && hasPersonalInfo);
+      } else {
+        setPreferencesComplete(false);
+      }
+    } catch (err) {
+      setPreferencesComplete(false);
+    } finally {
+      setCheckingPreferences(false);
+    }
+  }, []);
+
+  const fetchCredits = async () => {
     try {
       setError(null);
-      const response = await fetch('/api/student/tokens/current', {
-        credentials: 'include',
-      });
+      const response = await fetch('/api/student/credits/balance', { credentials: 'include' });
       const data = await response.json();
       
       if (response.status === 401) {
-        setError('Please log in to generate tokens');
+        setError('Please log in to view credits');
         setLoading(false);
         return;
       }
       
-      if (data.hasToken) {
-        setHasToken(true);
-        setTokenInfo(data.token);
+      if (response.ok) {
+        setCredits(data);
       } else {
-        setHasToken(false);
-        setTokenInfo(null);
+        setError(data.error || 'Failed to load credits');
       }
       setLoading(false);
     } catch (err: any) {
-      console.error('Failed to fetch token status:', err);
-      setError('Failed to load token status');
+      setError('Failed to load credits');
       setLoading(false);
     }
   };
 
-  // Generate new daily token
-  const handleGenerateToken = async () => {
+  const fetchClaimStatus = async () => {
     try {
-      setGenerating(true);
+      const response = await fetch('/api/student/credits/can-claim', { credentials: 'include' });
+      const data = await response.json();
+      if (response.ok) setClaimStatus(data);
+    } catch (err: any) {
+      console.error('Failed to fetch claim status');
+    }
+  };
+
+  const handleClaimCredits = async () => {
+    if (claimStatus?.claimed_today) {
+      setShowClaimWarning(true);
+      setTimeout(() => setShowClaimWarning(false), 1500);
+      return;
+    }
+
+    try {
+      setClaiming(true);
       setError(null);
-      const response = await fetch('/api/student/tokens/generate', {
+      const response = await fetch('/api/student/credits/claim', {
         method: 'POST',
         credentials: 'include',
       });
       const data = await response.json();
       
       if (response.status === 401) {
-        setError('Please log in to generate tokens');
+        setError('Please log in to claim credits');
         return;
       }
       
       if (response.ok) {
-        setHasToken(true);
-        setTokenInfo(data.token);
+        await fetchCredits();
+        await fetchClaimStatus();
       } else {
-        setError(data.message || data.error || 'Failed to generate token');
+        setError(data.error || 'Failed to claim credits');
       }
     } catch (err: any) {
-      console.error('Failed to generate token:', err);
-      setError('Failed to generate token');
+      setError('Failed to claim credits');
     } finally {
-      setGenerating(false);
+      setClaiming(false);
     }
   };
 
-  // Initial fetch on mount
-  useEffect(() => {
-    fetchTokenStatus();
-  }, []);
+  const handleBuyCredits = () => {
+    setShowBuyWarning(true);
+    setTimeout(() => setShowBuyWarning(false), 1500);
+  };
 
-  // Fast polling every 2 seconds when token exists
-  useEffect(() => {
-    if (!hasToken) return;
+  const handlePreferencesSaved = () => {
+    checkPreferences();
+  };
 
+  const handleLaunchClick = () => {
+    if (canLaunchBot) {
+      onLaunchPython();
+    } else {
+      setShowLaunchWarning(true);
+      setTimeout(() => setShowLaunchWarning(false), 3000);
+    }
+  };
+
+  useEffect(() => {
+    fetchCredits();
+    fetchClaimStatus();
+    checkPreferences();
+  }, [checkPreferences]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
-      fetchTokenStatus();
-    }, 2000); // 2 seconds for near-instant updates
-
+      fetchCredits();
+      fetchClaimStatus();
+      checkPreferences();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [hasToken]);
+  }, [checkPreferences]);
+
+  const canLaunchBot = credits && credits.balance > 0 && preferencesComplete;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
           Jobelix Auto Apply
         </h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Automate your job applications with AI-powered tools
+          Automate your Linkedin job applications with AI-powered tools
         </p>
       </div>
 
-      {/* Token Status Section */}
-      <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+      <WorkPreferencesEditor onSave={handlePreferencesSaved} />
+
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
+        {/* Header inside container */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
+            <Rocket className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              Auto Apply Credits
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Redeem your daily credits to power the auto-apply bot
+          <div>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              Auto Apply Bot
+            </h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+              Redeem daily credits and launch your Linkedin auto-apply bot
             </p>
           </div>
         </div>
 
-        {loading ? (
-          <div className="text-sm text-zinc-500">Loading...</div>
-        ) : hasToken && tokenInfo ? (
-          <div className="space-y-3">
-            {/* Usage Stats */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Credits remaining until midnight
-                </span>
-                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  {tokenInfo.uses_remaining} / {tokenInfo.max_uses}
-                </span>
-              </div>
-              <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all"
-                  style={{ width: `${(tokenInfo.uses_remaining / tokenInfo.max_uses) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Cost Display */}
-            {tokenInfo.total_cost !== undefined && tokenInfo.total_cost > 0 && (
-              <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
-                <span>Total cost today</span>
-                <span className="font-mono font-semibold">
-                  ${tokenInfo.total_cost.toFixed(4)}
-                </span>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-sm text-zinc-500">Loading...</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Available Credits</span>
+                  <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                    {credits?.balance.toLocaleString() || 0}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleClaimCredits}
+                    disabled={claiming}
+                    className="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {claiming ? 'Claiming...' : '🎁 Claim Daily 50'}
+                  </button>
+                  <button 
+                    onClick={handleBuyCredits}
+                    className="flex-1 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all"
+                  >
+                    💳 Buy Credits
+                  </button>
+                </div>
+                {showBuyWarning && (
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300">
+                    Coming soon
+                  </div>
+                )}
+                {showClaimWarning && (
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
+                    Already claimed today
+                  </div>
+                )}
+                {error && (
+                  <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
+                    {error}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        ) : (
+
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-              <AlertCircle className="w-5 h-5 text-zinc-500 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-1">
-                  Ready to redeem your daily credits
-                </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Click below to activate 100 credits. Credits reset daily at midnight.
-                </p>
+            {checkingPreferences ? (
+              <p className="text-sm text-zinc-500">Checking preferences...</p>
+            ) : (
+              <div className="space-y-3">
+                <button
+                  onClick={handleLaunchClick}
+                  className="w-full px-6 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <Rocket className="w-5 h-5" />
+                  Launch Bot
+                </button>
+                
+                {showLaunchWarning && !canLaunchBot && (
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
+                    {!credits || credits.balance <= 0 ? 'Missing credits' : 'Missing job search preferences'}
+                  </div>
+                )}
               </div>
-            </div>
-
-            <button
-              onClick={handleGenerateToken}
-              disabled={generating}
-              className="w-full px-4 py-3 text-sm font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generating ? 'Activating...' : 'Redeem Daily Credits'}
-            </button>
+            )}
           </div>
-        )}
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Launch Bot */}
-      <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <Rocket className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Start the bot to automatically apply to matching jobs
-            </p>
-          </div>
-          <button
-            onClick={onLaunchPython}
-            disabled={!hasToken}
-            className="px-6 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
-          >
-            <Rocket className="w-4 h-4" />
-            {hasToken ? 'Launch Bot' : 'Redeem Credits First'}
-          </button>
-        </div>
-      </div>
-
-      {/* Mass Apply Feature (Coming Soon) */}
-      <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-12 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-4">
-          <Rocket className="w-8 h-8 text-zinc-400" />
-        </div>
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-          Mass Apply Coming Soon
-        </h3>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-4">
-          Apply to multiple positions with a single click. Our AI will customize your application for each role.
-        </p>
-        <div className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-full">
-          <Zap className="w-3 h-3" />
-          In Development
         </div>
       </div>
     </div>
