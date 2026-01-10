@@ -1,12 +1,12 @@
 /**
  * POST /api/autoapply/gpt4
  *
- * Body: { token: string, messages: Array<{ role: 'user'|'assistant'|'system', content: string }>, model?: string }
+ * Body: { token: string, messages: Array<{ role: 'user'|'assistant'|'system', content: string }> }
  *
- * This endpoint validates the provided token against `gpt_tokens` table using
- * the service-role Supabase key, enforces revocation and simple per-token
- * usage limits, forwards the request to OpenAI (server-side), updates
- * usage counters and returns the model response.
+ * This endpoint is for the Python desktop app only.
+ * Validates API token, checks credits, forwards to OpenAI, and deducts 1 credit.
+ * 
+ * Security: Token is stored in database and validated server-side.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,19 +16,20 @@ import serviceSupabase from '@/lib/supabaseService'
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 /**
- * OpenAI GPT-4 Pricing (per 1M tokens)
- * Source: https://openai.com/api/pricing/
+ * OpenAI GPT-4o-mini Pricing (per 1M tokens)
+ * Source: https://platform.openai.com/docs/models/gpt-4o-mini
+ * Updated: January 10, 2026
  */
-const GPT4_PRICING = {
-  input: 30.00,   // $30 per 1M input tokens
-  output: 60.00   // $60 per 1M output tokens
+const GPT4O_MINI_PRICING = {
+  input: 0.15,   // $0.15 per 1M input tokens
+  output: 0.60   // $0.60 per 1M output tokens
 }
 
 /**
- * Calculate cost for GPT-4 API call
+ * Calculate cost for GPT-4o-mini API call
  */
 function calculateCost(inputTokens: number, outputTokens: number): number {
-  return (inputTokens * GPT4_PRICING.input + outputTokens * GPT4_PRICING.output) / 1_000_000
+  return (inputTokens * GPT4O_MINI_PRICING.input + outputTokens * GPT4O_MINI_PRICING.output) / 1_000_000
 }
 
 export async function POST(req: NextRequest) {
@@ -37,41 +38,48 @@ export async function POST(req: NextRequest) {
     const { token, messages, temperature = 0.8 } = body || {}
 
     if (!token) {
-      return NextResponse.json({ error: 'Token required' }, { status: 400 })
+      return NextResponse.json({ error: 'token required' }, { status: 400 })
     }
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
 
-    // Lookup token (service role client bypasses RLS)
-    const { data: tokenRow, error: fetchErr } = await serviceSupabase
-      .from('gpt_tokens')
-      .select('*')
+    // Validate token and get user_id
+    const { data: apiToken, error: tokenError } = await serviceSupabase
+      .from('api_tokens')
+      .select('user_id')
       .eq('token', token)
-      .limit(1)
       .maybeSingle()
 
-    if (fetchErr) {
-      console.error('Token lookup error:', fetchErr)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    if (!tokenRow) {
+    if (tokenError || !apiToken) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    if (tokenRow.revoked) {
-      return NextResponse.json({ error: 'Token revoked' }, { status: 403 })
+    const user_id = apiToken.user_id
+
+    // Check if user has credits available
+    const { data: userCredits, error: creditsError } = await serviceSupabase
+      .from('user_credits')
+      .select('balance')
+      .eq('user_id', user_id)
+      .maybeSingle()
+
+    if (creditsError) {
+      console.error('Credits lookup error:', creditsError)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    if (tokenRow.uses_remaining !== null && tokenRow.uses_remaining <= 0) {
-      return NextResponse.json({ error: 'Token usage exhausted' }, { status: 402 })
+    if (!userCredits || userCredits.balance <= 0) {
+      return NextResponse.json({ 
+        error: 'Insufficient credits',
+        message: 'You need to claim daily credits or purchase more credits'
+      }, { status: 402 })
     }
 
-    // Call OpenAI with GPT-4
+    // Call OpenAI with GPT-4o-mini (cheaper model)
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages,
       temperature,
     })
@@ -79,30 +87,34 @@ export async function POST(req: NextRequest) {
     // Calculate cost for this API call
     const inputTokens = completion.usage?.prompt_tokens || 0
     const outputTokens = completion.usage?.completion_tokens || 0
+    const totalTokens = completion.usage?.total_tokens || (inputTokens + outputTokens)
     const callCost = calculateCost(inputTokens, outputTokens)
 
-    // Update usage and cost atomically
-    try {
-      const newValues: any = { last_used_at: new Date().toISOString() }
-      
-      // Decrement remaining uses
-      if (tokenRow.uses_remaining !== null) {
-        newValues.uses_remaining = Math.max(0, tokenRow.uses_remaining - 1)
+    // Deduct 1 credit from user balance                        
+    const { data: creditResult, error: deductError } = await serviceSupabase
+      .rpc('use_credits', {
+        p_user_id: user_id,
+        p_amount: 1
+      })
+
+    if (deductError || !creditResult || creditResult.length === 0) {
+      console.error('Failed to deduct credits:', deductError)
+      // Don't fail the request - OpenAI call already succeeded
+      console.warn(`Credits not deducted for user ${user_id}`)
+    } else {
+      const { success, new_balance } = creditResult[0]
+      if (success) {
+        console.log(`[Credits] User ${user_id}: 1 credit used, balance: ${new_balance}`)
+        
+        // Update token usage statistics (tokens used + cost)
+        await serviceSupabase.rpc('update_token_usage', {
+          p_token: token,
+          p_tokens_used: totalTokens,
+          p_cost_usd: callCost
+        })
+      } else {
+        console.warn(`[Credits] Failed to deduct credit for user ${user_id}`)
       }
-      
-      // Increment total cost
-      const newTotalCost = (parseFloat(tokenRow.total_cost || '0') + callCost).toFixed(6)
-      newValues.total_cost = newTotalCost
-      
-      await serviceSupabase
-        .from('gpt_tokens')
-        .update(newValues)
-        .eq('id', tokenRow.id)
-      
-      console.log(`[Token ${tokenRow.id}] Usage: ${tokenRow.uses_remaining} → ${newValues.uses_remaining}, Cost: $${tokenRow.total_cost || 0} → $${newTotalCost} (+$${callCost.toFixed(6)})`)
-    } catch (uErr) {
-      console.warn('Failed to update token usage:', uErr)
-      // Not fatal for response
     }
 
     // Transform OpenAI response to client-expected format
@@ -112,8 +124,8 @@ export async function POST(req: NextRequest) {
       usage: {
         input_tokens: inputTokens,
         output_tokens: outputTokens,
-        total_tokens: completion.usage?.total_tokens || 0,
-        total_cost: callCost // Include cost in response
+        total_tokens: totalTokens,
+        total_cost: callCost
       },
       model: completion.model,
       finish_reason: choice.finish_reason || 'stop'
