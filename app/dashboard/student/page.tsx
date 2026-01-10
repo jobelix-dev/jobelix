@@ -12,10 +12,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { validateProfile } from '@/lib/profileValidation';
 import DashboardNav from './components/DashboardNav';
-import ProfileTab from './components/ProfileTab';
-import MatchesTab from './components/MatchesTab';
-import AutoApplyTab from './components/AutoApplyTab';
-import ActivityTab from './components/ActivityTab';
+import { ProfileTab } from './features/profile';
+import { MatchesTab } from './features/matches';
+import { AutoApplyTab } from './features/auto-apply';
+import { ActivityTab } from './features/activity';
 import type { ExtractDataResponse, ExtractedResumeData } from '@/lib/types';
 
 type DashboardTab = 'profile' | 'matches' | 'auto-apply' | 'activity';

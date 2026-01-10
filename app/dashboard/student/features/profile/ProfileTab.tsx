@@ -11,9 +11,9 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import { ProfileEditor } from '../features/profile';
-import { AIAssistant } from '../features/ai-assistant';
-import { ResumeSection } from '../features/resume';
+import ProfileEditor from './ProfileEditor';
+import { AIAssistant } from '../ai-assistant';
+import { ResumeSection } from '../resume';
 import type { ExtractedResumeData } from '@/lib/types';
 import { ProfileValidationResult } from '@/lib/profileValidation';
 
