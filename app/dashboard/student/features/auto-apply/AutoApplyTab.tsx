@@ -8,7 +8,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Zap, Rocket, Settings, Key, AlertCircle, CheckCircle } from 'lucide-react';
+import { Zap, Rocket, AlertCircle } from 'lucide-react';
 
 interface AutoApplyTabProps {
   onLaunchPython: () => void;
@@ -112,7 +112,7 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-          Auto Apply
+          Jobelix Auto Apply
         </h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           Automate your job applications with AI-powered tools
@@ -123,14 +123,14 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
       <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <Key className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              Daily API Token
+              Auto Apply Credits
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Generate one token per day for the compiled app
+              Redeem your daily credits to power the auto-apply bot
             </p>
           </div>
         </div>
@@ -138,33 +138,23 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
         {loading ? (
           <div className="text-sm text-zinc-500">Loading...</div>
         ) : hasToken && tokenInfo ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Usage Stats */}
-            <div className="flex items-center gap-6">
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Remaining Uses Today
-                  </span>
-                  <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    {tokenInfo.uses_remaining} / {tokenInfo.max_uses}
-                  </span>
-                </div>
-                <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(tokenInfo.uses_remaining / tokenInfo.max_uses) * 100}%` }}
-                  />
-                </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Credits remaining until midnight
+                </span>
+                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {tokenInfo.uses_remaining} / {tokenInfo.max_uses}
+                </span>
               </div>
-            </div>
-
-            {/* Status */}
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span className="text-zinc-600 dark:text-zinc-400">
-                Token active until midnight
-              </span>
+              <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${(tokenInfo.uses_remaining / tokenInfo.max_uses) * 100}%` }}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -173,10 +163,10 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
               <AlertCircle className="w-5 h-5 text-zinc-500 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-1">
-                  No token generated today
+                  Ready to redeem your daily credits
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Generate a daily token to use with the compiled application. You can generate one token per day with 100 API calls.
+                  Click below to activate 100 credits. Credits reset daily at midnight.
                 </p>
               </div>
             </div>
@@ -186,7 +176,7 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
               disabled={generating}
               className="w-full px-4 py-3 text-sm font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {generating ? 'Generating...' : 'Generate Daily Token'}
+              {generating ? 'Activating...' : 'Redeem Daily Credits'}
             </button>
           </div>
         )}
@@ -198,28 +188,26 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
         )}
       </div>
 
-      {/* Development Testing Section */}
+      {/* Launch Bot */}
       <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-            <Settings className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              Test Python Integration
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Development testing only
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Rocket className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Start the bot to automatically apply to matching jobs
             </p>
           </div>
+          <button
+            onClick={onLaunchPython}
+            disabled={!hasToken}
+            className="px-6 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+          >
+            <Rocket className="w-4 h-4" />
+            {hasToken ? 'Launch Bot' : 'Redeem Credits First'}
+          </button>
         </div>
-        
-        <button
-          onClick={onLaunchPython}
-          className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          Launch Chromium Test
-        </button>
       </div>
 
       {/* Mass Apply Feature (Coming Soon) */}
