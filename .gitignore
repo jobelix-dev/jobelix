@@ -53,3 +53,5 @@ helper_kheng.md
 
 #stripe
 stripe-cli-bin
+# auto-generated config
+config.yaml

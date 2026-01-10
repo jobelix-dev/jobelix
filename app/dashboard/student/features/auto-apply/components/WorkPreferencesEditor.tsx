@@ -9,6 +9,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Save, AlertCircle, CheckCircle, Settings } from 'lucide-react';
+import { exportPreferencesToYAML } from '@/lib/yamlConverter';
 import SearchCriteriaSection from './SearchCriteriaSection';
 import ExperienceLevelsSection from './ExperienceLevelsSection';
 import JobTypesSection from './JobTypesSection';
@@ -221,7 +222,7 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
     setSaveSuccess(false);
 
     try {
-      const response = await fetch('/api/student/work-preferences/save', {
+      const response = await fetch('/api/student/work-preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(preferences),
@@ -233,6 +234,16 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      
+      // Export preferences to YAML file in repo root
+      try {
+        console.log('Exporting YAML config...');
+        await exportPreferencesToYAML(preferences);
+        console.log('YAML config exported successfully');
+      } catch (yamlError) {
+        console.error('Failed to export YAML:', yamlError);
+        // Don't fail the whole save if YAML export fails
+      }
       
       // Notify parent component
       if (onSave) {
