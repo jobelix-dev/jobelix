@@ -3,6 +3,7 @@
  * Public API for profile management feature
  */
 
+export { default as ProfileTab } from './ProfileTab';
 export { default as ProfileEditor } from './ProfileEditor';
 export { default as EducationForm } from './components/EducationForm';
 export { default as ExperienceForm } from './components/ExperienceForm';
