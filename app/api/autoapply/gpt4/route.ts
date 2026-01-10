@@ -15,10 +15,26 @@ import serviceSupabase from '@/lib/supabaseService'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+/**
+ * OpenAI GPT-4 Pricing (per 1M tokens)
+ * Source: https://openai.com/api/pricing/
+ */
+const GPT4_PRICING = {
+  input: 30.00,   // $30 per 1M input tokens
+  output: 60.00   // $60 per 1M output tokens
+}
+
+/**
+ * Calculate cost for GPT-4 API call
+ */
+function calculateCost(inputTokens: number, outputTokens: number): number {
+  return (inputTokens * GPT4_PRICING.input + outputTokens * GPT4_PRICING.output) / 1_000_000
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { token, messages, model = 'gpt-4' } = body || {}
+    const { token, messages, temperature = 0.8 } = body || {}
 
     if (!token) {
       return NextResponse.json({ error: 'Token required' }, { status: 400 })
@@ -53,30 +69,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Token usage exhausted' }, { status: 402 })
     }
 
-    // Call OpenAI
+    // Call OpenAI with GPT-4
     const completion = await openai.chat.completions.create({
-      model,
+      model: 'gpt-4',
       messages,
-      // You can tune other params (max_tokens, temperature) as needed
+      temperature,
     })
 
-    // Decrement usage atomically (best-effort; race is acceptable for MVP)
+    // Calculate cost for this API call
+    const inputTokens = completion.usage?.prompt_tokens || 0
+    const outputTokens = completion.usage?.completion_tokens || 0
+    const callCost = calculateCost(inputTokens, outputTokens)
+
+    // Update usage and cost atomically
     try {
       const newValues: any = { last_used_at: new Date().toISOString() }
+      
+      // Decrement remaining uses
       if (tokenRow.uses_remaining !== null) {
         newValues.uses_remaining = Math.max(0, tokenRow.uses_remaining - 1)
       }
+      
+      // Increment total cost
+      const newTotalCost = (parseFloat(tokenRow.total_cost || '0') + callCost).toFixed(6)
+      newValues.total_cost = newTotalCost
+      
       await serviceSupabase
         .from('gpt_tokens')
         .update(newValues)
         .eq('id', tokenRow.id)
+      
+      console.log(`[Token ${tokenRow.id}] Usage: ${tokenRow.uses_remaining} → ${newValues.uses_remaining}, Cost: $${tokenRow.total_cost || 0} → $${newTotalCost} (+$${callCost.toFixed(6)})`)
     } catch (uErr) {
       console.warn('Failed to update token usage:', uErr)
       // Not fatal for response
     }
 
-    // Return the model output
-    return NextResponse.json({ success: true, result: completion })
+    // Transform OpenAI response to client-expected format
+    const choice = completion.choices[0]
+    return NextResponse.json({
+      content: choice.message.content,
+      usage: {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: completion.usage?.total_tokens || 0,
+        total_cost: callCost // Include cost in response
+      },
+      model: completion.model,
+      finish_reason: choice.finish_reason || 'stop'
+    })
   } catch (err: any) {
     console.error('GPT proxy error:', err)
     return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })

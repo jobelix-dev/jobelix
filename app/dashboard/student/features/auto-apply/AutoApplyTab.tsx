@@ -22,6 +22,7 @@ interface TokenInfo {
   revoked: boolean;
   created_at: string;
   last_used_at: string | null;
+  total_cost?: number;
 }
 
 export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
@@ -156,6 +157,16 @@ export default function AutoApplyTab({ onLaunchPython }: AutoApplyTabProps) {
                 />
               </div>
             </div>
+
+            {/* Cost Display */}
+            {tokenInfo.total_cost !== undefined && tokenInfo.total_cost > 0 && (
+              <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
+                <span>Total cost today</span>
+                <span className="font-mono font-semibold">
+                  ${tokenInfo.total_cost.toFixed(4)}
+                </span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
