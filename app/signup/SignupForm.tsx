@@ -63,7 +63,7 @@ export default function SignupForm({ role }: { role: string }) {
 
       {/* Message de succès (Check your email) */}
       {message && (
-        <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-600 border border-green-200">
+        <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-600 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
           {message}
         </div>
       )}
@@ -78,7 +78,7 @@ export default function SignupForm({ role }: { role: string }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 rounded border px-3 py-2"
+              className="mt-1 rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="you@example.com"
             />
           </label>
@@ -90,7 +90,7 @@ export default function SignupForm({ role }: { role: string }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 rounded border px-3 py-2"
+              className="mt-1 rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Choose a password"
             />
           </label>
@@ -98,7 +98,7 @@ export default function SignupForm({ role }: { role: string }) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 rounded bg-foreground px-4 py-2 text-background disabled:opacity-60"
+            className="mt-2 rounded bg-purple-600 hover:bg-purple-700 px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
           >
             {loading ? 'Creating account...' : 'Sign up as student'}
           </button>
