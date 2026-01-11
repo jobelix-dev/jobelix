@@ -44,12 +44,10 @@ next-env.d.ts
 dist/
 
 # python executables
-resources/linux/engine
-resources/mac/engine
-resources/win/engine.exe
+resources/
 
 # other
-helper_kheng.md
+tests/
 
 #stripe
 stripe-cli-bin
