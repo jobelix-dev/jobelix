@@ -3,18 +3,26 @@
   "version": "0.1.0",
   "main": "main.js",
   "description": "Jobelix Desktop Application",
-  "author": "Team Poh",
+  "author": "Jobelix",
   "private": true,
   "scripts": {
     "dev": "concurrently \"next dev\" \"electron .\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build-installer": "next build && electron-builder"
+    "build-installer": "next build && electron-builder", 
+    "release": "next build && electron-builder --publish always"
   },
   "build": {
-    "appId": "com.jobelix.poc",
+    "appId": "com.jobelix.app",
     "productName": "Jobelix",
+    "publish": [
+        {
+          "provider": "github",
+          "owner": "jobelix-dev",
+          "repo": "jobelix-releases"
+        }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -41,17 +49,27 @@
     "mac": {
       "target": "dmg",
       "icon": "build/icon.icns",
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities", 
+      "hardenedRuntime": true
     },
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png",
-      "category": "Utility"
+      "category": "Utility", 
+      "license": "build/license.txt"
     }
   },
   "nsis": {
     "oneClick": false,
-    "allowToChangeInstallationDirectory": true
+    "allowToChangeInstallationDirectory": true,
+    "license": "build/license.txt"
+  },
+  "dmg": {
+    "license": "build/license.txt",
+    "contents": [
+      { "x": 130, "y": 220 },
+      { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+    ]
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.1",
