@@ -75,14 +75,17 @@ export default function ActivityTab() {
 
       {/* Empty State */}
       <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-12 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-4">
-          <Clock className="w-8 h-8 text-zinc-400" />
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">
+          <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div className="inline-block px-3 py-1 mb-3 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+          Coming Soon
         </div>
         <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-          No applications yet
+          Application Tracking
         </h3>
         <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto">
-          Start applying to jobs to track your applications here.
+          We're building a comprehensive tracking system to monitor all your job applications and their status.
         </p>
       </div>
 

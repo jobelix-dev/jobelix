@@ -254,18 +254,8 @@ export default function ProfileEditor({
   };
 
   // Add new social link entry
-  const addSocialLink = () => {
-    onChange({
-      ...data,
-      social_links: [
-        ...data.social_links,
-        { link: '' }
-      ]
-    });
-  };
-
-  // Update social links (simple array replacement)
-  const updateSocialLinks = (social_links: SocialLinkEntry[]) => {
+  // Update social links (now an object, not an array)
+  const updateSocialLinks = (social_links: SocialLinkEntry) => {
     onChange({ ...data, social_links });
   };
 
@@ -621,28 +611,14 @@ export default function ProfileEditor({
 
         {/* Social Links */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Social Links</h3>
-            <button
-              onClick={addSocialLink}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
-            >
-              <Plus className="w-4 h-4" />
-              Add Social Link
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Social Links</h3>
 
-          {data.social_links.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No social links added yet</p>
-          ) : (
-            <SocialLinksInput
-              social_links={data.social_links}
-              onChange={updateSocialLinks}
-              fieldErrors={validation?.fieldErrors.social_links}
-              disabled={disabled}
-            />
-          )}
+          <SocialLinksInput
+            social_links={data.social_links}
+            onChange={updateSocialLinks}
+            fieldErrors={validation?.fieldErrors.social_links}
+            disabled={disabled}
+          />
         </div>
 
         {/* Save Button */}

@@ -22,9 +22,9 @@ interface DashboardNavProps {
 export default function DashboardNav({ activeTab, onTabChange }: DashboardNavProps) {
   const tabs = [
     { id: 'profile' as const, label: 'Profile', icon: User },
-    { id: 'matches' as const, label: 'Matches', icon: Briefcase },
     { id: 'auto-apply' as const, label: 'Auto Apply', icon: Zap },
-    { id: 'activity' as const, label: 'Activity', icon: Activity },
+    { id: 'matches' as const, label: 'Matches', icon: Briefcase, comingSoon: true },
+    { id: 'activity' as const, label: 'Activity', icon: Activity, comingSoon: true },
   ];
 
   return (
@@ -48,6 +48,11 @@ export default function DashboardNav({ activeTab, onTabChange }: DashboardNavPro
             >
               <Icon className="w-4 h-4" />
               {tab.label}
+              {tab.comingSoon && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+                  Coming Soon
+                </span>
+              )}
             </button>
           );
         })}

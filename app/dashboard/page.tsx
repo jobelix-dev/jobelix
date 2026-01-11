@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/types';
 import { api } from '@/lib/api';
+import { Shield, X } from 'lucide-react';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
 
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -73,17 +75,77 @@ export default function DashboardPage() {
               Logged in as <strong>{profile.role}</strong>
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
-          >
-            Log out
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowPrivacyModal(true)}
+              className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900 flex items-center gap-2"
+            >
+              <Shield size={18} />
+              Privacy
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            >
+              Log out
+            </button>
+          </div>
         </header>
 
         {profile.role === 'student' && <StudentDashboard />}
         {profile.role === 'company' && <CompanyDashboard />}
       </div>
+
+      {/* Privacy Modal */}
+      {showPrivacyModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 flex items-start justify-center z-50 pt-20"
+          onClick={() => setShowPrivacyModal(false)}
+        >
+          <div 
+            className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl p-6 max-w-md w-full mx-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowPrivacyModal(false)}
+              className="absolute top-3 right-3 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="pr-6">
+              <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
+                <Shield size={20} />
+                Data & Privacy
+              </h2>
+              
+              <div className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+                <p>
+                  We process your personal data (profile, resume, applications) in accordance with GDPR.
+                </p>
+                
+                <p>
+                  <strong>Your rights:</strong> Access, rectify, erase, or export your data at any time.
+                </p>
+
+                <p>
+                  <strong>Contact:</strong>{' '}
+                  <a 
+                    href="mailto:jobelix.contact@gmail.com" 
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    jobelix.contact@gmail.com
+                  </a>
+                </p>
+                
+                <p className="text-xs text-zinc-500 dark:text-zinc-500 pt-2">
+                  We respond within 30 days • Updated January 2025
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
