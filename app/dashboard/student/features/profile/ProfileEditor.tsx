@@ -294,8 +294,8 @@ export default function ProfileEditor({
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.student_name 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    : 'border-purple-200 dark:border-purple-800'
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -318,8 +318,8 @@ export default function ProfileEditor({
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.email 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    : 'border-purple-200 dark:border-purple-800'
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -342,8 +342,8 @@ export default function ProfileEditor({
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.phone_number 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    : 'border-purple-200 dark:border-purple-800'
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -366,8 +366,8 @@ export default function ProfileEditor({
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.address 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    : 'border-purple-200 dark:border-purple-800'
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function ProfileEditor({
             <button
               onClick={addEducation}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Education
@@ -418,7 +418,7 @@ export default function ProfileEditor({
             <button
               onClick={addExperience}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Experience
@@ -453,7 +453,7 @@ export default function ProfileEditor({
             <button
               onClick={addProject}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Project
@@ -488,7 +488,7 @@ export default function ProfileEditor({
             <button
               onClick={addSkill}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Skill
@@ -517,7 +517,7 @@ export default function ProfileEditor({
             <button
               onClick={addLanguage}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Language
@@ -546,7 +546,7 @@ export default function ProfileEditor({
             <button
               onClick={addPublication}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Publication
@@ -581,7 +581,7 @@ export default function ProfileEditor({
             <button
               onClick={addCertification}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Certification
@@ -625,7 +625,7 @@ export default function ProfileEditor({
         <button
           onClick={onSave}
           disabled={isSaving || disabled}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-foreground text-background hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saveSuccess ? (
             <>
