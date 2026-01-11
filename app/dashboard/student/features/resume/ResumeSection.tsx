@@ -42,7 +42,7 @@ export default function ResumeSection({
           />
           <label
             htmlFor="resume-upload"
-            className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded bg-foreground text-background hover:opacity-90 transition-opacity cursor-pointer whitespace-nowrap ${
+            className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-colors cursor-pointer whitespace-nowrap ${
               uploading || extracting ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
@@ -59,7 +59,7 @@ export default function ResumeSection({
 
       {/* Compact Resume Info */}
       {resumeInfo && (
-        <div className="flex items-center gap-4 mt-4 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+        <div className="flex items-center gap-4 mt-4 p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-900/10">
           <div className="flex-1">
             <p className="font-medium text-sm">{resumeInfo.filename}</p>
             <p className="text-xs text-zinc-500">
@@ -68,7 +68,7 @@ export default function ResumeSection({
           </div>
           <button
             onClick={onDownload}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800 transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
           >
             Download
           </button>
