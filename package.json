@@ -20,7 +20,8 @@
     },
     "files": [
       "main.js",
-      "loader.html"
+      "loader.html",
+      "update-required.html"
     ],
     "extraResources": [
       {
@@ -28,7 +29,8 @@
         "to": ".",
         "filter": [
           "engine",
-          "engine.exe"
+          "engine.exe",
+          "version.txt"
         ]
       }
     ],
