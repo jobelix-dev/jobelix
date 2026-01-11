@@ -12,7 +12,6 @@
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import ProfileEditor from './ProfileEditor';
-import { AIAssistant } from '../ai-assistant';
 import { ResumeSection } from '../resume';
 import type { ExtractedResumeData } from '@/lib/types';
 import { ProfileValidationResult } from '@/lib/profileValidation';
@@ -99,12 +98,6 @@ export default function ProfileTab({
                 Your resume has been analyzed. Chat with AI to validate and complete your profile.
               </p>
             </div>
-            <AIAssistant
-              draftId={draftId}
-              currentData={profileData}
-              onUpdate={setProfileData}
-              onFinalize={handleFinalize}
-            />
           </div>
         )}
       </div>

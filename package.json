@@ -10,18 +10,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build-installer": "next build && electron-builder", 
+    "build-installer": "next build && electron-builder",
     "release": "next build && electron-builder --publish always"
   },
   "build": {
     "appId": "com.jobelix.app",
     "productName": "Jobelix",
     "publish": [
-        {
-          "provider": "github",
-          "owner": "jobelix-dev",
-          "repo": "jobelix-releases"
-        }
+      {
+        "provider": "github",
+        "owner": "jobelix-dev",
+        "repo": "jobelix-releases"
+      }
     ],
     "directories": {
       "output": "dist"
@@ -29,7 +29,8 @@
     "files": [
       "main.js",
       "loader.html",
-      "update-required.html"
+      "update-required.html",
+      "build/license.txt"
     ],
     "extraResources": [
       {
@@ -46,30 +47,36 @@
       "target": "nsis",
       "icon": "build/icon.ico"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "license": "build/license.txt"
+    },
     "mac": {
       "target": "dmg",
       "icon": "build/icon.icns",
-      "category": "public.app-category.utilities", 
+      "category": "public.app-category.utilities",
       "hardenedRuntime": true
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png",
-      "category": "Utility", 
-      "license": "build/license.txt"
+      "category": "Utility"
     }
-  },
-  "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
-    "license": "build/license.txt"
-  },
-  "dmg": {
-    "license": "build/license.txt",
-    "contents": [
-      { "x": 130, "y": 220 },
-      { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
-    ]
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.1",
@@ -79,6 +86,7 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
     "ai": "^6.0.3",
+    "electron-updater": "^6.7.3",
     "lucide-react": "^0.562.0",
     "next": "16.1.0",
     "openai": "^6.15.0",

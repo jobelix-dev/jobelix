@@ -3,6 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const https = require('https');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let pythonProcess;
@@ -425,6 +426,85 @@ function showUpdateRequiredWindow(details) {
   });
 }
 
+/**
+ * Configure electron-updater
+ */
+function setupAutoUpdater() {
+  // Configure auto-updater
+  autoUpdater.autoDownload = false; // Don't auto-download, ask user first
+  autoUpdater.autoInstallOnAppQuit = true; // Auto-install when app quits
+  
+  // Logging
+  autoUpdater.logger = require('electron-log');
+  autoUpdater.logger.transports.file.level = 'info';
+  
+  console.log('Auto-updater configured');
+  
+  // Check for updates (will use GitHub releases based on package.json config)
+  if (app.isPackaged) {
+    console.log('Checking for updates from GitHub releases...');
+    autoUpdater.checkForUpdates();
+  }
+}
+
+/**
+ * Setup auto-updater event listeners
+ */
+function setupAutoUpdaterListeners() {
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info.version);
+    
+    // Send notification to renderer process
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseDate: info.releaseDate
+      });
+    }
+    
+    // Auto-download the update
+    console.log('Downloading update...');
+    autoUpdater.downloadUpdate();
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available. Current version is', info.version);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Error in auto-updater:', err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+    console.log(logMessage);
+    
+    // Send progress to renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('update-download-progress', progressObj);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded. Version:', info.version);
+    
+    // Notify user that update is ready
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', {
+        version: info.version
+      });
+    }
+    
+    // Install update on next restart (or immediately if user confirms)
+    // autoUpdater.quitAndInstall(); // Uncomment to force immediate restart
+  });
+}
+
 // Wait for Next.js server to be ready
 async function waitForNextJs(url, maxAttempts = 30, delayMs = 500) {
   for (let i = 0; i < maxAttempts; i++) {
@@ -469,7 +549,7 @@ async function createWindow() {
   });
   
   const startUrl = app.isPackaged 
-    ? 'https://vercel-app-url'  
+    ? 'https://www.jobelix.fr'  
     : 'http://localhost:3000';
   
   // Wait for Next.js to be ready before loading
@@ -489,6 +569,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   setupIpcHandlers();
+  setupAutoUpdaterListeners();
   
   // In development mode, wait for Next.js to be ready before checking versions
   if (!app.isPackaged) {
@@ -512,6 +593,11 @@ app.whenReady().then(async () => {
     console.log('Starting app normally');
     startPython();
     createWindow();
+    
+    // Setup auto-updater for seamless updates (only in production)
+    if (app.isPackaged) {
+      setupAutoUpdater();
+    }
   }
 });
 
