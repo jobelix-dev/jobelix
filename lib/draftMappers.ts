@@ -40,6 +40,7 @@ export function mapDraftToStudent(draft: any, userId: string) {
   
   return {
     id: userId,
+    student_name: draft.student_name || null,
     first_name: firstName,
     last_name: lastName,
     phone_number: draft.phone_number || null,
