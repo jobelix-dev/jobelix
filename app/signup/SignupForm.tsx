@@ -100,7 +100,7 @@ export default function SignupForm({ role }: { role: string }) {
             disabled={loading}
             className="mt-2 rounded bg-foreground px-4 py-2 text-background disabled:opacity-60"
           >
-            {loading ? 'Creating account...' : `Sign up as ${role}`}
+            {loading ? 'Creating account...' : 'Sign up as student'}
           </button>
         </>
       )}

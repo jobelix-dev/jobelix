@@ -65,4 +65,3 @@ resources/linux/main/chrome_profile/
 resources/linux/main/debug_html/
 resources/linux/main/tailored_resumes/
 resources/linux/main/log.txt
-resources/linux/main/data_folder/secrets.yaml
