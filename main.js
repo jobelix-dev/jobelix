@@ -88,6 +88,28 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('write-resume', async (event, content) => {
+    try {
+      const resourceRoot = app.isPackaged 
+        ? process.resourcesPath 
+        : path.join(__dirname, 'resources');
+      
+      const resumePath = path.join(resourceRoot, 'linux', 'main', 'data_folder', 'resume.yaml');
+      const dir = path.dirname(resumePath);
+      
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(resumePath, content, 'utf-8');
+      console.log('Resume written to:', resumePath);
+      return { success: true, path: resumePath };
+    } catch (error) {
+      console.error('Error writing resume:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('launch-bot', async (event, token) => {
     try {
       if (!token) {

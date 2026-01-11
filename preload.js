@@ -5,5 +5,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   readConfigFile: () => ipcRenderer.invoke('read-config'),
   writeConfigFile: (content) => ipcRenderer.invoke('write-config', content),
-  launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
+  writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
+  launchBot: (token) => ipcRenderer.invoke('launch-bot', token)
 });
