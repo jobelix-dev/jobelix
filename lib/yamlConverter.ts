@@ -187,6 +187,21 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 export async function saveYAMLToRepo(preferences: WorkPreferences): Promise<void> {
   const yamlContent = preferencesToYAML(preferences);
   
+  // Check if we're in Electron environment
+  if (typeof window !== 'undefined' && window.electronAPI) {
+    // Use Electron IPC for local file access (secure, stays local)
+    console.log('Saving YAML locally via Electron IPC...');
+    const result = await window.electronAPI.writeConfigFile(yamlContent);
+    
+    if (!result.success) {
+      throw new Error(`Failed to save config.yaml: ${result.error || 'Unknown error'}`);
+    }
+    
+    console.log('config.yaml saved locally via Electron IPC');
+    return;
+  }
+
+  // Fallback to API route for non-Electron environments (development browser)
   console.log('Sending YAML to API...');
   const response = await fetch('/api/student/work-preferences/export-yaml', {
     method: 'POST',
