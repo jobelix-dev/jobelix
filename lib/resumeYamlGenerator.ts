@@ -1,3 +1,5 @@
+import { stringify } from 'yaml';
+
 interface StudentData {
   student_name: string;
   mail_adress: string;
@@ -8,16 +10,20 @@ interface StudentData {
 interface AcademicData {
   school_name: string;
   degree: string;
-  starting_date?: string;
-  ending_date?: string;
+  start_year?: number | null;
+  start_month?: number | null;
+  end_year?: number | null;
+  end_month?: number | null;
   description?: string;
 }
 
 interface ExperienceData {
   organisation_name: string;
   position_name: string;
-  starting_date?: string;
-  ending_date?: string;
+  start_year?: number | null;
+  start_month?: number | null;
+  end_year?: number | null;
+  end_month?: number | null;
   description?: string;
 }
 
@@ -101,222 +107,202 @@ function extractUsername(url: string | null | undefined, platform: string): stri
   }
 }
 
-function formatDate(dateString: string | null | undefined): string | null {
-  if (!dateString) return null;
+function formatDate(year: number | null | undefined, month: number | null | undefined): string | null {
+  if (!year) return null;
   
   try {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // Format as YYYY-MM-DD string (using first day of month)
+    const monthStr = month ? String(month).padStart(2, '0') : '01';
+    // Ensure it's returned as a string, not a date object
+    return String(`${year}-${monthStr}-01`);
   } catch (error) {
     return null;
   }
 }
 
-function escapeYamlString(str: string | null | undefined): string {
-  // Handle null/undefined
-  if (!str) return '';
-  
-  // If string contains special characters, wrap in quotes
-  if (str.includes(':') || str.includes('#') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '\\"')}"`;
-  }
-  return str;
-}
-
-function formatTextBlock(text: string | null | undefined): string {
-  if (!text) return '';
-  
-  // Convert to text block with proper indentation
-  const lines = text.trim().split('\n');
-  if (lines.length === 1) {
-    return escapeYamlString(lines[0]);
-  }
-  
-  // Multi-line text block
-  return '|\n' + lines.map(line => `          ${line}`).join('\n');
-}
-
 export function generateResumeYaml(data: ProfileData): string {
   const { student, academic, experience, projects, skills, languages, certifications, socialLinks } = data;
   
-  let yaml = '';
-  
-  // Basics section
-  yaml += 'basics:\n';
-  const email = student.mail_adress || '';
-  yaml += `  email: "${email}"\n`;
-  
+  // Build the resume object structure
+  const resume: any = {
+    basics: {
+      email: student.mail_adress || '',
+      name: student.student_name || 'Unknown',
+    }
+  };
+
+  // Add optional basic fields
   if (student.address) {
-    yaml += '  location:\n';
-    yaml += `    city: "${student.address}"\n`;
+    resume.basics.location = {
+      city: student.address
+    };
   }
-  
-  const name = student.student_name || 'Unknown';
-  yaml += `  name: "${name}"\n`;
-  
+
   if (student.phone_number) {
-    yaml += `  phone: "${student.phone_number}"\n`;
+    resume.basics.phone = student.phone_number;
   }
-  
+
   // Social links (profiles)
-  const socialEntries: string[] = [];
   if (socialLinks) {
-    const github = extractUsername(socialLinks.github, 'github');
-    const linkedin = extractUsername(socialLinks.linkedin, 'linkedin');
-    const stackoverflow = extractUsername(socialLinks.stackoverflow, 'stackoverflow');
-    const kaggle = extractUsername(socialLinks.kaggle, 'kaggle');
-    const leetcode = extractUsername(socialLinks.leetcode, 'leetcode');
+    const profiles = [];
     
+    const github = extractUsername(socialLinks.github, 'github');
     if (github) {
-      socialEntries.push(`    - network: "Github"\n      url: "${socialLinks.github}"\n      username: "${github}"`);
+      profiles.push({
+        network: 'Github',
+        url: socialLinks.github,
+        username: github
+      });
     }
+    
+    const linkedin = extractUsername(socialLinks.linkedin, 'linkedin');
     if (linkedin) {
-      socialEntries.push(`    - network: "Linkedin"\n      url: "${socialLinks.linkedin}"\n      username: "${linkedin}"`);
+      profiles.push({
+        network: 'Linkedin',
+        url: socialLinks.linkedin,
+        username: linkedin
+      });
     }
+    
+    const stackoverflow = extractUsername(socialLinks.stackoverflow, 'stackoverflow');
     if (stackoverflow) {
-      socialEntries.push(`    - network: "StackOverflow"\n      url: "${socialLinks.stackoverflow}"\n      username: "${stackoverflow}"`);
+      profiles.push({
+        network: 'StackOverflow',
+        url: socialLinks.stackoverflow,
+        username: stackoverflow
+      });
     }
+    
+    const kaggle = extractUsername(socialLinks.kaggle, 'kaggle');
     if (kaggle) {
-      socialEntries.push(`    - network: "Kaggle"\n      url: "${socialLinks.kaggle}"\n      username: "${kaggle}"`);
+      profiles.push({
+        network: 'Kaggle',
+        url: socialLinks.kaggle,
+        username: kaggle
+      });
     }
+    
+    const leetcode = extractUsername(socialLinks.leetcode, 'leetcode');
     if (leetcode) {
-      socialEntries.push(`    - network: "Leetcode"\n      url: "${socialLinks.leetcode}"\n      username: "${leetcode}"`);
+      profiles.push({
+        network: 'Leetcode',
+        url: socialLinks.leetcode,
+        username: leetcode
+      });
+    }
+    
+    if (profiles.length > 0) {
+      resume.basics.profiles = profiles;
     }
   }
-  
-  if (socialEntries.length > 0) {
-    yaml += '  profiles:\n';
-    yaml += socialEntries.join('\n') + '\n';
-  }
-  
-  yaml += '\n';
-  
+
   // Education
   if (academic.length > 0) {
-    yaml += 'education:\n';
-    academic.forEach(edu => {
-      const degree = edu.degree || 'Unknown';
-      const institution = edu.school_name || 'Unknown';
-      yaml += `  - area: "${degree}"\n`;
-      yaml += `    institution: "${institution}"\n`;
+    resume.education = academic.map(edu => {
+      const entry: any = {
+        area: edu.degree || 'Unknown',
+        institution: edu.school_name || 'Unknown',
+      };
       
-      const startDate = formatDate(edu.starting_date);
-      const endDate = formatDate(edu.ending_date);
-      if (startDate) {
-        yaml += `    startDate: "${startDate}"\n`;
-      }
-      if (endDate) {
-        yaml += `    endDate: "${endDate}"\n`;
-      }
+      const startDate = formatDate(edu.start_year, edu.start_month);
+      const endDate = formatDate(edu.end_year, edu.end_month);
       
-      yaml += '\n';
+      if (startDate) entry.startDate = startDate;
+      if (endDate) entry.endDate = endDate;
+      
+      return entry;
     });
   }
-  
+
   // Meta section
-  yaml += 'meta:\n';
-  yaml += '  breaks_before:\n';
-  yaml += '    education: true\n';
-  yaml += '\n';
-  
+  resume.meta = {
+    breaks_before: {
+      education: true
+    }
+  };
+
   // Projects
   if (projects.length > 0) {
-    yaml += 'projects:\n';
-    projects.forEach(proj => {
-      const projectName = proj.project_name || 'Unnamed Project';
-      yaml += `  - name: "${projectName}"\n`;
+    resume.projects = projects.map(proj => {
+      const entry: any = {
+        name: proj.project_name || 'Unnamed Project',
+      };
       
-      if (proj.description) {
-        const cleanDesc = proj.description.replace(/"/g, '\\"');
-        yaml += `    description: "${cleanDesc}"\n`;
-      }
+      if (proj.description) entry.description = proj.description;
+      if (proj.link) entry.url = proj.link;
       
-      if (proj.link) {
-        yaml += `    url: "${proj.link}"\n`;
-      }
-      
-      // Note: No date field in database, skipping
+      return entry;
     });
-    yaml += '\n';
   }
-  
+
   // Skills section
   if (skills.length > 0 || languages.length > 0) {
-    yaml += 'skills:\n';
+    resume.skills = [];
     
     // General skills
     if (skills.length > 0) {
-      yaml += '  - name: "General"\n';
-      yaml += '    keywords:\n';
-      skills.forEach(skill => {
-        const skillName = skill.skill_name || '';
-        if (skillName) {
-          yaml += `      - "${skillName}"\n`;
-        }
+      resume.skills.push({
+        name: 'General',
+        keywords: skills.map(skill => skill.skill_name).filter(Boolean)
       });
-      yaml += '\n';
     }
     
     // Languages as a skill category
     if (languages.length > 0) {
-      yaml += '  - name: "Languages"\n';
-      yaml += '    keywords:\n';
-      languages.forEach(lang => {
-        const langName = lang.language_name || 'Unknown';
-        const level = lang.proficiency_level || 'Unknown';
-        yaml += `      - "${langName}: ${level}"\n`;
+      resume.skills.push({
+        name: 'Languages',
+        keywords: languages.map(lang => {
+          const langName = lang.language_name || 'Unknown';
+          const level = lang.proficiency_level || 'Unknown';
+          return `${langName}: ${level}`;
+        })
       });
-      yaml += '\n';
     }
   }
-  
+
   // Work (Experience)
   if (experience.length > 0) {
-    yaml += 'work:\n';
-    experience.forEach(exp => {
-      const company = exp.organisation_name || 'Unknown';
-      const position = exp.position_name || 'Unknown';
-      yaml += `  - name: "${company}"\n`;
-      yaml += `    position: "${position}"\n`;
+    resume.work = experience.map(exp => {
+      const entry: any = {
+        name: exp.organisation_name || 'Unknown',
+        position: exp.position_name || 'Unknown',
+      };
       
-      const startDate = formatDate(exp.starting_date);
-      const endDate = formatDate(exp.ending_date);
-      if (startDate) {
-        yaml += `    startDate: "${startDate}"\n`;
-      }
-      if (endDate) {
-        yaml += `    endDate: "${endDate}"\n`;
-      }
+      const startDate = formatDate(exp.start_year, exp.start_month);
+      const endDate = formatDate(exp.end_year, exp.end_month);
+      
+      if (startDate) entry.startDate = startDate;
+      if (endDate) entry.endDate = endDate;
       
       if (exp.description) {
-        yaml += '    highlights:\n';
-        // Split description into bullet points if it contains newlines or dashes
+        // Split description into bullet points
         const lines = exp.description.split('\n').filter(line => line.trim());
-        lines.forEach(line => {
-          const cleanLine = line.trim().replace(/^[-•]\s*/, '').replace(/"/g, '\\"');
-          if (cleanLine) {
-            yaml += `      - "${cleanLine}"\n`;
-          }
-        });
+        entry.highlights = lines.map(line => 
+          line.trim().replace(/^[-•]\s*/, '')
+        ).filter(Boolean);
       }
+      
+      return entry;
     });
-    yaml += '\n';
   }
-  
+
   // Certificates (Certifications)
   if (certifications.length > 0) {
-    yaml += 'certificates:\n';
-    certifications.forEach(cert => {
-      const certName = cert.name || 'Unnamed Certification';
-      yaml += `  - name: "${certName}"\n`;
-      if (cert.credential_url) {
-        yaml += `    url: "${cert.credential_url}"\n`;
-      }
+    resume.certificates = certifications.map(cert => {
+      const entry: any = {
+        name: cert.name || 'Unnamed Certification',
+      };
+      
+      if (cert.credential_url) entry.url = cert.credential_url;
+      
+      return entry;
     });
   }
-  
-  return yaml;
+
+  // Convert to YAML using the official library
+  // Use stringifyString option to ensure dates are quoted as strings
+  return stringify(resume, {
+    defaultStringType: 'QUOTE_DOUBLE',
+    defaultKeyType: 'PLAIN'
+  });
 }
