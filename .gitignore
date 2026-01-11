@@ -50,3 +50,19 @@ resources/win/engine.exe
 
 # other
 helper_kheng.md
+
+#stripe
+stripe-cli-bin
+
+# Python bot compiled app
+resources/linux/main/
+resources/mac/main/
+resources/win/main/
+
+# Python bot generated files
+resources/linux/main/data_folder/config.yaml
+resources/linux/main/chrome_profile/
+resources/linux/main/debug_html/
+resources/linux/main/tailored_resumes/
+resources/linux/main/log.txt
+resources/linux/main/data_folder/secrets.yaml

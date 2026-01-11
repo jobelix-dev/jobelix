@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -47,6 +47,166 @@ function startPython() {
   pythonProcess.stderr.on('data', (data) => console.error(`Python Error: ${data}`));
 }
 
+// IPC Handlers for secure local file access
+function setupIpcHandlers() {
+  const getSecretsPath = () => {
+    const resourceRoot = app.isPackaged 
+      ? process.resourcesPath 
+      : path.join(__dirname, 'resources');
+    return path.join(resourceRoot, 'linux', 'main', 'data_folder', 'secrets.yaml');
+  };
+
+  const getConfigPath = () => {
+    const resourceRoot = app.isPackaged 
+      ? process.resourcesPath 
+      : path.join(__dirname, 'resources');
+    return path.join(resourceRoot, 'linux', 'main', 'data_folder', 'config.yaml');
+  };
+
+  ipcMain.handle('read-secrets', async () => {
+    try {
+      const secretsPath = getSecretsPath();
+      if (!fs.existsSync(secretsPath)) {
+        return { success: false, email: '', password: '' };
+      }
+      const content = fs.readFileSync(secretsPath, 'utf-8');
+      
+      // Parse YAML
+      const emailMatch = content.match(/email:\s*"([^"]+)"/);
+      const passwordMatch = content.match(/password:\s*"([^"]+)"/);
+      
+      return {
+        success: true,
+        email: emailMatch ? emailMatch[1] : '',
+        password: passwordMatch ? passwordMatch[1] : '',
+      };
+    } catch (error) {
+      console.error('Error reading secrets:', error);
+      return { success: false, email: '', password: '' };
+    }
+  });
+
+  ipcMain.handle('write-secrets', async (event, content) => {
+    try {
+      const secretsPath = getSecretsPath();
+      const dir = path.dirname(secretsPath);
+      
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(secretsPath, content, 'utf-8');
+      console.log('Secrets written to:', secretsPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Error writing secrets:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('read-config', async () => {
+    try {
+      const configPath = getConfigPath();
+      if (!fs.existsSync(configPath)) {
+        return { success: false, content: '' };
+      }
+      const content = fs.readFileSync(configPath, 'utf-8');
+      return { success: true, content };
+    } catch (error) {
+      console.error('Error reading config:', error);
+      return { success: false, content: '' };
+    }
+  });
+
+  ipcMain.handle('write-config', async (event, content) => {
+    try {
+      const configPath = getConfigPath();
+      const dir = path.dirname(configPath);
+      
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(configPath, content, 'utf-8');
+      console.log('Config written to:', configPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Error writing config:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('launch-bot', async (event, token) => {
+    try {
+      if (!token) {
+        return { success: false, error: 'Token is required' };
+      }
+
+      // Detect OS
+      let platformFolder = '';
+      let execName = 'main';
+
+      if (process.platform === 'win32') {
+        platformFolder = 'win';
+        execName = 'main.exe';
+      } else if (process.platform === 'darwin') {
+        platformFolder = 'mac';
+      } else if (process.platform === 'linux') {
+        platformFolder = 'linux';
+      } else {
+        return { success: false, error: 'Unsupported operating system: ' + process.platform };
+      }
+
+      // Construct path to bot executable
+      const resourceRoot = app.isPackaged 
+        ? process.resourcesPath 
+        : path.join(__dirname, 'resources');
+
+      const botPath = path.join(resourceRoot, platformFolder, 'main', execName);
+      const botCwd = path.join(resourceRoot, platformFolder, 'main');
+
+      console.log('Bot path:', botPath);
+      console.log('Bot working directory:', botCwd);
+      console.log('OS detected:', process.platform);
+
+      // Verify bot executable exists
+      if (!fs.existsSync(botPath)) {
+        return { 
+          success: false, 
+          error: 'Bot executable not found at: ' + botPath 
+        };
+      }
+
+      // Spawn the bot process with --playwright flag and token
+      const botProcess = spawn(botPath, ['--playwright', token], {
+        detached: true,
+        stdio: 'ignore',
+        cwd: botCwd
+      });
+
+      // Detach the process so it continues running independently
+      botProcess.unref();
+
+      console.log('Bot process started with PID:', botProcess.pid);
+      console.log('Command:', botPath, '--playwright', '[TOKEN]');
+
+      return {
+        success: true,
+        message: 'Bot launched successfully',
+        pid: botProcess.pid,
+        platform: process.platform
+      };
+    } catch (error) {
+      console.error('Error launching bot:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Unknown error launching bot' 
+      };
+    }
+  });
+}
+
+
 
 // Wait for Next.js server to be ready
 async function waitForNextJs(url, maxAttempts = 30, delayMs = 500) {
@@ -85,8 +245,9 @@ async function createWindow() {
     autoHideMenuBar: true,
     title: "Jobelix",
     webPreferences: {
-      nodeIntegration: false, // Sécurité : Le site web ne peut pas toucher au PC directement
+      nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     }
   });
   
@@ -110,6 +271,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(() => {
+  setupIpcHandlers();
   startPython();
   createWindow();
 });
