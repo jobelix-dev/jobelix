@@ -49,12 +49,60 @@ function startPython() {
 
 // IPC Handlers for secure local file access
 function setupIpcHandlers() {
+  const getSecretsPath = () => {
+    const resourceRoot = app.isPackaged 
+      ? process.resourcesPath 
+      : path.join(__dirname, 'resources');
+    return path.join(resourceRoot, 'linux', 'main', 'data_folder', 'secrets.yaml');
+  };
+
   const getConfigPath = () => {
     const resourceRoot = app.isPackaged 
       ? process.resourcesPath 
       : path.join(__dirname, 'resources');
     return path.join(resourceRoot, 'linux', 'main', 'data_folder', 'config.yaml');
   };
+
+  ipcMain.handle('read-secrets', async () => {
+    try {
+      const secretsPath = getSecretsPath();
+      if (!fs.existsSync(secretsPath)) {
+        return { success: false, email: '', password: '' };
+      }
+      const content = fs.readFileSync(secretsPath, 'utf-8');
+      
+      // Parse YAML
+      const emailMatch = content.match(/email:\s*"([^"]+)"/);
+      const passwordMatch = content.match(/password:\s*"([^"]+)"/);
+      
+      return {
+        success: true,
+        email: emailMatch ? emailMatch[1] : '',
+        password: passwordMatch ? passwordMatch[1] : '',
+      };
+    } catch (error) {
+      console.error('Error reading secrets:', error);
+      return { success: false, email: '', password: '' };
+    }
+  });
+
+  ipcMain.handle('write-secrets', async (event, content) => {
+    try {
+      const secretsPath = getSecretsPath();
+      const dir = path.dirname(secretsPath);
+      
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(secretsPath, content, 'utf-8');
+      console.log('Secrets written to:', secretsPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Error writing secrets:', error);
+      return { success: false, error: error.message };
+    }
+  });
 
   ipcMain.handle('read-config', async () => {
     try {
@@ -84,28 +132,6 @@ function setupIpcHandlers() {
       return { success: true };
     } catch (error) {
       console.error('Error writing config:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('write-resume', async (event, content) => {
-    try {
-      const resourceRoot = app.isPackaged 
-        ? process.resourcesPath 
-        : path.join(__dirname, 'resources');
-      
-      const resumePath = path.join(resourceRoot, 'linux', 'main', 'data_folder', 'resume.yaml');
-      const dir = path.dirname(resumePath);
-      
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      fs.writeFileSync(resumePath, content, 'utf-8');
-      console.log('Resume written to:', resumePath);
-      return { success: true, path: resumePath };
-    } catch (error) {
-      console.error('Error writing resume:', error);
       return { success: false, error: error.message };
     }
   });
@@ -213,8 +239,8 @@ async function createWindow() {
   splash.loadFile('loader.html');
 
   mainWin = new BrowserWindow({ 
-    fullscreen: true,
-    center: true,
+    width: 1200, 
+    height: 800, 
     show: false,
     autoHideMenuBar: true,
     title: "Jobelix",

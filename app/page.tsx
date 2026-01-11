@@ -29,20 +29,20 @@ export default function Home() {
             Sign up as Student
           </Link>
 
-          <Link
+          {/* <Link
             href="/signup?role=company"
             className="inline-flex items-center justify-center rounded-md border-2 border-zinc-300 dark:border-zinc-700 px-6 py-3 text-foreground hover:border-foreground transition-colors"
           >
             Sign up as Company
-          </Link>
+          </Link> */}
         </section>
 
-        <div className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-          Already have an account?{' '}
-          <Link href="/login" className="text-foreground hover:underline">
-            Log in
-          </Link>
-        </div>
+        <div className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+        Already have an account?{' '}
+        <Link href="/login" className="text-foreground hover:underline">
+          Log in
+        </Link>
+      </div>
 
       </main>
     </div>

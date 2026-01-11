@@ -2,15 +2,15 @@
  * Student Dashboard Component
  * 
  * Main interface for students to manage their profile.
- * Features: Manual profile editing, PDF upload with AI extraction, optional AI assistant.
+ * Features: Manual profile editing, PDF upload with AI extraction.
  * ProfileEditor always visible - allows manual entry or displays AI-extracted data.
- * AIAssistant appears optionally when PDF uploaded or user requests help.
  */
 
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { validateProfile } from '@/lib/profileValidation';
+import { generateResumeYaml } from '@/lib/resumeYamlGenerator';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
 import { MatchesTab } from './features/matches';
@@ -39,8 +39,6 @@ export default function StudentDashboard() {
     social_links: [],
   });
 
-  // AI assistant state
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -161,7 +159,6 @@ export default function StudentDashboard() {
       
       setDraftId(response.draftId);
       setIsDataLoaded(true); // Mark data as loaded to enable validation
-      setShowAIAssistant(false); // Do not show AI assistant
     } catch (err: any) {
       setUploadError(err.message || 'Failed to extract resume data');
     } finally {
@@ -260,11 +257,44 @@ export default function StudentDashboard() {
 
       // Finalize the draft - moves data from draft to permanent tables
       await api.finalizeProfile(draftId);
-      setShowAIAssistant(false);
+      
+      // Wait a moment to ensure database transaction is fully committed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Generate resume.yaml file locally
+      try {
+        // Fetch published profile data
+        const response = await fetch('/api/student/profile/published');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch profile: ${response.statusText}`);
+        }
+        
+        const profileData = await response.json();
+        
+        // Generate YAML content
+        const yamlContent = generateResumeYaml(profileData);
+        
+        // Write to local file via Electron IPC
+        if (window.electronAPI) {
+          const result = await window.electronAPI.writeResumeFile(yamlContent);
+          if (result.success) {
+            console.log('✅ Resume YAML saved to:', result.path);
+          } else {
+            console.error('❌ Failed to write resume.yaml:', result.error);
+            setUploadError('Profile saved but failed to generate resume.yaml locally');
+          }
+        } else {
+          console.log('ℹ️ Running in browser mode, skipping local resume.yaml generation');
+        }
+      } catch (yamlError: any) {
+        console.error('Error generating resume.yaml:', yamlError);
+        setUploadError('Profile saved but failed to generate resume.yaml');
+        // Don't block the main flow if YAML generation fails
+      }
       
       // Create new empty draft for next time
-      const response = await api.getDraft();
-      setDraftId(response.draft.id);
+      const newDraftResponse = await api.getDraft();
+      setDraftId(newDraftResponse.draft.id);
       
       setSaveSuccess(true);
       
@@ -316,7 +346,6 @@ export default function StudentDashboard() {
               showValidationErrors={showValidationErrors}
               showValidationMessage={showValidationMessage}
               draftId={draftId}
-              showAIAssistant={showAIAssistant}
               resumeInfo={resumeInfo}
               uploading={uploading}
               extracting={extracting}
