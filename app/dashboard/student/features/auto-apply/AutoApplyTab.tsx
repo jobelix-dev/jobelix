@@ -161,6 +161,14 @@ export default function AutoApplyTab() {
     setLaunchError(null);
 
     try {
+      // First check if running in Electron app
+      if (!window.electronAPI) {
+        setLaunchError('Please download and use the Jobelix desktop app to launch the bot.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
+      }
+
       // Check if profile is published by fetching published profile data
       const profileCheckResponse = await fetch('/api/student/profile/published');
       if (!profileCheckResponse.ok) {
@@ -186,23 +194,15 @@ export default function AutoApplyTab() {
       }
       const { token } = await tokenResponse.json();
 
-      // Launch the bot via Electron IPC (client-side OS detection)
-      if (window.electronAPI) {
-        const result = await window.electronAPI.launchBot(token);
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to launch bot');
-        }
-        
-        console.log('Bot launched:', result);
-        console.log('Platform:', result.platform, 'PID:', result.pid);
-      } else {
-        // Running in browser - bot must be launched from desktop app
-        setLaunchError('Please download and use the Jobelix desktop app to launch the bot.');
-        setLaunching(false);
-        setTimeout(() => setLaunchError(null), 5000);
-        return;
+      // Launch the bot via Electron IPC
+      const result = await window.electronAPI.launchBot(token);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to launch bot');
       }
+      
+      console.log('Bot launched:', result);
+      console.log('Platform:', result.platform, 'PID:', result.pid);
 
     } catch (error) {
       console.error('Launch error:', error);
