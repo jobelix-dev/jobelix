@@ -5,9 +5,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Zap, Rocket, AlertCircle, Eye, EyeOff, Save, RefreshCw } from 'lucide-react';
+import { Zap, Rocket, AlertCircle, RefreshCw } from 'lucide-react';
 import WorkPreferencesEditor from './components/WorkPreferencesEditor';
-import { loadLinkedInCredentials, saveLinkedInCredentials } from '@/lib/secretsLoader';
 
 interface CreditBalance {
   balance: number;
@@ -35,21 +34,9 @@ export default function AutoApplyTab() {
   const [showLaunchWarning, setShowLaunchWarning] = useState(false);
   const [showClaimWarning, setShowClaimWarning] = useState(false);
   const [showBuyWarning, setShowBuyWarning] = useState(false);
-  const [linkedinEmail, setLinkedinEmail] = useState('');
-  const [linkedinPassword, setLinkedinPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [savingCredentials, setSavingCredentials] = useState(false);
-  const [credentialsSaved, setCredentialsSaved] = useState(false);
-  const [showCredentialsWarning, setShowCredentialsWarning] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
 
   const checkPreferences = useCallback(async () => {
     try {
@@ -159,48 +146,11 @@ export default function AutoApplyTab() {
     setTimeout(() => setShowBuyWarning(false), 1500);
   };
 
-  const handleSaveCredentials = async () => {
-    if (!linkedinEmail || !linkedinPassword) return;
-
-    // Validate email format
-    if (!validateEmail(linkedinEmail)) {
-      setEmailError('Invalid email format');
-      setTimeout(() => setEmailError(null), 3000);
-      return;
-    }
-
-    setSavingCredentials(true);
-    setCredentialsSaved(false);
-    setEmailError(null);
-    try {
-      // Save credentials locally using Electron IPC
-      const success = await saveLinkedInCredentials(linkedinEmail, linkedinPassword);
-
-      if (!success) {
-        throw new Error('Failed to save credentials');
-      }
-
-      setCredentialsSaved(true);
-      setTimeout(() => setCredentialsSaved(false), 3000);
-    } catch (error) {
-      console.error('Save credentials error:', error);
-    } finally {
-      setSavingCredentials(false);
-    }
-  };
-
   const handlePreferencesSaved = () => {
     checkPreferences();
   };
 
   const handleLaunchClick = async () => {
-    // Check if credentials are missing
-    if (!linkedinEmail || !linkedinPassword) {
-      setShowCredentialsWarning(true);
-      setTimeout(() => setShowCredentialsWarning(false), 3000);
-      return;
-    }
-
     if (!canLaunchBot) {
       setShowLaunchWarning(true);
       setTimeout(() => setShowLaunchWarning(false), 3000);
@@ -259,27 +209,6 @@ export default function AutoApplyTab() {
     fetchClaimStatus();
     checkPreferences();
   }, [checkPreferences]);
-
-  // Load LinkedIn credentials from secrets.yaml on mount (client-side via Electron IPC)
-  useEffect(() => {
-    const loadCredentials = async () => {
-      try {
-        const credentials = await loadLinkedInCredentials();
-        
-        if (credentials.email) {
-          setLinkedinEmail(credentials.email);
-          if (credentials.password) {
-            setLinkedinPassword(credentials.password);
-          }
-          console.log('LinkedIn credentials loaded from local file');
-        }
-      } catch (error) {
-        console.error('Error loading credentials:', error);
-      }
-    };
-
-    loadCredentials();
-  }, []);
 
   const canLaunchBot = credits && credits.balance > 0 && preferencesComplete;
 
@@ -409,55 +338,6 @@ export default function AutoApplyTab() {
               <p className="text-sm text-zinc-500">Checking preferences...</p>
             ) : (
               <div className="space-y-3">
-                {/* Compact LinkedIn Credentials */}
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <div className="flex-1 space-y-2">
-                      <input
-                        type="email"
-                        value={linkedinEmail}
-                        onChange={(e) => setLinkedinEmail(e.target.value)}
-                        placeholder="LinkedIn email"
-                        className="w-full px-3 py-2 text-sm bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-all text-zinc-900 dark:text-zinc-100"
-                      />
-                      <div className="relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          value={linkedinPassword}
-                          onChange={(e) => setLinkedinPassword(e.target.value)}
-                          placeholder="LinkedIn password"
-                          className="w-full px-3 py-2 pr-10 text-sm bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-all text-zinc-900 dark:text-zinc-100"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleSaveCredentials}
-                      disabled={savingCredentials || !linkedinEmail || !linkedinPassword}
-                      className="self-start px-4 py-2 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap h-[38px]"
-                    >
-                      <Save className="w-4 h-4" />
-                      {savingCredentials ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                  {emailError && (
-                    <div className="p-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
-                      {emailError}
-                    </div>
-                  )}
-                  {credentialsSaved && (
-                    <div className="p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300 text-center">
-                      ✓ Credentials saved successfully
-                    </div>
-                  )}
-                </div>
-
                 <button
                   onClick={handleLaunchClick}
                   disabled={launching}
@@ -473,12 +353,6 @@ export default function AutoApplyTab() {
                   </div>
                 )}
                 
-                {showCredentialsWarning && (
-                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
-                    Missing LinkedIn credentials
-                  </div>
-                )}
-                
                 {showLaunchWarning && !canLaunchBot && (
                   <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
                     {!credits || credits.balance <= 0 ? 'Missing credits' : 'Missing job search preferences'}
@@ -488,11 +362,6 @@ export default function AutoApplyTab() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Footer Note */}
-      <div className="text-center text-xs text-zinc-500 dark:text-zinc-400 mt-4">
-        🔒 Your LinkedIn credentials are saved to your local machine only and are never sent to our servers.
       </div>
     </div>
   );
