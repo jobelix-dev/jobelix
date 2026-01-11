@@ -2,9 +2,8 @@
  * Student Dashboard Component
  * 
  * Main interface for students to manage their profile.
- * Features: Manual profile editing, PDF upload with AI extraction, optional AI assistant.
+ * Features: Manual profile editing, PDF upload with AI extraction.
  * ProfileEditor always visible - allows manual entry or displays AI-extracted data.
- * AIAssistant appears optionally when PDF uploaded or user requests help.
  */
 
 'use client';
@@ -39,8 +38,6 @@ export default function StudentDashboard() {
     social_links: [],
   });
 
-  // AI assistant state
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -161,7 +158,6 @@ export default function StudentDashboard() {
       
       setDraftId(response.draftId);
       setIsDataLoaded(true); // Mark data as loaded to enable validation
-      setShowAIAssistant(false); // Do not show AI assistant
     } catch (err: any) {
       setUploadError(err.message || 'Failed to extract resume data');
     } finally {
@@ -260,7 +256,6 @@ export default function StudentDashboard() {
 
       // Finalize the draft - moves data from draft to permanent tables
       await api.finalizeProfile(draftId);
-      setShowAIAssistant(false);
       
       // Create new empty draft for next time
       const response = await api.getDraft();
@@ -316,7 +311,6 @@ export default function StudentDashboard() {
               showValidationErrors={showValidationErrors}
               showValidationMessage={showValidationMessage}
               draftId={draftId}
-              showAIAssistant={showAIAssistant}
               resumeInfo={resumeInfo}
               uploading={uploading}
               extracting={extracting}
