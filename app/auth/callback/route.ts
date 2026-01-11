@@ -1,5 +1,5 @@
 /**
- * Auth Callback Route
+ * Auth Callback Route Handler
  * 
  * Handles email confirmation and magic link redirects from Supabase Auth.
  * When user clicks confirmation link in email, Supabase redirects here with a code.
@@ -30,3 +30,5 @@ export async function GET(request: NextRequest) {
   // Redirect to the dashboard or specified next URL
   return NextResponse.redirect(new URL(next, requestUrl.origin))
 }
+
+export const dynamic = 'force-dynamic';
