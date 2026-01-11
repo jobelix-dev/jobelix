@@ -64,9 +64,11 @@
     "openai": "^6.15.0",
     "pdf-parse-fork": "^1.2.0",
     "pdf2json": "^4.0.0",
+    "pdfjs-dist": "^5.4.530",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "stripe": "^20.1.2",
+    "yaml": "^2.8.2",
     "zod": "^4.2.1"
   },
   "devDependencies": {

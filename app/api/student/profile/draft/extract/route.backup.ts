@@ -1,17 +1,28 @@
 /**
- * Resume Data Extraction API Route (Enhanced with Link Extraction)
+ * BACKUP: Resume Data Extraction API Route (Original pdf-parse-fork version)
  * 
- * Extracts structured data from PDF using pdfjs-dist + OpenAI GPT-4o.
+ * This is the original version using pdf-parse-fork for text extraction only.
+ * LIMITATION: Does NOT extract embedded link annotations from PDFs.
+ * 
+ * Replaced by: route.ts (now using pdfjs-dist for text + link extraction)
+ * Date: January 11, 2026
+ * Reason: Need to extract embedded URLs for GitHub, LinkedIn, project links, etc.
+ * 
+ * Original functionality:
+ * - Extracts visible text from PDF using pdf-parse-fork
+ * - Sends text to OpenAI GPT-4o for structured parsing
+ * - Creates student_profile_draft with extracted data
+ */
+
+/**
+ * Resume Data Extraction API Route
+ * 
+ * Extracts structured data from PDF using OpenAI GPT-4o.
  * Route: POST /api/student/profile/draft/extract
  * Called by: ResumeSection after PDF upload
  * Uses: lib/resumeSchema.ts for structured parsing
  * Creates: student_profile_draft with extracted data
  * Returns: Extracted data
- * 
- * Enhanced Features:
- * - Extracts text content from all PDF pages (page.getTextContent())
- * - Extracts link annotations from PDF (page.getAnnotations()) - captures embedded URLs
- * - Provides both text + links to OpenAI for comprehensive extraction
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -19,13 +30,6 @@ import { authenticateRequest } from '@/lib/auth'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { ResumeExtractionSchema } from '@/lib/resumeSchema'
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
-import path from 'path'
-
-// Configure worker for Node.js serverless environment
-// Point to the worker file in node_modules
-const workerPath = path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs')
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -34,10 +38,8 @@ const openai = new OpenAI({
 /**
  * POST handler for resume data extraction
  * 
- * Processes uploaded PDF resume using pdfjs-dist to extract:
- * 1. Text content from all pages (visible text layer)
- * 2. Link annotations (embedded URLs - GitHub, LinkedIn, project links, etc.)
- * 3. Combines text + extracted links and sends to OpenAI for structured parsing
+ * Processes uploaded PDF resume, extracts text, uses AI to parse structured data,
+ * validates all fields, and creates a draft profile with validation classifications.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -62,62 +64,53 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Convert blob to Uint8Array for pdfjs-dist
+    // Convert blob to buffer
     const arrayBuffer = await fileData.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
+    const buffer = Buffer.from(arrayBuffer)
 
-    // Load PDF document using pdfjs-dist legacy build (Node.js compatible)
-    const loadingTask = pdfjsLib.getDocument({
-      data: uint8Array,
-      useSystemFonts: true,
-      useWorkerFetch: false,
-      isEvalSupported: false,
-    })
-    const pdfDocument = await loadingTask.promise
-
-    // Extract text and link annotations from all pages
-    let resumeText = ''
-    const extractedLinks: Array<{url: string, context?: string}> = []
-
-    for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
-      const page = await pdfDocument.getPage(pageNum)
-      
-      // Extract text content (visible text layer)
-      const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ')
-      resumeText += pageText + '\n\n'
-
-      // Extract link annotations (embedded URLs in PDF)
-      // We'll also try to capture the context/text near the link
-      const annotations = await page.getAnnotations()
-      for (const annotation of annotations) {
-        if (annotation.subtype === 'Link' && annotation.url) {
-          // Try to get the text content at the link's position
-          const rect = annotation.rect // [x1, y1, x2, y2]
-          let linkContext = ''
-          
-          // Find text items that overlap with the link annotation
-          if (rect && textContent.items) {
-            const linkTextItems = textContent.items.filter((item: any) => {
-              if (!item.transform) return false
-              const itemX = item.transform[4]
-              const itemY = item.transform[5]
-              // Check if text item is roughly within link bounds
-              return itemX >= rect[0] - 5 && itemX <= rect[2] + 5 &&
-                     itemY >= rect[1] - 5 && itemY <= rect[3] + 5
-            })
-            linkContext = linkTextItems.map((item: any) => item.str).join(' ').trim()
-          }
-          
-          extractedLinks.push({
-            url: annotation.url,
-            context: linkContext || undefined
-          })
-        }
-      }
-    }
+    // Extract text from PDF using pdf-parse-fork
+    // NOTE: This only extracts visible text, NOT hyperlinks embedded in the PDF!
+    // Links (GitHub, LinkedIn, project URLs, etc.) are lost unless they appear as plain text.
+    // 
+    // ALTERNATIVE APPROACHES:
+    // 
+    // 1. pdfjs-dist (Mozilla's PDF.js) - ✅ Vercel Compatible
+    //    - Can extract text + link annotations
+    //    - Works in Node.js (server-side)
+    //    - Larger bundle size (~2MB) but supported on Vercel
+    //    - More complex API but better feature coverage
+    //    - Recommended if you need links from PDF annotations
+    //
+    // 2. pdf-lib - ✅ Vercel Compatible
+    //    - Can read/write PDF structures including annotations
+    //    - Pure JavaScript, works server-side
+    //    - Better for PDF manipulation than extraction
+    //    - Can extract link annotations but not as straightforward
+    //
+    // 3. OpenAI Vision API - ✅ Vercel Compatible (API call)
+    //    - Convert PDF pages to images, send to GPT-4 Vision
+    //    - Can "see" the visual layout and extract everything
+    //    - More expensive (vision tokens cost more)
+    //    - Best accuracy but higher cost per extraction
+    //    - Example: Convert PDF -> PNG -> base64 -> Vision API
+    //
+    // 4. pdf2pic + Vision API - ✅ Vercel Compatible
+    //    - Renders PDF as images, then uses vision model
+    //    - Requires poppler-utils binary (may need custom Vercel build)
+    //    - Most comprehensive extraction but complex setup
+    //
+    // RECOMMENDATION FOR THIS PROJECT:
+    // - If most resumes have links as visible text: Keep current approach (pdf-parse-fork)
+    // - If links are embedded/hidden: Switch to pdfjs-dist to extract annotations
+    // - If budget allows and accuracy is critical: Use OpenAI Vision API
+    //
+    // Vercel Deployment Note: All pure JS libraries work fine on Vercel.
+    // Libraries requiring system binaries (like poppler) need custom Docker builds.
+    //
+    // @ts-ignore - pdf-parse-fork types
+    const pdfParse = require('pdf-parse-fork')
+    const pdfData = await pdfParse(buffer)
+    const resumeText = pdfData.text
 
     if (!resumeText || resumeText.trim().length === 0) {
       return NextResponse.json(
@@ -126,34 +119,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Log extracted links for debugging
-    console.log('=== PDF Link Extraction Results ===')
-    console.log(`Total links found: ${extractedLinks.length}`)
-    if (extractedLinks.length > 0) {
-      console.log('Extracted links with context:')
-      extractedLinks.forEach((link, idx) => {
-        if (link.context) {
-          console.log(`  ${idx + 1}. "${link.context}" → ${link.url}`)
-        } else {
-          console.log(`  ${idx + 1}. ${link.url}`)
-        }
-      })
-    } else {
-      console.log('No embedded links found in PDF')
-    }
-    console.log('===================================')
-
-    // Prepare links information for OpenAI with context
-    const linksInfo = extractedLinks.length > 0
-      ? `\n\n**Embedded Links Found in PDF (with context):**\n${extractedLinks.map((link, idx) => {
-          if (link.context) {
-            return `${idx + 1}. Text: "${link.context}" → URL: ${link.url}`
-          }
-          return `${idx + 1}. URL: ${link.url}`
-        }).join('\n')}`
-      : ''
-
-    // Call GPT-4o with extracted text + links for comprehensive extraction
+    // Call GPT-4o with extracted text and ask to extract all fields
+    // LIMITATION: Since we only extract text (not hyperlinks), OpenAI can only find:
+    // 1. Links written as plain text (e.g., "github.com/username" or "https://linkedin.com/in/profile")
+    // 2. Links that appear visually in the PDF but may not be clickable
+    // It CANNOT extract:
+    // - Hidden hyperlinks (e.g., "LinkedIn" text that links to a URL without showing the URL)
+    // - Embedded link annotations that don't appear as text
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -188,7 +160,7 @@ CRITICAL EXTRACTION RULES:
 4. PROJECTS (extract ALL projects):
    - project_name: Project title (required for each entry)
    - description: Detailed description, technologies used, your role, outcomes
-   - link: GitHub URL, live demo, or project website - **USE EMBEDDED LINKS when available**
+   - link: GitHub URL, live demo, or project website if mentioned
 
 5. SKILLS (extract ALL technical skills):
    - skill_name: Technology/tool name (e.g., "JavaScript", "React", "Python", "Docker")
@@ -205,12 +177,12 @@ CRITICAL EXTRACTION RULES:
    - journal_name: Where published (journal, conference, blog platform)
    - description: Abstract summary, key findings, your contribution
    - publication_year, publication_month: When published (integers)
-   - link: DOI, URL, or publication link - **USE EMBEDDED LINKS when available**
+   - link: DOI, URL, or publication link
 
 8. CERTIFICATIONS & AWARDS (extract ALL certifications, licenses, awards):
    - name: Full certification/award name (required for each entry)
    - issuing_organization: Issuing body (e.g., "AWS", "Google", "Microsoft")
-   - url: Verification link or credential URL - **USE EMBEDDED LINKS when available**
+   - url: Verification link or credential URL if mentioned
 
 9. SOCIAL LINKS (extract ONLY these specific platforms):
    - github: GitHub profile URL (e.g., "https://github.com/username")
@@ -218,9 +190,8 @@ CRITICAL EXTRACTION RULES:
    - stackoverflow: Stack Overflow profile URL (e.g., "https://stackoverflow.com/users/...")
    - kaggle: Kaggle profile URL (e.g., "https://www.kaggle.com/username")
    - leetcode: LeetCode profile URL (e.g., "https://leetcode.com/username")
-   - **PRIORITIZE embedded links from PDF over text URLs**
-   - Match embedded links to platforms based on domain (github.com, linkedin.com, etc.)
-   - Set field to null if platform not found
+   - IGNORE any other social media or website URLs not matching these platforms
+   - Set field to null if platform not found in resume
 
 10. DATE FORMATTING:
     - year: 4-digit integer (e.g., 2024)
@@ -230,10 +201,6 @@ CRITICAL EXTRACTION RULES:
 
 11. DATA QUALITY:
     - Extract information EXACTLY as written in resume
-    - **When embedded links are provided WITH CONTEXT, use the context to understand what the link is for**
-    - Example: If you see 'Text: "GitHub" → URL: https://github.com/username', put that URL in social_links.github
-    - Example: If you see 'Text: "Project Demo" → URL: https://example.com/demo', put that URL in the corresponding project's link field
-    - **Match links to the appropriate fields based on their context text and URL domain**
     - Do NOT invent or infer information not present
     - Set fields to null if truly not found
     - Preserve ALL details from descriptions and bullet points
@@ -241,16 +208,61 @@ CRITICAL EXTRACTION RULES:
         },
         {
           role: 'user',
-          content: `Extract ALL information from this resume. Be thorough and detailed.
+          content: `Extract ALL information from this resume. Be thorough and detailed:
 
-**IMPORTANT:** I have extracted embedded link annotations from the PDF along with their context text. 
-- When you see 'Text: "..." → URL: ...', the text shows what was clickable in the PDF
-- Use this context to understand what each link is for (social profile, project demo, publication, etc.)
-- Match links to the appropriate fields based on context and domain
+**Personal Information:**
+- Full name, phone number, email address, physical address
+
+**Education History:**
+- All schools/universities attended
+- Degrees earned or in progress
+- GPA, honors, relevant coursework
+- Start and end dates (year and month)
+
+**Work Experience:**
+- All jobs, internships, volunteer positions
+- Company names and job titles
+- Detailed descriptions of responsibilities and achievements
+- Employment dates (year and month)
+
+**Projects:**
+- Personal, academic, or professional projects
+- Project names, descriptions, technologies used
+- GitHub links, live demos, or project websites
+
+**Technical Skills:**
+- Programming languages (Python, JavaScript, Java, etc.)
+- Frameworks and libraries (React, Django, TensorFlow, etc.)
+- Tools and platforms (Git, Docker, AWS, etc.)
+- Methodologies (Agile, DevOps, etc.)
+
+**Spoken Languages:**
+- All languages spoken
+- Proficiency levels (Native/Fluent/Advanced/Intermediate/Beginner)
+
+**Publications:**
+- Research papers, articles, blog posts
+- Publication titles, journals/venues, dates
+- Links to publications if available
+
+**Certifications & Awards:**
+- Professional certifications, licenses
+- Academic awards, honors, scholarships
+- Issuing organizations and dates
+- Verification URLs if available
+
+**Social Links (ONLY these 5 platforms):**
+- GitHub profile URL
+- LinkedIn profile URL
+- Stack Overflow profile URL
+- Kaggle profile URL
+- LeetCode profile URL
+- Set to null if not found in resume
+- IGNORE any other social media or websites
 
 Resume text:
 
-${resumeText}${linksInfo}`,
+${resumeText}`,
         },
       ],
       response_format: zodResponseFormat(ResumeExtractionSchema, 'resume_extraction'),
