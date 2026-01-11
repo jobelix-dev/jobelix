@@ -10,6 +10,17 @@ export interface ElectronAPI {
     pid?: number;
     platform?: string;
   }>;
+  
+  // Auto-updater events
+  onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string; releaseDate?: string }) => void) => void;
+  onUpdateDownloadProgress: (callback: (progress: { 
+    bytesPerSecond: number; 
+    percent: number; 
+    transferred: number; 
+    total: number 
+  }) => void) => void;
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => void;
+  removeUpdateListeners: () => void;
 }
 
 declare global {

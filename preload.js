@@ -8,4 +8,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readConfigFile: () => ipcRenderer.invoke('read-config'),
   writeConfigFile: (content) => ipcRenderer.invoke('write-config', content),
   launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
+  
+  // Auto-updater listeners
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
+  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (event, progress) => callback(progress)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info)),
+  
+  // Remove listeners
+  removeUpdateListeners: () => {
+    ipcRenderer.removeAllListeners('update-available');
+    ipcRenderer.removeAllListeners('update-download-progress');
+    ipcRenderer.removeAllListeners('update-downloaded');
+  }
 });
