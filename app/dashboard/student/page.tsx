@@ -36,7 +36,13 @@ export default function StudentDashboard() {
     languages: [],
     publications: [],
     certifications: [],
-    social_links: [],
+    social_links: {
+      github: null,
+      linkedin: null,
+      stackoverflow: null,
+      kaggle: null,
+      leetcode: null,
+    },
   });
 
   const [draftId, setDraftId] = useState<string | null>(null);
