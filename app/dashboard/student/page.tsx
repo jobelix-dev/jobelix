@@ -300,17 +300,6 @@ export default function StudentDashboard() {
     }
   }
 
-  const handleLaunchPython = async () => {
-    try {
-      const res = await fetch('http://127.0.0.1:8000/start-chromium', { method: 'POST' });
-      const json = await res.json();
-      alert(json.message);
-    } catch (err) {
-      alert("Cette fonctionnalité nécessite l'application de bureau Jobelix.");
-      console.error(err);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="max-w-5xl mx-auto px-6 py-8">
@@ -344,7 +333,7 @@ export default function StudentDashboard() {
           {activeTab === 'matches' && <MatchesTab />}
 
           {activeTab === 'auto-apply' && (
-            <AutoApplyTab onLaunchPython={handleLaunchPython} />
+            <AutoApplyTab />
           )}
 
           {activeTab === 'activity' && <ActivityTab />}

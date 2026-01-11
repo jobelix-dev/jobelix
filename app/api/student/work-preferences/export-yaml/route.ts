@@ -18,20 +18,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get repository root (parent of app directory)
+    // Save to resources/linux/main/data_folder/ for the Python bot
     const repoRoot = join(process.cwd());
-    const configPath = join(repoRoot, 'config.yaml');
+    const configPath = join(repoRoot, 'resources', 'linux', 'main', 'data_folder', 'config.yaml');
 
     console.log('Writing config.yaml to:', configPath);
 
-    // Write YAML file to repository root
+    // Write YAML file to the data_folder
     await writeFile(configPath, yamlContent, 'utf-8');
 
     console.log('config.yaml written successfully');
 
     return NextResponse.json({
       success: true,
-      message: 'config.yaml saved to repository root',
+      message: 'config.yaml saved to data_folder',
       path: configPath,
     });
   } catch (error) {
