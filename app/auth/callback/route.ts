@@ -1,9 +1,9 @@
 /**
  * Auth Callback Route Handler
  * 
- * Handles email confirmation and magic link redirects from Supabase Auth.
- * When user clicks confirmation link in email, Supabase redirects here with a code.
- * This route exchanges the code for a session and redirects to dashboard.
+ * Handles email confirmation and password reset redirects from Supabase Auth.
+ * When user clicks confirmation/reset link in email, Supabase redirects here with a code.
+ * This route exchanges the code for a session and redirects to the appropriate page.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -25,9 +25,12 @@ export async function GET(request: NextRequest) {
       // Redirect to login with error
       return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin))
     }
+  } else {
+    // No code provided, redirect with error
+    return NextResponse.redirect(new URL(`/login?error=Invalid+or+expired+link`, requestUrl.origin))
   }
 
-  // Redirect to the dashboard or specified next URL
+  // Redirect to the specified next URL (dashboard or update-password)
   return NextResponse.redirect(new URL(next, requestUrl.origin))
 }
 
