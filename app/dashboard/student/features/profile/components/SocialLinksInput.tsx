@@ -46,7 +46,7 @@ export default function SocialLinksInput({ social_links, onChange, fieldErrors =
               className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border ${
                 errorMessage
                   ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50'
-                  : 'border-zinc-200 dark:border-zinc-700'
+                  : 'border-purple-200 dark:border-purple-800'
               } bg-white dark:bg-zinc-900/50`}
             >
               <input

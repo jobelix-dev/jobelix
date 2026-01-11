@@ -255,7 +255,7 @@ export default function AutoApplyTab() {
 
         <div className="mt-6 pt-6 border-t border-purple-200 dark:border-purple-700">
           <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
-            ✨ Features - Passes All ATS Tests
+            ✨ Features
           </h4>
           <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
             <li className="flex items-start gap-2">
@@ -264,7 +264,7 @@ export default function AutoApplyTab() {
             </li>
             <li className="flex items-start gap-2">
               <span>✏️</span>
-              <span>Tailors your resume to match each posting</span>
+              <span>Tailors your resume to match each posting and bypass ATS</span>
             </li>
             <li className="flex items-start gap-2">
               <span>📄</span>
@@ -287,8 +287,8 @@ export default function AutoApplyTab() {
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
         {/* Header inside container */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
-            <Rocket className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
+            <Rocket className="w-6 h-6 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -329,19 +329,19 @@ export default function AutoApplyTab() {
                   <button
                     onClick={handleClaimCredits}
                     disabled={claiming}
-                    className="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {claiming ? 'Claiming...' : '🎁 Claim Daily 50'}
                   </button>
                   <button 
                     onClick={handleBuyCredits}
-                    className="flex-1 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all"
+                    className="flex-1 px-4 py-2 text-sm font-medium border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all"
                   >
                     💳 Buy Credits
                   </button>
                 </div>
                 {showBuyWarning && (
-                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300">
+                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded text-xs text-purple-700 dark:text-purple-300">
                     Coming soon
                   </div>
                 )}
@@ -367,7 +367,7 @@ export default function AutoApplyTab() {
                 <button
                   onClick={handleLaunchClick}
                   disabled={launching}
-                  className="w-full px-6 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Rocket className="w-5 h-5" />
                   {launching ? 'Launching...' : 'Launch Bot'}

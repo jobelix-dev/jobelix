@@ -91,8 +91,8 @@ export default function DatePicker({
           className={`w-full px-3 py-2 text-sm rounded border ${
             monthError 
               ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-              : 'border-zinc-300 dark:border-zinc-600'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+              : 'border-purple-200 dark:border-purple-800'
+          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           <option value="">Month</option>
           {months.map(m => (
@@ -106,8 +106,8 @@ export default function DatePicker({
           className={`w-full px-3 py-2 text-sm rounded border ${
             yearError 
               ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-              : 'border-zinc-300 dark:border-zinc-600'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+              : 'border-purple-200 dark:border-purple-800'
+          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           <option value="">Year</option>
           {years.map(y => (
