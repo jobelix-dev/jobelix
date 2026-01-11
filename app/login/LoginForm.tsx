@@ -69,6 +69,15 @@ export default function LoginForm() {
         />
       </label>
 
+      <div className="flex justify-end">
+        <a 
+          href="/reset-password" 
+          className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-foreground hover:underline"
+        >
+          Forgot password?
+        </a>
+      </div>
+
       <button
         type="submit"
         disabled={loading}

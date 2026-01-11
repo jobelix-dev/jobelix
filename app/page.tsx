@@ -38,11 +38,11 @@ export default function Home() {
         </section>
 
         <div className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-        Already have an account?{' '}
-        <Link href="/login" className="text-foreground hover:underline">
-          Log in
-        </Link>
-      </div>
+          Already have an account?{' '}
+          <Link href="/login" className="text-foreground hover:underline">
+            Log in
+          </Link>
+        </div>
 
       </main>
     </div>

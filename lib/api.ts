@@ -63,6 +63,20 @@ class ApiClient {
     })
   }
 
+  async resetPassword(email: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async updatePassword(password: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/api/auth/update-password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    })
+  }
+
   async getProfile(): Promise<ProfileResponse> {
     return this.request<ProfileResponse>('/api/auth/profile')
   }
