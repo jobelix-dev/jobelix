@@ -13,6 +13,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import serviceSupabase from '@/lib/supabaseService'
 
+// Check if OpenAI API key is configured
+if (!process.env.OPENAI_API_KEY) {
+  console.error('[GPT4 Route] CRITICAL: OPENAI_API_KEY not set in environment variables!')
+}
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 /**
@@ -34,8 +39,12 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('[GPT4 Route] Request received')
     const body = await req.json()
     const { token, messages, temperature = 0.8 } = body || {}
+
+    console.log('[GPT4 Route] Token present:', !!token)
+    console.log('[GPT4 Route] Messages count:', messages?.length)
 
     if (!token) {
       return NextResponse.json({ error: 'token required' }, { status: 400 })
@@ -45,6 +54,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
 
+    console.log('[GPT4 Route] Validating token...')
     // Validate token and get user_id
     const { data: apiToken, error: tokenError } = await serviceSupabase
       .from('api_tokens')
@@ -53,11 +63,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (tokenError || !apiToken) {
+      console.error('[GPT4 Route] Token validation failed:', tokenError)
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
     const user_id = apiToken.user_id
+    console.log('[GPT4 Route] Token validated for user:', user_id)
 
+    console.log('[GPT4 Route] Checking credits...')
     // Check if user has credits available
     const { data: userCredits, error: creditsError } = await serviceSupabase
       .from('user_credits')
@@ -66,23 +79,30 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (creditsError) {
-      console.error('Credits lookup error:', creditsError)
+      console.error('[GPT4 Route] Credits lookup error:', creditsError)
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!userCredits || userCredits.balance <= 0) {
+      console.warn('[GPT4 Route] Insufficient credits for user:', user_id)
       return NextResponse.json({ 
         error: 'Insufficient credits',
         message: 'You need to claim daily credits or purchase more credits'
       }, { status: 402 })
     }
 
+    console.log('[GPT4 Route] Credits available:', userCredits.balance)
+    console.log('[GPT4 Route] Calling OpenAI API...')
+    
     // Call OpenAI with GPT-4o-mini (cheaper model)
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
       temperature,
     })
+
+    console.log('[GPT4 Route] OpenAI call successful')
+    console.log('[GPT4 Route] Token usage - Input:', completion.usage?.prompt_tokens, 'Output:', completion.usage?.completion_tokens)
 
     // Calculate cost for this API call
     const inputTokens = completion.usage?.prompt_tokens || 0

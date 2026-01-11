@@ -161,6 +161,24 @@ export default function AutoApplyTab() {
     setLaunchError(null);
 
     try {
+      // Check if profile is published by fetching published profile data
+      const profileCheckResponse = await fetch('/api/student/profile/published');
+      if (!profileCheckResponse.ok) {
+        setLaunchError('Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
+      }
+      const profileData = await profileCheckResponse.json();
+      
+      // Verify that essential profile data exists
+      if (!profileData.student || !profileData.student.first_name || !profileData.student.last_name) {
+        setLaunchError('Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
+      }
+
       // Fetch API token from api_tokens table (64-char hex token)
       const tokenResponse = await fetch('/api/student/token');
       if (!tokenResponse.ok) {
@@ -179,20 +197,11 @@ export default function AutoApplyTab() {
         console.log('Bot launched:', result);
         console.log('Platform:', result.platform, 'PID:', result.pid);
       } else {
-        // Fallback to API route if not running in Electron
-        const launchResponse = await fetch('/api/student/bot/launch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-
-        if (!launchResponse.ok) {
-          const errorData = await launchResponse.json();
-          throw new Error(errorData.error || 'Failed to launch bot');
-        }
-
-        const result = await launchResponse.json();
-        console.log('Bot launched:', result);
+        // Running in browser - bot must be launched from desktop app
+        setLaunchError('Please download and use the Jobelix desktop app to launch the bot.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
       }
 
     } catch (error) {
@@ -381,7 +390,7 @@ export default function AutoApplyTab() {
                 
                 {showLaunchWarning && !canLaunchBot && (
                   <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
-                    {!credits || credits.balance <= 0 ? 'Missing credits' : 'Missing job search preferences'}
+                    {!credits || credits.balance <= 0 ? 'Missing credits' : 'You forgot to save your job search preferences'}
                   </div>
                 )}
               </div>
