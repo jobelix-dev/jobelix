@@ -2,12 +2,12 @@
  * Reset Password Form Component
  * 
  * Client-side form for requesting password reset email.
- * Calls Supabase Auth API to send reset link.
+ * Calls Supabase Auth directly from client to properly handle PKCE flow.
  */
 
 'use client';
 import { useState } from 'react';
-import { api } from '@/lib/api';
+import { createClient } from '@/lib/supabaseClient';
 
 export default function ResetPasswordForm() {
   const [email, setEmail] = useState('');
@@ -22,7 +22,16 @@ export default function ResetPasswordForm() {
     setSuccess(false);
 
     try {
-      await api.resetPassword(email);
+      const supabase = createClient();
+      
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      });
+
+      if (resetError) {
+        throw resetError;
+      }
+
       setSuccess(true);
       setEmail('');
     } catch (err: any) {
@@ -34,19 +43,19 @@ export default function ResetPasswordForm() {
 
   if (success) {
     return (
-      <div className="text-center space-y-4">
-        <div className="rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 p-4">
-          <svg className="mx-auto h-12 w-12 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-green-800 dark:text-green-300">Check your email</h3>
-          <p className="mt-1 text-sm text-green-700 dark:text-green-400">
+      <div className="text-center space-y-6">
+        <svg className="mx-auto h-16 w-16 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <div>
+          <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Check your email</h3>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
             We've sent you a password reset link. Please check your inbox.
           </p>
         </div>
         <button
           onClick={() => setSuccess(false)}
-          className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
+          className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 underline"
         >
           Send another email
         </button>
