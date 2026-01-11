@@ -40,6 +40,7 @@ export function mapDraftToStudent(draft: any, userId: string) {
   
   return {
     id: userId,
+    student_name: draft.student_name || null,
     first_name: firstName,
     last_name: lastName,
     phone_number: draft.phone_number || null,
@@ -198,17 +199,28 @@ export function mapDraftToCertifications(draft: any, userId: string) {
 }
 
 /**
- * Map draft social link entries to social_link table records
+ * Map draft social links object to social_link table record
+ * Now returns a single object with platform-specific columns instead of array
  */
 export function mapDraftToSocialLinks(draft: any, userId: string) {
-  if (!draft.social_links || !Array.isArray(draft.social_links) || draft.social_links.length === 0) {
-    return []
+  if (!draft.social_links || typeof draft.social_links !== 'object') {
+    return null
   }
   
-  return draft.social_links
-    .filter((link: any) => link.link?.trim())
-    .map((link: any) => ({
-      student_id: userId,
-      link: link.link,
-    }))
+  const socialLinks = draft.social_links as SocialLinkEntry;
+  
+  // Return null if all platforms are empty/null
+  if (!socialLinks.github && !socialLinks.linkedin && !socialLinks.stackoverflow && 
+      !socialLinks.kaggle && !socialLinks.leetcode) {
+    return null
+  }
+  
+  return {
+    student_id: userId,
+    github: socialLinks.github?.trim() || null,
+    linkedin: socialLinks.linkedin?.trim() || null,
+    stackoverflow: socialLinks.stackoverflow?.trim() || null,
+    kaggle: socialLinks.kaggle?.trim() || null,
+    leetcode: socialLinks.leetcode?.trim() || null,
+  }
 }

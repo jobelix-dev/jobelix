@@ -68,9 +68,13 @@ export const CertificationSchema = z.object({
   url: z.string().nullable().describe('URL to verify or view the credential'),
 })
 
-// Schema for a single social link entry
+// Schema for social links - specific platforms only
 export const SocialLinkSchema = z.object({
-  link: z.string().describe('Full URL to social profile or website'),
+  github: z.string().nullable().optional().describe('GitHub profile URL'),
+  linkedin: z.string().nullable().optional().describe('LinkedIn profile URL'),
+  stackoverflow: z.string().nullable().optional().describe('Stack Overflow profile URL'),
+  kaggle: z.string().nullable().optional().describe('Kaggle profile URL'),
+  leetcode: z.string().nullable().optional().describe('LeetCode profile URL'),
 })
 
 // Complete resume extraction schema
@@ -86,7 +90,7 @@ export const ResumeExtractionSchema = z.object({
   languages: z.array(LanguageSchema).describe('Array of spoken languages'),
   publications: z.array(PublicationSchema).describe('Array of publications or research papers'),
   certifications: z.array(CertificationSchema).describe('Array of certifications and awards'),
-  social_links: z.array(SocialLinkSchema).describe('Array of social media profiles and websites'),
+  social_links: SocialLinkSchema.describe('Social media profiles - GitHub, LinkedIn, StackOverflow, Kaggle, LeetCode'),
 })
 
 // Schema for individual field update

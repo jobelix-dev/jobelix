@@ -124,9 +124,14 @@ CRITICAL EXTRACTION RULES:
    - issuing_organization: Issuing body (e.g., "AWS", "Google", "Microsoft")
    - url: Verification link or credential URL if mentioned
 
-9. SOCIAL LINKS (extract ALL online profiles and portfolios):
-   - link: Full URL to LinkedIn, GitHub, personal website, portfolio, Twitter, etc.
-   - Extract ANY URLs that appear in the resume
+9. SOCIAL LINKS (extract ONLY these specific platforms):
+   - github: GitHub profile URL (e.g., "https://github.com/username")
+   - linkedin: LinkedIn profile URL (e.g., "https://www.linkedin.com/in/username")
+   - stackoverflow: Stack Overflow profile URL (e.g., "https://stackoverflow.com/users/...")
+   - kaggle: Kaggle profile URL (e.g., "https://www.kaggle.com/username")
+   - leetcode: LeetCode profile URL (e.g., "https://leetcode.com/username")
+   - IGNORE any other social media or website URLs not matching these platforms
+   - Set field to null if platform not found in resume
 
 10. DATE FORMATTING:
     - year: 4-digit integer (e.g., 2024)
@@ -186,11 +191,14 @@ CRITICAL EXTRACTION RULES:
 - Issuing organizations and dates
 - Verification URLs if available
 
-**Social Links & Online Presence:**
-- LinkedIn profile URL
+**Social Links (ONLY these 5 platforms):**
 - GitHub profile URL
-- Personal website or portfolio
-- Twitter, Stack Overflow, or other professional profiles
+- LinkedIn profile URL
+- Stack Overflow profile URL
+- Kaggle profile URL
+- LeetCode profile URL
+- Set to null if not found in resume
+- IGNORE any other social media or websites
 
 Resume text:
 

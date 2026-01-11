@@ -71,9 +71,7 @@ export interface ProfileValidationResult {
       credential_id?: string
       credential_url?: string
     }>
-    social_links?: Record<number, {
-      link?: string
-    }>
+    social_links?: Record<string, string> // Changed to match new platform-specific structure
   }
 }
 
@@ -464,17 +462,23 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
     })
   }
   
-  // Validate social links (optional, but if provided must have a URL)
-  if (data.social_links && data.social_links.length > 0) {
-    data.social_links.forEach((link, index) => {
-      if (!fieldErrors.social_links) fieldErrors.social_links = {}
-      fieldErrors.social_links[index] = {}
-      
-      if (!link.link?.trim()) {
-        errors.push(`Social Link ${index + 1} - URL is required`)
-        fieldErrors.social_links[index].link = 'Required'
+  // Validate social links (optional, but if provided must be valid URLs)
+  if (data.social_links) {
+    const platforms: Array<keyof SocialLinkEntry> = ['github', 'linkedin', 'stackoverflow', 'kaggle', 'leetcode'];
+    
+    platforms.forEach((platform) => {
+      const url = data.social_links[platform];
+      if (url && url.trim()) {
+        // Basic URL validation
+        try {
+          new URL(url);
+        } catch {
+          if (!fieldErrors.social_links) fieldErrors.social_links = {};
+          fieldErrors.social_links[platform] = 'Invalid URL format';
+          errors.push(`${platform.charAt(0).toUpperCase() + platform.slice(1)} - Invalid URL format`);
+        }
       }
-    })
+    });
   }
   
   return {
