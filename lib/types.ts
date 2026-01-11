@@ -137,10 +137,15 @@ export interface CertificationEntry {
 }
 
 /**
- * Social link entry from resume extraction
+ * Social links from resume extraction
+ * Only supports specific platforms: GitHub, LinkedIn, StackOverflow, Kaggle, LeetCode
  */
 export interface SocialLinkEntry {
-  link: string;
+  github?: string | null;
+  linkedin?: string | null;
+  stackoverflow?: string | null;
+  kaggle?: string | null;
+  leetcode?: string | null;
 }
 
 /**
@@ -189,7 +194,7 @@ export interface ExtractedResumeData {
   languages: LanguageEntry[];
   publications: PublicationEntry[];
   certifications: CertificationEntry[];
-  social_links: SocialLinkEntry[];
+  social_links: SocialLinkEntry; // Changed from array to object
 }
 
 /**

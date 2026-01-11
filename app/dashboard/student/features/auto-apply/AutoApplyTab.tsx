@@ -339,9 +339,12 @@ export default function AutoApplyTab() {
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
               Auto Apply Bot
             </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-              Redeem daily credits and launch your Linkedin auto-apply bot
-            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-3 leading-relaxed">
+            This auto-apply bot is currently in beta and provided on an experimental basis.
+            Use is at your own discretion. We are not responsible for any account restrictions,
+            suspensions, or other consequences resulting from its use.
+          </p>
+
           </div>
         </div>
 
