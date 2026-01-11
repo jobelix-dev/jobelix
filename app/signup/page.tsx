@@ -18,6 +18,7 @@
 
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
+import Link from "next/link";
 import "../globals.css";
 
 type SearchParams = Promise<{ role?: string } | undefined>;
@@ -46,6 +47,13 @@ export default async function SignupPage({
         </p>
 
         <SignupForm role={role} />
+
+        <div className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
+          Already have an account?{' '}
+          <Link href="/login" className="text-purple-600 dark:text-purple-400 hover:underline">
+            Log in
+          </Link>
+        </div>
       </div>
     </div>
   );
