@@ -372,8 +372,8 @@ export default function AutoApplyTab() {
                   </button>
                 </div>
                 {showBuyWarning && (
-                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded text-xs text-purple-700 dark:text-purple-300">
-                    Coming soon
+                  <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
+                    Failed to create checkout. Please try again.
                   </div>
                 )}
                 {showClaimWarning && (
