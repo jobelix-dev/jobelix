@@ -12,7 +12,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/types';
 import { api } from '@/lib/api';
-import { Shield, X } from 'lucide-react';
+import { Shield, X, MessageSquare } from 'lucide-react';
+import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
 
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -76,6 +78,13 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-3">
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900 flex items-center gap-2"
+            >
+              <MessageSquare size={18} />
+              Feedback
+            </button>
             <button
               onClick={() => setShowPrivacyModal(true)}
               className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900 flex items-center gap-2"
@@ -146,6 +155,12 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Feedback Modal */}
+      <FeedbackModal 
+        isOpen={showFeedbackModal} 
+        onClose={() => setShowFeedbackModal(false)} 
+      />
     </div>
   );
 }
