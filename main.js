@@ -1,7 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const https = require('https');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let pythonProcess;
@@ -180,7 +182,302 @@ function setupIpcHandlers() {
   });
 }
 
+/**
+ * Compare two semantic version strings (e.g., "1.2.3")
+ * Returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+ */
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const num1 = parts1[i] || 0;
+    const num2 = parts2[i] || 0;
+    
+    if (num1 < num2) return -1;
+    if (num1 > num2) return 1;
+  }
+  
+  return 0;
+}
 
+/**
+ * Read version from a file
+ */
+function readVersionFile(filePath) {
+  try {
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath, 'utf-8').trim();
+    }
+    console.warn(`Version file not found: ${filePath}`);
+    return '0.0.0';
+  } catch (error) {
+    console.error('Error reading version file:', error);
+    return '0.0.0';
+  }
+}
+
+/**
+ * Get current app version from package.json
+ */
+function getCurrentAppVersion() {
+  try {
+    const packageJsonPath = path.join(__dirname, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    return packageJson.version || '0.0.0';
+  } catch (error) {
+    console.error('Error reading package.json:', error);
+    return '0.0.0';
+  }
+}
+
+/**
+ * Get current engine version from resources/{os}/version.txt
+ */
+function getCurrentEngineVersion() {
+  let platformFolder = '';
+  
+  if (process.platform === 'win32') {
+    platformFolder = 'win';
+  } else if (process.platform === 'darwin') {
+    platformFolder = 'mac';
+  } else if (process.platform === 'linux') {
+    platformFolder = 'linux';
+  } else {
+    console.error("OS non supporté : " + process.platform);
+    return '0.0.0';
+  }
+
+  const resourceRoot = app.isPackaged 
+    ? process.resourcesPath 
+    : path.join(__dirname, 'resources');
+  
+  const versionFilePath = path.join(resourceRoot, platformFolder, 'version.txt');
+  return readVersionFile(versionFilePath);
+}
+
+/**
+ * Fetch required versions from Vercel endpoint
+ */
+async function fetchRequiredVersions() {
+  return new Promise((resolve, reject) => {
+    const url = app.isPackaged 
+      ? 'https://www.jobelix.fr/api/required-versions'
+      : 'http://localhost:3000/api/required-versions';
+
+    const protocol = url.startsWith('https') ? https : require('http');
+    
+    protocol.get(url, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.success && parsed.required) {
+            resolve(parsed.required);
+          } else {
+            reject(new Error('Invalid response format'));
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }).on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+/**
+ * Check if app and engine versions meet minimum requirements
+ * Returns: { isCompatible: boolean, details: object }
+ */
+async function checkForUpdates() {
+  try {
+    console.log('Checking for required updates...');
+    
+    // Get current versions
+    const currentAppVersion = getCurrentAppVersion();
+    const currentEngineVersion = getCurrentEngineVersion();
+    
+    console.log(`Current App Version: ${currentAppVersion}`);
+    console.log(`Current Engine Version: ${currentEngineVersion}`);
+    
+    // Fetch required versions from server
+    const required = await fetchRequiredVersions();
+    
+    console.log(`Required App Version: ${required.app.version}`);
+    console.log(`Required Engine Version: ${required.engine.version}`);
+    
+    // Compare versions
+    const appComparison = compareVersions(currentAppVersion, required.app.version);
+    const engineComparison = compareVersions(currentEngineVersion, required.engine.version);
+    
+    const isAppCompatible = appComparison >= 0;
+    const isEngineCompatible = engineComparison >= 0;
+    const isCompatible = isAppCompatible && isEngineCompatible;
+    
+    const details = {
+      isCompatible,
+      currentAppVersion,
+      currentEngineVersion,
+      requiredAppVersion: required.app.version,
+      requiredEngineVersion: required.engine.version,
+      downloadUrl: required.downloadUrl,
+      appNeedsUpdate: !isAppCompatible,
+      engineNeedsUpdate: !isEngineCompatible,
+      message: !isCompatible 
+        ? (!isAppCompatible && !isEngineCompatible 
+            ? 'Both app and engine need to be updated' 
+            : !isAppCompatible 
+              ? required.app.message 
+              : required.engine.message)
+        : 'All components are up to date'
+    };
+    
+    if (isCompatible) {
+      console.log('App is compatible with server requirements');
+    } else {
+      console.log('Update required!');
+      console.log(`  App compatible: ${isAppCompatible}`);
+      console.log(`  Engine compatible: ${isEngineCompatible}`);
+    }
+    
+    return details;
+  } catch (error) {
+    console.error('Failed to check for updates:', error.message);
+    // In case of error, allow the app to proceed (fail gracefully)
+    return {
+      isCompatible: true,
+      error: error.message,
+      message: 'Update check failed, proceeding with current version'
+    };
+  }
+}
+
+/**
+ * Show update required window
+ */
+function showUpdateRequiredWindow(details) {
+  const updateWindow = new BrowserWindow({
+    width: 600,
+    height: 700,
+    resizable: false,
+    autoHideMenuBar: true,
+    title: 'Update Required - Jobelix',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    }
+  });
+
+  // Build URL with version parameters
+  const params = new URLSearchParams({
+    currentApp: details.currentAppVersion,
+    requiredApp: details.requiredAppVersion,
+    currentEngine: details.currentEngineVersion,
+    requiredEngine: details.requiredEngineVersion,
+    downloadUrl: details.downloadUrl
+  });
+
+  const updatePagePath = path.join(__dirname, 'update-required.html');
+  updateWindow.loadFile(updatePagePath, { query: Object.fromEntries(params) });
+
+  // Open external links in browser
+  updateWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  // Prevent closing
+  updateWindow.on('close', (e) => {
+    e.preventDefault();
+    // User must update - prevent closing the update window
+  });
+}
+
+/**
+ * Configure electron-updater
+ */
+function setupAutoUpdater() {
+  // Configure auto-updater
+  autoUpdater.autoDownload = false; // Don't auto-download, ask user first
+  autoUpdater.autoInstallOnAppQuit = true; // Auto-install when app quits
+  
+  // Logging
+  autoUpdater.logger = require('electron-log');
+  autoUpdater.logger.transports.file.level = 'info';
+  
+  console.log('Auto-updater configured');
+  
+  // Check for updates (will use GitHub releases based on package.json config)
+  if (app.isPackaged) {
+    console.log('Checking for updates from GitHub releases...');
+    autoUpdater.checkForUpdates();
+  }
+}
+
+/**
+ * Setup auto-updater event listeners
+ */
+function setupAutoUpdaterListeners() {
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info.version);
+    
+    // Send notification to renderer process
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseDate: info.releaseDate
+      });
+    }
+    
+    // Auto-download the update
+    console.log('Downloading update...');
+    autoUpdater.downloadUpdate();
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available. Current version is', info.version);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Error in auto-updater:', err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+    console.log(logMessage);
+    
+    // Send progress to renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('update-download-progress', progressObj);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded. Version:', info.version);
+    
+    // Notify user that update is ready
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', {
+        version: info.version
+      });
+    }
+    
+    // Install update on next restart (or immediately if user confirms)
+    // autoUpdater.quitAndInstall(); // Uncomment to force immediate restart
+  });
+}
 
 // Wait for Next.js server to be ready
 async function waitForNextJs(url, maxAttempts = 30, delayMs = 500) {
@@ -226,7 +523,7 @@ async function createWindow() {
   });
   
   const startUrl = app.isPackaged 
-    ? 'https://vercel-app-url'  
+    ? 'https://www.jobelix.fr'  
     : 'http://localhost:3000';
   
   // Wait for Next.js to be ready before loading
@@ -244,10 +541,38 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   setupIpcHandlers();
-  startPython();
-  createWindow();
+  setupAutoUpdaterListeners();
+  
+  // In development mode, wait for Next.js to be ready before checking versions
+  if (!app.isPackaged) {
+    console.log('Development mode: Waiting for Next.js server...');
+    const isReady = await waitForNextJs('http://localhost:3000');
+    if (!isReady) {
+      console.error('Next.js server did not start in time. Starting app anyway...');
+    }
+  }
+  
+  // Check for updates before starting the app
+  const versionCheck = await checkForUpdates();
+  
+  if (!versionCheck.isCompatible) {
+    // Show update required window and block app
+    console.log('Blocking app launch - update required');
+    showUpdateRequiredWindow(versionCheck);
+    // Do not start Python or create main window
+  } else {
+    // Versions are compatible, proceed normally
+    console.log('Starting app normally');
+    startPython();
+    createWindow();
+    
+    // Setup auto-updater for seamless updates (only in production)
+    if (app.isPackaged) {
+      setupAutoUpdater();
+    }
+  }
 });
 
 app.on('will-quit', () => {

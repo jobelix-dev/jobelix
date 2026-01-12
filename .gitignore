@@ -44,12 +44,10 @@ next-env.d.ts
 dist/
 
 # python executables
-resources/linux/engine
-resources/mac/engine
-resources/win/engine.exe
+resources/
 
 # other
-helper_kheng.md
+tests/
 
 #stripe
 stripe-cli-bin
@@ -65,3 +63,5 @@ resources/linux/main/chrome_profile/
 resources/linux/main/debug_html/
 resources/linux/main/tailored_resumes/
 resources/linux/main/log.txt
+
+electron-builder.env

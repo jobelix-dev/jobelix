@@ -11,9 +11,19 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import serviceSupabase from '@/lib/supabaseService'
+import { getServiceSupabase } from '@/lib/supabaseService'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Lazy initialization to avoid build-time errors
+let openaiInstance: OpenAI | null = null
+function getOpenAI() {
+  if (!openaiInstance) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured')
+    }
+    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  }
+  return openaiInstance
+}
 
 /**
  * OpenAI GPT-4o-mini Pricing (per 1M tokens)
@@ -44,6 +54,9 @@ export async function POST(req: NextRequest) {
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
+
+    // Get service Supabase client
+    const serviceSupabase = getServiceSupabase()
 
     // Validate token and get user_id
     const { data: apiToken, error: tokenError } = await serviceSupabase
@@ -78,6 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Call OpenAI with GPT-4o-mini (cheaper model)
+    const openai = getOpenAI()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,

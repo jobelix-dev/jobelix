@@ -1,1 +1,2 @@
 rajouter le fichier "engine" associé à l'exectubale sur MacOS
+rajouter la versions de l'engine dans version.txt

@@ -15,9 +15,17 @@ import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { ResumeExtractionSchema } from '@/lib/resumeSchema'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Lazy initialization to avoid build-time errors
+let openaiInstance: OpenAI | null = null
+function getOpenAI() {
+  if (!openaiInstance) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured')
+    }
+    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  }
+  return openaiInstance
+}
 
 /**
  * POST handler for resume data extraction
@@ -66,6 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call GPT-4o with extracted text and ask to extract all fields
+    const openai = getOpenAI()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
