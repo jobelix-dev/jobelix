@@ -5,7 +5,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Zap, Rocket, AlertCircle, RefreshCw, BookOpen } from 'lucide-react';
+import { Zap, Rocket, AlertCircle, RefreshCw, BookOpen, Download, Info } from 'lucide-react';
+import Link from 'next/link';
 import WorkPreferencesEditor from './components/WorkPreferencesEditor';
 
 interface CreditBalance {
@@ -185,9 +186,9 @@ export default function AutoApplyTab() {
     try {
       // First check if running in Electron app
       if (!window.electronAPI) {
-        setLaunchError('Please download and use the Jobelix desktop app to launch the bot.');
+        setLaunchError('DESKTOP_REQUIRED');
         setLaunching(false);
-        setTimeout(() => setLaunchError(null), 5000);
+        // Don't auto-clear this message - it's informational, not an error
         return;
       }
 
@@ -404,7 +405,32 @@ export default function AutoApplyTab() {
                   {launching ? 'Launching...' : 'Launch Bot'}
                 </button>
                 
-                {launchError && (
+                {/* Desktop App Required Message */}
+                {launchError === 'DESKTOP_REQUIRED' && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          Desktop App Required
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                          This feature requires the Jobelix desktop application. Your data is safe and will sync automatically when you download the app.
+                        </p>
+                        <Link
+                          href="/download"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Desktop App
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Other Error Messages */}
+                {launchError && launchError !== 'DESKTOP_REQUIRED' && (
                   <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
                     {launchError}
                   </div>
