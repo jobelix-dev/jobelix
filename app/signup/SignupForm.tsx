@@ -19,6 +19,7 @@ export default function SignupForm({ role }: { role: string }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorType, setErrorType] = useState<'generic' | 'user_exists' | 'rate_limit'>('generic');
   const [message, setMessage] = useState('');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -45,8 +46,19 @@ export default function SignupForm({ role }: { role: string }) {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
-      setTimeout(() => setError(''), 1500);
+      // Check if error is about existing user
+      const errorMessage = err.message || 'An unexpected error occurred';
+      
+      if (errorMessage.toLowerCase().includes('already exists')) {
+        setError('An account with this email already exists. Try logging in instead.');
+      } else {
+        setError(errorMessage);
+      }
+      
+      // Don't auto-clear the error for "already exists" - let user read it
+      if (!errorMessage.toLowerCase().includes('already exists')) {
+        setTimeout(() => setError(''), 3000);
+      }
     } finally {
       setLoading(false);
     }

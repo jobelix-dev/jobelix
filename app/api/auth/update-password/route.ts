@@ -1,9 +1,16 @@
 /**
  * Update Password API Route
- * 
- * Updates user's password after reset link is clicked.
+ *
  * Route: POST /api/auth/update-password
- * Body: { password: string }
+ *
+ * What this route does:
+ * - Allows a user to set a NEW password
+ * - This is typically called AFTER the user clicks the password reset email link
+ *
+ * Important security assumption (VERY IMPORTANT):
+ * - The reset link logs the user in temporarily (via cookies)
+ * - supabase.auth.updateUser() ONLY works if the user is authenticated
+ * - If someone calls this route without a valid reset session → it will fail
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,8 +18,18 @@ import { createClient } from '@/lib/supabaseServer'
 
 export async function POST(request: NextRequest) {
   try {
+    /**
+     * 1) Read the request body
+     *
+     * Expected shape:
+     * { password: string }
+     */
     const { password } = await request.json()
 
+    /**
+     * 2) Basic server-side validation
+     * Never trust frontend validation alone.
+     */
     if (!password) {
       return NextResponse.json(
         { error: 'Password is required' },
@@ -20,6 +37,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    /**
+     * Beginner note:
+     * - Supabase itself has password rules
+     * - This check is an EARLY guard to give faster feedback
+     */
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
@@ -27,25 +49,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    /**
+     * 3) Create a Supabase client using cookies
+     *
+     * IMPORTANT:
+     * - This client reads auth cookies automatically
+     * - If the user clicked the reset link, Supabase set a temporary session
+     * - If there is NO valid session, updateUser() will fail
+     */
     const supabase = await createClient()
     
+    /**
+     * 4) Update the password for the currently authenticated user
+     *
+     * SECURITY NOTE:
+     * - We do NOT pass a user id here
+     * - Supabase updates ONLY the logged-in user
+     * - This prevents changing someone else's password
+     */
     const { error } = await supabase.auth.updateUser({
       password: password
     })
 
+
     if (error) {
-      console.error('Update password error:', error)
+      /**
+       * 🔐 SECURITY:
+       * - Do NOT return error.message to the client
+       * - It can reveal internal auth details
+       * - Always log the full error server-side
+       */
       return NextResponse.json(
-        { error: error.message },
+        { error: 'Failed to update password' }, // 🔐
         { status: 400 }
       )
     }
 
+    /**
+     * 5) Success
+     *
+     * At this point:
+     * - Password has been updated
+     * - Supabase invalidates old sessions automatically
+     */
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Update password error:', error)
+    /**
+     * 🔐 SECURITY:
+     * - Never expose raw server errors to the client
+     * - They may leak internal implementation details
+     */
     return NextResponse.json(
-      { error: error.message || 'Failed to update password' },
+      { error: 'Failed to update password' }, // 🔐
       { status: 500 }
     )
   }
