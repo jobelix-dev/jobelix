@@ -17,7 +17,7 @@ export async function GET() {
         message: 'Please update your Jobelix desktop application to the latest version.'
       },
       engine: {
-        version: '1.0.0', // Minimum Python engine version required
+        version: '0.0.1', // Minimum Python engine version required
         message: 'Please update your Jobelix application to get the latest engine.'
       },
       downloadUrl: 'https://github.com/jobelix-dev/jobelix-releases/releases/latest', // TODO: Update with actual URL
