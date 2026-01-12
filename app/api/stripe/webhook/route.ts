@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import serviceSupabase from '@/lib/supabaseService';
+import { getServiceSupabase } from '@/lib/supabaseService';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set');
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       }
 
       // SECURITY: Idempotency check by event ID
-      const { data: existingByEvent } = await serviceSupabase
+      const { data: existingByEvent } = await getServiceSupabase()
         .from('credit_purchases')
         .select('id')
         .eq('stripe_event_id', event.id)
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
 
       // SECURITY: Idempotency check by session ID (in case event ID changes on retry)
-      const { data: existingBySession } = await serviceSupabase
+      const { data: existingBySession } = await getServiceSupabase()
         .from('credit_purchases')
         .select('id')
         .eq('stripe_checkout_session_id', session.id)
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         p_currency: session.currency || 'usd',
       });
 
-      const { data, error: creditsError } = await serviceSupabase.rpc('add_purchased_credits', {
+      const { data, error: creditsError } = await getServiceSupabase().rpc('add_purchased_credits', {
         p_user_id: userId,
         p_credits_amount: creditsAmount,
         p_payment_intent_id: paymentIntentId,
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     if (event.type === 'payment_intent.payment_failed') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       
-      await serviceSupabase
+      await getServiceSupabase()
         .from('credit_purchases')
         .update({ 
           status: 'failed',

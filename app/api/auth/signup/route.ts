@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
-import serviceSupabase from '@/lib/supabaseService'
+import { getServiceSupabase } from '@/lib/supabaseService'
 
 // Rate limiting configuration
 const MAX_SIGNUPS_PER_IP = 3  // Maximum signups allowed per IP
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Signup] Attempt from IP: ${clientIP}`)
 
     // Check IP rate limit
-    const { data: signupCount, error: countError } = await serviceSupabase
+    const { data: signupCount, error: countError } = await getServiceSupabase()
       .rpc('count_recent_signups_from_ip', {
         p_ip_address: clientIP,
         p_hours_ago: RATE_LIMIT_HOURS
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     if (data.user && data.session) {
       // Track IP after successful signup
       const userAgent = request.headers.get('user-agent') || 'unknown'
-      await serviceSupabase.from('signup_ip_tracking').insert({
+      await getServiceSupabase().from('signup_ip_tracking').insert({
         ip_address: clientIP,
         user_agent: userAgent
       })
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     } else if (data.user && !data.session) {
       // Track IP after successful signup
       const userAgent = request.headers.get('user-agent') || 'unknown'
-      await serviceSupabase.from('signup_ip_tracking').insert({
+      await getServiceSupabase().from('signup_ip_tracking').insert({
         ip_address: clientIP,
         user_agent: userAgent
       })
