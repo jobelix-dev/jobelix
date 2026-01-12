@@ -141,9 +141,33 @@ export default function AutoApplyTab() {
     setTimeout(() => setRefreshing(false), 800);
   };
 
-  const handleBuyCredits = () => {
-    setShowBuyWarning(true);
-    setTimeout(() => setShowBuyWarning(false), 1500);
+  const handleBuyCredits = async () => {
+    try {
+      // Use test price ID for localhost, live price ID for production
+      const priceId = window.location.hostname === 'localhost' 
+        ? 'price_1SoYLdRkZ3GWynzuYzRcNCuG'  // Test mode
+        : 'price_YOUR_LIVE_PRICE_ID_HERE';   // Live mode - replace with your actual price ID
+      
+      const response = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('Failed to create checkout session:', data.error);
+        setShowBuyWarning(true);
+        setTimeout(() => setShowBuyWarning(false), 1500);
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
+      setShowBuyWarning(true);
+      setTimeout(() => setShowBuyWarning(false), 1500);
+    }
   };
 
   const handlePreferencesSaved = () => {
