@@ -25,12 +25,12 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
   const hasErrors = Object.keys(fieldErrors).length > 0;
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden">
+    <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
       {/* Header - Always visible */}
       <div className="relative">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors text-left"
         >
           <div className="flex-1 min-w-0 pr-16">
             <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
 
       {/* Expandable content */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-zinc-200 dark:border-zinc-700 space-y-4 bg-zinc-50/50 dark:bg-zinc-900/30">
+        <div className="px-4 pb-4 pt-2 border-t border-purple-200 dark:border-purple-800 space-y-4 bg-purple-50/30 dark:bg-purple-900/10">
           {/* Two column layout */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -99,8 +99,8 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   fieldErrors.title 
                     ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-zinc-300 dark:border-zinc-600'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    : 'border-purple-200 dark:border-purple-800'
+                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -112,7 +112,7 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
                 onChange={(e) => onChange('journal_name', e.target.value || null)}
                 placeholder="e.g., IEEE Transactions"
                 disabled={disabled}
-                className="w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -137,7 +137,7 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
                 onChange={(e) => onChange('link', e.target.value || null)}
                 placeholder="https://doi.org/..."
                 disabled={disabled}
-                className="w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
               placeholder="Brief abstract or summary..."
               rows={3}
               disabled={disabled}
-              className="w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
         </div>

@@ -141,9 +141,31 @@ export default function AutoApplyTab() {
     setTimeout(() => setRefreshing(false), 800);
   };
 
-  const handleBuyCredits = () => {
-    setShowBuyWarning(true);
-    setTimeout(() => setShowBuyWarning(false), 1500);
+  const handleBuyCredits = async () => {
+    try {
+      // Live price ID (works in both test and production)
+      const priceId = 'price_1SoYrLGqCDc9J776dZtKmYGQ';
+      
+      const response = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('Failed to create checkout session:', data.error);
+        setShowBuyWarning(true);
+        setTimeout(() => setShowBuyWarning(false), 1500);
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
+      setShowBuyWarning(true);
+      setTimeout(() => setShowBuyWarning(false), 1500);
+    }
   };
 
   const handlePreferencesSaved = () => {
@@ -161,6 +183,32 @@ export default function AutoApplyTab() {
     setLaunchError(null);
 
     try {
+      // First check if running in Electron app
+      if (!window.electronAPI) {
+        setLaunchError('Please download and use the Jobelix desktop app to launch the bot.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
+      }
+
+      // Check if profile is published by fetching published profile data
+      const profileCheckResponse = await fetch('/api/student/profile/published');
+      if (!profileCheckResponse.ok) {
+        setLaunchError('Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
+      }
+      const profileData = await profileCheckResponse.json();
+      
+      // Verify that essential profile data exists
+      if (!profileData.student || !profileData.student.first_name || !profileData.student.last_name) {
+        setLaunchError('Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.');
+        setLaunching(false);
+        setTimeout(() => setLaunchError(null), 5000);
+        return;
+      }
+
       // Fetch API token from api_tokens table (64-char hex token)
       const tokenResponse = await fetch('/api/student/token');
       if (!tokenResponse.ok) {
@@ -168,32 +216,15 @@ export default function AutoApplyTab() {
       }
       const { token } = await tokenResponse.json();
 
-      // Launch the bot via Electron IPC (client-side OS detection)
-      if (window.electronAPI) {
-        const result = await window.electronAPI.launchBot(token);
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to launch bot');
-        }
-        
-        console.log('Bot launched:', result);
-        console.log('Platform:', result.platform, 'PID:', result.pid);
-      } else {
-        // Fallback to API route if not running in Electron
-        const launchResponse = await fetch('/api/student/bot/launch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-
-        if (!launchResponse.ok) {
-          const errorData = await launchResponse.json();
-          throw new Error(errorData.error || 'Failed to launch bot');
-        }
-
-        const result = await launchResponse.json();
-        console.log('Bot launched:', result);
+      // Launch the bot via Electron IPC
+      const result = await window.electronAPI.launchBot(token);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to launch bot');
       }
+      
+      console.log('Bot launched:', result);
+      console.log('Platform:', result.platform, 'PID:', result.pid);
 
     } catch (error) {
       console.error('Launch error:', error);
@@ -255,7 +286,7 @@ export default function AutoApplyTab() {
 
         <div className="mt-6 pt-6 border-t border-purple-200 dark:border-purple-700">
           <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
-            ✨ Features - Passes All ATS Tests
+            ✨ Features
           </h4>
           <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
             <li className="flex items-start gap-2">
@@ -264,7 +295,7 @@ export default function AutoApplyTab() {
             </li>
             <li className="flex items-start gap-2">
               <span>✏️</span>
-              <span>Tailors your resume to match each posting</span>
+              <span>Tailors your resume to match each posting and bypass ATS</span>
             </li>
             <li className="flex items-start gap-2">
               <span>📄</span>
@@ -287,8 +318,8 @@ export default function AutoApplyTab() {
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
         {/* Header inside container */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
-            <Rocket className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
+            <Rocket className="w-6 h-6 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -329,20 +360,20 @@ export default function AutoApplyTab() {
                   <button
                     onClick={handleClaimCredits}
                     disabled={claiming}
-                    className="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {claiming ? 'Claiming...' : '🎁 Claim Daily 50'}
                   </button>
                   <button 
                     onClick={handleBuyCredits}
-                    className="flex-1 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all"
+                    className="flex-1 px-4 py-2 text-sm font-medium border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all"
                   >
                     💳 Buy Credits
                   </button>
                 </div>
                 {showBuyWarning && (
-                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300">
-                    Coming soon
+                  <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
+                    Failed to create checkout. Please try again.
                   </div>
                 )}
                 {showClaimWarning && (
@@ -367,7 +398,7 @@ export default function AutoApplyTab() {
                 <button
                   onClick={handleLaunchClick}
                   disabled={launching}
-                  className="w-full px-6 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Rocket className="w-5 h-5" />
                   {launching ? 'Launching...' : 'Launch Bot'}
@@ -381,7 +412,7 @@ export default function AutoApplyTab() {
                 
                 {showLaunchWarning && !canLaunchBot && (
                   <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
-                    {!credits || credits.balance <= 0 ? 'Missing credits' : 'Missing job search preferences'}
+                    {!credits || credits.balance <= 0 ? 'Missing credits' : 'You forgot to save your job search preferences'}
                   </div>
                 )}
               </div>
