@@ -120,6 +120,16 @@ export async function POST(request: NextRequest) {
       // SECURITY: Add credits using transaction-safe RPC function
       // This function atomically updates purchase record AND adds credits
       // Includes idempotency checks with row-level locks to prevent race conditions
+      console.log('Calling add_purchased_credits with:', {
+        p_user_id: userId,
+        p_credits_amount: creditsAmount,
+        p_payment_intent_id: paymentIntentId,
+        p_stripe_event_id: event.id,
+        p_session_id: session.id,
+        p_amount_cents: session.amount_total || 0,
+        p_currency: session.currency || 'usd',
+      });
+
       const { data, error: creditsError } = await serviceSupabase.rpc('add_purchased_credits', {
         p_user_id: userId,
         p_credits_amount: creditsAmount,
@@ -129,6 +139,8 @@ export async function POST(request: NextRequest) {
         p_amount_cents: session.amount_total || 0,
         p_currency: session.currency || 'usd',
       });
+
+      console.log('RPC result:', { data, error: creditsError });
 
       if (creditsError) {
         console.error('Error adding credits:', creditsError);
@@ -140,6 +152,7 @@ export async function POST(request: NextRequest) {
 
       // Log the result for monitoring
       const result = data?.[0];
+      console.log('Credit addition final result:', result);
       if (result && !result.success) {
         console.warn('Credit addition result:', result.error_message);
       }
