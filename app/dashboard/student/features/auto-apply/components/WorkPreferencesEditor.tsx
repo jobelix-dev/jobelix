@@ -275,16 +275,7 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
         </div>
       )}
 
-      {/* Save feedback */}
-      {saveSuccess && (
-        <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-          <span className="text-sm text-green-700 dark:text-green-300">
-            Preferences saved successfully!
-          </span>
-        </div>
-      )}
-
+      {/* Save error feedback */}
       {saveError && (
         <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
@@ -314,8 +305,17 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
           >
-            <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Preferences'}
+            {saveSuccess ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save Preferences'}
+              </>
+            )}
           </button>
         </div>
         <div className="grid md:grid-cols-2 gap-6">

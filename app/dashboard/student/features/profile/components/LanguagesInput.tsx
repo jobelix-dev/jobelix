@@ -46,8 +46,8 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
                 hasError
                   ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50'
-                  : 'border-zinc-200 dark:border-zinc-700'
-              } bg-zinc-50/50 dark:bg-zinc-900/30`}
+                  : 'border-purple-200 dark:border-purple-800'
+              } bg-purple-50/30 dark:bg-purple-900/10`}
             >
               <input
                 type="text"
@@ -62,7 +62,7 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
                   value={language.proficiency_level}
                   onChange={(e) => updateLanguage(index, 'proficiency_level', e.target.value as LanguageEntry['proficiency_level'])}
                   disabled={disabled}
-                  className="appearance-none bg-transparent border-none focus:outline-none text-xs pr-5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer text-zinc-600 dark:text-zinc-400"
+                  className="appearance-none bg-white dark:bg-zinc-800 border-none focus:outline-none text-xs pr-5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer text-zinc-600 dark:text-zinc-400 rounded px-2 py-1"
                 >
                   <option value="Beginner">Beginner</option>
                   <option value="Intermediate">Intermediate</option>
