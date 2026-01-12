@@ -49,13 +49,9 @@ if (process.env.STRIPE_PRICE_CREDITS_1000) {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('🔔 Webhook received at:', new Date().toISOString());
   try {
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
-    
-    console.log('📝 Webhook body length:', body.length);
-    console.log('🔐 Signature present:', !!signature);
 
     // SECURITY: Require signature header
     if (!signature) {
@@ -69,7 +65,6 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
     try {
       event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret());
-      console.log('✅ Signature verified! Event type:', event.type);
     } catch (err: any) {
       console.error('❌ Webhook signature verification failed:', err.message);
       return NextResponse.json(
@@ -144,15 +139,6 @@ export async function POST(request: NextRequest) {
       // SECURITY: Add credits using transaction-safe RPC function
       // This function atomically updates purchase record AND adds credits
       // Includes idempotency checks with row-level locks to prevent race conditions
-      console.log('Calling add_purchased_credits with:', {
-        p_user_id: userId,
-        p_credits_amount: creditsAmount,
-        p_payment_intent_id: paymentIntentId,
-        p_stripe_event_id: event.id,
-        p_session_id: session.id,
-        p_amount_cents: session.amount_total || 0,
-        p_currency: session.currency || 'usd',
-      });
 
       const { data, error: creditsError } = await getServiceSupabase().rpc('add_purchased_credits', {
         p_user_id: userId,
@@ -163,8 +149,6 @@ export async function POST(request: NextRequest) {
         p_amount_cents: session.amount_total || 0,
         p_currency: session.currency || 'usd',
       });
-
-      console.log('RPC result:', { data, error: creditsError });
 
       if (creditsError) {
         console.error('Error adding credits:', creditsError);

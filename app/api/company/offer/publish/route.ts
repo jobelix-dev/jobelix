@@ -1,24 +1,35 @@
 /**
  * POST /api/company/offer/publish
- * 
- * Publishes an offer draft by calling the publish_offer_draft RPC function.
- * This atomically copies draft data to all normalized company_offer tables.
+ *
+ * What this route does (beginner-friendly):
+ * - A company has an "offer draft" they edited.
+ * - When they click "Publish", we call a database RPC:
+ *   publish_offer_draft(p_draft_id)
+ * - That RPC copies the draft into the published offer tables (atomically).
+ *
+ * Security model:
+ * - We authenticate the user using cookies (supabase.auth.getUser()).
+ * - The RPC must enforce ownership in the database (RLS / SECURITY DEFINER checks),
+ *   so a company cannot publish another company's draft.
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabaseServer';
+import { authenticateRequest } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    
-    // Verify authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    /**
+     * 1) Verify authentication
+     */
+    const auth = await authenticateRequest();
+    if (auth.error) return auth.error;
 
-    // Get draft_id from request body
+    const { user, supabase } = auth;
+
+    /**
+     * 2) Read draft_id from request body
+     * The frontend tells us WHICH draft to publish.
+     */
     const { draft_id } = await request.json();
     if (!draft_id) {
       return NextResponse.json(
@@ -27,23 +38,43 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('Publishing draft:', draft_id);
+    /**
+     * 🔐 SECURITY:
+     * Avoid logging raw identifiers (draft_id / offer_id) in production logs.
+     * Logs can be stored and accessed by others.
+     */
 
-    // Call the RPC function to publish the draft
+    console.log('Publishing draft request received'); // 🔐
+
+    /**
+     * 4) Call the RPC function to publish the draft
+     *
+     * Important:
+     * - The RPC should verify that this draft belongs to the authenticated user.
+     * - This is the real security gate (server + DB).
+     */
     const { data: offer_id, error: publishError } = await supabase
       .rpc('publish_offer_draft', { p_draft_id: draft_id });
 
     if (publishError) {
+      /**
+       * 🔐 SECURITY:
+       * - Do NOT return publishError.message to the client.
+       * - It may reveal internal DB details (table names, policy hints, etc.).
+       */
       console.error('Publish error:', publishError);
       return NextResponse.json(
-        { error: publishError.message || 'Failed to publish offer' },
+        { error: 'Failed to publish offer' }, // 🔐
         { status: 500 }
       );
     }
 
-    console.log('Successfully published offer:', offer_id);
+    console.log('Publish successful'); // 🔐 (no offer_id in logs)
 
-    // Return the published offer ID
+    /**
+     * 5) Return the published offer ID
+     * The frontend can redirect to /offer/[offer_id]
+     */
     return NextResponse.json({
       success: true,
       offer_id,
@@ -51,9 +82,14 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
+    /**
+     * 🔐 SECURITY:
+     * - Do NOT return raw error.message to the client.
+     * - Log it server-side, return a generic error.
+     */
     console.error('Publish route error:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: 'Internal server error' }, // 🔐
       { status: 500 }
     );
   }

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabaseServer';
+import { authenticateRequest } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabaseService';
 import Stripe from 'stripe';
 
@@ -21,7 +21,6 @@ function getStripe(): Stripe {
 
   // Always create new instance to pick up environment variable changes
   stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
-  console.log('🔑 Full Stripe key:', process.env.STRIPE_SECRET_KEY);
   return stripeInstance;
 }
 
@@ -39,15 +38,10 @@ const PLAN_TO_CREDITS: Record<string, number> = {
 export async function POST(request: NextRequest) {
   try {
     // SECURITY: Verify user authentication
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const auth = await authenticateRequest();
+    if (auth.error) return auth.error;
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const { user } = auth;
 
     // Parse and validate request body
     const body = await request.json();

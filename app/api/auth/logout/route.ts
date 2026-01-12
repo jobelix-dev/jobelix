@@ -1,10 +1,18 @@
 /**
- * Logout API Route
- * 
- * Signs out the current user and clears session.
- * Route: POST /api/auth/logout
- * Called by: Dashboard logout buttons
- * Clears: Supabase auth cookies and session data
+ * LOGOUT API ROUTE (server-side)
+ *
+ * This endpoint runs on the SERVER.
+ *
+ * When the frontend sends a POST request to /api/auth/logout,
+ * we ask Supabase to log the user out.
+ *
+ * Logging out means:
+ * - Supabase clears the authentication cookies (the "login session")
+ * - The user will no longer be considered logged in on future requests
+ *
+ * IMPORTANT:
+ * - We do not delete the user's data
+ * - We only remove the login session
  */
 
 import { NextResponse } from 'next/server'
@@ -12,10 +20,35 @@ import { createClient } from '@/lib/supabaseServer'
 
 export async function POST() {
   try {
+    /**
+     * Create a Supabase client that can read/clear the user's session cookies.
+     * This should be the normal server client (anon key + cookie handling),
+     * NOT the service role key.
+     */
     const supabase = await createClient()
-    await supabase.auth.signOut()
+
+    /**
+     * Ask Supabase to sign the user out.
+     * If the user is already logged out, this should still be safe to call.
+     */
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      // Log full details on the server for debugging
+      console.error("Supabase signOut error:", error);
+      // Return a generic message to the browser
+      return NextResponse.json({ error: "Logout failed" }, { status: 500 });
+    }
+
+    /**
+     * Logout succeeded. Cookies are cleared.
+     */
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    /**
+     * Catch unexpected server errors and return a generic message.
+     * Avoid returning internal error details to the browser.
+     */
     return NextResponse.json(
       { error: error.message || 'Logout failed' },
       { status: 500 }

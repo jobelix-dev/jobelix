@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabaseServer';
 import serviceSupabase from '@/lib/supabaseService';
 import { Resend } from 'resend';
+import { generateFeedbackEmail, getFeedbackEmailSubject } from '@/lib/emailTemplates';
 
 if (!process.env.RESEND_API_KEY) {
   console.warn('RESEND_API_KEY not set - feedback emails will not be sent');
@@ -116,29 +117,21 @@ export async function POST(request: NextRequest) {
     // Send email via Resend
     if (resend) {
       try {
-        const emailType = type === 'bug' ? '🐛 Bug Report' : '💡 Feature Request';
-        const fromUser = userEmail || 'Anonymous User';
-        const userId = user?.id || 'Not logged in';
-
         await resend.emails.send({
-          from: 'Acme <report@jobelix.fr>',  // Use Resend's test domain for development
+          from: 'Acme <report@jobelix.fr>',
           to: FEEDBACK_EMAIL,
-          subject: `${emailType}: ${subject}`,
-          html: `
-            <h2>${emailType}</h2>
-            <p><strong>From:</strong> ${fromUser}</p>
-            <p><strong>User ID:</strong> ${userId}</p>
-            <p><strong>Page:</strong> ${referer}</p>
-            <p><strong>User Agent:</strong> ${userAgent}</p>
-            <hr />
-            <h3>Subject</h3>
-            <p>${subject}</p>
-            <h3>Description</h3>
-            <p style="white-space: pre-wrap;">${description}</p>
-            <hr />
-            <p><small>Feedback ID: ${feedback.id}</small></p>
-            <p><small>Submitted: ${new Date(feedback.created_at).toLocaleString()}</small></p>
-          `,
+          subject: getFeedbackEmailSubject(type, subject),
+          html: generateFeedbackEmail({
+            type,
+            subject: subject.trim(),
+            description: description.trim(),
+            userEmail,
+            userId: user?.id || null,
+            feedbackId: feedback.id,
+            createdAt: feedback.created_at,
+            pageUrl: referer,
+            userAgent,
+          }),
         });
         console.log('✓ Feedback email sent successfully to', FEEDBACK_EMAIL);
       } catch (emailError: any) {

@@ -1,17 +1,21 @@
 /**
  * POST /api/autoapply/gpt4
  *
- * Body: { token: string, messages: Array<{ role: 'user'|'assistant'|'system', content: string }> }
+ * Body: { token: string, messages: Array<{ role: 'user'|'assistant'|'system', content: string }>, temperature?: number }
  *
  * This endpoint is for the Python desktop app only.
  * Validates API token, checks credits, forwards to OpenAI, and deducts 1 credit.
- * 
- * Security: Token is stored in database and validated server-side.
+ *
+ * Security model (beginner-friendly):
+ * - The client sends an API token (like a password for the desktop app).
+ * - We validate the token on the server using the service role key (bypasses RLS safely).
+ * - We charge 1 credit per call using a database RPC (so clients cannot fake credits).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { getServiceSupabase } from '@/lib/supabaseService'
+import { checkRateLimit, logApiCall, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/rateLimiting'
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -47,14 +51,29 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
   return (inputTokens * GPT4O_MINI_PRICING.input + outputTokens * GPT4O_MINI_PRICING.output) / 1_000_000
 }
 
+
+
+/**
+ * 🔐 Simple safety limits to prevent abuse / huge bills.
+ * You can tune these numbers later.
+ */
+const MAX_MESSAGES = 40 // 🔐
+const MAX_CHARS_PER_MESSAGE = 8_000 // 🔐
+const MAX_TOTAL_CHARS = 60_000 // 🔐
+
+/**
+ * 🔐 Rate limiting configuration
+ * Prevents users from spamming the GPT-4 endpoint
+ */
+const RATE_LIMIT_HOURLY = 200 // Max 200 calls per hour
+const RATE_LIMIT_DAILY = 1000 // Max 1000 calls per day
+
 export async function POST(req: NextRequest) {
   try {
+    // Keep logs light in production (avoid logging user_id / secrets)
     console.log('[GPT4 Route] Request received')
     const body = await req.json()
     const { token, messages, temperature = 0.8 } = body || {}
-
-    console.log('[GPT4 Route] Token present:', !!token)
-    console.log('[GPT4 Route] Messages count:', messages?.length)
 
     if (!token) {
       return NextResponse.json({ error: 'token required' }, { status: 400 })
@@ -64,10 +83,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
 
-    // Get service Supabase client
-    const serviceSupabase = getServiceSupabase()
+    /**
+     * 🔐 Validate shape and size to prevent giant payloads.
+     * Without this, someone can send huge messages and burn your OpenAI budget.
+     */
 
-    console.log('[GPT4 Route] Validating token...')
+    if (messages.length === 0 || messages.length > MAX_MESSAGES) { // 🔐
+      return NextResponse.json({ error: 'messages too large' }, { status: 400 }) // 🔐
+    }
+
+    let totalChars = 0 // 🔐
+    for (const m of messages) { // 🔐
+      if (!m || (m.role !== 'user' && m.role !== 'assistant' && m.role !== 'system')) { // 🔐
+        return NextResponse.json({ error: 'invalid message role' }, { status: 400 }) // 🔐
+      }
+      if (typeof m.content !== 'string') { // 🔐
+        return NextResponse.json({ error: 'invalid message content' }, { status: 400 }) // 🔐
+      }
+      if (m.content.length > MAX_CHARS_PER_MESSAGE) { // 🔐
+        return NextResponse.json({ error: 'message too long' }, { status: 400 }) // 🔐
+      }
+      totalChars += m.content.length // 🔐
+      if (totalChars > MAX_TOTAL_CHARS) { // 🔐
+        return NextResponse.json({ error: 'payload too large' }, { status: 400 }) // 🔐
+      }
+    }
+
+    /**
+     * 🔐 Clamp temperature to a safe range (avoid weird values like 999).
+     */
+    const safeTemperature = Math.max(0, Math.min(2, Number(temperature) || 0.8)) // 🔐
+
+    // Service role client (bypasses RLS) — ONLY on server routes
+    const serviceSupabase = getServiceSupabase()
 
     // Validate token and get user_id
     const { data: apiToken, error: tokenError } = await serviceSupabase
@@ -77,84 +125,89 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (tokenError || !apiToken) {
-      console.error('[GPT4 Route] Token validation failed:', tokenError)
+      // Don't reveal whether token exists; just "Invalid token"
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
     const user_id = apiToken.user_id
-    console.log('[GPT4 Route] Token validated for user:', user_id)
 
-    console.log('[GPT4 Route] Checking credits...')
-    // Check if user has credits available
-    const { data: userCredits, error: creditsError } = await serviceSupabase
-      .from('user_credits')
-      .select('balance')
-      .eq('user_id', user_id)
-      .maybeSingle()
-
-    if (creditsError) {
-      console.error('[GPT4 Route] Credits lookup error:', creditsError)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    /**
+     * 🔐 RATE LIMITING: Check if user is within rate limits
+     * This prevents abuse and protects against excessive API costs
+     */
+    const rateLimitConfig = {
+      endpoint: 'gpt4',
+      hourlyLimit: RATE_LIMIT_HOURLY,
+      dailyLimit: RATE_LIMIT_DAILY
     }
 
-    if (!userCredits || userCredits.balance <= 0) {
-      console.warn('[GPT4 Route] Insufficient credits for user:', user_id)
-      return NextResponse.json({ 
-        error: 'Insufficient credits',
-        message: 'You need to claim daily credits or purchase more credits'
-      }, { status: 402 })
+    const rateLimitResult = await checkRateLimit(user_id, rateLimitConfig)
+    if (rateLimitResult.error) return rateLimitResult.error
+
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data)
     }
 
-    console.log('[GPT4 Route] Credits available:', userCredits.balance)
-    console.log('[GPT4 Route] Calling OpenAI API...')
-    
-    // Call OpenAI with GPT-4o-mini (cheaper model)
-    const openai = getOpenAI()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages,
-      temperature,
-    })
+    const rateLimit = rateLimitResult.data
 
-    console.log('[GPT4 Route] OpenAI call successful')
-    console.log('[GPT4 Route] Token usage - Input:', completion.usage?.prompt_tokens, 'Output:', completion.usage?.completion_tokens)
+    /**
+     * 🔐 IMPORTANT FIX: deduct/reserve credit BEFORE calling OpenAI.
+     *
+     * Why?
+     * - If two requests arrive at the same time, both can see "balance > 0"
+     * - Then both call OpenAI (costs you money)
+     * - Only one may successfully deduct credit
+     * Deducting first prevents "free calls" under concurrency.
+     */
+      const { data: creditResult, error: deductError } = await serviceSupabase // 🔐
+      .rpc('use_credits', { // 🔐
+        p_user_id: user_id, // 🔐
+        p_amount: 1 // 🔐
+      }) // 🔐
 
-    // Calculate cost for this API call
+      if (deductError || !creditResult || creditResult.length === 0 || !creditResult[0]?.success) { // 🔐
+        // Not enough credits (or deduction failed) → do NOT call OpenAI
+        return NextResponse.json({ // 🔐
+          error: 'Insufficient credits', // 🔐
+          message: 'You need to claim daily credits or purchase more credits' // 🔐
+        }, { status: 402 }) // 🔐
+      }
+
+      // At this point, 1 credit has been reserved/deducted successfully
+      console.log('[GPT4 Route] Credit deducted, calling OpenAI...') // 🔐 (log ok, no user_id)
+
+      // Call OpenAI
+      const openai = getOpenAI()
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages,
+        temperature: safeTemperature, // 🔐
+      })
+
     const inputTokens = completion.usage?.prompt_tokens || 0
     const outputTokens = completion.usage?.completion_tokens || 0
     const totalTokens = completion.usage?.total_tokens || (inputTokens + outputTokens)
     const callCost = calculateCost(inputTokens, outputTokens)
 
-    // Deduct 1 credit from user balance                        
-    const { data: creditResult, error: deductError } = await serviceSupabase
-      .rpc('use_credits', {
-        p_user_id: user_id,
-        p_amount: 1
-      })
+    /**
+     * Optional stats update.
+     * Note: If this fails, it should not break the response.
+     */
+    await serviceSupabase.rpc('update_token_usage', {
+      p_token: token,
+      p_tokens_used: totalTokens,
+      p_cost_usd: callCost
+    })
 
-    if (deductError || !creditResult || creditResult.length === 0) {
-      console.error('Failed to deduct credits:', deductError)
-      // Don't fail the request - OpenAI call already succeeded
-      console.warn(`Credits not deducted for user ${user_id}`)
-    } else {
-      const { success, new_balance } = creditResult[0]
-      if (success) {
-        console.log(`[Credits] User ${user_id}: 1 credit used, balance: ${new_balance}`)
-        
-        // Update token usage statistics (tokens used + cost)
-        await serviceSupabase.rpc('update_token_usage', {
-          p_token: token,
-          p_tokens_used: totalTokens,
-          p_cost_usd: callCost
-        })
-      } else {
-        console.warn(`[Credits] Failed to deduct credit for user ${user_id}`)
-      }
-    }
+    /**
+     * 🔐 Log this API call for rate limiting
+     * This happens AFTER successful OpenAI call (don't log failed attempts)
+     */
+    await logApiCall(user_id, 'gpt4')
 
-    // Transform OpenAI response to client-expected format
+    // Transform OpenAI response
     const choice = completion.choices[0]
-    return NextResponse.json({
+    const response = NextResponse.json({
       content: choice.message.content,
       usage: {
         input_tokens: inputTokens,
@@ -165,8 +218,16 @@ export async function POST(req: NextRequest) {
       model: completion.model,
       finish_reason: choice.finish_reason || 'stop'
     })
+
+    // Add rate limit info to response headers
+    addRateLimitHeaders(response, rateLimitConfig, rateLimit)
+
+    return response
   } catch (err: any) {
-    console.error('GPT proxy error:', err)
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })
+    /**
+     * 🔐 SECURITY:
+     * Don't return raw err.message to clients (can leak internal details).
+     */
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 }) // 🔐
   }
 }

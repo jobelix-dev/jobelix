@@ -5,21 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { authenticateRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
+    const auth = await authenticateRequest()
+    if (auth.error) return auth.error
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, supabase } = auth
 
     // Fetch user credits
     const { data: userCredits, error: creditsError } = await supabase
