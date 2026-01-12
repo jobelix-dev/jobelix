@@ -153,6 +153,59 @@
       font-size: 14px;
       color: #999;
     }
+
+    .progress-container {
+      display: none;
+      margin: 24px 0;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .status-message {
+      display: none;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+
+    .status-message.info {
+      background: #e6f7ff;
+      color: #0050b3;
+      border: 1px solid #91d5ff;
+    }
+
+    .status-message.success {
+      background: #f6ffed;
+      color: #389e0d;
+      border: 1px solid #b7eb8f;
+    }
+
+    .status-message.error {
+      background: #fff1f0;
+      color: #cf1322;
+      border: 1px solid #ffccc7;
+    }
   </style>
 </head>
 <body>
@@ -173,6 +226,16 @@
       <!-- Version details will be inserted here by JavaScript -->
     </div>
 
+    <div id="statusMessage" class="status-message"></div>
+
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-text" id="progressText">Downloading update...</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressDetails">0% - 0 MB / 0 MB</div>
+    </div>
+
     <a href="#" class="button" id="downloadButton">Download Latest Version</a>
 
     <div class="footer">
@@ -188,7 +251,8 @@
       requiredApp: urlParams.get('requiredApp') || 'Unknown',
       currentEngine: urlParams.get('currentEngine') || 'Unknown',
       requiredEngine: urlParams.get('requiredEngine') || 'Unknown',
-      downloadUrl: urlParams.get('downloadUrl') || 'https://jobelix.com/download'
+      downloadUrl: urlParams.get('downloadUrl') || 'https://jobelix.com/download',
+      useAutoUpdater: urlParams.get('useAutoUpdater') === 'true'
     };
 
     // Populate version information
@@ -212,14 +276,72 @@
       </div>
     `;
 
-    // Set download button URL
+    // Get UI elements
     const downloadButton = document.getElementById('downloadButton');
-    downloadButton.href = versionData.downloadUrl;
-    downloadButton.onclick = function(e) {
-      e.preventDefault();
-      // Tell Electron to open the URL in the default browser
-      window.open(versionData.downloadUrl, '_blank');
-    };
+    const progressContainer = document.getElementById('progressContainer');
+    const progressFill = document.getElementById('progressFill');
+    const progressDetails = document.getElementById('progressDetails');
+    const statusMessage = document.getElementById('statusMessage');
+
+    function showStatus(message, type) {
+      statusMessage.textContent = message;
+      statusMessage.className = `status-message ${type}`;
+      statusMessage.style.display = 'block';
+    }
+
+    function formatBytes(bytes) {
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    // If using autoUpdater, setup listeners
+    if (versionData.useAutoUpdater && window.electronAPI) {
+      console.log('Using auto-updater for required update');
+      
+      // Hide manual download button initially
+      downloadButton.style.display = 'none';
+      
+      // Show status
+      showStatus('Checking for updates...', 'info');
+
+      // Listen for update available
+      window.electronAPI.onUpdateAvailable((info) => {
+        console.log('Update available:', info);
+        showStatus(`Update v${info.version} is available. Downloading...`, 'info');
+        progressContainer.style.display = 'block';
+      });
+
+      // Listen for download progress
+      window.electronAPI.onUpdateDownloadProgress((progress) => {
+        const percent = Math.round(progress.percent);
+        progressFill.style.width = percent + '%';
+        progressDetails.textContent = `${percent}% - ${formatBytes(progress.transferred)} / ${formatBytes(progress.total)} (${formatBytes(progress.bytesPerSecond)}/s)`;
+      });
+
+      // Listen for update downloaded
+      window.electronAPI.onUpdateDownloaded((info) => {
+        console.log('Update downloaded:', info);
+        progressContainer.style.display = 'none';
+        showStatus('Update downloaded successfully! Installing and restarting...', 'success');
+      });
+
+      // Listen for errors
+      window.electronAPI.onUpdateError?.((error) => {
+        console.error('Update error:', error);
+        progressContainer.style.display = 'none';
+        showStatus(error.message, 'error');
+        
+        // Show manual download button as fallback
+        downloadButton.style.display = 'inline-block';
+        downloadButton.textContent = 'Download Manually';
+      });
+    } else {
+      // Manual download mode
+      downloadButton.href = versionData.downloadUrl;
+      downloadButton.onclick = function(e) {
+        e.preventDefault();
+        window.open(versionData.downloadUrl, '_blank');
+      };
+    }
   </script>
 </body>
 </html>

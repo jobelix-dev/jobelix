@@ -19,6 +19,7 @@ export interface ElectronAPI {
     total: number 
   }) => void) => void;
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => void;
+  onUpdateError: (callback: (error: { message: string; error?: string }) => void) => void;
   removeUpdateListeners: () => void;
 }
 

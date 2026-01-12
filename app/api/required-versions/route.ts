@@ -20,7 +20,7 @@ export async function GET() {
         version: '0.0.1', // Minimum Python engine version required
         message: 'Please update your Jobelix application to get the latest engine.'
       },
-      downloadUrl: 'https://github.com/jobelix-dev/jobelix-releases/releases/latest', // TODO: Update with actual URL
+      downloadUrl: 'https://github.com/jobelix-dev/jobelix-releases/releases/latest',
       lastUpdated: '2026-01-11T00:00:00Z'
     };
 
