@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "main.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
@@ -96,7 +96,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "stripe": "^20.1.2",
-    "vercel": "^50.1.6",
+    "vercel": "^25.2.0",
     "yaml": "^2.8.2",
     "zod": "^4.2.1"
   },

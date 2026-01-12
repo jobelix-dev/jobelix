@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabaseServer';
-import serviceSupabase from '@/lib/supabaseService';
+import { getServiceSupabase } from '@/lib/supabaseService';
 import Stripe from 'stripe';
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Create pending purchase record for tracking
     // SECURITY: Use service role to bypass RLS - users should NOT be able to insert purchases
-    const { error: insertError } = await serviceSupabase
+    const { error: insertError } = await getServiceSupabase()
       .from('credit_purchases')
       .insert({
         user_id: user.id,
