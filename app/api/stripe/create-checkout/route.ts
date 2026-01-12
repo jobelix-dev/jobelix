@@ -8,11 +8,24 @@ import { createClient } from '@/lib/supabaseServer';
 import { getServiceSupabase } from '@/lib/supabaseService';
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set');
-}
+let stripeInstance: Stripe | null = null;
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+/**
+ * Get or create the Stripe client
+ * Lazy initialization to avoid build-time errors when env vars aren't available
+ */
+function getStripe(): Stripe {
+  if (stripeInstance) {
+    return stripeInstance;
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is not set');
+  }
+
+  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return stripeInstance;
+}
 
 // Server-side source of truth for price to credits mapping
 // SECURITY: Never trust client for credit amounts
@@ -59,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Verify price exists in Stripe (additional validation)
     try {
-      await stripe.prices.retrieve(priceId);
+      await getStripe().prices.retrieve(priceId);
     } catch (err: any) {
       return NextResponse.json(
         { error: 'Price not found in Stripe' },
@@ -71,7 +84,7 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       locale: 'en',
