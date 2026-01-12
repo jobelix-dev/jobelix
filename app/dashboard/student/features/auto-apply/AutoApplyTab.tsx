@@ -143,10 +143,8 @@ export default function AutoApplyTab() {
 
   const handleBuyCredits = async () => {
     try {
-      // Use test price ID for localhost, live price ID for production
-      const priceId = window.location.hostname === 'localhost' 
-        ? 'price_1SoYLdRkZ3GWynzuYzRcNCuG'  // Test mode
-        : 'price_YOUR_LIVE_PRICE_ID_HERE';   // Live mode - replace with your actual price ID
+      // Live price ID (works in both test and production)
+      const priceId = 'price_1SoYrLGqCDc9J776dZtKmYGQ';
       
       const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
