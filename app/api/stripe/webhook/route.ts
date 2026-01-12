@@ -8,16 +8,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getServiceSupabase } from '@/lib/supabaseService';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set');
+let stripeInstance: Stripe | null = null;
+let webhookSecretCache: string | null = null;
+
+/**
+ * Get or create the Stripe client
+ * Lazy initialization to avoid build-time errors when env vars aren't available
+ */
+function getStripe(): Stripe {
+  if (stripeInstance) {
+    return stripeInstance;
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is not set');
+  }
+
+  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return stripeInstance;
 }
 
-if (!process.env.STRIPE_WEBHOOK_SECRET) {
-  throw new Error('STRIPE_WEBHOOK_SECRET is not set');
-}
+/**
+ * Get webhook secret
+ * Lazy initialization to avoid build-time errors when env vars aren't available
+ */
+function getWebhookSecret(): string {
+  if (webhookSecretCache) {
+    return webhookSecretCache;
+  }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error('STRIPE_WEBHOOK_SECRET is not set');
+  }
+
+  webhookSecretCache = process.env.STRIPE_WEBHOOK_SECRET;
+  return webhookSecretCache;
+}
 
 // Server-side source of truth for price to credits mapping
 // SECURITY: Must match create-checkout route exactly
@@ -45,7 +71,7 @@ export async function POST(request: NextRequest) {
     // SECURITY: Verify webhook signature to ensure request is from Stripe
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret());
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message);
       return NextResponse.json(
