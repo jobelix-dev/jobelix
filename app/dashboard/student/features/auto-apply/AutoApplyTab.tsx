@@ -143,13 +143,11 @@ export default function AutoApplyTab() {
 
   const handleBuyCredits = async () => {
     try {
-      // Live price ID (works in both test and production)
-      const priceId = 'price_1SoYrLGqCDc9J776dZtKmYGQ';
-      
+      // Send plan name instead of price ID
       const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify({ plan: 'credits_1000' }),
       });
 
       const data = await response.json();

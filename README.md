@@ -236,3 +236,16 @@ VALUES
   ('le-uuid-que-tu-utilises-dans-students', 'moi@test.com', crypt('password123', gen_salt('bf')), now())
 ON CONFLICT (id) DO NOTHING;
 """
+
+
+# guide for testing stripe locally
+Choose sandbox in stripe dashboard and get STRIPE_SECRET_KEY
+set it in .env important!
+then stripe login
+
+verify sandbox matches with stripe config --list
+create product in that dashboard and get price id, set it in .env
+
+Start webhook
+./stripe listen --forward-to localhost:3000/api/stripe/webhook
+set it in .env

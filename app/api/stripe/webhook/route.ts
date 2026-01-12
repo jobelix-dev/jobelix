@@ -16,14 +16,11 @@ let webhookSecretCache: string | null = null;
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getStripe(): Stripe {
-  if (stripeInstance) {
-    return stripeInstance;
-  }
-
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
 
+  // Always create new instance to pick up environment variable changes
   stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
   return stripeInstance;
 }
@@ -33,32 +30,32 @@ function getStripe(): Stripe {
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getWebhookSecret(): string {
-  if (webhookSecretCache) {
-    return webhookSecretCache;
-  }
-
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     throw new Error('STRIPE_WEBHOOK_SECRET is not set');
   }
 
+  // Always get fresh value
   webhookSecretCache = process.env.STRIPE_WEBHOOK_SECRET;
   return webhookSecretCache;
 }
 
-// Server-side source of truth for price to credits mapping
-// SECURITY: Must match create-checkout route exactly
-const PRICE_TO_CREDITS: Record<string, number> = {
-//   // Test mode prices
-//   'price_1SoYLdRkZ3GWynzuYzRcNCuG': 1000,
-  
-  // Live mode prices - Replace with your actual live price ID from Stripe Dashboard
-  'price_1SoYrLGqCDc9J776dZtKmYGQ': 1000,  // €5 for 1000 credits
-};
+// Price ID to credits mapping (dynamically built from environment variables)
+// SECURITY: Must validate price IDs from Stripe metadata
+const PRICE_TO_CREDITS: Record<string, number> = {};
+
+// Build mapping from environment variables
+if (process.env.STRIPE_PRICE_CREDITS_1000) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_1000] = 1000;
+}
 
 export async function POST(request: NextRequest) {
+  console.log('🔔 Webhook received at:', new Date().toISOString());
   try {
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
+    
+    console.log('📝 Webhook body length:', body.length);
+    console.log('🔐 Signature present:', !!signature);
 
     // SECURITY: Require signature header
     if (!signature) {
@@ -72,8 +69,9 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
     try {
       event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret());
+      console.log('✅ Signature verified! Event type:', event.type);
     } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
+      console.error('❌ Webhook signature verification failed:', err.message);
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 400 }

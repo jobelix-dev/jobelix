@@ -15,26 +15,25 @@ let stripeInstance: Stripe | null = null;
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getStripe(): Stripe {
-  if (stripeInstance) {
-    return stripeInstance;
-  }
-
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
 
+  // Always create new instance to pick up environment variable changes
   stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  console.log('🔑 Full Stripe key:', process.env.STRIPE_SECRET_KEY);
   return stripeInstance;
 }
 
-// Server-side source of truth for price to credits mapping
-// SECURITY: Never trust client for credit amounts
-const PRICE_TO_CREDITS: Record<string, number> = {
-//   // Test mode prices (price_test_...)
-//   'price_1SoYLdRkZ3GWynzuYzRcNCuG': 500,
-  
-  // Live mode prices - Replace with your actual live price ID from Stripe Dashboard
-  'price_1SoYrLGqCDc9J776dZtKmYGQ': 1000,  // €5 for 1000 credits
+// Plan to Stripe Price ID mapping (loads from environment variables)
+// SECURITY: Price IDs never exposed to client
+const PLAN_TO_PRICE_ID: Record<string, string> = {
+  credits_1000: process.env.STRIPE_PRICE_CREDITS_1000 || '',
+};
+
+// Plan to credits amount mapping
+const PLAN_TO_CREDITS: Record<string, number> = {
+  credits_1000: 1000,
 };
 
 export async function POST(request: NextRequest) {
@@ -52,20 +51,22 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate request body
     const body = await request.json();
-    const { priceId } = body;
+    const { plan } = body;
 
-    if (!priceId || typeof priceId !== 'string') {
+    if (!plan || typeof plan !== 'string') {
       return NextResponse.json(
-        { error: 'Missing or invalid priceId' },
+        { error: 'Missing or invalid plan' },
         { status: 400 }
       );
     }
 
-    // SECURITY: Validate price ID against server-side whitelist
-    const creditsAmount = PRICE_TO_CREDITS[priceId];
-    if (!creditsAmount) {
+    // SECURITY: Validate plan against whitelist
+    const priceId = PLAN_TO_PRICE_ID[plan];
+    const creditsAmount = PLAN_TO_CREDITS[plan];
+    
+    if (!priceId || !creditsAmount) {
       return NextResponse.json(
-        { error: 'Invalid price ID' },
+        { error: 'Invalid plan' },
         { status: 400 }
       );
     }
