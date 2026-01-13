@@ -349,6 +349,7 @@ CREATE OR REPLACE FUNCTION public.finalize_student_profile(p_user_id uuid, p_pro
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_education_count int;
@@ -863,261 +864,261 @@ on "public"."academic"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "academic_insert_own"
 on "public"."academic"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "academic_select_own"
 on "public"."academic"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "academic_update_own"
 on "public"."academic"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "certification_delete_own"
 on "public"."certification"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "certification_insert_own"
 on "public"."certification"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "certification_select_own"
 on "public"."certification"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "certification_update_own"
 on "public"."certification"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "experience_delete_own"
 on "public"."experience"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "experience_insert_own"
 on "public"."experience"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "experience_select_own"
 on "public"."experience"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "experience_update_own"
 on "public"."experience"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "language_delete_own"
 on "public"."language"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "language_insert_own"
 on "public"."language"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "language_select_own"
 on "public"."language"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "language_update_own"
 on "public"."language"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "project_delete_own"
 on "public"."project"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "project_insert_own"
 on "public"."project"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "project_select_own"
 on "public"."project"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "project_update_own"
 on "public"."project"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "publication_delete_own"
 on "public"."publication"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "publication_insert_own"
 on "public"."publication"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "publication_select_own"
 on "public"."publication"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "publication_update_own"
 on "public"."publication"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "resume_delete_own"
 on "public"."resume"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "resume_insert_own"
 on "public"."resume"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "resume_select_own"
 on "public"."resume"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "resume_update_own"
 on "public"."resume"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "skill_delete_own"
 on "public"."skill"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "skill_insert_own"
 on "public"."skill"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "skill_select_own"
 on "public"."skill"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "skill_update_own"
 on "public"."skill"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "social_link_delete_own"
 on "public"."social_link"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "social_link_insert_own"
 on "public"."social_link"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "social_link_select_own"
 on "public"."social_link"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "social_link_update_own"
 on "public"."social_link"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "student_insert_own_once"
 on "public"."student"
@@ -1126,48 +1127,48 @@ for insert
 to authenticated
 with check (((auth.uid() = id) AND (NOT (EXISTS ( SELECT 1
    FROM public.student student_1
-  WHERE (student_1.id = auth.uid()))))));
+  WHERE (student_1.id = (SELECT auth.uid())))))));
 
 create policy "student_select_own"
 on "public"."student"
 as permissive
 for select
 to authenticated
-using ((auth.uid() = id));
+using (((SELECT auth.uid()) = id));
 
 create policy "student_update_own"
 on "public"."student"
 as permissive
 for update
 to authenticated
-using ((auth.uid() = id))
-with check ((auth.uid() = id));
+using (((SELECT auth.uid()) = id))
+with check (((SELECT auth.uid()) = id));
 
 create policy "draft_delete_own"
 on "public"."student_profile_draft"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "draft_insert_own"
 on "public"."student_profile_draft"
 as permissive
 for insert
 to authenticated
-with check ((student_id = auth.uid()));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "draft_select_own"
 on "public"."student_profile_draft"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "draft_update_own"
 on "public"."student_profile_draft"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));

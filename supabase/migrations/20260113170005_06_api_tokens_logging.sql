@@ -154,6 +154,7 @@ CREATE OR REPLACE FUNCTION public.update_token_last_used(p_token text)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   UPDATE public.api_tokens
@@ -168,6 +169,7 @@ CREATE OR REPLACE FUNCTION public.update_token_usage(p_token text, p_tokens_used
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   UPDATE public.api_tokens
@@ -185,6 +187,7 @@ CREATE OR REPLACE FUNCTION public.get_user_total_cost(user_uuid uuid)
  RETURNS numeric
  LANGUAGE sql
  STABLE
+ SET search_path TO 'public'
 AS $function$
   SELECT COALESCE(SUM(total_cost), 0.00)
   FROM gpt_tokens
@@ -254,14 +257,14 @@ on "public"."api_tokens"
 as permissive
 for select
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));
 
 create policy "api_tokens_delete_own"
 on "public"."api_tokens"
 as permissive
 for delete
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));
 
 -- API call log policies
 create policy "api_call_log_select_own"
@@ -269,4 +272,4 @@ on "public"."api_call_log"
 as permissive
 for select
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));

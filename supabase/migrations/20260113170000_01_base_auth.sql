@@ -34,6 +34,7 @@ CREATE OR REPLACE FUNCTION public.cleanup_old_ip_tracking()
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 BEGIN
     DELETE FROM signup_ip_tracking
@@ -46,6 +47,7 @@ CREATE OR REPLACE FUNCTION public.count_recent_signups_from_ip(p_ip_address text
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
     signup_count int;
@@ -68,7 +70,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
+ SET search_path TO 'public', 'auth', 'extensions'
 AS $function$
 DECLARE
   user_role TEXT;

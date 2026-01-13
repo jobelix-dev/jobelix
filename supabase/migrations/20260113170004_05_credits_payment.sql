@@ -74,7 +74,6 @@ CREATE INDEX idx_purchases_user ON public.credit_purchases USING btree (user_id,
 CREATE INDEX idx_purchases_stripe ON public.credit_purchases USING btree (stripe_payment_intent_id);
 CREATE INDEX idx_purchases_event_id ON public.credit_purchases USING btree (stripe_event_id);
 CREATE INDEX idx_credit_purchases_session_status ON public.credit_purchases USING btree (stripe_checkout_session_id, status);
-CREATE INDEX idx_credit_purchases_event_id ON public.credit_purchases USING btree (stripe_event_id);
 CREATE INDEX idx_feedback_user ON public.user_feedback USING btree (user_id, created_at DESC);
 CREATE INDEX idx_feedback_type ON public.user_feedback USING btree (feedback_type, created_at DESC);
 CREATE INDEX idx_feedback_status ON public.user_feedback USING btree (status, created_at DESC);
@@ -137,6 +136,7 @@ CREATE OR REPLACE FUNCTION public.grant_daily_credits(p_user_id uuid)
  RETURNS TABLE(success boolean, credits_granted integer, new_balance integer)
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_credits_amount INTEGER := 50;
@@ -177,6 +177,7 @@ CREATE OR REPLACE FUNCTION public.use_credits(p_user_id uuid, p_amount integer D
  RETURNS TABLE(success boolean, new_balance integer)
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_current_balance INTEGER;
@@ -213,6 +214,7 @@ CREATE OR REPLACE FUNCTION public.add_purchased_credits(p_user_id uuid, p_credit
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   -- Insert purchase record (will fail if event_id or session_id already exists)
@@ -252,6 +254,7 @@ CREATE OR REPLACE FUNCTION public.add_purchased_credits(p_user_id uuid, p_credit
  RETURNS TABLE(success boolean, new_balance integer, error_message text)
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_new_balance INTEGER;
@@ -342,6 +345,7 @@ $function$
 CREATE OR REPLACE FUNCTION public.update_feedback_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   NEW.updated_at = now();
@@ -460,7 +464,7 @@ on "public"."user_credits"
 as permissive
 for select
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));
 
 -- Daily credit grants policies
 create policy "daily_grants_select_own"
@@ -468,7 +472,7 @@ on "public"."daily_credit_grants"
 as permissive
 for select
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));
 
 -- Credit purchases policies
 create policy "credit_purchases_select_own"
@@ -476,7 +480,7 @@ on "public"."credit_purchases"
 as permissive
 for select
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));
 
 -- User feedback policies
 create policy "feedback_insert_authenticated"
@@ -484,14 +488,14 @@ on "public"."user_feedback"
 as permissive
 for insert
 to authenticated
-with check (true);
+with check ((user_id = (SELECT auth.uid())));
 
 create policy "feedback_select_own"
 on "public"."user_feedback"
 as permissive
 for select
 to authenticated
-using ((user_id = auth.uid()));
+using ((user_id = (SELECT auth.uid())));
 
 -- =============================================================================
 -- TRIGGERS
