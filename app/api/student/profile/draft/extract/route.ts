@@ -268,10 +268,11 @@ ${resumeText}${linksInfo}`,
     // Parse the response as json (response_format makes sure gpt answers in correct format)
     const extractedData = JSON.parse(completion.choices[0].message.content || '{}')
 
-    // Store in draft table
+    // Store in draft table using UPSERT (handles existing drafts)
+    // RLS policy prevents duplicate inserts, so we use upsert to update if exists
     const { data: draftData, error: draftError } = await supabase
       .from('student_profile_draft')
-      .insert({
+      .upsert({
         student_id: userId,
         student_name: extractedData.student_name,
         phone_number: extractedData.phone_number,
@@ -286,6 +287,8 @@ ${resumeText}${linksInfo}`,
         certifications: extractedData.certifications,
         social_links: extractedData.social_links,
         status: 'editing', // Extracted data needs review before publishing
+      }, {
+        onConflict: 'student_id', // Update if draft already exists for this student
       })
       .select()
       .single()

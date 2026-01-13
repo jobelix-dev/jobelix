@@ -40,10 +40,11 @@ export async function GET() {
       return Response.json({ draft: existingDraft })
     }
 
-    // Create empty draft if none exists
+    // Create empty draft if none exists using UPSERT
+    // (RLS policy + unique constraint ensure one draft per student)
     const { data: newDraft, error: createError } = await supabase
       .from('student_profile_draft')
-      .insert({
+      .upsert({
         student_id: user.id,
         student_name: null,
         phone_number: null,
@@ -52,6 +53,8 @@ export async function GET() {
         education: [],
         experience: [],
         status: 'editing', // New drafts always start in editing state
+      }, {
+        onConflict: 'student_id',
       })
       .select()
       .single()
