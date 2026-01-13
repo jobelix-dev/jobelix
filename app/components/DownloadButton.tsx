@@ -65,6 +65,9 @@ function getPlatformName(platform: Platform): string {
 function getPlatformDownload(platform: Platform, releaseInfo?: ReleaseInfo) {
   if (!releaseInfo) return null;
   
+  // Filter out 'unknown' platform before accessing assets
+  if (platform === 'unknown') return null;
+  
   const asset = releaseInfo.assets[platform];
   if (!asset) return null;
   
