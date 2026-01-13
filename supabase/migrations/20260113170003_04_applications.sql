@@ -263,9 +263,7 @@ on "public"."student_work_preferences"
 as permissive
 for insert
 to authenticated
-with check (((student_id = (SELECT auth.uid())) AND (NOT (EXISTS ( SELECT 1
-   FROM public.student_work_preferences student_work_preferences_1
-  WHERE (student_work_preferences_1.student_id = (SELECT auth.uid())))))));
+with check ((student_id = (SELECT auth.uid())));
 
 create policy "work_prefs_select_own"
 on "public"."student_work_preferences"
