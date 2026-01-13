@@ -96,8 +96,9 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
+      console.error('[Resume Upload] Storage upload error:', uploadError)
       return NextResponse.json(
-        { error: uploadError.message },
+        { error: `Storage upload failed: ${uploadError.message}` },
         { status: 500 }
       )
     }
@@ -116,14 +117,16 @@ export async function POST(request: NextRequest) {
       )
 
     if (dbError) {
+      console.error('[Resume Upload] Database error:', dbError)
       return NextResponse.json(
-        { error: dbError.message },
+        { error: `Database error: ${dbError.message}` },
         { status: 500 }
       )
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    console.error('[Resume Upload] Unexpected error:', error)
     return NextResponse.json(
       { error: error.message || 'Upload failed' },
       { status: 500 }
