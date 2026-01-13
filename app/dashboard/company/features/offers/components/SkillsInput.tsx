@@ -7,7 +7,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { OfferSkillEntry } from '@/lib/types';
+import { OfferSkillEntry } from '@/lib/shared/types';
 
 interface SkillsInputProps {
   skills: OfferSkillEntry[];

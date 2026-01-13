@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Github, Linkedin, Code2, Trophy, Code } from 'lucide-react';
-import { SocialLinkEntry } from '@/lib/types';
+import { SocialLinkEntry } from '@/lib/shared/types';
 
 interface SocialLinksInputProps {
   social_links: SocialLinkEntry;

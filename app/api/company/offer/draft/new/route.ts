@@ -14,9 +14,10 @@
  * - We set company_id = user.id on the server (client can’t spoof it)
  * - RLS should also ensure companies only access their own drafts
  */
+import "server-only";
 
 import { NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
 
 export async function POST() {
   try {

@@ -8,8 +8,10 @@
  * Returns: Upload success, filename, and upload timestamp
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 
 // GET - Fetch resume metadata
 export async function GET() {

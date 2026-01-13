@@ -18,7 +18,7 @@ import {
   ExtractDataResponse,
   ExtractedResumeData,
   FinalizeProfileResponse,
-} from './types'
+} from '../shared/types'
 
 class ApiClient {
   private async request<T>(

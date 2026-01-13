@@ -9,7 +9,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Save, AlertCircle, CheckCircle, Settings } from 'lucide-react';
-import { exportPreferencesToYAML } from '@/lib/yamlConverter';
+import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 import SearchCriteriaSection from './SearchCriteriaSection';
 import ExperienceLevelsSection from './ExperienceLevelsSection';
 import JobTypesSection from './JobTypesSection';

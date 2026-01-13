@@ -7,6 +7,8 @@
  * Use this in server components and API routes, NOT in client components.
  */
 
+import "server-only";
+
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 

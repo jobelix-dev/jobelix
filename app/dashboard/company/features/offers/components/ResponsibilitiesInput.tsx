@@ -7,7 +7,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { OfferResponsibilityEntry } from '@/lib/types';
+import { OfferResponsibilityEntry } from '@/lib/shared/types';
 
 interface ResponsibilitiesInputProps {
   responsibilities: OfferResponsibilityEntry[];

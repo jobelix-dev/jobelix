@@ -15,8 +15,10 @@
  * - RLS should also protect these tables.
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
 
 // GET - List all published offers AND unpublished drafts for the authenticated company
 export async function GET() {

@@ -10,7 +10,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { CompanyOffer, CompanyOfferDraft } from '@/lib/types';
+import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
 

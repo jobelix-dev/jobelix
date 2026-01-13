@@ -10,7 +10,7 @@
 
 'use client';
 
-import { OfferSkillEntry, OfferResponsibilityEntry, OfferCapabilityEntry, OfferQuestionEntry } from '@/lib/types';
+import { OfferSkillEntry, OfferResponsibilityEntry, OfferCapabilityEntry, OfferQuestionEntry } from '@/lib/shared/types';
 import SkillsInput from './SkillsInput';
 import ResponsibilitiesInput from './ResponsibilitiesInput';
 import CapabilitiesInput from './CapabilitiesInput';

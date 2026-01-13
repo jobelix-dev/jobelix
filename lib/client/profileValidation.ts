@@ -6,7 +6,7 @@
  * Used by: StudentDashboard to enable/disable Save button
  */
 
-import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from './types'
+import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '../shared/types'
 
 export interface FieldError {
   field: string

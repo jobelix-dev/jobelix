@@ -9,7 +9,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { OfferDraftData, CompanyOfferDraft } from '@/lib/types';
+import { OfferDraftData, CompanyOfferDraft } from '@/lib/shared/types';
 import BasicInfoForm from './components/BasicInfoForm';
 import CompensationForm from './components/CompensationForm';
 import RoleRequirementsForm from './components/RoleRequirementsForm';

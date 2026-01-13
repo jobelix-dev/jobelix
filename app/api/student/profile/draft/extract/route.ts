@@ -14,11 +14,13 @@
  * - Provides both text + links to OpenAI for comprehensive extraction
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
-import { ResumeExtractionSchema } from '@/lib/resumeSchema'
+import { ResumeExtractionSchema } from '@/lib/server/resumeSchema'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'

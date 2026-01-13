@@ -3,6 +3,8 @@
  * Reusable email HTML templates for various notifications
  */
 
+import "server-only";
+
 export interface FeedbackEmailData {
   type: 'bug' | 'feature'
   subject: string

@@ -10,7 +10,7 @@
 
 'use client';
 
-import { OfferCompensation, OfferPerkEntry } from '@/lib/types';
+import { OfferCompensation, OfferPerkEntry } from '@/lib/shared/types';
 import PerksInput from './PerksInput';
 
 interface CompensationFormProps {

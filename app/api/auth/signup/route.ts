@@ -17,9 +17,12 @@
  *   because anonymous users cannot pass RLS safely.
  */
 
+import "server-only";
+
+
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
-import { getServiceSupabase } from '@/lib/supabaseService'
+import { createClient } from '@/lib/server/supabaseServer'
+import { getServiceSupabase } from '@/lib/server/supabaseService'
 
 // Rate limiting configuration
 const MAX_SIGNUPS_PER_IP = 10  // Maximum signups allowed per IP

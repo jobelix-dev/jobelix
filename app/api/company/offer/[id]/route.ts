@@ -15,8 +15,10 @@
  *   cannot delete another company's offers.
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
 
 // DELETE - Delete a published offer
 export async function DELETE(

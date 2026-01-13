@@ -12,8 +12,8 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, Rocket } from 'lucide-react';
 import DownloadButton from '@/app/components/DownloadButton';
-import type { ReleaseInfo } from '@/lib/github-api';
-import { getFallbackDownloadUrl } from '@/lib/github-api';
+import type { ReleaseInfo } from '@/lib/server/github-api';
+import { getFallbackDownloadUrl } from '@/lib/server/github-api';
 import Link from 'next/link';
 
 interface ElectronDetectorProps {

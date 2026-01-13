@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Trash2, AlertCircle, ChevronDown } from 'lucide-react';
-import { LanguageEntry } from '@/lib/types';
+import { LanguageEntry } from '@/lib/shared/types';
 
 interface LanguagesInputProps {
   languages: LanguageEntry[];

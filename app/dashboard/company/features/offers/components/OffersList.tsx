@@ -8,7 +8,7 @@
 
 'use client';
 
-import { CompanyOffer, CompanyOfferDraft } from '@/lib/types';
+import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import { Trash2, Edit3 } from 'lucide-react';
 
 interface OffersListProps {

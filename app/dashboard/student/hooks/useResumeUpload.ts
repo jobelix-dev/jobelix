@@ -10,8 +10,8 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { api } from '@/lib/api';
-import type { ExtractedResumeData } from '@/lib/types';
+import { api } from '@/lib/client/api';
+import type { ExtractedResumeData } from '@/lib/shared/types';
 
 interface ResumeInfo {
   filename?: string;

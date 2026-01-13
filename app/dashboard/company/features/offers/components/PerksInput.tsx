@@ -7,7 +7,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { OfferPerkEntry } from '@/lib/types';
+import { OfferPerkEntry } from '@/lib/shared/types';
 
 interface PerksInputProps {
   perks: OfferPerkEntry[];

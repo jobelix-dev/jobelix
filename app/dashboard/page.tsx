@@ -10,8 +10,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserProfile } from '@/lib/types';
-import { api } from '@/lib/api';
+import { UserProfile } from '@/lib/shared/types';
+import { api } from '@/lib/client/api';
 import { Shield, X, MessageSquare } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';

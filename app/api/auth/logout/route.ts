@@ -15,8 +15,10 @@
  * - We only remove the login session
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { createClient } from '@/lib/server/supabaseServer'
 
 export async function POST() {
   try {

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Trash2, AlertCircle } from 'lucide-react';
-import { SkillEntry } from '@/lib/types';
+import { SkillEntry } from '@/lib/shared/types';
 
 interface SkillsInputProps {
   skills: SkillEntry[];

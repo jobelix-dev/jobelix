@@ -13,8 +13,10 @@
  * - If someone calls this route without a valid reset session → it will fail
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { createClient } from '@/lib/server/supabaseServer'
 
 export async function POST(request: NextRequest) {
   try {

@@ -3,8 +3,10 @@
  * Retrieves the user's API token from api_tokens table for bot usage
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
 
 export async function GET() {
   try {

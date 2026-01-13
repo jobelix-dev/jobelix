@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { PublicationEntry } from '@/lib/types';
+import { PublicationEntry } from '@/lib/shared/types';
 import DatePicker from './DatePicker';
 
 interface PublicationFormProps {

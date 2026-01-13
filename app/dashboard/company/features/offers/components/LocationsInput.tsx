@@ -7,7 +7,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { OfferLocationEntry } from '@/lib/types';
+import { OfferLocationEntry } from '@/lib/shared/types';
 
 interface LocationsInputProps {
   locations: OfferLocationEntry[];

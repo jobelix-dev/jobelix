@@ -12,8 +12,10 @@
  * - API route is pure orchestration (no business logic)
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 import { 
   mapDraftToStudent, 
   mapDraftToAcademic, 
@@ -24,7 +26,7 @@ import {
   mapDraftToPublications,
   mapDraftToCertifications,
   mapDraftToSocialLinks
-} from '@/lib/draftMappers'
+} from '@/lib/server/draftMappers'
 
 export async function POST(request: NextRequest) {
   try {
