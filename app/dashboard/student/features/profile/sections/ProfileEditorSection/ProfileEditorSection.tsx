@@ -1,5 +1,5 @@
 /**
- * ProfileEditor Component
+ * ProfileEditorSection Component
  * 
  * Editable form for student profile data.
  * Always visible - allows manual entry or displays AI-extracted data.
@@ -22,7 +22,7 @@ import CertificationForm from './components/CertificationForm';
 import SocialLinksInput from './components/SocialLinksInput';
 import LoadingOverlay from '@/app/components/LoadingOverlay';
 
-interface ProfileEditorProps {
+interface ProfileEditorSectionProps {
   data: ExtractedResumeData;
   onChange: (data: ExtractedResumeData) => void;
   onSave: () => void;
@@ -36,7 +36,7 @@ interface ProfileEditorProps {
   showValidationErrors?: boolean;
 }
 
-export default function ProfileEditor({ 
+export default function ProfileEditorSection({ 
   data, 
   onChange, 
   onSave, 
@@ -48,7 +48,7 @@ export default function ProfileEditor({
   loadingSubmessage,
   saveSuccess = false,
   showValidationErrors = false
-}: ProfileEditorProps) {
+}: ProfileEditorSectionProps) {
   
   // Update a top-level field (name, phone, email, address)
   const updateField = (field: keyof ExtractedResumeData, value: any) => {

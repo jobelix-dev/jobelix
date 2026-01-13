@@ -44,18 +44,43 @@ export async function POST(request: NextRequest) {
 
     const preferences = await request.json()
 
-    // Upsert preferences (insert or update)
-    const { data, error } = await supabase
+    // Check if preferences already exist
+    const { data: existing } = await supabase
       .from('student_work_preferences')
-      .upsert({
-        student_id: user.id,
-        ...preferences,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'student_id'
-      })
-      .select()
-      .single()
+      .select('id')
+      .eq('student_id', user.id)
+      .maybeSingle()
+
+    let data, error
+
+    if (existing) {
+      // Update existing preferences
+      const result = await supabase
+        .from('student_work_preferences')
+        .update({
+          ...preferences,
+          updated_at: new Date().toISOString()
+        })
+        .eq('student_id', user.id)
+        .select()
+        .single()
+      
+      data = result.data
+      error = result.error
+    } else {
+      // Insert new preferences
+      const result = await supabase
+        .from('student_work_preferences')
+        .insert({
+          student_id: user.id,
+          ...preferences
+        })
+        .select()
+        .single()
+      
+      data = result.data
+      error = result.error
+    }
 
     if (error) {
       console.error('Error saving work preferences:', error)
