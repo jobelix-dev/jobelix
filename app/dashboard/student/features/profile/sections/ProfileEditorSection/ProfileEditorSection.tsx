@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { Plus, Save, AlertCircle, Check } from 'lucide-react';
-import { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '@/lib/shared/types';
+import { ExtractedResumeData } from '@/lib/shared/types';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
@@ -21,6 +21,7 @@ import PublicationForm from './components/PublicationForm';
 import CertificationForm from './components/CertificationForm';
 import SocialLinksInput from './components/SocialLinksInput';
 import LoadingOverlay from '@/app/components/LoadingOverlay';
+import { useProfileEditor } from './hooks';
 
 interface ProfileEditorSectionProps {
   data: ExtractedResumeData;
@@ -50,214 +51,8 @@ export default function ProfileEditorSection({
   showValidationErrors = false
 }: ProfileEditorSectionProps) {
   
-  // Update a top-level field (name, phone, email, address)
-  const updateField = (field: keyof ExtractedResumeData, value: any) => {
-    onChange({ ...data, [field]: value });
-  };
-
-  // Add new education entry
-  const addEducation = () => {
-    onChange({
-      ...data,
-      education: [
-        ...data.education,
-        {
-          school_name: '',
-          degree: '',
-          description: null,
-          start_year: null,
-          start_month: null,
-          end_year: null,
-          end_month: null,
-          confidence: 'high' as const,
-        }
-      ]
-    });
-  };
-
-  // Update education entry
-  const updateEducation = (index: number, field: keyof EducationEntry, value: any) => {
-    const updated = [...data.education];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, education: updated });
-  };
-
-  // Remove education entry
-  const removeEducation = (index: number) => {
-    onChange({
-      ...data,
-      education: data.education.filter((_, i) => i !== index)
-    });
-  };
-
-  // Add new experience entry
-  const addExperience = () => {
-    onChange({
-      ...data,
-      experience: [
-        ...data.experience,
-        {
-          organisation_name: '',
-          position_name: '',
-          description: null,
-          start_year: null,
-          start_month: null,
-          end_year: null,
-          end_month: null,
-          confidence: 'high' as const,
-        }
-      ]
-    });
-  };
-
-  // Update experience entry
-  const updateExperience = (index: number, field: keyof ExperienceEntry, value: any) => {
-    const updated = [...data.experience];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, experience: updated });
-  };
-
-  // Remove experience entry
-  const removeExperience = (index: number) => {
-    onChange({
-      ...data,
-      experience: data.experience.filter((_, i) => i !== index)
-    });
-  };
-
-  // Add new project entry
-  const addProject = () => {
-    onChange({
-      ...data,
-      projects: [
-        ...data.projects,
-        {
-          project_name: '',
-          description: null,
-          link: null,
-        }
-      ]
-    });
-  };
-
-  // Update project entry
-  const updateProject = (index: number, field: keyof ProjectEntry, value: any) => {
-    const updated = [...data.projects];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, projects: updated });
-  };
-
-  // Remove project entry
-  const removeProject = (index: number) => {
-    onChange({
-      ...data,
-      projects: data.projects.filter((_, i) => i !== index)
-    });
-  };
-
-  // Update skills (simple array replacement)
-  const updateSkills = (skills: SkillEntry[]) => {
-    onChange({ ...data, skills });
-  };
-
-  // Add new skill entry
-  const addSkill = () => {
-    onChange({
-      ...data,
-      skills: [
-        ...data.skills,
-        { skill_name: '', skill_slug: '' }
-      ]
-    });
-  };
-
-  // Add new language entry
-  const addLanguage = () => {
-    onChange({
-      ...data,
-      languages: [
-        ...data.languages,
-        {
-          language_name: '',
-          proficiency_level: 'Intermediate' as const,
-        }
-      ]
-    });
-  };
-
-  // Update languages (simple array replacement)
-  const updateLanguages = (languages: LanguageEntry[]) => {
-    onChange({ ...data, languages });
-  };
-
-  // Add new publication entry
-  const addPublication = () => {
-    onChange({
-      ...data,
-      publications: [
-        ...data.publications,
-        {
-          title: '',
-          journal_name: null,
-          description: null,
-          publication_year: null,
-          publication_month: null,
-          link: null,
-        }
-      ]
-    });
-  };
-
-  // Update publication entry
-  const updatePublication = (index: number, field: keyof PublicationEntry, value: any) => {
-    const updated = [...data.publications];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, publications: updated });
-  };
-
-  // Remove publication entry
-  const removePublication = (index: number) => {
-    onChange({
-      ...data,
-      publications: data.publications.filter((_, i) => i !== index)
-    });
-  };
-
-  // Add new certification entry
-  const addCertification = () => {
-    onChange({
-      ...data,
-      certifications: [
-        ...data.certifications,
-        {
-          name: '',
-          issuing_organization: null,
-          url: null,
-        }
-      ]
-    });
-  };
-
-  // Update certification entry
-  const updateCertification = (index: number, field: keyof CertificationEntry, value: any) => {
-    const updated = [...data.certifications];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, certifications: updated });
-  };
-
-  // Remove certification entry
-  const removeCertification = (index: number) => {
-    onChange({
-      ...data,
-      certifications: data.certifications.filter((_, i) => i !== index)
-    });
-  };
-
-  // Add new social link entry
-  // Update social links (now an object, not an array)
-  const updateSocialLinks = (social_links: SocialLinkEntry) => {
-    onChange({ ...data, social_links });
-  };
+  // Use the custom hook for all data manipulation logic
+  const handlers = useProfileEditor({ data, onChange });
 
   return (
     <div className="max-w-2xl mx-auto relative">
@@ -288,7 +83,7 @@ export default function ProfileEditorSection({
               <input
                 type="text"
                 value={data.student_name || ''}
-                onChange={(e) => updateField('student_name', e.target.value)}
+                onChange={(e) => handlers.updateField('student_name', e.target.value)}
                 placeholder="Enter your name"
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
@@ -312,7 +107,7 @@ export default function ProfileEditorSection({
               <input
                 type="email"
                 value={data.email || ''}
-                onChange={(e) => updateField('email', e.target.value)}
+                onChange={(e) => handlers.updateField('email', e.target.value)}
                 placeholder="your.email@example.com"
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
@@ -336,7 +131,7 @@ export default function ProfileEditorSection({
               <input
                 type="tel"
                 value={data.phone_number || ''}
-                onChange={(e) => updateField('phone_number', e.target.value)}
+                onChange={(e) => handlers.updateField('phone_number', e.target.value)}
                 placeholder="+1 (555) 123-4567"
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
@@ -360,8 +155,8 @@ export default function ProfileEditorSection({
               <input
                 type="text"
                 value={data.address || ''}
-                onChange={(e) => updateField('address', e.target.value)}
-                placeholder="City, State/Country"
+                onChange={(e) => handlers.updateField('address', e.target.value)}
+                placeholder="City, Country"
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.address 
@@ -381,7 +176,7 @@ export default function ProfileEditorSection({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Education</h3>
             <button
-              onClick={addEducation}
+              onClick={handlers.addEducation}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -398,8 +193,8 @@ export default function ProfileEditorSection({
                 <EducationForm
                   key={index}
                   data={edu}
-                  onChange={(field: keyof EducationEntry, value: any) => updateEducation(index, field, value)}
-                  onRemove={() => removeEducation(index)}
+                  onChange={(field, value) => handlers.updateEducation(index, field, value)}
+                  onRemove={() => handlers.removeEducation(index)}
                   fieldErrors={validation?.fieldErrors?.education?.[index]}
                   disabled={disabled}
                 />
@@ -414,9 +209,9 @@ export default function ProfileEditorSection({
         {/* Experience */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Work Experience</h3>
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Experience</h3>
             <button
-              onClick={addExperience}
+              onClick={handlers.addExperience}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -433,8 +228,8 @@ export default function ProfileEditorSection({
                 <ExperienceForm
                   key={index}
                   data={exp}
-                  onChange={(field: keyof ExperienceEntry, value: any) => updateExperience(index, field, value)}
-                  onRemove={() => removeExperience(index)}
+                  onChange={(field, value) => handlers.updateExperience(index, field, value)}
+                  onRemove={() => handlers.removeExperience(index)}
                   fieldErrors={validation?.fieldErrors?.experience?.[index]}
                   disabled={disabled}
                 />
@@ -451,7 +246,7 @@ export default function ProfileEditorSection({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Projects</h3>
             <button
-              onClick={addProject}
+              onClick={handlers.addProject}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -468,8 +263,8 @@ export default function ProfileEditorSection({
                 <ProjectForm
                   key={index}
                   data={project}
-                  onChange={(field: keyof ProjectEntry, value: any) => updateProject(index, field, value)}
-                  onRemove={() => removeProject(index)}
+                  onChange={(field, value) => handlers.updateProject(index, field, value)}
+                  onRemove={() => handlers.removeProject(index)}
                   fieldErrors={validation?.fieldErrors?.projects?.[index]}
                   disabled={disabled}
                 />
@@ -486,7 +281,7 @@ export default function ProfileEditorSection({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Skills</h3>
             <button
-              onClick={addSkill}
+              onClick={handlers.addSkill}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -500,7 +295,7 @@ export default function ProfileEditorSection({
           ) : (
             <SkillsInput
               skills={data.skills}
-              onChange={updateSkills}
+              onChange={handlers.updateSkills}
               fieldErrors={validation?.fieldErrors.skills}
               disabled={disabled}
             />
@@ -515,7 +310,7 @@ export default function ProfileEditorSection({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Languages</h3>
             <button
-              onClick={addLanguage}
+              onClick={handlers.addLanguage}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -529,7 +324,7 @@ export default function ProfileEditorSection({
           ) : (
             <LanguagesInput
               languages={data.languages}
-              onChange={updateLanguages}
+              onChange={handlers.updateLanguages}
               fieldErrors={validation?.fieldErrors.languages}
               disabled={disabled}
             />
@@ -544,7 +339,7 @@ export default function ProfileEditorSection({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Publications</h3>
             <button
-              onClick={addPublication}
+              onClick={handlers.addPublication}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -561,8 +356,8 @@ export default function ProfileEditorSection({
                 <PublicationForm
                   key={index}
                   data={publication}
-                  onChange={(field: keyof PublicationEntry, value: any) => updatePublication(index, field, value)}
-                  onRemove={() => removePublication(index)}
+                  onChange={(field, value) => handlers.updatePublication(index, field, value)}
+                  onRemove={() => handlers.removePublication(index)}
                   fieldErrors={validation?.fieldErrors?.publications?.[index]}
                   disabled={disabled}
                 />
@@ -579,7 +374,7 @@ export default function ProfileEditorSection({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Certifications & Awards</h3>
             <button
-              onClick={addCertification}
+              onClick={handlers.addCertification}
               disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -596,8 +391,8 @@ export default function ProfileEditorSection({
                 <CertificationForm
                   key={index}
                   data={certification}
-                  onChange={(field: keyof CertificationEntry, value: any) => updateCertification(index, field, value)}
-                  onRemove={() => removeCertification(index)}
+                  onChange={(field, value) => handlers.updateCertification(index, field, value)}
+                  onRemove={() => handlers.removeCertification(index)}
                   fieldErrors={validation?.fieldErrors?.certifications?.[index]}
                   disabled={disabled}
                 />
@@ -615,7 +410,7 @@ export default function ProfileEditorSection({
 
           <SocialLinksInput
             social_links={data.social_links}
-            onChange={updateSocialLinks}
+            onChange={handlers.updateSocialLinks}
             fieldErrors={validation?.fieldErrors.social_links}
             disabled={disabled}
           />
