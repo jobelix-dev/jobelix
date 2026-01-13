@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Rate limit configuration
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 40; // Max requests per IP per minute
+const MAX_REQUESTS_PER_WINDOW = 70; // Max requests per IP per minute
 
 // Per-route rate limits (stricter for expensive operations)
 const RESUME_UPLOAD_LIMIT = 5; // Max 5 resume uploads per day
