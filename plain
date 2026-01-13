@@ -1,0 +1,3347 @@
+
+
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+
+COMMENT ON SCHEMA "public" IS 'standard public schema';
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits" integer, "p_amount_cents" integer, "p_stripe_event_id" "text" DEFAULT NULL::"text", "p_stripe_session_id" "text" DEFAULT NULL::"text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- Insert purchase record (will fail if event_id or session_id already exists)
+  INSERT INTO public.credit_purchases (
+    user_id, 
+    credits, 
+    amount_cents, 
+    stripe_event_id, 
+    stripe_checkout_session_id
+  )
+  VALUES (
+    p_user_id, 
+    p_credits, 
+    p_amount_cents, 
+    p_stripe_event_id, 
+    p_stripe_session_id
+  );
+
+  -- Add credits to user balance
+  UPDATE public.user_credits
+  SET 
+    balance = balance + p_credits,
+    total_purchased = total_purchased + p_credits
+  WHERE user_id = p_user_id;
+
+  -- Create user_credits row if it doesn't exist
+  IF NOT FOUND THEN
+    INSERT INTO public.user_credits (user_id, balance, total_purchased)
+    VALUES (p_user_id, p_credits, p_credits);
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits" integer, "p_amount_cents" integer, "p_stripe_event_id" "text", "p_stripe_session_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits_amount" integer, "p_payment_intent_id" "text", "p_stripe_event_id" "text", "p_session_id" "text", "p_amount_cents" integer, "p_currency" "text") RETURNS TABLE("success" boolean, "new_balance" integer, "error_message" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_new_balance INTEGER;
+  v_purchase_id UUID;
+BEGIN
+  -- SECURITY: Check if this event was already processed (idempotency)
+  -- This check happens INSIDE the transaction with row lock
+  SELECT id INTO v_purchase_id
+  FROM public.credit_purchases
+  WHERE stripe_event_id = p_stripe_event_id
+  FOR UPDATE NOWAIT; -- Lock immediately or fail
+  
+  IF v_purchase_id IS NOT NULL THEN
+    -- Event already processed
+    SELECT balance INTO v_new_balance
+    FROM public.user_credits
+    WHERE user_id = p_user_id;
+    
+    RETURN QUERY SELECT TRUE, COALESCE(v_new_balance, 0), 'Already processed'::TEXT;
+    RETURN;
+  END IF;
+
+  -- Check by session ID as backup
+  SELECT id INTO v_purchase_id
+  FROM public.credit_purchases
+  WHERE stripe_checkout_session_id = p_session_id
+    AND status = 'completed'
+  FOR UPDATE NOWAIT;
+  
+  IF v_purchase_id IS NOT NULL THEN
+    -- Session already completed
+    SELECT balance INTO v_new_balance
+    FROM public.user_credits
+    WHERE user_id = p_user_id;
+    
+    RETURN QUERY SELECT TRUE, COALESCE(v_new_balance, 0), 'Session already completed'::TEXT;
+    RETURN;
+  END IF;
+
+  -- ATOMIC OPERATION: Update purchase record AND add credits in same transaction
+  
+  -- Step 1: Update purchase record to completed
+  UPDATE public.credit_purchases
+  SET 
+    stripe_payment_intent_id = p_payment_intent_id,
+    stripe_event_id = p_stripe_event_id,
+    price_cents = p_amount_cents,
+    currency = p_currency,
+    status = 'completed',
+    completed_at = now()
+  WHERE stripe_checkout_session_id = p_session_id
+    AND status = 'pending'
+  RETURNING id INTO v_purchase_id;
+  
+  IF v_purchase_id IS NULL THEN
+    -- Purchase not found or already processed
+    RETURN QUERY SELECT FALSE, 0, 'Purchase not found or already completed'::TEXT;
+    RETURN;
+  END IF;
+
+  -- Step 2: Add credits to user balance
+  INSERT INTO public.user_credits (user_id, balance, total_purchased, last_updated)
+  VALUES (p_user_id, p_credits_amount, p_credits_amount, now())
+  ON CONFLICT (user_id) DO UPDATE SET
+    balance = user_credits.balance + p_credits_amount,
+    total_purchased = user_credits.total_purchased + p_credits_amount,
+    last_updated = now()
+  RETURNING user_credits.balance INTO v_new_balance;
+  
+  -- Success
+  RETURN QUERY SELECT TRUE, v_new_balance, 'Credits added successfully'::TEXT;
+  
+EXCEPTION
+  WHEN lock_not_available THEN
+    -- Another process is currently processing this event
+    RETURN QUERY SELECT FALSE, 0, 'Event is being processed by another request'::TEXT;
+  WHEN unique_violation THEN
+    -- Event ID already exists (race condition caught)
+    SELECT balance INTO v_new_balance
+    FROM public.user_credits
+    WHERE user_id = p_user_id;
+    RETURN QUERY SELECT TRUE, COALESCE(v_new_balance, 0), 'Event already processed (caught by constraint)'::TEXT;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits_amount" integer, "p_payment_intent_id" "text", "p_stripe_event_id" "text", "p_session_id" "text", "p_amount_cents" integer, "p_currency" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."check_api_rate_limit"("p_user_id" "uuid", "p_endpoint" "text", "p_hourly_limit" integer DEFAULT 100, "p_daily_limit" integer DEFAULT 500) RETURNS TABLE("allowed" boolean, "hourly_count" bigint, "daily_count" bigint, "hourly_remaining" integer, "daily_remaining" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_hourly_count BIGINT;
+  v_daily_count BIGINT;
+BEGIN
+  -- Count calls in the last hour
+  SELECT COUNT(*) INTO v_hourly_count
+  FROM api_call_log
+  WHERE user_id = p_user_id
+    AND endpoint = p_endpoint
+    AND created_at > NOW() - INTERVAL '1 hour';
+
+  -- Count calls in the last 24 hours
+  SELECT COUNT(*) INTO v_daily_count
+  FROM api_call_log
+  WHERE user_id = p_user_id
+    AND endpoint = p_endpoint
+    AND created_at > NOW() - INTERVAL '24 hours';
+
+  -- Return results
+  RETURN QUERY SELECT
+    (v_hourly_count < p_hourly_limit AND v_daily_count < p_daily_limit) AS allowed,
+    v_hourly_count AS hourly_count,
+    v_daily_count AS daily_count,
+    (p_hourly_limit - v_hourly_count::INT) AS hourly_remaining,
+    (p_daily_limit - v_daily_count::INT) AS daily_remaining;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."check_api_rate_limit"("p_user_id" "uuid", "p_endpoint" "text", "p_hourly_limit" integer, "p_daily_limit" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."cleanup_old_api_logs"() RETURNS bigint
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_deleted_count BIGINT;
+BEGIN
+  DELETE FROM api_call_log
+  WHERE created_at < NOW() - INTERVAL '30 days';
+  
+  GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+  RETURN v_deleted_count;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."cleanup_old_api_logs"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."cleanup_old_ip_tracking"() RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+    DELETE FROM signup_ip_tracking
+    WHERE created_at < (now() - interval '30 days');
+END;
+$$;
+
+
+ALTER FUNCTION "public"."cleanup_old_ip_tracking"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."count_recent_signups_from_ip"("p_ip_address" "text", "p_hours_ago" integer DEFAULT 24) RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+    signup_count int;
+BEGIN
+    SELECT COUNT(*)
+    INTO signup_count
+    FROM signup_ip_tracking
+    WHERE ip_address = p_ip_address
+    AND created_at > (now() - (p_hours_ago || ' hours')::interval);
+    
+    RETURN signup_count;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."count_recent_signups_from_ip"("p_ip_address" "text", "p_hours_ago" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."finalize_student_profile"("p_user_id" "uuid", "p_profile" "jsonb", "p_education" "jsonb", "p_experience" "jsonb", "p_projects" "jsonb", "p_skills" "jsonb", "p_languages" "jsonb", "p_publications" "jsonb", "p_certifications" "jsonb", "p_social_links" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_education_count int;
+  v_experience_count int;
+  v_projects_count int;
+  v_skills_count int;
+  v_languages_count int;
+  v_publications_count int;
+  v_certifications_count int;
+  v_social_links_count int;
+BEGIN
+  -- Upsert student record
+  INSERT INTO student (
+    id,
+    student_name,
+    first_name,
+    last_name,
+    mail_adress,
+    phone_number,
+    address
+  )
+  VALUES (
+    p_user_id,
+    (p_profile->>'student_name')::text,
+    (p_profile->>'first_name')::text,
+    (p_profile->>'last_name')::text,
+    (p_profile->>'mail_adress')::text,
+    (p_profile->>'phone_number')::text,
+    (p_profile->>'address')::text
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    student_name = EXCLUDED.student_name,
+    first_name = EXCLUDED.first_name,
+    last_name = EXCLUDED.last_name,
+    mail_adress = EXCLUDED.mail_adress,
+    phone_number = EXCLUDED.phone_number,
+    address = EXCLUDED.address;
+  
+  -- Delete existing related records before inserting new ones
+  DELETE FROM academic WHERE student_id = p_user_id;
+  DELETE FROM experience WHERE student_id = p_user_id;
+  DELETE FROM project WHERE student_id = p_user_id;
+  DELETE FROM skill WHERE student_id = p_user_id;
+  DELETE FROM language WHERE student_id = p_user_id;
+  DELETE FROM publication WHERE student_id = p_user_id;
+  DELETE FROM certification WHERE student_id = p_user_id;
+  DELETE FROM social_link WHERE student_id = p_user_id;
+  
+  -- Insert education records
+  INSERT INTO academic (
+    student_id,
+    school_name,
+    degree,
+    description,
+    start_year,
+    start_month,
+    end_year,
+    end_month
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'school_name')::text,
+    (elem->>'degree')::text,
+    (elem->>'description')::text,
+    (elem->>'start_year')::int,
+    (elem->>'start_month')::int,
+    (elem->>'end_year')::int,
+    (elem->>'end_month')::int
+  FROM jsonb_array_elements(p_education) AS elem
+  WHERE (elem->>'school_name')::text IS NOT NULL 
+    AND (elem->>'school_name')::text != ''
+    AND (elem->>'degree')::text IS NOT NULL 
+    AND (elem->>'degree')::text != '';
+  
+  GET DIAGNOSTICS v_education_count = ROW_COUNT;
+  
+  -- Insert experience records
+  INSERT INTO experience (
+    student_id,
+    organisation_name,
+    position_name,
+    description,
+    start_year,
+    start_month,
+    end_year,
+    end_month
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'organisation_name')::text,
+    (elem->>'position_name')::text,
+    (elem->>'description')::text,
+    (elem->>'start_year')::int,
+    (elem->>'start_month')::int,
+    (elem->>'end_year')::int,
+    (elem->>'end_month')::int
+  FROM jsonb_array_elements(p_experience) AS elem
+  WHERE (elem->>'organisation_name')::text IS NOT NULL 
+    AND (elem->>'organisation_name')::text != ''
+    AND (elem->>'position_name')::text IS NOT NULL 
+    AND (elem->>'position_name')::text != '';
+  
+  GET DIAGNOSTICS v_experience_count = ROW_COUNT;
+  
+  -- Insert project records
+  INSERT INTO project (
+    student_id,
+    project_name,
+    description,
+    link
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'project_name')::text,
+    (elem->>'description')::text,
+    (elem->>'link')::text
+  FROM jsonb_array_elements(p_projects) AS elem
+  WHERE (elem->>'project_name')::text IS NOT NULL 
+    AND (elem->>'project_name')::text != '';
+  
+  GET DIAGNOSTICS v_projects_count = ROW_COUNT;
+  
+  -- Insert skill records
+  INSERT INTO skill (
+    student_id,
+    skill_name,
+    skill_slug
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'skill_name')::text,
+    (elem->>'skill_slug')::text
+  FROM jsonb_array_elements(p_skills) AS elem
+  WHERE (elem->>'skill_name')::text IS NOT NULL 
+    AND (elem->>'skill_name')::text != ''
+    AND (elem->>'skill_slug')::text IS NOT NULL 
+    AND (elem->>'skill_slug')::text != '';
+  
+  GET DIAGNOSTICS v_skills_count = ROW_COUNT;
+  
+  -- Insert language records
+  INSERT INTO language (
+    student_id,
+    language_name,
+    proficiency_level
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'language_name')::text,
+    (elem->>'proficiency_level')::text
+  FROM jsonb_array_elements(p_languages) AS elem
+  WHERE (elem->>'language_name')::text IS NOT NULL 
+    AND (elem->>'language_name')::text != ''
+    AND (elem->>'proficiency_level')::text IS NOT NULL 
+    AND (elem->>'proficiency_level')::text != '';
+  
+  GET DIAGNOSTICS v_languages_count = ROW_COUNT;
+  
+  -- Insert publication records
+  INSERT INTO publication (
+    student_id,
+    title,
+    journal_name,
+    description,
+    publication_year,
+    publication_month,
+    link
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'title')::text,
+    (elem->>'journal_name')::text,
+    (elem->>'description')::text,
+    (elem->>'publication_year')::int,
+    (elem->>'publication_month')::int,
+    (elem->>'link')::text
+  FROM jsonb_array_elements(p_publications) AS elem
+  WHERE (elem->>'title')::text IS NOT NULL 
+    AND (elem->>'title')::text != '';
+  
+  GET DIAGNOSTICS v_publications_count = ROW_COUNT;
+  
+  -- Insert certification records
+  INSERT INTO certification (
+    student_id,
+    name,
+    issuing_organization,
+    url
+  )
+  SELECT 
+    p_user_id,
+    (elem->>'name')::text,
+    (elem->>'issuing_organization')::text,
+    (elem->>'url')::text
+  FROM jsonb_array_elements(p_certifications) AS elem
+  WHERE (elem->>'name')::text IS NOT NULL 
+    AND (elem->>'name')::text != '';
+  
+  GET DIAGNOSTICS v_certifications_count = ROW_COUNT;
+  
+  -- Insert social link record (NEW: platform-specific columns)
+  -- p_social_links is now an object: {github: "url", linkedin: "url", stackoverflow: "url", kaggle: "url", leetcode: "url"}
+  IF p_social_links IS NOT NULL AND jsonb_typeof(p_social_links) = 'object' THEN
+    -- Check if at least one platform has a value
+    IF (p_social_links->>'github') IS NOT NULL 
+       OR (p_social_links->>'linkedin') IS NOT NULL
+       OR (p_social_links->>'stackoverflow') IS NOT NULL
+       OR (p_social_links->>'kaggle') IS NOT NULL
+       OR (p_social_links->>'leetcode') IS NOT NULL
+    THEN
+      INSERT INTO social_link (
+        student_id,
+        github,
+        linkedin,
+        stackoverflow,
+        kaggle,
+        leetcode
+      )
+      VALUES (
+        p_user_id,
+        NULLIF(TRIM(p_social_links->>'github'), ''),
+        NULLIF(TRIM(p_social_links->>'linkedin'), ''),
+        NULLIF(TRIM(p_social_links->>'stackoverflow'), ''),
+        NULLIF(TRIM(p_social_links->>'kaggle'), ''),
+        NULLIF(TRIM(p_social_links->>'leetcode'), '')
+      );
+      
+      v_social_links_count := 1;
+    ELSE
+      v_social_links_count := 0;
+    END IF;
+  ELSE
+    v_social_links_count := 0;
+  END IF;
+  
+  -- Return success with counts
+  RETURN jsonb_build_object(
+    'success', true,
+    'education_count', v_education_count,
+    'experience_count', v_experience_count,
+    'projects_count', v_projects_count,
+    'skills_count', v_skills_count,
+    'languages_count', v_languages_count,
+    'publications_count', v_publications_count,
+    'certifications_count', v_certifications_count,
+    'social_links_count', v_social_links_count
+  );
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'detail', SQLSTATE
+    );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."finalize_student_profile"("p_user_id" "uuid", "p_profile" "jsonb", "p_education" "jsonb", "p_experience" "jsonb", "p_projects" "jsonb", "p_skills" "jsonb", "p_languages" "jsonb", "p_publications" "jsonb", "p_certifications" "jsonb", "p_social_links" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_user_total_cost"("user_uuid" "uuid") RETURNS numeric
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT COALESCE(SUM(total_cost), 0.00)
+  FROM gpt_tokens
+  WHERE user_id = user_uuid;
+$$;
+
+
+ALTER FUNCTION "public"."get_user_total_cost"("user_uuid" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."grant_daily_credits"("p_user_id" "uuid") RETURNS TABLE("success" boolean, "credits_granted" integer, "new_balance" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_credits_amount INTEGER := 50;
+  v_new_balance INTEGER;
+BEGIN
+  -- Try to insert daily grant (will fail if already claimed today)
+  INSERT INTO public.daily_credit_grants (user_id, granted_date, credits_amount)
+  VALUES (p_user_id, CURRENT_DATE, v_credits_amount)
+  ON CONFLICT (user_id, granted_date) DO NOTHING;
+  
+  -- Check if we actually inserted (granted credits today)
+  IF NOT FOUND THEN
+    -- Already claimed today
+    SELECT balance INTO v_new_balance
+    FROM public.user_credits
+    WHERE user_id = p_user_id;
+    
+    RETURN QUERY SELECT FALSE, 0, COALESCE(v_new_balance, 0);
+    RETURN;
+  END IF;
+  
+  -- Add credits to balance
+  INSERT INTO public.user_credits (user_id, balance, total_earned, last_updated)
+  VALUES (p_user_id, v_credits_amount, v_credits_amount, now())
+  ON CONFLICT (user_id) DO UPDATE SET
+    balance = user_credits.balance + v_credits_amount,
+    total_earned = user_credits.total_earned + v_credits_amount,
+    last_updated = now()
+  RETURNING user_credits.balance INTO v_new_balance;
+  
+  RETURN QUERY SELECT TRUE, v_credits_amount, v_new_balance;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."grant_daily_credits"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'auth', 'extensions'
+    AS $$
+DECLARE
+  user_role TEXT;
+  v_token TEXT;
+BEGIN
+  user_role := NEW.raw_user_meta_data ->> 'role';
+
+  -- Create student or company record based on role
+  IF user_role = 'student' THEN
+    INSERT INTO public.student (id, mail_adress)
+    VALUES (NEW.id, NEW.email);
+  ELSIF user_role = 'company' THEN
+    INSERT INTO public.company (id, mail_adress)
+    VALUES (NEW.id, NEW.email);
+  END IF;
+
+  -- Generate API token for external bot access
+  v_token := encode(gen_random_bytes(32), 'base64');
+  INSERT INTO public.api_tokens (user_id, token)
+  VALUES (NEW.id, v_token);
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."log_api_call"("p_user_id" "uuid", "p_endpoint" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_log_id UUID;
+BEGIN
+  INSERT INTO api_call_log (user_id, endpoint)
+  VALUES (p_user_id, p_endpoint)
+  RETURNING id INTO v_log_id;
+
+  RETURN v_log_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."log_api_call"("p_user_id" "uuid", "p_endpoint" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."protect_immutable_columns"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- Protect primary key (id)
+  IF OLD.id IS DISTINCT FROM NEW.id THEN
+    RAISE EXCEPTION 'Cannot update primary key column: id';
+  END IF;
+  
+  -- Protect created_at timestamp
+  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log') THEN
+    IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+      RAISE EXCEPTION 'Cannot update immutable column: created_at';
+    END IF;
+  END IF;
+  
+  -- Protect foreign keys based on column existence
+  IF TG_TABLE_NAME IN ('academic', 'experience', 'project', 'skill', 'language', 
+                        'publication', 'certification', 'social_link', 'resume',
+                        'student_profile_draft', 'student_work_preferences') THEN
+    IF OLD.student_id IS DISTINCT FROM NEW.student_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: student_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME IN ('company_offer', 'company_offer_draft') THEN
+    IF OLD.company_id IS DISTINCT FROM NEW.company_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: company_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME IN ('offer_skills', 'offer_locations', 'offer_responsibilities',
+                        'offer_capabilities', 'offer_questions', 'offer_perks') THEN
+    IF OLD.offer_id IS DISTINCT FROM NEW.offer_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: offer_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME = 'application' THEN
+    IF OLD.student_id IS DISTINCT FROM NEW.student_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: student_id';
+    END IF;
+    IF OLD.offer_id IS DISTINCT FROM NEW.offer_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: offer_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME IN ('api_tokens', 'api_call_log', 'user_credits', 
+                        'daily_credit_grants', 'credit_purchases') THEN
+    IF OLD.user_id IS DISTINCT FROM NEW.user_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: user_id';
+    END IF;
+  END IF;
+  
+  -- Protect Stripe idempotency keys
+  IF TG_TABLE_NAME = 'credit_purchases' THEN
+    IF OLD.stripe_event_id IS DISTINCT FROM NEW.stripe_event_id AND OLD.stripe_event_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_event_id';
+    END IF;
+    IF OLD.stripe_payment_intent_id IS DISTINCT FROM NEW.stripe_payment_intent_id AND OLD.stripe_payment_intent_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_payment_intent_id';
+    END IF;
+    IF OLD.stripe_checkout_session_id IS DISTINCT FROM NEW.stripe_checkout_session_id AND OLD.stripe_checkout_session_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_checkout_session_id';
+    END IF;
+  END IF;
+  
+  -- Protect daily grant composite key
+  IF TG_TABLE_NAME = 'daily_credit_grants' THEN
+    IF OLD.granted_date IS DISTINCT FROM NEW.granted_date THEN
+      RAISE EXCEPTION 'Cannot update composite key column: granted_date';
+    END IF;
+  END IF;
+  
+  -- Protect API token
+  IF TG_TABLE_NAME = 'api_tokens' THEN
+    IF OLD.token IS DISTINCT FROM NEW.token THEN
+      RAISE EXCEPTION 'Cannot update immutable column: token';
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."protect_immutable_columns"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."publish_offer_draft"("p_draft_id" "uuid") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_draft company_offer_draft%ROWTYPE;
+  v_offer_id UUID;
+  v_company_id UUID;
+  v_skill JSONB;
+  v_location JSONB;
+  v_responsibility JSONB;
+  v_capability JSONB;
+  v_question JSONB;
+  v_perk JSONB;
+BEGIN
+  -- Get the draft data and verify ownership
+  SELECT * INTO v_draft
+  FROM company_offer_draft
+  WHERE id = p_draft_id AND company_id = (SELECT auth.uid());
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Draft not found or access denied';
+  END IF;
+
+  -- Validate required fields
+  IF v_draft.basic_info->>'position_name' IS NULL OR v_draft.basic_info->>'position_name' = '' THEN
+    RAISE EXCEPTION 'Position name is required';
+  END IF;
+
+  v_company_id := v_draft.company_id;
+
+  -- Determine if this is an update or new offer
+  IF v_draft.offer_id IS NOT NULL THEN
+    -- Updating existing offer
+    v_offer_id := v_draft.offer_id;
+    
+    -- Update main offer record
+    UPDATE company_offer SET
+      position_name = v_draft.basic_info->>'position_name',
+      description = v_draft.basic_info->>'description',
+      salary_min = NULLIF(v_draft.compensation->>'salary_min', '')::integer,
+      salary_max = NULLIF(v_draft.compensation->>'salary_max', '')::integer,
+      salary_currency = COALESCE(v_draft.compensation->>'salary_currency', 'EUR'),
+      salary_period = v_draft.compensation->>'salary_period',
+      equity = COALESCE((v_draft.compensation->>'equity')::boolean, false),
+      equity_range = NULLIF(v_draft.compensation->>'equity_range', ''),
+      remote_mode = v_draft.work_config->>'remote_mode',
+      employment_type = v_draft.work_config->>'employment_type',
+      availability = v_draft.work_config->>'availability',
+      seniority = v_draft.seniority,
+      status = 'published',
+      published_at = now()
+    WHERE id = v_offer_id AND company_id = v_company_id;
+
+  ELSE
+    -- Creating new offer
+    INSERT INTO company_offer (
+      company_id,
+      position_name,
+      description,
+      salary_min,
+      salary_max,
+      salary_currency,
+      salary_period,
+      equity,
+      equity_range,
+      remote_mode,
+      employment_type,
+      availability,
+      seniority,
+      status,
+      published_at
+    ) VALUES (
+      v_company_id,
+      v_draft.basic_info->>'position_name',
+      v_draft.basic_info->>'description',
+      NULLIF(v_draft.compensation->>'salary_min', '')::integer,
+      NULLIF(v_draft.compensation->>'salary_max', '')::integer,
+      COALESCE(v_draft.compensation->>'salary_currency', 'EUR'),
+      v_draft.compensation->>'salary_period',
+      COALESCE((v_draft.compensation->>'equity')::boolean, false),
+      NULLIF(v_draft.compensation->>'equity_range', ''),
+      v_draft.work_config->>'remote_mode',
+      v_draft.work_config->>'employment_type',
+      v_draft.work_config->>'availability',
+      v_draft.seniority,
+      'published',
+      now()
+    )
+    RETURNING id INTO v_offer_id;
+  END IF;
+
+  -- Delete existing child records (for both new and update scenarios)
+  DELETE FROM offer_skills WHERE offer_id = v_offer_id;
+  DELETE FROM offer_locations WHERE offer_id = v_offer_id;
+  DELETE FROM offer_responsibilities WHERE offer_id = v_offer_id;
+  DELETE FROM offer_capabilities WHERE offer_id = v_offer_id;
+  DELETE FROM offer_questions WHERE offer_id = v_offer_id;
+  DELETE FROM offer_perks WHERE offer_id = v_offer_id;
+
+  -- Insert skills
+  FOR v_skill IN SELECT * FROM jsonb_array_elements(v_draft.skills)
+  LOOP
+    -- Only insert non-empty skills
+    IF v_skill->>'skill_text' IS NOT NULL AND v_skill->>'skill_text' != '' THEN
+      INSERT INTO offer_skills (
+        offer_id,
+        skill_slug,
+        skill_text,
+        importance,
+        level,
+        years
+      ) VALUES (
+        v_offer_id,
+        COALESCE(v_skill->>'skill_slug', ''),
+        v_skill->>'skill_text',
+        COALESCE(v_skill->>'importance', 'must'),
+        NULLIF(v_skill->>'level', ''),
+        NULLIF(v_skill->>'years', '')::integer
+      );
+    END IF;
+  END LOOP;
+
+  -- Insert locations
+  FOR v_location IN SELECT * FROM jsonb_array_elements(v_draft.locations)
+  LOOP
+    -- Only insert locations with at least city or country
+    IF v_location->>'city' IS NOT NULL OR v_location->>'country' IS NOT NULL THEN
+      INSERT INTO offer_locations (
+        offer_id,
+        city,
+        country
+      ) VALUES (
+        v_offer_id,
+        NULLIF(v_location->>'city', ''),
+        NULLIF(v_location->>'country', '')
+      );
+    END IF;
+  END LOOP;
+
+  -- Insert responsibilities
+  FOR v_responsibility IN SELECT * FROM jsonb_array_elements(v_draft.responsibilities)
+  LOOP
+    -- Only insert non-empty responsibilities
+    IF v_responsibility->>'text' IS NOT NULL AND v_responsibility->>'text' != '' THEN
+      INSERT INTO offer_responsibilities (
+        offer_id,
+        text
+      ) VALUES (
+        v_offer_id,
+        v_responsibility->>'text'
+      );
+    END IF;
+  END LOOP;
+
+  -- Insert capabilities
+  FOR v_capability IN SELECT * FROM jsonb_array_elements(v_draft.capabilities)
+  LOOP
+    -- Only insert non-empty capabilities
+    IF v_capability->>'text' IS NOT NULL AND v_capability->>'text' != '' THEN
+      INSERT INTO offer_capabilities (
+        offer_id,
+        text,
+        importance
+      ) VALUES (
+        v_offer_id,
+        v_capability->>'text',
+        COALESCE(v_capability->>'importance', 'must')
+      );
+    END IF;
+  END LOOP;
+
+  -- Insert questions
+  FOR v_question IN SELECT * FROM jsonb_array_elements(v_draft.questions)
+  LOOP
+    -- Only insert non-empty questions
+    IF v_question->>'question' IS NOT NULL AND v_question->>'question' != '' THEN
+      INSERT INTO offer_questions (
+        offer_id,
+        question
+      ) VALUES (
+        v_offer_id,
+        v_question->>'question'
+      );
+    END IF;
+  END LOOP;
+
+  -- Insert perks
+  FOR v_perk IN SELECT * FROM jsonb_array_elements(v_draft.perks)
+  LOOP
+    -- Only insert non-empty perks
+    IF v_perk->>'text' IS NOT NULL AND v_perk->>'text' != '' THEN
+      INSERT INTO offer_perks (
+        offer_id,
+        text
+      ) VALUES (
+        v_offer_id,
+        v_perk->>'text'
+      );
+    END IF;
+  END LOOP;
+
+  -- Link draft to published offer (for future edits)
+  UPDATE company_offer_draft
+  SET offer_id = v_offer_id,
+      status = 'ready_to_publish'
+  WHERE id = p_draft_id;
+
+  -- Return the published offer ID
+  RETURN v_offer_id;
+
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Rollback happens automatically in PostgreSQL functions
+    RAISE EXCEPTION 'Failed to publish offer: %', SQLERRM;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."publish_offer_draft"("p_draft_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."set_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+begin
+  new.updated_at = now();
+  return new;
+end; 
+$$;
+
+
+ALTER FUNCTION "public"."set_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_feedback_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_feedback_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_token_last_used"("p_token" "text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE public.api_tokens
+  SET last_used_at = now()
+  WHERE token = p_token;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_token_last_used"("p_token" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_token_usage"("p_token" "text", "p_tokens_used" integer, "p_cost_usd" numeric) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE public.api_tokens
+  SET 
+    total_tokens_used = total_tokens_used + p_tokens_used,
+    total_cost_usd = total_cost_usd + p_cost_usd,
+    last_used_at = now()
+  WHERE token = p_token;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_token_usage"("p_token" "text", "p_tokens_used" integer, "p_cost_usd" numeric) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."use_credits"("p_user_id" "uuid", "p_amount" integer DEFAULT 1) RETURNS TABLE("success" boolean, "new_balance" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_current_balance INTEGER;
+  v_new_balance INTEGER;
+BEGIN
+  -- Get current balance
+  SELECT balance INTO v_current_balance
+  FROM public.user_credits
+  WHERE user_id = p_user_id
+  FOR UPDATE; -- Lock row
+  
+  -- Check if user has enough credits
+  IF v_current_balance IS NULL OR v_current_balance < p_amount THEN
+    RETURN QUERY SELECT FALSE, COALESCE(v_current_balance, 0);
+    RETURN;
+  END IF;
+  
+  -- Deduct credits
+  UPDATE public.user_credits
+  SET 
+    balance = balance - p_amount,
+    total_used = total_used + p_amount,
+    last_updated = now()
+  WHERE user_id = p_user_id
+  RETURNING balance INTO v_new_balance;
+  
+  RETURN QUERY SELECT TRUE, v_new_balance;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."use_credits"("p_user_id" "uuid", "p_amount" integer) OWNER TO "postgres";
+
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."academic" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "school_name" "text" NOT NULL,
+    "degree" "text" NOT NULL,
+    "description" "text",
+    "start_year" integer,
+    "start_month" integer,
+    "end_year" integer,
+    "end_month" integer,
+    CONSTRAINT "academic_end_month_range" CHECK ((("end_month" IS NULL) OR (("end_month" >= 1) AND ("end_month" <= 12)))),
+    CONSTRAINT "academic_end_year_range" CHECK ((("end_year" IS NULL) OR (("end_year" >= 1950) AND ("end_year" <= 2050)))),
+    CONSTRAINT "academic_start_month_range" CHECK ((("start_month" IS NULL) OR (("start_month" >= 1) AND ("start_month" <= 12)))),
+    CONSTRAINT "academic_start_month_required" CHECK (("start_month" IS NOT NULL)),
+    CONSTRAINT "academic_start_year_range" CHECK ((("start_year" IS NULL) OR (("start_year" >= 1950) AND ("start_year" <= 2050)))),
+    CONSTRAINT "academic_start_year_required" CHECK (("start_year" IS NOT NULL))
+);
+
+
+ALTER TABLE "public"."academic" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."api_call_log" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "endpoint" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."api_call_log" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."api_tokens" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "token" "text" NOT NULL,
+    "last_used_at" timestamp with time zone,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "total_tokens_used" bigint DEFAULT 0 NOT NULL,
+    "total_cost_usd" numeric(10,6) DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE "public"."api_tokens" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."application" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "offer_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "student_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "curent_state" "text" DEFAULT '"unseen"'::"text" NOT NULL,
+    "priority" smallint DEFAULT '0'::smallint NOT NULL
+);
+
+
+ALTER TABLE "public"."application" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."certification" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "issuing_organization" "text",
+    "url" "text",
+    CONSTRAINT "certification_name_check" CHECK ((("length"("name") >= 1) AND ("length"("name") <= 200))),
+    CONSTRAINT "certification_organization_check" CHECK ((("issuing_organization" IS NULL) OR ("length"("issuing_organization") <= 200))),
+    CONSTRAINT "certification_url_check" CHECK ((("url" IS NULL) OR ("length"("url") <= 500)))
+);
+
+
+ALTER TABLE "public"."certification" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."company" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "company_name" "text",
+    "description" "text",
+    "mail_adress" "text" NOT NULL
+);
+
+
+ALTER TABLE "public"."company" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."company_offer" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "company_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "position_name" "text" NOT NULL,
+    "description" "text",
+    "status" "text" DEFAULT 'draft'::"text",
+    "published_at" timestamp with time zone,
+    "salary_min" integer,
+    "salary_max" integer,
+    "salary_currency" "text" DEFAULT 'EUR'::"text",
+    "salary_period" "text",
+    "equity" boolean DEFAULT false,
+    "equity_range" "text",
+    "remote_mode" "text",
+    "employment_type" "text",
+    "availability" "text",
+    "seniority" "text",
+    CONSTRAINT "company_offer_employment_type_check" CHECK (("employment_type" = ANY (ARRAY['full_time'::"text", 'part_time'::"text", 'contract'::"text", 'intern'::"text"]))),
+    CONSTRAINT "company_offer_remote_mode_check" CHECK (("remote_mode" = ANY (ARRAY['onsite'::"text", 'hybrid'::"text", 'remote'::"text"]))),
+    CONSTRAINT "company_offer_salary_currency_check" CHECK (("length"("salary_currency") = 3)),
+    CONSTRAINT "company_offer_salary_period_check" CHECK (("salary_period" = ANY (ARRAY['hour'::"text", 'day'::"text", 'month'::"text", 'year'::"text"]))),
+    CONSTRAINT "company_offer_seniority_check" CHECK (("seniority" = ANY (ARRAY['junior'::"text", 'mid'::"text", 'senior'::"text", 'lead'::"text", 'principal'::"text", 'staff'::"text"]))),
+    CONSTRAINT "company_offer_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'published'::"text", 'closed'::"text"])))
+);
+
+
+ALTER TABLE "public"."company_offer" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."company_offer_draft" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "company_id" "uuid" NOT NULL,
+    "offer_id" "uuid",
+    "basic_info" "jsonb" DEFAULT '{"description": null, "position_name": ""}'::"jsonb",
+    "compensation" "jsonb" DEFAULT '{"equity": false, "salary_max": null, "salary_min": null, "equity_range": null, "salary_period": null, "salary_currency": "EUR"}'::"jsonb",
+    "work_config" "jsonb" DEFAULT '{"start_date": null, "remote_mode": null, "availability": null, "employment_type": null}'::"jsonb",
+    "skills" "jsonb" DEFAULT '[]'::"jsonb",
+    "locations" "jsonb" DEFAULT '[]'::"jsonb",
+    "responsibilities" "jsonb" DEFAULT '[]'::"jsonb",
+    "capabilities" "jsonb" DEFAULT '[]'::"jsonb",
+    "questions" "jsonb" DEFAULT '[]'::"jsonb",
+    "perks" "jsonb" DEFAULT '[]'::"jsonb",
+    "status" "text" DEFAULT 'editing'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "seniority" "text",
+    CONSTRAINT "company_offer_draft_seniority_check" CHECK (("seniority" = ANY (ARRAY['junior'::"text", 'mid'::"text", 'senior'::"text", 'lead'::"text", 'principal'::"text", 'staff'::"text"]))),
+    CONSTRAINT "company_offer_draft_status_check" CHECK (("status" = ANY (ARRAY['editing'::"text", 'ready_to_publish'::"text"])))
+);
+
+
+ALTER TABLE "public"."company_offer_draft" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."credit_purchases" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "stripe_payment_intent_id" "text",
+    "stripe_checkout_session_id" "text",
+    "credits_amount" integer NOT NULL,
+    "price_cents" integer NOT NULL,
+    "currency" "text" DEFAULT 'eur'::"text" NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "purchased_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "completed_at" timestamp with time zone,
+    "stripe_event_id" "text"
+);
+
+
+ALTER TABLE "public"."credit_purchases" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."daily_credit_grants" (
+    "user_id" "uuid" NOT NULL,
+    "granted_date" "date" NOT NULL,
+    "credits_amount" integer DEFAULT 100 NOT NULL,
+    "granted_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."daily_credit_grants" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."experience" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organisation_name" "text" NOT NULL,
+    "position_name" "text" NOT NULL,
+    "description" "text",
+    "start_year" integer,
+    "start_month" integer,
+    "end_year" integer,
+    "end_month" integer,
+    CONSTRAINT "experience_end_month_range" CHECK ((("end_month" IS NULL) OR (("end_month" >= 1) AND ("end_month" <= 12)))),
+    CONSTRAINT "experience_end_year_range" CHECK ((("end_year" IS NULL) OR (("end_year" >= 1950) AND ("end_year" <= 2050)))),
+    CONSTRAINT "experience_start_month_range" CHECK ((("start_month" IS NULL) OR (("start_month" >= 1) AND ("start_month" <= 12)))),
+    CONSTRAINT "experience_start_month_required" CHECK (("start_month" IS NOT NULL)),
+    CONSTRAINT "experience_start_year_range" CHECK ((("start_year" IS NULL) OR (("start_year" >= 1950) AND ("start_year" <= 2050)))),
+    CONSTRAINT "experience_start_year_required" CHECK (("start_year" IS NOT NULL))
+);
+
+
+ALTER TABLE "public"."experience" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."language" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "language_name" "text" NOT NULL,
+    "proficiency_level" "text",
+    CONSTRAINT "language_name_check" CHECK ((("length"("language_name") >= 1) AND ("length"("language_name") <= 100))),
+    CONSTRAINT "language_proficiency_check" CHECK ((("proficiency_level" IS NULL) OR ("proficiency_level" = ANY (ARRAY['Beginner'::"text", 'Intermediate'::"text", 'Advanced'::"text", 'Fluent'::"text", 'Native'::"text"]))))
+);
+
+
+ALTER TABLE "public"."language" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."offer_capabilities" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "offer_id" "uuid" NOT NULL,
+    "text" "text" NOT NULL,
+    "importance" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "offer_capabilities_importance_check" CHECK (("importance" = ANY (ARRAY['must'::"text", 'nice'::"text"])))
+);
+
+
+ALTER TABLE "public"."offer_capabilities" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."offer_locations" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "offer_id" "uuid" NOT NULL,
+    "city" "text",
+    "country" "text",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."offer_locations" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."offer_perks" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "offer_id" "uuid" NOT NULL,
+    "text" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."offer_perks" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."offer_questions" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "offer_id" "uuid" NOT NULL,
+    "question" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."offer_questions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."offer_responsibilities" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "offer_id" "uuid" NOT NULL,
+    "text" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."offer_responsibilities" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."offer_skills" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "offer_id" "uuid" NOT NULL,
+    "skill_slug" "text" NOT NULL,
+    "skill_text" "text" NOT NULL,
+    "importance" "text" NOT NULL,
+    "level" "text",
+    "years" integer,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "offer_skills_importance_check" CHECK (("importance" = ANY (ARRAY['must'::"text", 'nice'::"text"])))
+);
+
+
+ALTER TABLE "public"."offer_skills" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."profile_searched" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "academics" "text",
+    "experience" "text",
+    "difficulty" smallint
+);
+
+
+ALTER TABLE "public"."profile_searched" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."project" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "project_name" "text" NOT NULL,
+    "description" "text",
+    "link" "text",
+    CONSTRAINT "project_description_check" CHECK ((("description" IS NULL) OR ("length"("description") <= 1000))),
+    CONSTRAINT "project_link_check" CHECK ((("link" IS NULL) OR ("length"("link") <= 500))),
+    CONSTRAINT "project_name_check" CHECK ((("length"("project_name") >= 1) AND ("length"("project_name") <= 200)))
+);
+
+
+ALTER TABLE "public"."project" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."publication" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "title" "text" NOT NULL,
+    "journal_name" "text",
+    "description" "text",
+    "publication_year" integer,
+    "publication_month" integer,
+    "link" "text",
+    CONSTRAINT "publication_description_check" CHECK ((("description" IS NULL) OR ("length"("description") <= 1000))),
+    CONSTRAINT "publication_journal_check" CHECK ((("journal_name" IS NULL) OR ("length"("journal_name") <= 200))),
+    CONSTRAINT "publication_link_check" CHECK ((("link" IS NULL) OR ("length"("link") <= 500))),
+    CONSTRAINT "publication_month_range" CHECK ((("publication_month" IS NULL) OR (("publication_month" >= 1) AND ("publication_month" <= 12)))),
+    CONSTRAINT "publication_title_check" CHECK ((("length"("title") >= 1) AND ("length"("title") <= 300))),
+    CONSTRAINT "publication_year_range" CHECK ((("publication_year" IS NULL) OR (("publication_year" >= 1950) AND ("publication_year" <= 2050))))
+);
+
+
+ALTER TABLE "public"."publication" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."resume" (
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "file_name" "text" NOT NULL
+);
+
+
+ALTER TABLE "public"."resume" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."signup_ip_tracking" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "ip_address" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "user_agent" "text"
+);
+
+
+ALTER TABLE "public"."signup_ip_tracking" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."skill" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "skill_name" "text" NOT NULL,
+    "skill_slug" "text",
+    CONSTRAINT "skill_name_check" CHECK ((("length"("skill_name") >= 1) AND ("length"("skill_name") <= 100))),
+    CONSTRAINT "skill_slug_check" CHECK ((("skill_slug" IS NULL) OR ("length"("skill_slug") <= 100)))
+);
+
+
+ALTER TABLE "public"."skill" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."social_link" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "github" "text",
+    "linkedin" "text",
+    "stackoverflow" "text",
+    "kaggle" "text",
+    "leetcode" "text",
+    CONSTRAINT "social_link_github_check" CHECK ((("github" IS NULL) OR (("length"("github") >= 1) AND ("length"("github") <= 500)))),
+    CONSTRAINT "social_link_kaggle_check" CHECK ((("kaggle" IS NULL) OR (("length"("kaggle") >= 1) AND ("length"("kaggle") <= 500)))),
+    CONSTRAINT "social_link_leetcode_check" CHECK ((("leetcode" IS NULL) OR (("length"("leetcode") >= 1) AND ("length"("leetcode") <= 500)))),
+    CONSTRAINT "social_link_linkedin_check" CHECK ((("linkedin" IS NULL) OR (("length"("linkedin") >= 1) AND ("length"("linkedin") <= 500)))),
+    CONSTRAINT "social_link_stackoverflow_check" CHECK ((("stackoverflow" IS NULL) OR (("length"("stackoverflow") >= 1) AND ("length"("stackoverflow") <= 500))))
+);
+
+
+ALTER TABLE "public"."social_link" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."student" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "mail_adress" "text" NOT NULL,
+    "description" "text",
+    "first_name" "text",
+    "last_name" "text",
+    "phone_number" "text",
+    "address" "text",
+    "student_name" "text",
+    CONSTRAINT "student_address_check" CHECK (("length"("address") <= 200)),
+    CONSTRAINT "student_description_check" CHECK (("length"("description") <= 500)),
+    CONSTRAINT "student_first_name_check" CHECK (("length"("first_name") <= 50)),
+    CONSTRAINT "student_last_name_check" CHECK (("length"("last_name") <= 50)),
+    CONSTRAINT "student_phone_number_check" CHECK (("length"("phone_number") <= 20))
+);
+
+
+ALTER TABLE "public"."student" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."student_profile_draft" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "raw_resume_text" "text",
+    "student_name" "text",
+    "education" "jsonb" DEFAULT '[]'::"jsonb",
+    "experience" "jsonb" DEFAULT '[]'::"jsonb",
+    "chat_history" "jsonb" DEFAULT '[]'::"jsonb",
+    "status" "text" DEFAULT 'editing'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "phone_number" "text",
+    "email" "text",
+    "address" "text",
+    "projects" "jsonb" DEFAULT '[]'::"jsonb",
+    "skills" "jsonb" DEFAULT '[]'::"jsonb",
+    "languages" "jsonb" DEFAULT '[]'::"jsonb",
+    "publications" "jsonb" DEFAULT '[]'::"jsonb",
+    "certifications" "jsonb" DEFAULT '[]'::"jsonb",
+    "social_links" "jsonb" DEFAULT '{}'::"jsonb",
+    CONSTRAINT "student_profile_draft_address_check" CHECK (("length"("address") <= 200)),
+    CONSTRAINT "student_profile_draft_status_check" CHECK (("status" = ANY (ARRAY['editing'::"text", 'published'::"text"])))
+);
+
+
+ALTER TABLE "public"."student_profile_draft" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."student_work_preferences" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "student_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "remote_work" boolean DEFAULT true,
+    "exp_internship" boolean DEFAULT true,
+    "exp_entry" boolean DEFAULT true,
+    "exp_associate" boolean DEFAULT false,
+    "exp_mid_senior" boolean DEFAULT false,
+    "exp_director" boolean DEFAULT false,
+    "exp_executive" boolean DEFAULT false,
+    "job_full_time" boolean DEFAULT true,
+    "job_contract" boolean DEFAULT false,
+    "job_part_time" boolean DEFAULT false,
+    "job_temporary" boolean DEFAULT false,
+    "job_internship" boolean DEFAULT false,
+    "job_other" boolean DEFAULT false,
+    "job_volunteer" boolean DEFAULT false,
+    "date_all_time" boolean DEFAULT false,
+    "date_month" boolean DEFAULT true,
+    "date_week" boolean DEFAULT true,
+    "date_24_hours" boolean DEFAULT true,
+    "positions" "text"[] DEFAULT '{}'::"text"[],
+    "locations" "text"[] DEFAULT '{}'::"text"[],
+    "company_blacklist" "text"[] DEFAULT '{}'::"text"[],
+    "title_blacklist" "text"[] DEFAULT '{}'::"text"[],
+    "date_of_birth" "text",
+    "pronouns" "text",
+    "gender" "text",
+    "is_veteran" boolean DEFAULT false,
+    "has_disability" boolean DEFAULT false,
+    "ethnicity" "text",
+    "eu_work_authorization" boolean DEFAULT false,
+    "us_work_authorization" boolean DEFAULT false,
+    "in_person_work" boolean DEFAULT true,
+    "open_to_relocation" boolean DEFAULT false,
+    "willing_to_complete_assessments" boolean DEFAULT true,
+    "willing_to_undergo_drug_tests" boolean DEFAULT true,
+    "willing_to_undergo_background_checks" boolean DEFAULT true,
+    "notice_period" "text",
+    "salary_expectation_usd" integer
+);
+
+
+ALTER TABLE "public"."student_work_preferences" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."user_credits" (
+    "user_id" "uuid" NOT NULL,
+    "balance" integer DEFAULT 0 NOT NULL,
+    "total_earned" integer DEFAULT 0 NOT NULL,
+    "total_purchased" integer DEFAULT 0 NOT NULL,
+    "total_used" integer DEFAULT 0 NOT NULL,
+    "last_updated" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."user_credits" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."user_feedback" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid",
+    "feedback_type" "text" NOT NULL,
+    "subject" "text" NOT NULL,
+    "description" "text" NOT NULL,
+    "user_email" "text",
+    "user_agent" "text",
+    "page_url" "text",
+    "status" "text" DEFAULT 'new'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "user_feedback_feedback_type_check" CHECK (("feedback_type" = ANY (ARRAY['bug'::"text", 'feature'::"text"]))),
+    CONSTRAINT "user_feedback_status_check" CHECK (("status" = ANY (ARRAY['new'::"text", 'reviewing'::"text", 'resolved'::"text", 'wont_fix'::"text"])))
+);
+
+
+ALTER TABLE "public"."user_feedback" OWNER TO "postgres";
+
+
+ALTER TABLE ONLY "public"."academic"
+    ADD CONSTRAINT "academic_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."api_call_log"
+    ADD CONSTRAINT "api_call_log_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."api_tokens"
+    ADD CONSTRAINT "api_tokens_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."api_tokens"
+    ADD CONSTRAINT "api_tokens_token_key" UNIQUE ("token");
+
+
+
+ALTER TABLE ONLY "public"."api_tokens"
+    ADD CONSTRAINT "api_tokens_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."application"
+    ADD CONSTRAINT "application_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."certification"
+    ADD CONSTRAINT "certification_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."company_offer_draft"
+    ADD CONSTRAINT "company_offer_draft_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."company_offer"
+    ADD CONSTRAINT "company_offer_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."company"
+    ADD CONSTRAINT "company_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."credit_purchases"
+    ADD CONSTRAINT "credit_purchases_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."credit_purchases"
+    ADD CONSTRAINT "credit_purchases_stripe_event_id_key" UNIQUE ("stripe_event_id");
+
+
+
+ALTER TABLE ONLY "public"."credit_purchases"
+    ADD CONSTRAINT "credit_purchases_stripe_payment_intent_id_key" UNIQUE ("stripe_payment_intent_id");
+
+
+
+ALTER TABLE ONLY "public"."daily_credit_grants"
+    ADD CONSTRAINT "daily_credit_grants_pkey" PRIMARY KEY ("user_id", "granted_date");
+
+
+
+ALTER TABLE ONLY "public"."experience"
+    ADD CONSTRAINT "experience_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."language"
+    ADD CONSTRAINT "language_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."offer_capabilities"
+    ADD CONSTRAINT "offer_capabilities_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."offer_locations"
+    ADD CONSTRAINT "offer_locations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."offer_perks"
+    ADD CONSTRAINT "offer_perks_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."offer_questions"
+    ADD CONSTRAINT "offer_questions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."offer_responsibilities"
+    ADD CONSTRAINT "offer_responsibilities_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."offer_skills"
+    ADD CONSTRAINT "offer_skills_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."profile_searched"
+    ADD CONSTRAINT "profile_searched_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."project"
+    ADD CONSTRAINT "project_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."publication"
+    ADD CONSTRAINT "publication_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."resume"
+    ADD CONSTRAINT "resume_pkey" PRIMARY KEY ("student_id");
+
+
+
+ALTER TABLE ONLY "public"."signup_ip_tracking"
+    ADD CONSTRAINT "signup_ip_tracking_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."skill"
+    ADD CONSTRAINT "skill_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."social_link"
+    ADD CONSTRAINT "social_link_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."student"
+    ADD CONSTRAINT "student_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."student_profile_draft"
+    ADD CONSTRAINT "student_profile_draft_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."student_profile_draft"
+    ADD CONSTRAINT "student_profile_draft_student_id_key" UNIQUE ("student_id");
+
+
+
+ALTER TABLE ONLY "public"."student_work_preferences"
+    ADD CONSTRAINT "student_work_preferences_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."student_work_preferences"
+    ADD CONSTRAINT "student_work_preferences_student_unique" UNIQUE ("student_id");
+
+
+
+ALTER TABLE ONLY "public"."offer_skills"
+    ADD CONSTRAINT "unique_offer_skill" UNIQUE ("offer_id", "skill_slug");
+
+
+
+ALTER TABLE ONLY "public"."user_credits"
+    ADD CONSTRAINT "user_credits_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."user_feedback"
+    ADD CONSTRAINT "user_feedback_pkey" PRIMARY KEY ("id");
+
+
+
+CREATE INDEX "certification_student_id_idx" ON "public"."certification" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "company_offer_draft_company_id_idx" ON "public"."company_offer_draft" USING "btree" ("company_id");
+
+
+
+CREATE INDEX "company_offer_draft_offer_id_idx" ON "public"."company_offer_draft" USING "btree" ("offer_id");
+
+
+
+CREATE UNIQUE INDEX "company_offer_one_active_draft_per_offer" ON "public"."company_offer_draft" USING "btree" ("offer_id") WHERE (("offer_id" IS NOT NULL) AND ("status" = ANY (ARRAY['editing'::"text", 'ready_to_publish'::"text"])));
+
+
+
+CREATE UNIQUE INDEX "credit_purchases_event_uniq" ON "public"."credit_purchases" USING "btree" ("stripe_event_id") WHERE ("stripe_event_id" IS NOT NULL);
+
+
+
+CREATE UNIQUE INDEX "credit_purchases_session_uniq" ON "public"."credit_purchases" USING "btree" ("stripe_checkout_session_id") WHERE ("stripe_checkout_session_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_api_call_log_created_at" ON "public"."api_call_log" USING "btree" ("created_at");
+
+
+
+CREATE INDEX "idx_api_call_log_user_endpoint" ON "public"."api_call_log" USING "btree" ("user_id", "endpoint", "created_at");
+
+
+
+CREATE INDEX "idx_api_tokens_token" ON "public"."api_tokens" USING "btree" ("token");
+
+
+
+CREATE INDEX "idx_api_tokens_user" ON "public"."api_tokens" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_application_offer_id" ON "public"."application" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_application_student_id" ON "public"."application" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "idx_company_offer_company_id" ON "public"."company_offer" USING "btree" ("company_id");
+
+
+
+CREATE INDEX "idx_credit_purchases_session_status" ON "public"."credit_purchases" USING "btree" ("stripe_checkout_session_id", "status");
+
+
+
+CREATE INDEX "idx_daily_grants_user_date" ON "public"."daily_credit_grants" USING "btree" ("user_id", "granted_date" DESC);
+
+
+
+CREATE INDEX "idx_feedback_status" ON "public"."user_feedback" USING "btree" ("status", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_feedback_type" ON "public"."user_feedback" USING "btree" ("feedback_type", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_feedback_user" ON "public"."user_feedback" USING "btree" ("user_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_offer_capabilities_importance" ON "public"."offer_capabilities" USING "btree" ("importance");
+
+
+
+CREATE INDEX "idx_offer_capabilities_offer_id" ON "public"."offer_capabilities" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_offer_locations_city" ON "public"."offer_locations" USING "btree" ("city");
+
+
+
+CREATE INDEX "idx_offer_locations_country" ON "public"."offer_locations" USING "btree" ("country");
+
+
+
+CREATE INDEX "idx_offer_locations_offer_id" ON "public"."offer_locations" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_offer_perks_offer_id" ON "public"."offer_perks" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_offer_questions_offer_id" ON "public"."offer_questions" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_offer_responsibilities_offer_id" ON "public"."offer_responsibilities" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_offer_skills_importance" ON "public"."offer_skills" USING "btree" ("importance");
+
+
+
+CREATE INDEX "idx_offer_skills_offer_id" ON "public"."offer_skills" USING "btree" ("offer_id");
+
+
+
+CREATE INDEX "idx_offer_skills_skill_slug" ON "public"."offer_skills" USING "btree" ("skill_slug");
+
+
+
+CREATE INDEX "idx_purchases_event_id" ON "public"."credit_purchases" USING "btree" ("stripe_event_id");
+
+
+
+CREATE INDEX "idx_purchases_stripe" ON "public"."credit_purchases" USING "btree" ("stripe_payment_intent_id");
+
+
+
+CREATE INDEX "idx_purchases_user" ON "public"."credit_purchases" USING "btree" ("user_id", "purchased_at" DESC);
+
+
+
+CREATE INDEX "idx_student_mail_adress" ON "public"."student" USING "btree" ("mail_adress");
+
+
+
+CREATE INDEX "idx_student_work_preferences_student" ON "public"."student_work_preferences" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "idx_user_credits_balance" ON "public"."user_credits" USING "btree" ("user_id", "balance");
+
+
+
+CREATE INDEX "language_student_id_idx" ON "public"."language" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "project_student_id_idx" ON "public"."project" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "publication_student_id_idx" ON "public"."publication" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "signup_ip_tracking_created_at_idx" ON "public"."signup_ip_tracking" USING "btree" ("created_at");
+
+
+
+CREATE INDEX "signup_ip_tracking_ip_address_idx" ON "public"."signup_ip_tracking" USING "btree" ("ip_address");
+
+
+
+CREATE INDEX "skill_slug_idx" ON "public"."skill" USING "btree" ("skill_slug") WHERE ("skill_slug" IS NOT NULL);
+
+
+
+CREATE INDEX "skill_student_id_idx" ON "public"."skill" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "social_link_student_id_idx" ON "public"."social_link" USING "btree" ("student_id");
+
+
+
+CREATE INDEX "student_profile_draft_student_id_idx" ON "public"."student_profile_draft" USING "btree" ("student_id");
+
+
+
+CREATE OR REPLACE TRIGGER "protect_academic_immutable" BEFORE UPDATE ON "public"."academic" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_api_call_log_immutable" BEFORE UPDATE ON "public"."api_call_log" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_api_tokens_immutable" BEFORE UPDATE ON "public"."api_tokens" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_application_immutable" BEFORE UPDATE ON "public"."application" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_certification_immutable" BEFORE UPDATE ON "public"."certification" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_company_immutable" BEFORE UPDATE ON "public"."company" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_company_offer_draft_immutable" BEFORE UPDATE ON "public"."company_offer_draft" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_company_offer_immutable" BEFORE UPDATE ON "public"."company_offer" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_credit_purchases_immutable" BEFORE UPDATE ON "public"."credit_purchases" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_daily_credit_grants_immutable" BEFORE UPDATE ON "public"."daily_credit_grants" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_experience_immutable" BEFORE UPDATE ON "public"."experience" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_language_immutable" BEFORE UPDATE ON "public"."language" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_offer_capabilities_immutable" BEFORE UPDATE ON "public"."offer_capabilities" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_offer_locations_immutable" BEFORE UPDATE ON "public"."offer_locations" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_offer_perks_immutable" BEFORE UPDATE ON "public"."offer_perks" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_offer_questions_immutable" BEFORE UPDATE ON "public"."offer_questions" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_offer_responsibilities_immutable" BEFORE UPDATE ON "public"."offer_responsibilities" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_offer_skills_immutable" BEFORE UPDATE ON "public"."offer_skills" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_profile_searched_immutable" BEFORE UPDATE ON "public"."profile_searched" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_project_immutable" BEFORE UPDATE ON "public"."project" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_publication_immutable" BEFORE UPDATE ON "public"."publication" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_resume_immutable" BEFORE UPDATE ON "public"."resume" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_signup_ip_tracking_immutable" BEFORE UPDATE ON "public"."signup_ip_tracking" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_skill_immutable" BEFORE UPDATE ON "public"."skill" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_social_link_immutable" BEFORE UPDATE ON "public"."social_link" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_student_draft_immutable" BEFORE UPDATE ON "public"."student_profile_draft" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_student_immutable" BEFORE UPDATE ON "public"."student" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_user_credits_immutable" BEFORE UPDATE ON "public"."user_credits" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_user_feedback_immutable" BEFORE UPDATE ON "public"."user_feedback" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "protect_work_preferences_immutable" BEFORE UPDATE ON "public"."student_work_preferences" FOR EACH ROW EXECUTE FUNCTION "public"."protect_immutable_columns"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_feedback_updated_at" BEFORE UPDATE ON "public"."user_feedback" FOR EACH ROW EXECUTE FUNCTION "public"."update_feedback_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_updated_at_company_draft" BEFORE UPDATE ON "public"."company_offer_draft" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_updated_at_student_draft" BEFORE UPDATE ON "public"."student_profile_draft" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_updated_at_work_prefs" BEFORE UPDATE ON "public"."student_work_preferences" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_feedback_updated_at_trigger" BEFORE UPDATE ON "public"."user_feedback" FOR EACH ROW EXECUTE FUNCTION "public"."update_feedback_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_student_work_preferences_updated_at" BEFORE UPDATE ON "public"."student_work_preferences" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+ALTER TABLE ONLY "public"."academic"
+    ADD CONSTRAINT "academic_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."api_call_log"
+    ADD CONSTRAINT "api_call_log_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."api_tokens"
+    ADD CONSTRAINT "api_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."application"
+    ADD CONSTRAINT "application_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."application"
+    ADD CONSTRAINT "application_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."certification"
+    ADD CONSTRAINT "certification_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."company"
+    ADD CONSTRAINT "company_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."company_offer"
+    ADD CONSTRAINT "company_offer_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "public"."company"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."company_offer_draft"
+    ADD CONSTRAINT "company_offer_draft_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "public"."company"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."company_offer_draft"
+    ADD CONSTRAINT "company_offer_draft_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."credit_purchases"
+    ADD CONSTRAINT "credit_purchases_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."daily_credit_grants"
+    ADD CONSTRAINT "daily_credit_grants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."experience"
+    ADD CONSTRAINT "experience_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."language"
+    ADD CONSTRAINT "language_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."offer_capabilities"
+    ADD CONSTRAINT "offer_capabilities_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."offer_locations"
+    ADD CONSTRAINT "offer_locations_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."offer_perks"
+    ADD CONSTRAINT "offer_perks_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."offer_questions"
+    ADD CONSTRAINT "offer_questions_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."offer_responsibilities"
+    ADD CONSTRAINT "offer_responsibilities_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."offer_skills"
+    ADD CONSTRAINT "offer_skills_offer_id_fkey" FOREIGN KEY ("offer_id") REFERENCES "public"."company_offer"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."profile_searched"
+    ADD CONSTRAINT "profile_searched_id_fkey" FOREIGN KEY ("id") REFERENCES "public"."company_offer"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."project"
+    ADD CONSTRAINT "project_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."publication"
+    ADD CONSTRAINT "publication_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."resume"
+    ADD CONSTRAINT "resume_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."skill"
+    ADD CONSTRAINT "skill_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."social_link"
+    ADD CONSTRAINT "social_link_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."student"
+    ADD CONSTRAINT "student_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."student_profile_draft"
+    ADD CONSTRAINT "student_profile_draft_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."student_work_preferences"
+    ADD CONSTRAINT "student_work_preferences_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "public"."student"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_credits"
+    ADD CONSTRAINT "user_credits_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_feedback"
+    ADD CONSTRAINT "user_feedback_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+CREATE POLICY "Students can delete their own resume" ON "public"."resume" FOR DELETE TO "authenticated" USING ((("auth"."uid"() = "student_id") AND ((( SELECT "users"."role"
+   FROM "auth"."users"
+  WHERE ("users"."id" = "auth"."uid"())))::"text" = 'student'::"text")));
+
+
+
+CREATE POLICY "Students can insert their own resume" ON "public"."resume" FOR INSERT TO "authenticated" WITH CHECK ((("auth"."uid"() = "student_id") AND ((( SELECT "users"."role"
+   FROM "auth"."users"
+  WHERE ("users"."id" = "auth"."uid"())))::"text" = 'student'::"text")));
+
+
+
+CREATE POLICY "Students can read their own resume" ON "public"."resume" FOR SELECT TO "authenticated" USING ((("auth"."uid"() = "student_id") AND ((( SELECT "users"."role"
+   FROM "auth"."users"
+  WHERE ("users"."id" = "auth"."uid"())))::"text" = 'student'::"text")));
+
+
+
+CREATE POLICY "Students can update their own resume" ON "public"."resume" FOR UPDATE TO "authenticated" USING ((("auth"."uid"() = "student_id") AND ((( SELECT "users"."role"
+   FROM "auth"."users"
+  WHERE ("users"."id" = "auth"."uid"())))::"text" = 'student'::"text"))) WITH CHECK ((("auth"."uid"() = "student_id") AND ((( SELECT "users"."role"
+   FROM "auth"."users"
+  WHERE ("users"."id" = "auth"."uid"())))::"text" = 'student'::"text")));
+
+
+
+ALTER TABLE "public"."academic" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "academic_delete_own" ON "public"."academic" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "academic_insert_own" ON "public"."academic" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "academic_select_own" ON "public"."academic" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "academic_update_own" ON "public"."academic" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."api_call_log" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "api_call_log_select_own" ON "public"."api_call_log" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."api_tokens" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "api_tokens_delete_own" ON "public"."api_tokens" FOR DELETE TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "api_tokens_select_own" ON "public"."api_tokens" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."application" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "application_delete_student_unseen" ON "public"."application" FOR DELETE TO "authenticated" USING ((("student_id" = ( SELECT "auth"."uid"() AS "uid")) AND ("curent_state" = 'unseen'::"text")));
+
+
+
+CREATE POLICY "application_insert_student_no_duplicate" ON "public"."application" FOR INSERT TO "authenticated" WITH CHECK ((("student_id" = ( SELECT "auth"."uid"() AS "uid")) AND (NOT (EXISTS ( SELECT 1
+   FROM "public"."application" "application_1"
+  WHERE (("application_1"."student_id" = ( SELECT "auth"."uid"() AS "uid")) AND ("application_1"."offer_id" = "application_1"."offer_id")))))));
+
+
+
+CREATE POLICY "application_select_dual" ON "public"."application" FOR SELECT TO "authenticated" USING ((("student_id" = ( SELECT "auth"."uid"() AS "uid")) OR (EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "application"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+CREATE POLICY "application_update_company_only" ON "public"."application" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "application"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "application"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+ALTER TABLE "public"."certification" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "certification_delete_own" ON "public"."certification" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "certification_insert_own" ON "public"."certification" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "certification_select_own" ON "public"."certification" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "certification_update_own" ON "public"."certification" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."company" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "company_insert_own_once" ON "public"."company" FOR INSERT TO "authenticated" WITH CHECK ((("auth"."uid"() = "id") AND (NOT (EXISTS ( SELECT 1
+   FROM "public"."company" "company_1"
+  WHERE ("company_1"."id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+ALTER TABLE "public"."company_offer" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."company_offer_draft" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "company_select_own_or_has_offers" ON "public"."company" FOR SELECT TO "authenticated" USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR (EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE ("company_offer"."company_id" = "company"."id")))));
+
+
+
+CREATE POLICY "company_update_own" ON "public"."company" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "id"));
+
+
+
+ALTER TABLE "public"."credit_purchases" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "credit_purchases_select_own" ON "public"."credit_purchases" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."daily_credit_grants" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "daily_grants_select_own" ON "public"."daily_credit_grants" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "draft_delete_own" ON "public"."student_profile_draft" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "draft_insert_own" ON "public"."student_profile_draft" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "draft_select_own" ON "public"."student_profile_draft" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "draft_update_own" ON "public"."student_profile_draft" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."experience" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "experience_delete_own" ON "public"."experience" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "experience_insert_own" ON "public"."experience" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "experience_select_own" ON "public"."experience" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "experience_update_own" ON "public"."experience" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "feedback_insert_authenticated" ON "public"."user_feedback" FOR INSERT TO "authenticated" WITH CHECK (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "feedback_select_own" ON "public"."user_feedback" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."language" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "language_delete_own" ON "public"."language" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "language_insert_own" ON "public"."language" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "language_select_own" ON "public"."language" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "language_update_own" ON "public"."language" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."offer_capabilities" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "offer_capabilities_delete_owner" ON "public"."offer_capabilities" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_capabilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_capabilities_insert_owner" ON "public"."offer_capabilities" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_capabilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_capabilities_select_public" ON "public"."offer_capabilities" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "offer_capabilities_update_owner" ON "public"."offer_capabilities" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_capabilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_capabilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_delete_own" ON "public"."company_offer" FOR DELETE TO "authenticated" USING (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "offer_draft_delete_own" ON "public"."company_offer_draft" FOR DELETE TO "authenticated" USING (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "offer_draft_insert_own" ON "public"."company_offer_draft" FOR INSERT TO "authenticated" WITH CHECK (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "offer_draft_select_own" ON "public"."company_offer_draft" FOR SELECT TO "authenticated" USING (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "offer_draft_update_own" ON "public"."company_offer_draft" FOR UPDATE TO "authenticated" USING (("company_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "offer_insert_own" ON "public"."company_offer" FOR INSERT TO "authenticated" WITH CHECK (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."offer_locations" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "offer_locations_delete_owner" ON "public"."offer_locations" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_locations"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_locations_insert_owner" ON "public"."offer_locations" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_locations"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_locations_select_public" ON "public"."offer_locations" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "offer_locations_update_owner" ON "public"."offer_locations" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_locations"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_locations"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+ALTER TABLE "public"."offer_perks" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "offer_perks_delete_owner" ON "public"."offer_perks" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_perks"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_perks_insert_owner" ON "public"."offer_perks" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_perks"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_perks_select_public" ON "public"."offer_perks" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "offer_perks_update_owner" ON "public"."offer_perks" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_perks"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_perks"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+ALTER TABLE "public"."offer_questions" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "offer_questions_delete_owner" ON "public"."offer_questions" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_questions"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_questions_insert_owner" ON "public"."offer_questions" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_questions"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_questions_select_public" ON "public"."offer_questions" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "offer_questions_update_owner" ON "public"."offer_questions" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_questions"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_questions"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+ALTER TABLE "public"."offer_responsibilities" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "offer_responsibilities_delete_owner" ON "public"."offer_responsibilities" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_responsibilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_responsibilities_insert_owner" ON "public"."offer_responsibilities" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_responsibilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_responsibilities_select_public" ON "public"."offer_responsibilities" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "offer_responsibilities_update_owner" ON "public"."offer_responsibilities" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_responsibilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_responsibilities"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_select_public" ON "public"."company_offer" FOR SELECT TO "authenticated" USING (true);
+
+
+
+ALTER TABLE "public"."offer_skills" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "offer_skills_delete_owner" ON "public"."offer_skills" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_skills"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_skills_insert_owner" ON "public"."offer_skills" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_skills"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_skills_select_public" ON "public"."offer_skills" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "offer_skills_update_owner" ON "public"."offer_skills" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_skills"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "offer_skills"."offer_id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "offer_update_own" ON "public"."company_offer" FOR UPDATE TO "authenticated" USING (("company_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("company_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."profile_searched" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "profile_searched_delete_owner" ON "public"."profile_searched" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "profile_searched"."id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "profile_searched_insert_owner" ON "public"."profile_searched" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "profile_searched"."id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "profile_searched_select_owner" ON "public"."profile_searched" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "profile_searched"."id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "profile_searched_update_owner" ON "public"."profile_searched" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "profile_searched"."id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."company_offer"
+  WHERE (("company_offer"."id" = "profile_searched"."id") AND ("company_offer"."company_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+ALTER TABLE "public"."project" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "project_delete_own" ON "public"."project" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "project_insert_own" ON "public"."project" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "project_select_own" ON "public"."project" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "project_update_own" ON "public"."project" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."publication" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "publication_delete_own" ON "public"."publication" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "publication_insert_own" ON "public"."publication" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "publication_select_own" ON "public"."publication" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "publication_update_own" ON "public"."publication" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."resume" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "resume_delete_own" ON "public"."resume" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "resume_insert_own" ON "public"."resume" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "resume_select_own" ON "public"."resume" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "resume_update_own" ON "public"."resume" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."signup_ip_tracking" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."skill" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "skill_delete_own" ON "public"."skill" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "skill_insert_own" ON "public"."skill" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "skill_select_own" ON "public"."skill" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "skill_update_own" ON "public"."skill" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."social_link" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "social_link_delete_own" ON "public"."social_link" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "social_link_insert_own" ON "public"."social_link" FOR INSERT TO "authenticated" WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "social_link_select_own" ON "public"."social_link" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "social_link_update_own" ON "public"."social_link" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."student" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "student_insert_own_once" ON "public"."student" FOR INSERT TO "authenticated" WITH CHECK ((("auth"."uid"() = "id") AND (NOT (EXISTS ( SELECT 1
+   FROM "public"."student" "student_1"
+  WHERE ("student_1"."id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+ALTER TABLE "public"."student_profile_draft" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "student_select_own" ON "public"."student" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "id"));
+
+
+
+CREATE POLICY "student_update_own" ON "public"."student" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "id"));
+
+
+
+ALTER TABLE "public"."student_work_preferences" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."user_credits" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "user_credits_select_own" ON "public"."user_credits" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."user_feedback" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "work_prefs_delete_own" ON "public"."student_work_preferences" FOR DELETE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "work_prefs_insert_own_once" ON "public"."student_work_preferences" FOR INSERT TO "authenticated" WITH CHECK ((("student_id" = ( SELECT "auth"."uid"() AS "uid")) AND (NOT (EXISTS ( SELECT 1
+   FROM "public"."student_work_preferences" "student_work_preferences_1"
+  WHERE ("student_work_preferences_1"."student_id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+CREATE POLICY "work_prefs_select_own" ON "public"."student_work_preferences" FOR SELECT TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "work_prefs_update_own" ON "public"."student_work_preferences" FOR UPDATE TO "authenticated" USING (("student_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("student_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+
+
+ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
+
+
+GRANT USAGE ON SCHEMA "public" TO "postgres";
+GRANT USAGE ON SCHEMA "public" TO "anon";
+GRANT USAGE ON SCHEMA "public" TO "authenticated";
+GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits" integer, "p_amount_cents" integer, "p_stripe_event_id" "text", "p_stripe_session_id" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits" integer, "p_amount_cents" integer, "p_stripe_event_id" "text", "p_stripe_session_id" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits" integer, "p_amount_cents" integer, "p_stripe_event_id" "text", "p_stripe_session_id" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits_amount" integer, "p_payment_intent_id" "text", "p_stripe_event_id" "text", "p_session_id" "text", "p_amount_cents" integer, "p_currency" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits_amount" integer, "p_payment_intent_id" "text", "p_stripe_event_id" "text", "p_session_id" "text", "p_amount_cents" integer, "p_currency" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."add_purchased_credits"("p_user_id" "uuid", "p_credits_amount" integer, "p_payment_intent_id" "text", "p_stripe_event_id" "text", "p_session_id" "text", "p_amount_cents" integer, "p_currency" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."check_api_rate_limit"("p_user_id" "uuid", "p_endpoint" "text", "p_hourly_limit" integer, "p_daily_limit" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."check_api_rate_limit"("p_user_id" "uuid", "p_endpoint" "text", "p_hourly_limit" integer, "p_daily_limit" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."check_api_rate_limit"("p_user_id" "uuid", "p_endpoint" "text", "p_hourly_limit" integer, "p_daily_limit" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."cleanup_old_api_logs"() TO "anon";
+GRANT ALL ON FUNCTION "public"."cleanup_old_api_logs"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."cleanup_old_api_logs"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."cleanup_old_ip_tracking"() TO "anon";
+GRANT ALL ON FUNCTION "public"."cleanup_old_ip_tracking"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."cleanup_old_ip_tracking"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."count_recent_signups_from_ip"("p_ip_address" "text", "p_hours_ago" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."count_recent_signups_from_ip"("p_ip_address" "text", "p_hours_ago" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."count_recent_signups_from_ip"("p_ip_address" "text", "p_hours_ago" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."finalize_student_profile"("p_user_id" "uuid", "p_profile" "jsonb", "p_education" "jsonb", "p_experience" "jsonb", "p_projects" "jsonb", "p_skills" "jsonb", "p_languages" "jsonb", "p_publications" "jsonb", "p_certifications" "jsonb", "p_social_links" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."finalize_student_profile"("p_user_id" "uuid", "p_profile" "jsonb", "p_education" "jsonb", "p_experience" "jsonb", "p_projects" "jsonb", "p_skills" "jsonb", "p_languages" "jsonb", "p_publications" "jsonb", "p_certifications" "jsonb", "p_social_links" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."finalize_student_profile"("p_user_id" "uuid", "p_profile" "jsonb", "p_education" "jsonb", "p_experience" "jsonb", "p_projects" "jsonb", "p_skills" "jsonb", "p_languages" "jsonb", "p_publications" "jsonb", "p_certifications" "jsonb", "p_social_links" "jsonb") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_user_total_cost"("user_uuid" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_user_total_cost"("user_uuid" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_user_total_cost"("user_uuid" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."grant_daily_credits"("p_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."grant_daily_credits"("p_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."grant_daily_credits"("p_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
+GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."log_api_call"("p_user_id" "uuid", "p_endpoint" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."log_api_call"("p_user_id" "uuid", "p_endpoint" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."log_api_call"("p_user_id" "uuid", "p_endpoint" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."protect_immutable_columns"() TO "anon";
+GRANT ALL ON FUNCTION "public"."protect_immutable_columns"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."protect_immutable_columns"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."publish_offer_draft"("p_draft_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."publish_offer_draft"("p_draft_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."publish_offer_draft"("p_draft_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_feedback_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_feedback_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_feedback_updated_at"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_token_last_used"("p_token" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."update_token_last_used"("p_token" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_token_last_used"("p_token" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_token_usage"("p_token" "text", "p_tokens_used" integer, "p_cost_usd" numeric) TO "anon";
+GRANT ALL ON FUNCTION "public"."update_token_usage"("p_token" "text", "p_tokens_used" integer, "p_cost_usd" numeric) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_token_usage"("p_token" "text", "p_tokens_used" integer, "p_cost_usd" numeric) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."use_credits"("p_user_id" "uuid", "p_amount" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."use_credits"("p_user_id" "uuid", "p_amount" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."use_credits"("p_user_id" "uuid", "p_amount" integer) TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON TABLE "public"."academic" TO "anon";
+GRANT ALL ON TABLE "public"."academic" TO "authenticated";
+GRANT ALL ON TABLE "public"."academic" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."api_call_log" TO "anon";
+GRANT ALL ON TABLE "public"."api_call_log" TO "authenticated";
+GRANT ALL ON TABLE "public"."api_call_log" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."api_tokens" TO "anon";
+GRANT ALL ON TABLE "public"."api_tokens" TO "authenticated";
+GRANT ALL ON TABLE "public"."api_tokens" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."application" TO "anon";
+GRANT ALL ON TABLE "public"."application" TO "authenticated";
+GRANT ALL ON TABLE "public"."application" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."certification" TO "anon";
+GRANT ALL ON TABLE "public"."certification" TO "authenticated";
+GRANT ALL ON TABLE "public"."certification" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."company" TO "anon";
+GRANT ALL ON TABLE "public"."company" TO "authenticated";
+GRANT ALL ON TABLE "public"."company" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."company_offer" TO "anon";
+GRANT ALL ON TABLE "public"."company_offer" TO "authenticated";
+GRANT ALL ON TABLE "public"."company_offer" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."company_offer_draft" TO "anon";
+GRANT ALL ON TABLE "public"."company_offer_draft" TO "authenticated";
+GRANT ALL ON TABLE "public"."company_offer_draft" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."credit_purchases" TO "anon";
+GRANT ALL ON TABLE "public"."credit_purchases" TO "authenticated";
+GRANT ALL ON TABLE "public"."credit_purchases" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."daily_credit_grants" TO "anon";
+GRANT ALL ON TABLE "public"."daily_credit_grants" TO "authenticated";
+GRANT ALL ON TABLE "public"."daily_credit_grants" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."experience" TO "anon";
+GRANT ALL ON TABLE "public"."experience" TO "authenticated";
+GRANT ALL ON TABLE "public"."experience" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."language" TO "anon";
+GRANT ALL ON TABLE "public"."language" TO "authenticated";
+GRANT ALL ON TABLE "public"."language" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."offer_capabilities" TO "anon";
+GRANT ALL ON TABLE "public"."offer_capabilities" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_capabilities" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."offer_locations" TO "anon";
+GRANT ALL ON TABLE "public"."offer_locations" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_locations" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."offer_perks" TO "anon";
+GRANT ALL ON TABLE "public"."offer_perks" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_perks" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."offer_questions" TO "anon";
+GRANT ALL ON TABLE "public"."offer_questions" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_questions" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."offer_responsibilities" TO "anon";
+GRANT ALL ON TABLE "public"."offer_responsibilities" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_responsibilities" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."offer_skills" TO "anon";
+GRANT ALL ON TABLE "public"."offer_skills" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_skills" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."profile_searched" TO "anon";
+GRANT ALL ON TABLE "public"."profile_searched" TO "authenticated";
+GRANT ALL ON TABLE "public"."profile_searched" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."project" TO "anon";
+GRANT ALL ON TABLE "public"."project" TO "authenticated";
+GRANT ALL ON TABLE "public"."project" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."publication" TO "anon";
+GRANT ALL ON TABLE "public"."publication" TO "authenticated";
+GRANT ALL ON TABLE "public"."publication" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."resume" TO "anon";
+GRANT ALL ON TABLE "public"."resume" TO "authenticated";
+GRANT ALL ON TABLE "public"."resume" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."signup_ip_tracking" TO "anon";
+GRANT ALL ON TABLE "public"."signup_ip_tracking" TO "authenticated";
+GRANT ALL ON TABLE "public"."signup_ip_tracking" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."skill" TO "anon";
+GRANT ALL ON TABLE "public"."skill" TO "authenticated";
+GRANT ALL ON TABLE "public"."skill" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."social_link" TO "anon";
+GRANT ALL ON TABLE "public"."social_link" TO "authenticated";
+GRANT ALL ON TABLE "public"."social_link" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."student" TO "anon";
+GRANT ALL ON TABLE "public"."student" TO "authenticated";
+GRANT ALL ON TABLE "public"."student" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."student_profile_draft" TO "anon";
+GRANT ALL ON TABLE "public"."student_profile_draft" TO "authenticated";
+GRANT ALL ON TABLE "public"."student_profile_draft" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."student_work_preferences" TO "anon";
+GRANT ALL ON TABLE "public"."student_work_preferences" TO "authenticated";
+GRANT ALL ON TABLE "public"."student_work_preferences" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_credits" TO "anon";
+GRANT ALL ON TABLE "public"."user_credits" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_credits" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_feedback" TO "anon";
+GRANT ALL ON TABLE "public"."user_feedback" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_feedback" TO "service_role";
+
+
+
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "service_role";
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

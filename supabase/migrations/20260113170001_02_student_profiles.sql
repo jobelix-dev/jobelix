@@ -162,6 +162,21 @@ create table "public"."resume" (
 alter table "public"."resume" enable row level security;
 
 -- =====================================================================
+-- STORAGE BUCKET FOR RESUME PDFs
+-- =====================================================================
+
+-- Create resumes storage bucket
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'resumes',
+  'resumes',
+  false,
+  5242880, -- 5MB max
+  ARRAY['application/pdf']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- =====================================================================
 -- INDEXES
 -- =====================================================================
 
@@ -1172,3 +1187,36 @@ for update
 to authenticated
 using ((student_id = (SELECT auth.uid())))
 with check ((student_id = (SELECT auth.uid())));
+
+-- =====================================================================
+-- STORAGE BUCKET POLICIES (for resume PDFs)
+-- =====================================================================
+
+create policy "storage_resume_insert_own"
+on "storage"."objects"
+as permissive
+for insert
+to authenticated
+with check ((bucket_id = 'resumes' AND (auth.uid())::text = (storage.foldername(name))[1]));
+
+create policy "storage_resume_update_own"
+on "storage"."objects"
+as permissive
+for update
+to authenticated
+using ((bucket_id = 'resumes' AND (auth.uid())::text = (storage.foldername(name))[1]))
+with check ((bucket_id = 'resumes' AND (auth.uid())::text = (storage.foldername(name))[1]));
+
+create policy "storage_resume_select_own"
+on "storage"."objects"
+as permissive
+for select
+to authenticated
+using ((bucket_id = 'resumes' AND (auth.uid())::text = (storage.foldername(name))[1]));
+
+create policy "storage_resume_delete_own"
+on "storage"."objects"
+as permissive
+for delete
+to authenticated
+using ((bucket_id = 'resumes' AND (auth.uid())::text = (storage.foldername(name))[1]));

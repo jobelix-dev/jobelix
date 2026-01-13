@@ -16,9 +16,11 @@ CREATE OR REPLACE FUNCTION public.protect_immutable_columns()
  SET search_path TO 'public'
 AS $function$
 BEGIN
-  -- Protect primary key (id)
-  IF OLD.id IS DISTINCT FROM NEW.id THEN
-    RAISE EXCEPTION 'Cannot update primary key column: id';
+  -- Protect primary key (id) - skip for tables without id column
+  IF TG_TABLE_NAME NOT IN ('resume') THEN
+    IF OLD.id IS DISTINCT FROM NEW.id THEN
+      RAISE EXCEPTION 'Cannot update primary key column: id';
+    END IF;
   END IF;
   
   -- Protect created_at timestamp
