@@ -16,6 +16,9 @@
 
 import "server-only";
 
+// CRITICAL: Import polyfills BEFORE pdfjs-dist to ensure browser APIs exist
+import '@/lib/server/pdfPolyfills'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import OpenAI from 'openai'
@@ -24,44 +27,6 @@ import { ResumeExtractionSchema } from '@/lib/server/resumeSchema'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'
-
-// Polyfill canvas APIs for Node.js serverless environment
-// pdfjs-dist requires these browser APIs even in text-only mode
-if (typeof DOMMatrix === 'undefined') {
-  (global as any).DOMMatrix = class {
-    a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
-    constructor() {}
-  };
-}
-
-if (typeof Path2D === 'undefined') {
-  (global as any).Path2D = class {
-    constructor() {}
-    addPath() {}
-    arc() {}
-    arcTo() {}
-    bezierCurveTo() {}
-    closePath() {}
-    ellipse() {}
-    lineTo() {}
-    moveTo() {}
-    quadraticCurveTo() {}
-    rect() {}
-  };
-}
-
-if (typeof ImageData === 'undefined') {
-  (global as any).ImageData = class {
-    width: number;
-    height: number;
-    data: Uint8ClampedArray;
-    constructor(width: number, height: number) {
-      this.width = width;
-      this.height = height;
-      this.data = new Uint8ClampedArray(width * height * 4);
-    }
-  };
-}
 
 // Configure worker for Node.js serverless environment
 // Point to the worker file in node_modules
