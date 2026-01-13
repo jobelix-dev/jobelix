@@ -50,7 +50,9 @@ export function createSplashWindow() {
   
   const splash = new BrowserWindow(WINDOW_CONFIG.SPLASH);
   
-  const loaderPath = path.join(process.cwd(), FILES.LOADER);
+  // Use app.getAppPath() for packaged app, process.cwd() for dev
+  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
+  const loaderPath = path.join(basePath, FILES.LOADER);
   splash.loadFile(loaderPath);
   
   logger.success('Splash window created');
@@ -68,14 +70,17 @@ export async function createMainWindow() {
   const splash = createSplashWindow();
 
   // Create main window (hidden initially)
+  // Use app.getAppPath() for packaged app, process.cwd() for dev
+  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
+  
   const mainWindow = new BrowserWindow({
     ...WINDOW_CONFIG.MAIN,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(process.cwd(), FILES.PRELOAD),
+      preload: path.join(basePath, FILES.PRELOAD),
     },
-    icon: path.join(process.cwd(), DIRECTORIES.BUILD, FILES.ICON)
+    icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
   });
 
   // Determine URL based on environment
@@ -122,14 +127,17 @@ export async function createMainWindow() {
 export function createUpdateWindow(details) {
   logger.info('Creating update required window');
   
+  // Use app.getAppPath() for packaged app, process.cwd() for dev
+  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
+  
   const updateWindow = new BrowserWindow({
     ...WINDOW_CONFIG.UPDATE,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(process.cwd(), FILES.PRELOAD),
+      preload: path.join(basePath, FILES.PRELOAD),
     },
-    icon: path.join(process.cwd(), DIRECTORIES.BUILD, FILES.ICON)
+    icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
   });
 
   // Build URL parameters
@@ -142,7 +150,7 @@ export function createUpdateWindow(details) {
     useAutoUpdater: app.isPackaged ? 'true' : 'false'
   });
 
-  const updatePagePath = path.join(process.cwd(), FILES.UPDATE_REQUIRED);
+  const updatePagePath = path.join(basePath, FILES.UPDATE_REQUIRED);
   updateWindow.loadFile(updatePagePath, { query: Object.fromEntries(params) });
 
   logger.success('Update window created');
