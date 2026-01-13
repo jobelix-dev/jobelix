@@ -16,8 +16,10 @@
  * The frontend never sees the password or the session token directly.
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { createClient } from '@/lib/server/supabaseServer'
 
 
 /**

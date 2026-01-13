@@ -12,7 +12,7 @@
 
 'use client';
 
-import { OfferBasicInfo, OfferLocationEntry } from '@/lib/types';
+import { OfferBasicInfo, OfferLocationEntry } from '@/lib/shared/types';
 import LocationsInput from './LocationsInput';
 
 interface BasicInfoFormProps {

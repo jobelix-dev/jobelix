@@ -4,6 +4,9 @@
  * Use the service role key for server-only operations that need to bypass RLS
  * (e.g. token validation for compiled apps). Keep this file server-only.
  */
+
+import "server-only";
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 let serviceSupabaseInstance: SupabaseClient | null = null

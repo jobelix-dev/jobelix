@@ -7,7 +7,7 @@
 
 'use client';
 import { useState } from 'react';
-import { createClient } from '@/lib/supabaseClient';
+import { createClient } from '@/lib/client/supabaseClient';
 
 export default function ResetPasswordForm() {
   const [email, setEmail] = useState('');

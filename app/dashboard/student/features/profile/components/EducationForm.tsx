@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { EducationEntry } from '@/lib/types';
+import { EducationEntry } from '@/lib/shared/types';
 import DatePicker from './DatePicker';
 
 interface EducationFormProps {

@@ -7,7 +7,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { OfferCapabilityEntry } from '@/lib/types';
+import { OfferCapabilityEntry } from '@/lib/shared/types';
 
 interface CapabilitiesInputProps {
   capabilities: OfferCapabilityEntry[];

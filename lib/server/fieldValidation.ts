@@ -9,6 +9,8 @@
  * Ensures all user input meets proper format requirements before database storage.
  */
 
+import "server-only";
+
 export interface ValidationResult {
   isValid: boolean
   errorMessage?: string

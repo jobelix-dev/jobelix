@@ -16,8 +16,10 @@
  * (And your database RLS should also enforce this.)
  */
 
+import "server-only";
+
 import { NextRequest } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
 
 /**
  * GET - Retrieve a specific draft by ID

@@ -10,7 +10,9 @@
  * - Reusable (can be used in different contexts)
  */
 
-import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from './types'
+import "server-only";
+
+import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '../shared/types'
 
 /**
  * Parse full name into first and last name components

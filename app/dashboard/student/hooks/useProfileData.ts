@@ -9,10 +9,10 @@
  */
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { api } from '@/lib/api';
-import { validateProfile } from '@/lib/profileValidation';
-import { generateResumeYaml } from '@/lib/resumeYamlGenerator';
-import type { ExtractedResumeData } from '@/lib/types';
+import { api } from '@/lib/client/api';
+import { validateProfile } from '@/lib/client/profileValidation';
+import { generateResumeYaml } from '@/lib/client/resumeYamlGenerator';
+import type { ExtractedResumeData } from '@/lib/shared/types';
 
 const EMPTY_PROFILE: ExtractedResumeData = {
   student_name: null,

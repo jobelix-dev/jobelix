@@ -5,8 +5,10 @@
  * POST - Save/update student's work preferences
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 
 export async function GET() {
   try {

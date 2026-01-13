@@ -5,8 +5,10 @@
  * Idempotent - can only claim once per day.
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 
 export async function POST(req: NextRequest) {
   try {

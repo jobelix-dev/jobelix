@@ -10,7 +10,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api } from '@/lib/client/api';
 
 export default function SignupForm({ role }: { role: string }) {
   const router = useRouter();

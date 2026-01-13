@@ -12,10 +12,13 @@
  * - We charge 1 credit per call using a database RPC (so clients cannot fake credits).
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { getServiceSupabase } from '@/lib/supabaseService'
-import { checkRateLimit, logApiCall, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/rateLimiting'
+import { getServiceSupabase } from '@/lib/server/supabaseService'
+import { checkRateLimit, logApiCall, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import { Source_Sans_3 } from 'next/font/google'
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -57,9 +60,9 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
  * 🔐 Simple safety limits to prevent abuse / huge bills.
  * You can tune these numbers later.
  */
-const MAX_MESSAGES = 40 // 🔐
+const MAX_MESSAGES = 5 // 🔐
 const MAX_CHARS_PER_MESSAGE = 8_000 // 🔐
-const MAX_TOTAL_CHARS = 60_000 // 🔐
+const MAX_TOTAL_CHARS = 30_000 // 🔐
 
 /**
  * 🔐 Rate limiting configuration

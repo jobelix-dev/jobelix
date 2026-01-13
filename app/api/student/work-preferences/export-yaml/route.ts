@@ -3,6 +3,8 @@
  * Saves config.yaml to repository root for Electron app usage
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';

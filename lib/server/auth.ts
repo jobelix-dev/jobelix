@@ -5,6 +5,8 @@
  * Provides consistent error handling and user validation across all endpoints.
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server'
 import { createClient } from './supabaseServer'
 import type { SupabaseClient, User } from '@supabase/supabase-js'

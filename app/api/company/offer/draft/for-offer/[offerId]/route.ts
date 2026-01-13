@@ -23,7 +23,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
+
+import "server-only";
 
 export async function GET(
   request: Request,

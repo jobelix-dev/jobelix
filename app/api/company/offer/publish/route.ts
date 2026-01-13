@@ -13,8 +13,10 @@
  *   so a company cannot publish another company's draft.
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest } from '@/lib/server/auth';
 
 export async function POST(request: Request) {
   try {

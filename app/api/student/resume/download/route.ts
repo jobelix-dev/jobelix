@@ -8,8 +8,10 @@
  * Security: Users can only download their own resumes
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 
 export async function GET() {
   try {

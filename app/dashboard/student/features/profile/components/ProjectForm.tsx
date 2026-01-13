@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { ProjectEntry } from '@/lib/types';
+import { ProjectEntry } from '@/lib/shared/types';
 
 interface ProjectFormProps {
   data: ProjectEntry;

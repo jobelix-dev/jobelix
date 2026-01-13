@@ -8,8 +8,10 @@
  * Called by: ProfileEditor for auto-save and loading draft state
  */
 
+import "server-only";
+
 import { NextRequest } from 'next/server'
-import { authenticateRequest } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/server/auth'
 
 /**
  * GET - Retrieve or create the current draft for logged-in user

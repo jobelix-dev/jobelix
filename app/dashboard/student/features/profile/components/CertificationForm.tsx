@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { CertificationEntry } from '@/lib/types';
+import { CertificationEntry } from '@/lib/shared/types';
 
 interface CertificationFormProps {
   data: CertificationEntry;

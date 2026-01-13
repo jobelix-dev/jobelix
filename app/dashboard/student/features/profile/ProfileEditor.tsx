@@ -10,8 +10,8 @@
 
 import React from 'react';
 import { Plus, Save, AlertCircle, Check } from 'lucide-react';
-import { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '@/lib/types';
-import { ProfileValidationResult } from '@/lib/profileValidation';
+import { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '@/lib/shared/types';
+import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
 import ProjectForm from './components/ProjectForm';

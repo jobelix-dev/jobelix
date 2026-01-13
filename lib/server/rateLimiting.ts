@@ -3,6 +3,8 @@
  * Reusable functions for API rate limiting across endpoints
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server'
 import { getServiceSupabase } from './supabaseService'
 

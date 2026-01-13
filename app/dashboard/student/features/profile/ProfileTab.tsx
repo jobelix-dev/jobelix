@@ -10,11 +10,11 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/lib/api';
+import { api } from '@/lib/client/api';
 import ProfileEditor from './ProfileEditor';
 import { ResumeSection } from '../resume';
-import type { ExtractedResumeData } from '@/lib/types';
-import { ProfileValidationResult } from '@/lib/profileValidation';
+import type { ExtractedResumeData } from '@/lib/shared/types';
+import { ProfileValidationResult } from '@/lib/client/profileValidation';
 
 interface ProfileTabProps {
   profileData: ExtractedResumeData;

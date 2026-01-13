@@ -3,11 +3,13 @@
  * Accepts bug reports and feature requests, stores in DB and sends email via Resend
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabaseServer';
-import serviceSupabase from '@/lib/supabaseService';
+import { createClient } from '@/lib/server/supabaseServer';
+import { getServiceSupabase } from '@/lib/server/supabaseService';
 import { Resend } from 'resend';
-import { generateFeedbackEmail, getFeedbackEmailSubject } from '@/lib/emailTemplates';
+import { generateFeedbackEmail, getFeedbackEmailSubject } from '@/lib/server/emailTemplates';
 
 if (!process.env.RESEND_API_KEY) {
   console.warn('RESEND_API_KEY not set - feedback emails will not be sent');
@@ -15,7 +17,7 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const FEEDBACK_EMAIL = process.env.FEEDBACK_EMAIL || 'feedback@jobelix.com';
+const FEEDBACK_EMAIL = process.env.FEEDBACK_EMAIL || 'report@jobelix.com';
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     // Fetch user email if authenticated
     let userEmail = null;
     if (user) {
-      const serviceClient = serviceSupabase();
+      const serviceClient = getServiceSupabase();
       const { data: userData } = await serviceClient
         .from('student')
         .select('email')
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Store feedback in database (use service role to bypass RLS for anonymous)
-    const serviceClient = serviceSupabase();
+    const serviceClient = getServiceSupabase();
     const { data: feedback, error: dbError } = await serviceClient
       .from('user_feedback')
       .insert({

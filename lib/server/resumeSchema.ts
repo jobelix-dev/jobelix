@@ -6,6 +6,8 @@
  * Schemas validate education, experience, and personal info with confidence levels.
  */
 
+import "server-only";
+
 import { z } from 'zod'
 
 // Schema for a single education entry

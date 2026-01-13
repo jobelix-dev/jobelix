@@ -7,7 +7,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { OfferQuestionEntry } from '@/lib/types';
+import { OfferQuestionEntry } from '@/lib/shared/types';
 
 interface QuestionsInputProps {
   questions: OfferQuestionEntry[];

@@ -6,6 +6,8 @@
  * Route: GET /api/required-versions
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server';
 
 export async function GET() {
