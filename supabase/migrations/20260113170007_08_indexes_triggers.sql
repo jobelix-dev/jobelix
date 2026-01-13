@@ -24,7 +24,8 @@ BEGIN
   END IF;
   
   -- Protect created_at timestamp
-  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log') THEN
+  -- Skip tables that don't have created_at column or use different column names
+  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log', 'credit_purchases', 'daily_credit_grants') THEN
     IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
       RAISE EXCEPTION 'Cannot update immutable column: created_at';
     END IF;
@@ -85,6 +86,18 @@ BEGIN
   IF TG_TABLE_NAME = 'daily_credit_grants' THEN
     IF OLD.granted_date IS DISTINCT FROM NEW.granted_date THEN
       RAISE EXCEPTION 'Cannot update composite key column: granted_date';
+    END IF;
+    -- Protect granted_at timestamp (equivalent to created_at)
+    IF OLD.granted_at IS DISTINCT FROM NEW.granted_at THEN
+      RAISE EXCEPTION 'Cannot update immutable column: granted_at';
+    END IF;
+  END IF;
+  
+  -- Protect credit purchase timestamps
+  IF TG_TABLE_NAME = 'credit_purchases' THEN
+    -- Protect purchased_at timestamp (equivalent to created_at)
+    IF OLD.purchased_at IS DISTINCT FROM NEW.purchased_at THEN
+      RAISE EXCEPTION 'Cannot update immutable column: purchased_at';
     END IF;
   END IF;
   
