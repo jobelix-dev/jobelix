@@ -8,6 +8,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
   launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
   
+  // Window controls
+  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
+  windowUnmaximize: () => ipcRenderer.invoke('window-unmaximize'),
+  windowClose: () => ipcRenderer.invoke('window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  
   // Auto-updater listeners
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
   onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (event, progress) => callback(progress)),

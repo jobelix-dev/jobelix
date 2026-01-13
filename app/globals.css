@@ -33,6 +33,21 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Hide scrollbar globally while maintaining scroll functionality */
+html {
+  overflow-y: scroll;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+body {
+  overflow-x: hidden;
+}
+
 /* Update notification animations */
 @keyframes slide-in {
   from {
