@@ -6,8 +6,6 @@
  * Implements 1-hour caching to avoid hitting GitHub API rate limits.
  */
 
-import "server-only";
-
 // GitHub release asset information
 export interface ReleaseAsset {
   name: string;
