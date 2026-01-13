@@ -156,10 +156,20 @@ export async function POST(request: NextRequest) {
       // We show "user already exists" for better UX (low security risk)
       // But hide internal/database errors (high security risk)
       
+      // Check for weak password error first (status 422 with code 'weak_password')
+      if (error.code === 'weak_password' || error.message?.toLowerCase().includes('password should')) {
+        return NextResponse.json(
+          { 
+            error: 'Password must be at least 8 characters and include uppercase, lowercase, and numbers',
+            code: 'WEAK_PASSWORD'
+          },
+          { status: 400 }
+        )
+      }
+      
       // Check if user already exists
       if (error.message?.toLowerCase().includes('already registered') || 
-          error.message?.toLowerCase().includes('user already exists') ||
-          error.status === 422) {
+          error.message?.toLowerCase().includes('user already exists')) {
         return NextResponse.json(
           { 
             error: 'An account with this email already exists',
