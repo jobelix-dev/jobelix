@@ -11,8 +11,8 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/client/api';
-import ProfileEditor from './ProfileEditor';
-import { ResumeSection } from '../resume';
+import ProfileEditorSection from './sections/ProfileEditorSection';
+import ResumeSection from './sections/ResumeSection';
 import type { ExtractedResumeData } from '@/lib/shared/types';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 
@@ -67,7 +67,7 @@ export default function ProfileTab({
       />
 
       {/* Profile Editor */}
-      <ProfileEditor
+      <ProfileEditorSection
         data={profileData}
         onChange={setProfileData}
         onSave={handleFinalize}

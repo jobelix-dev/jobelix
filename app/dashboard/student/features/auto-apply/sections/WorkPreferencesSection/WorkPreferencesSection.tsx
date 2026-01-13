@@ -1,8 +1,8 @@
 /**
- * WorkPreferencesEditor Component
+ * WorkPreferencesSection Component
  * 
- * Main component for configuring job search preferences.
- * Orchestrates all section components and handles save/load logic.
+ * Main section for configuring job search preferences.
+ * Orchestrates all sub-section components and handles save/load logic.
  */
 
 'use client';
@@ -10,13 +10,13 @@
 import React, { useEffect, useState } from 'react';
 import { Save, AlertCircle, CheckCircle, Settings } from 'lucide-react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-import SearchCriteriaSection from './SearchCriteriaSection';
-import ExperienceLevelsSection from './ExperienceLevelsSection';
-import JobTypesSection from './JobTypesSection';
-import DateFiltersSection from './DateFiltersSection';
-import PersonalInfoSection from './PersonalInfoSection';
-import WorkAuthorizationSection from './WorkAuthorizationSection';
-import WorkPreferencesSection from './WorkPreferencesSection';
+import SearchCriteriaSection from './components/SearchCriteriaSection';
+import ExperienceLevelsSection from './components/ExperienceLevelsSection';
+import JobTypesSection from './components/JobTypesSection';
+import DateFiltersSection from './components/DateFiltersSection';
+import PersonalInfoSection from './components/PersonalInfoSection';
+import WorkAuthorizationSection from './components/WorkAuthorizationSection';
+import WorkPreferencesSubSection from './components/WorkPreferencesSection';
 
 interface WorkPreferences {
   // Work location
@@ -408,7 +408,7 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
 
             {/* Additional Work Preferences Section */}
             <div className="p-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg">
-              <WorkPreferencesSection
+              <WorkPreferencesSubSection
                 values={{
                   in_person_work: preferences.in_person_work,
                   open_to_relocation: preferences.open_to_relocation,
