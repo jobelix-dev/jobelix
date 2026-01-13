@@ -69,9 +69,11 @@ export const WINDOW_CONFIG = {
     title: 'Update Required - Jobelix',
   },
   MAIN: {
-    fullscreen: true,
+    width: 1200,
+    height: 800,
     center: true,
     show: false,
+    frame: false, // Custom window controls
     autoHideMenuBar: true,
     title: 'Jobelix',
   },
@@ -99,6 +101,13 @@ export const IPC_CHANNELS = {
   WRITE_CONFIG: 'write-config',
   WRITE_RESUME: 'write-resume',
   LAUNCH_BOT: 'launch-bot',
+  
+  // Window controls
+  WINDOW_MINIMIZE: 'window-minimize',
+  WINDOW_MAXIMIZE: 'window-maximize',
+  WINDOW_UNMAXIMIZE: 'window-unmaximize',
+  WINDOW_CLOSE: 'window-close',
+  WINDOW_IS_MAXIMIZED: 'window-is-maximized',
 };
 
 // Version management
