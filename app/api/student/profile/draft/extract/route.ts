@@ -21,11 +21,13 @@ import { zodResponseFormat } from 'openai/helpers/zod'
 import { ResumeExtractionSchema } from '@/lib/resumeSchema'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
+import { pathToFileURL } from 'url'
 
 // Configure worker for Node.js serverless environment
 // Point to the worker file in node_modules
+// Convert to file:// URL for cross-platform ESM loader compatibility
 const workerPath = path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs')
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath
+pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
 
 // Lazy initialization to avoid build-time errors
 let openaiInstance: OpenAI | null = null
