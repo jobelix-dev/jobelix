@@ -1,7 +1,7 @@
 /**
- * GitHub API Utilities
+ * GitHub API Utilities (Client)
  * 
- * Server-side utilities for fetching Jobelix desktop app releases from GitHub.
+ * Client-side utilities for fetching Jobelix desktop app releases from GitHub.
  * Used by: Download page and components that need release information.
  * Implements 1-hour caching to avoid hitting GitHub API rate limits.
  */
