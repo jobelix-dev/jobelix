@@ -250,6 +250,7 @@ CREATE OR REPLACE FUNCTION public.publish_offer_draft(p_draft_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_draft company_offer_draft%ROWTYPE;
@@ -265,7 +266,7 @@ BEGIN
   -- Get the draft data and verify ownership
   SELECT * INTO v_draft
   FROM company_offer_draft
-  WHERE id = p_draft_id AND company_id = auth.uid();
+  WHERE id = p_draft_id AND company_id = (SELECT auth.uid());
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Draft not found or access denied';
@@ -678,14 +679,14 @@ for insert
 to authenticated
 with check (((auth.uid() = id) AND (NOT (EXISTS ( SELECT 1
    FROM public.company company_1
-  WHERE (company_1.id = auth.uid()))))));
+  WHERE (company_1.id = (SELECT auth.uid())))))));
 
 create policy "company_select_own_or_has_offers"
 on "public"."company"
 as permissive
 for select
 to authenticated
-using (((auth.uid() = id) OR (EXISTS ( SELECT 1
+using ((((SELECT auth.uid()) = id) OR (EXISTS ( SELECT 1
    FROM public.company_offer
   WHERE (company_offer.company_id = company.id)))));
 
@@ -694,22 +695,22 @@ on "public"."company"
 as permissive
 for update
 to authenticated
-using ((auth.uid() = id))
-with check ((auth.uid() = id));
+using (((SELECT auth.uid()) = id))
+with check (((SELECT auth.uid()) = id));
 
 create policy "offer_delete_own"
 on "public"."company_offer"
 as permissive
 for delete
 to authenticated
-using ((company_id = auth.uid()));
+using ((company_id = (SELECT auth.uid())));
 
 create policy "offer_insert_own"
 on "public"."company_offer"
 as permissive
 for insert
 to authenticated
-with check ((company_id = auth.uid()));
+with check ((company_id = (SELECT auth.uid())));
 
 create policy "offer_select_public"
 on "public"."company_offer"
@@ -723,37 +724,37 @@ on "public"."company_offer"
 as permissive
 for update
 to authenticated
-using ((company_id = auth.uid()))
-with check ((company_id = auth.uid()));
+using ((company_id = (SELECT auth.uid())))
+with check ((company_id = (SELECT auth.uid())));
 
 create policy "offer_draft_delete_own"
 on "public"."company_offer_draft"
 as permissive
 for delete
 to authenticated
-using ((company_id = auth.uid()));
+using ((company_id = (SELECT auth.uid())));
 
 create policy "offer_draft_insert_own"
 on "public"."company_offer_draft"
 as permissive
 for insert
 to authenticated
-with check ((company_id = auth.uid()));
+with check ((company_id = (SELECT auth.uid())));
 
 create policy "offer_draft_select_own"
 on "public"."company_offer_draft"
 as permissive
 for select
 to authenticated
-using ((company_id = auth.uid()));
+using ((company_id = (SELECT auth.uid())));
 
 create policy "offer_draft_update_own"
 on "public"."company_offer_draft"
 as permissive
 for update
 to authenticated
-using ((company_id = auth.uid()))
-with check ((company_id = auth.uid()));
+using ((company_id = (SELECT auth.uid())))
+with check ((company_id = (SELECT auth.uid())));
 
 create policy "offer_capabilities_delete_owner"
 on "public"."offer_capabilities"
@@ -762,7 +763,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_capabilities_insert_owner"
 on "public"."offer_capabilities"
@@ -771,7 +772,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_capabilities_select_public"
 on "public"."offer_capabilities"
@@ -787,10 +788,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_capabilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_locations_delete_owner"
 on "public"."offer_locations"
@@ -799,7 +800,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_locations_insert_owner"
 on "public"."offer_locations"
@@ -808,7 +809,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_locations_select_public"
 on "public"."offer_locations"
@@ -824,10 +825,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_locations.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_perks_delete_owner"
 on "public"."offer_perks"
@@ -836,7 +837,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_perks_insert_owner"
 on "public"."offer_perks"
@@ -845,7 +846,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_perks_select_public"
 on "public"."offer_perks"
@@ -861,10 +862,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_perks.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_questions_delete_owner"
 on "public"."offer_questions"
@@ -873,7 +874,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_questions_insert_owner"
 on "public"."offer_questions"
@@ -882,7 +883,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_questions_select_public"
 on "public"."offer_questions"
@@ -898,10 +899,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_questions.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_responsibilities_delete_owner"
 on "public"."offer_responsibilities"
@@ -910,7 +911,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_responsibilities_insert_owner"
 on "public"."offer_responsibilities"
@@ -919,7 +920,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_responsibilities_select_public"
 on "public"."offer_responsibilities"
@@ -935,10 +936,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_responsibilities.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_skills_delete_owner"
 on "public"."offer_skills"
@@ -947,7 +948,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_skills_insert_owner"
 on "public"."offer_skills"
@@ -956,7 +957,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "offer_skills_select_public"
 on "public"."offer_skills"
@@ -972,7 +973,7 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));

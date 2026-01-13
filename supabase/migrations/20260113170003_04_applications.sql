@@ -125,6 +125,7 @@ alter table "public"."profile_searched" validate constraint "profile_searched_id
 CREATE OR REPLACE FUNCTION public.set_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
+ SET search_path TO 'public'
 AS $function$
 begin
   new.updated_at = now();
@@ -217,25 +218,25 @@ on "public"."application"
 as permissive
 for delete
 to authenticated
-using (((student_id = auth.uid()) AND (curent_state = 'unseen'::text)));
+using (((student_id = (SELECT auth.uid())) AND (curent_state = 'unseen'::text)));
 
 create policy "application_insert_student_no_duplicate"
 on "public"."application"
 as permissive
 for insert
 to authenticated
-with check (((student_id = auth.uid()) AND (NOT (EXISTS ( SELECT 1
+with check (((student_id = (SELECT auth.uid())) AND (NOT (EXISTS ( SELECT 1
    FROM public.application application_1
-  WHERE ((application_1.student_id = auth.uid()) AND (application_1.offer_id = application_1.offer_id)))))));
+  WHERE ((application_1.student_id = (SELECT auth.uid())) AND (application_1.offer_id = application_1.offer_id)))))));
 
 create policy "application_select_dual"
 on "public"."application"
 as permissive
 for select
 to authenticated
-using (((student_id = auth.uid()) OR (EXISTS ( SELECT 1
+using (((student_id = (SELECT auth.uid())) OR (EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = application.offer_id) AND (company_offer.company_id = auth.uid()))))));
+  WHERE ((company_offer.id = application.offer_id) AND (company_offer.company_id = (SELECT auth.uid())))))));
 
 create policy "application_update_company_only"
 on "public"."application"
@@ -244,10 +245,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = application.offer_id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = application.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = application.offer_id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = application.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 -- Student work preferences policies
 create policy "work_prefs_delete_own"
@@ -255,31 +256,31 @@ on "public"."student_work_preferences"
 as permissive
 for delete
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "work_prefs_insert_own_once"
 on "public"."student_work_preferences"
 as permissive
 for insert
 to authenticated
-with check (((student_id = auth.uid()) AND (NOT (EXISTS ( SELECT 1
+with check (((student_id = (SELECT auth.uid())) AND (NOT (EXISTS ( SELECT 1
    FROM public.student_work_preferences student_work_preferences_1
-  WHERE (student_work_preferences_1.student_id = auth.uid()))))));
+  WHERE (student_work_preferences_1.student_id = (SELECT auth.uid())))))));
 
 create policy "work_prefs_select_own"
 on "public"."student_work_preferences"
 as permissive
 for select
 to authenticated
-using ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())));
 
 create policy "work_prefs_update_own"
 on "public"."student_work_preferences"
 as permissive
 for update
 to authenticated
-using ((student_id = auth.uid()))
-with check ((student_id = auth.uid()));
+using ((student_id = (SELECT auth.uid())))
+with check ((student_id = (SELECT auth.uid())));
 
 -- Profile searched policies
 create policy "profile_searched_delete_owner"
@@ -289,7 +290,7 @@ for delete
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "profile_searched_insert_owner"
 on "public"."profile_searched"
@@ -298,7 +299,7 @@ for insert
 to authenticated
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "profile_searched_select_owner"
 on "public"."profile_searched"
@@ -307,7 +308,7 @@ for select
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 create policy "profile_searched_update_owner"
 on "public"."profile_searched"
@@ -316,10 +317,10 @@ for update
 to authenticated
 using ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = auth.uid())))))
+  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))))
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = auth.uid())))));
+  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 -- =============================================================================
 -- TRIGGERS
