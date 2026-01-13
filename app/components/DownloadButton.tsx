@@ -10,8 +10,8 @@
 
 import { useEffect, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
-import type { ReleaseInfo } from '@/lib/server/github-api';
-import { formatFileSize, getFallbackDownloadUrl } from '@/lib/server/github-api';
+import type { ReleaseInfo } from '@/lib/client/github-api';
+import { formatFileSize, getFallbackDownloadUrl } from '@/lib/client/github-api';
 
 type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
 

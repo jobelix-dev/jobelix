@@ -8,7 +8,7 @@
  * Route: /download
  */
 
-import { getLatestRelease, getFallbackDownloadUrl } from '@/lib/server/github-api';
+import { getLatestRelease, getFallbackDownloadUrl } from '@/lib/client/github-api';
 import DownloadButton from '@/app/components/DownloadButton';
 import { CheckCircle2, Download, Sparkles } from 'lucide-react';
 import Link from 'next/link';

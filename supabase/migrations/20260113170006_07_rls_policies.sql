@@ -1,0 +1,22 @@
+-- Migration 07: Row Level Security Policies
+-- Purpose: Define security rules for all tables - enforces ownership and access control
+-- Dependencies: All table migrations (01-06)
+-- Note: RLS is enabled in individual table migrations, this file only contains policies
+
+-- This migration is intentionally empty in the new structure because RLS policies
+-- are already defined in their respective table migrations (02-06).
+--
+-- Keeping this as a placeholder for potential future global RLS rules or cross-cutting
+-- security policies that don't fit within individual table migrations.
+--
+-- Current RLS pattern (defined in table migrations):
+-- - Students: Can only access own data (auth.uid() = id check)
+-- - Companies: Can only access own offers (auth.uid() = company_id check)
+-- - Published offers: Readable by all authenticated users
+-- - Applications: Students see own, companies see applications to their offers
+-- - Credits: Users see only own credits
+-- - API tokens: Users see only own tokens
+-- - Feedback: Users see only own feedback
+
+-- If you need to add cross-table policies or modify existing RLS rules,
+-- add them here as ALTER POLICY commands.
