@@ -66,15 +66,35 @@ export function mapDraftToAcademic(draft: any, userId: string): Array<{
     return []
   }
   
-  return draft.education.map((edu: any) => ({
+  // Filter out invalid entries and log warnings
+  const validEducation = draft.education.filter((edu: any) => {
+    const isValid = 
+      edu.school_name && 
+      edu.degree && 
+      edu.start_year && 
+      edu.start_month
+    
+    if (!isValid) {
+      console.warn('[mapDraftToAcademic] Filtering out invalid education entry:', {
+        school_name: edu.school_name || 'MISSING',
+        degree: edu.degree || 'MISSING',
+        start_year: edu.start_year || 'MISSING',
+        start_month: edu.start_month || 'MISSING',
+      })
+    }
+    
+    return isValid
+  })
+  
+  return validEducation.map((edu: any) => ({
     student_id: userId,
     school_name: edu.school_name,
     degree: edu.degree,
     description: edu.description || null,
     start_year: edu.start_year,
     start_month: edu.start_month,
-    end_year: edu.end_year,
-    end_month: edu.end_month,
+    end_year: edu.end_year || null,
+    end_month: edu.end_month || null,
   }))
 }
 
@@ -87,7 +107,7 @@ export function mapDraftToExperience(draft: any, userId: string): Array<{
   position_name: string
   description: string | null
   start_year: number
-  start_month: number | null
+  start_month: number
   end_year: number | null
   end_month: number | null
 }> {
@@ -95,13 +115,33 @@ export function mapDraftToExperience(draft: any, userId: string): Array<{
     return []
   }
   
-  return draft.experience.map((exp: any) => ({
+  // Filter out invalid entries and log warnings
+  const validExperience = draft.experience.filter((exp: any) => {
+    const isValid = 
+      exp.organisation_name && 
+      exp.position_name && 
+      exp.start_year &&
+      exp.start_month
+    
+    if (!isValid) {
+      console.warn('[mapDraftToExperience] Filtering out invalid experience entry:', {
+        organisation_name: exp.organisation_name || 'MISSING',
+        position_name: exp.position_name || 'MISSING',
+        start_year: exp.start_year || 'MISSING',
+        start_month: exp.start_month || 'MISSING',
+      })
+    }
+    
+    return isValid
+  })
+  
+  return validExperience.map((exp: any) => ({
     student_id: userId,
     organisation_name: exp.organisation_name,
     position_name: exp.position_name,
     description: exp.description || null,
     start_year: exp.start_year,
-    start_month: exp.start_month || null,
+    start_month: exp.start_month,
     end_year: exp.end_year || null,
     end_month: exp.end_month || null,
   }))
