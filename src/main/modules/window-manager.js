@@ -103,6 +103,7 @@ export async function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     logger.success('Main window ready to show');
     splash.destroy();
+    mainWindow.maximize(); // Start maximized
     mainWindow.show();
   });
 

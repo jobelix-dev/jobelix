@@ -10,6 +10,13 @@ export interface ElectronAPI {
     platform?: string;
   }>;
   
+  // Window controls
+  windowMinimize: () => Promise<void>;
+  windowMaximize: () => Promise<void>;
+  windowUnmaximize: () => Promise<void>;
+  windowClose: () => Promise<void>;
+  windowIsMaximized: () => Promise<boolean>;
+  
   // Auto-updater events
   onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string; releaseDate?: string }) => void) => void;
   onUpdateDownloadProgress: (callback: (progress: { 

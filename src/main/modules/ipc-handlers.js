@@ -3,7 +3,7 @@
  * Registers all IPC communication channels between main and renderer processes
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { launchBot } from './process-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
@@ -72,7 +72,49 @@ export function setupIpcHandlers() {
     return result;
   });
 
-  logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE')).length} IPC handlers registered`);
+  // Handler: Minimize window
+  ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+      logger.ipc(IPC_CHANNELS.WINDOW_MINIMIZE, 'Minimizing window');
+      window.minimize();
+    }
+  });
+
+  // Handler: Maximize window
+  ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+      logger.ipc(IPC_CHANNELS.WINDOW_MAXIMIZE, 'Maximizing window');
+      window.maximize();
+    }
+  });
+
+  // Handler: Unmaximize window
+  ipcMain.handle(IPC_CHANNELS.WINDOW_UNMAXIMIZE, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+      logger.ipc(IPC_CHANNELS.WINDOW_UNMAXIMIZE, 'Restoring window');
+      window.unmaximize();
+    }
+  });
+
+  // Handler: Close window
+  ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+      logger.ipc(IPC_CHANNELS.WINDOW_CLOSE, 'Closing window');
+      window.close();
+    }
+  });
+
+  // Handler: Check if window is maximized
+  ipcMain.handle(IPC_CHANNELS.WINDOW_IS_MAXIMIZED, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    return window ? window.isMaximized() : false;
+  });
+
+  logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW')).length} IPC handlers registered`);
 }
 
 /**
@@ -86,6 +128,11 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.WRITE_CONFIG);
   ipcMain.removeHandler(IPC_CHANNELS.WRITE_RESUME);
   ipcMain.removeHandler(IPC_CHANNELS.LAUNCH_BOT);
+  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
+  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MAXIMIZE);
+  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);
+  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_CLOSE);
+  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_IS_MAXIMIZED);
   
   logger.success('IPC handlers removed');
 }
