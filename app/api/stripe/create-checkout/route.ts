@@ -89,17 +89,17 @@ export async function POST(request: NextRequest) {
     
     console.log('[Stripe Checkout] Plan validation:', { 
       plan, 
-      priceId: priceId || 'MISSING', 
+      hasPriceId: !!priceId, 
       creditsAmount,
       hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
     });
     
     if (!priceId || !creditsAmount) {
-      console.error('[Stripe Checkout] Invalid plan - missing priceId or creditsAmount:', { 
+      console.error('[Stripe Checkout] Invalid plan configuration:', { 
         plan, 
-        priceId, 
-        creditsAmount,
-        envVar: process.env.STRIPE_PRICE_CREDITS_1000 ? 'SET' : 'NOT SET'
+        hasPriceId: !!priceId, 
+        hasCreditsAmount: !!creditsAmount,
+        hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
       });
       return NextResponse.json(
         { error: 'Invalid plan configuration - check environment variables' },
@@ -112,8 +112,9 @@ export async function POST(request: NextRequest) {
     try {
       await getStripe().prices.retrieve(priceId);
     } catch (err: any) {
+      console.error('[Stripe Checkout] Price verification failed');
       return NextResponse.json(
-        { error: 'Price not found in Stripe' },
+        { error: 'Invalid payment configuration' },
         { status: 400 }
       );
     }
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
       priceCents = priceObject.unit_amount || 0;
       currency = priceObject.currency || 'usd';
     } catch (err: any) {
-      console.error("Failed to fetch price from Stripe:", err);
+      console.error('[Stripe Checkout] Failed to fetch price details');
       // Continue with defaults - webhook will update with actual values
     }
 
@@ -216,7 +217,7 @@ export async function POST(request: NextRequest) {
     // 8) Return checkout URL to client
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (err: any) {
-    console.error("Checkout error:", err);
+    console.error('[Stripe Checkout] Checkout error occurred');
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }
 }
