@@ -87,8 +87,8 @@ BEGIN
     VALUES (NEW.id, NEW.email);
   END IF;
 
-  -- Generate API token for external bot access
-  v_token := encode(gen_random_bytes(32), 'base64');
+  -- Generate API token for external bot access (64-char hex for Python app)
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
   INSERT INTO public.api_tokens (user_id, token)
   VALUES (NEW.id, v_token);
 
