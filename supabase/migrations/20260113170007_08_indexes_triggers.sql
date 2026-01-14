@@ -21,8 +21,8 @@ BEGIN
     RAISE EXCEPTION 'Cannot update primary key column: id';
   END IF;
   
-  -- Protect created_at timestamp
-  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log') THEN
+  -- Protect created_at timestamp (skip tables that don't have this column)
+  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log', 'credit_purchases') THEN
     IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
       RAISE EXCEPTION 'Cannot update immutable column: created_at';
     END IF;
