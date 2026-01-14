@@ -24,12 +24,79 @@ BEGIN
     RAISE EXCEPTION 'Cannot update Stripe idempotency key: stripe_event_id';
   END IF;
   
-  IF OLD.stripe_payment_intent_id IS DISTINCT FROM NEW.stripe_payment_intent_id AND OLD.stripe_payment_intent_id IS NOT NULL THEN
-    RAISE EXCEPTION 'Cannot update Stripe idempotency key: stripe_payment_intent_id';
+  -- Protect created_at timestamp (skip tables that don't have this column)
+  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log', 'credit_purchases') THEN
+    IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+      RAISE EXCEPTION 'Cannot update immutable column: created_at';
+    END IF;
   END IF;
   
-  IF OLD.stripe_checkout_session_id IS DISTINCT FROM NEW.stripe_checkout_session_id AND OLD.stripe_checkout_session_id IS NOT NULL THEN
-    RAISE EXCEPTION 'Cannot update Stripe idempotency key: stripe_checkout_session_id';
+  -- Protect foreign keys based on column existence
+  IF TG_TABLE_NAME IN ('academic', 'experience', 'project', 'skill', 'language', 
+                        'publication', 'certification', 'social_link', 'resume',
+                        'student_profile_draft', 'student_work_preferences') THEN
+    IF OLD.student_id IS DISTINCT FROM NEW.student_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: student_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME IN ('company_offer', 'company_offer_draft') THEN
+    IF OLD.company_id IS DISTINCT FROM NEW.company_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: company_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME IN ('offer_skills', 'offer_locations', 'offer_responsibilities',
+                        'offer_capabilities', 'offer_questions', 'offer_perks') THEN
+    IF OLD.offer_id IS DISTINCT FROM NEW.offer_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: offer_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME = 'application' THEN
+    IF OLD.student_id IS DISTINCT FROM NEW.student_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: student_id';
+    END IF;
+    IF OLD.offer_id IS DISTINCT FROM NEW.offer_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: offer_id';
+    END IF;
+  END IF;
+  
+  IF TG_TABLE_NAME IN ('api_tokens', 'api_call_log', 'user_credits', 
+                        'daily_credit_grants', 'credit_purchases') THEN
+    IF OLD.user_id IS DISTINCT FROM NEW.user_id THEN
+      RAISE EXCEPTION 'Cannot update foreign key column: user_id';
+    END IF;
+  END IF;
+  
+  -- Protect Stripe idempotency keys (allow NULL → value once, but not value → different value)
+  IF TG_TABLE_NAME = 'credit_purchases' THEN
+    -- stripe_event_id: Allow NULL → value, block value → different value
+    IF OLD.stripe_event_id IS NOT NULL AND OLD.stripe_event_id IS DISTINCT FROM NEW.stripe_event_id THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_event_id (already set)';
+    END IF;
+    -- stripe_payment_intent_id: Allow NULL → value, block value → different value
+    IF OLD.stripe_payment_intent_id IS NOT NULL AND OLD.stripe_payment_intent_id IS DISTINCT FROM NEW.stripe_payment_intent_id THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_payment_intent_id (already set)';
+    END IF;
+    -- stripe_checkout_session_id: Allow NULL → value, block value → different value
+    IF OLD.stripe_checkout_session_id IS NOT NULL AND OLD.stripe_checkout_session_id IS DISTINCT FROM NEW.stripe_checkout_session_id THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_checkout_session_id (already set)';
+    END IF;
+  END IF;
+  
+  -- Protect daily grant composite key
+  IF TG_TABLE_NAME = 'daily_credit_grants' THEN
+    IF OLD.granted_date IS DISTINCT FROM NEW.granted_date THEN
+      RAISE EXCEPTION 'Cannot update composite key column: granted_date';
+    END IF;
+  END IF;
+  
+  -- Protect API token
+  IF TG_TABLE_NAME = 'api_tokens' THEN
+    IF OLD.token IS DISTINCT FROM NEW.token THEN
+      RAISE EXCEPTION 'Cannot update immutable column: token';
+    END IF;
   END IF;
   
   RETURN NEW;
