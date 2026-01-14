@@ -61,6 +61,7 @@ if (process.env.STRIPE_PRICE_CREDITS_1000) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🔔 [Webhook] Received request');
   try {
     // 1) Read raw body (required for Stripe signature verification)
     const body = await request.text();
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Require signature header
     if (!signature) {
+      console.log('❌ [Webhook] No signature');
       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
 
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
     try {
       event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret());
+      console.log('✅ [Webhook] Event verified:', event.type);
     } catch (err: any) {
       console.error("❌ Webhook signature verification failed:", err.message);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
