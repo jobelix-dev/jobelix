@@ -30,6 +30,15 @@ export default function AutoApplyTab() {
     });
 
     const data = await response.json();
+    
+    // Log error details for debugging
+    if (!response.ok) {
+      console.error('Stripe checkout error:', {
+        status: response.status,
+        error: data.error,
+        details: data
+      });
+    }
 
     if (response.ok && data.url) {
       window.location.href = data.url;

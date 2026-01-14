@@ -66,16 +66,19 @@ BEGIN
     END IF;
   END IF;
   
-  -- Protect Stripe idempotency keys
+  -- Protect Stripe idempotency keys (allow NULL → value once, but not value → different value)
   IF TG_TABLE_NAME = 'credit_purchases' THEN
-    IF OLD.stripe_event_id IS DISTINCT FROM NEW.stripe_event_id AND OLD.stripe_event_id IS NOT NULL THEN
-      RAISE EXCEPTION 'Cannot update idempotency key: stripe_event_id';
+    -- stripe_event_id: Allow NULL → value, block value → different value
+    IF OLD.stripe_event_id IS NOT NULL AND OLD.stripe_event_id IS DISTINCT FROM NEW.stripe_event_id THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_event_id (already set)';
     END IF;
-    IF OLD.stripe_payment_intent_id IS DISTINCT FROM NEW.stripe_payment_intent_id AND OLD.stripe_payment_intent_id IS NOT NULL THEN
-      RAISE EXCEPTION 'Cannot update idempotency key: stripe_payment_intent_id';
+    -- stripe_payment_intent_id: Allow NULL → value, block value → different value
+    IF OLD.stripe_payment_intent_id IS NOT NULL AND OLD.stripe_payment_intent_id IS DISTINCT FROM NEW.stripe_payment_intent_id THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_payment_intent_id (already set)';
     END IF;
-    IF OLD.stripe_checkout_session_id IS DISTINCT FROM NEW.stripe_checkout_session_id AND OLD.stripe_checkout_session_id IS NOT NULL THEN
-      RAISE EXCEPTION 'Cannot update idempotency key: stripe_checkout_session_id';
+    -- stripe_checkout_session_id: Allow NULL → value, block value → different value
+    IF OLD.stripe_checkout_session_id IS NOT NULL AND OLD.stripe_checkout_session_id IS DISTINCT FROM NEW.stripe_checkout_session_id THEN
+      RAISE EXCEPTION 'Cannot update idempotency key: stripe_checkout_session_id (already set)';
     END IF;
   END IF;
   
