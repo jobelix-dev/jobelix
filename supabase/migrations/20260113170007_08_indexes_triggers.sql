@@ -16,13 +16,16 @@ CREATE OR REPLACE FUNCTION public.protect_immutable_columns()
  SET search_path TO 'public'
 AS $function$
 BEGIN
-  -- Protect primary key (id)
-  IF OLD.id IS DISTINCT FROM NEW.id THEN
-    RAISE EXCEPTION 'Cannot update primary key column: id';
+  -- Protect primary key (id) - skip tables with composite keys or special cases
+  IF TG_TABLE_NAME NOT IN ('credit_purchases', 'user_credits', 'daily_credit_grants') THEN
+    IF OLD.id IS DISTINCT FROM NEW.id THEN
+      RAISE EXCEPTION 'Cannot update primary key column: id';
+    END IF;
   END IF;
   
   -- Protect created_at timestamp (skip tables that don't have this column)
-  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log', 'credit_purchases') THEN
+  IF TG_TABLE_NAME NOT IN ('signup_ip_tracking', 'api_call_log', 'credit_purchases', 
+                            'user_credits', 'daily_credit_grants') THEN
     IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
       RAISE EXCEPTION 'Cannot update immutable column: created_at';
     END IF;
