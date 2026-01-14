@@ -258,7 +258,7 @@ for delete
 to authenticated
 using ((student_id = (SELECT auth.uid())));
 
-create policy "work_prefs_insert_own_once"
+create policy "work_prefs_insert_own"
 on "public"."student_work_preferences"
 as permissive
 for insert
@@ -319,6 +319,63 @@ using ((EXISTS ( SELECT 1
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
   WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
+
+-- =============================================================================
+-- STORAGE BUCKETS
+-- =============================================================================
+
+-- Create the 'resumes' storage bucket for student resume PDF files
+insert into storage.buckets (id, name, public)
+values ('resumes', 'resumes', false)
+on conflict (id) do nothing;
+
+-- =============================================================================
+-- STORAGE POLICIES
+-- =============================================================================
+
+-- Allow companies to view resumes of students who applied to their offers
+create policy "Companies can view applicant resumes"
+on "storage"."objects"
+as permissive
+for select
+to authenticated
+using (((bucket_id = 'resumes'::text) AND (EXISTS ( SELECT 1
+   FROM (public.application a
+     JOIN public.company_offer o ON ((a.offer_id = o.id)))
+  WHERE ((o.company_id = (SELECT auth.uid())) AND ((a.student_id)::text = (storage.foldername(objects.name))[1]))))));
+
+-- Allow students to read their own resumes
+create policy "Users can read own resumes"
+on "storage"."objects"
+as permissive
+for select
+to authenticated
+using (((bucket_id = 'resumes'::text) AND (((SELECT auth.uid()))::text = (storage.foldername(name))[1])));
+
+-- Allow students to delete their own resumes
+create policy "Users can delete own resumes"
+on "storage"."objects"
+as permissive
+for delete
+to authenticated
+using (((bucket_id = 'resumes'::text) AND (((SELECT auth.uid()))::text = (storage.foldername(name))[1])));
+
+-- Allow students to update their own resumes
+create policy "Users can update own resumes"
+on "storage"."objects"
+as permissive
+for update
+to authenticated
+using (((bucket_id = 'resumes'::text) AND ((storage.foldername(name))[1] = ((SELECT auth.uid()))::text)))
+with check (((bucket_id = 'resumes'::text) AND ((storage.foldername(name))[1] = ((SELECT auth.uid()))::text)));
+
+-- Allow students to upload their own resumes
+create policy "Users can upload own resumes"
+on "storage"."objects"
+as permissive
+for insert
+to authenticated
+with check (((bucket_id = 'resumes'::text) AND (((SELECT auth.uid()))::text = (storage.foldername(name))[1])));
 
 -- =============================================================================
 -- TRIGGERS

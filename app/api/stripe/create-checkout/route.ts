@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     const { plan } = body;
 
     if (!plan || typeof plan !== 'string') {
+      console.error('[Stripe Checkout] Missing or invalid plan:', plan);
       return NextResponse.json(
         { error: 'Missing or invalid plan' },
         { status: 400 }
@@ -86,9 +87,22 @@ export async function POST(request: NextRequest) {
     const priceId = PLAN_TO_PRICE_ID[plan];
     const creditsAmount = PLAN_TO_CREDITS[plan];
     
+    console.log('[Stripe Checkout] Plan validation:', { 
+      plan, 
+      priceId: priceId || 'MISSING', 
+      creditsAmount,
+      hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
+    });
+    
     if (!priceId || !creditsAmount) {
+      console.error('[Stripe Checkout] Invalid plan - missing priceId or creditsAmount:', { 
+        plan, 
+        priceId, 
+        creditsAmount,
+        envVar: process.env.STRIPE_PRICE_CREDITS_1000 ? 'SET' : 'NOT SET'
+      });
       return NextResponse.json(
-        { error: 'Invalid plan' },
+        { error: 'Invalid plan configuration - check environment variables' },
         { status: 400 }
       );
     }
