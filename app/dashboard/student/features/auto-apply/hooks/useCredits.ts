@@ -101,21 +101,6 @@ export function useCredits() {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([fetchCredits(), fetchClaimStatus()]);
-    
-    // Auto-process pending purchases (for development when webhooks aren't working)
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        await fetch('/api/stripe/process-pending', { 
-          method: 'POST',
-          credentials: 'include' 
-        });
-        // Refresh again after processing
-        await fetchCredits();
-      } catch (err) {
-        // Silently fail - webhook might have already processed it
-      }
-    }
-    
     setTimeout(() => setRefreshing(false), 800);
   }, [fetchCredits, fetchClaimStatus]);
 

@@ -47,6 +47,14 @@ export default function AutoApplyTab() {
     }
   };
 
+  // Development helper: process pending purchases after checkout redirect
+  const handleProcessPending = async () => {
+    if (credits.processPending) {
+      await credits.processPending();
+      console.log('✅ Pending purchases processed');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
