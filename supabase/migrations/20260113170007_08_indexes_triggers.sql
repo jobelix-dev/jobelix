@@ -7,21 +7,18 @@
 set check_function_bodies = off;
 
 -- ============================================================================
--- Protection Function: Prevent updates to critical Stripe idempotency keys
+-- Protection Function: Prevent updates to immutable columns
 -- ============================================================================
--- Note: Database constraints already protect PKs, FKs, and unique constraints.
--- This trigger focuses on preventing accidental Stripe payment duplicates.
 
-CREATE OR REPLACE FUNCTION public.protect_stripe_idempotency()
+CREATE OR REPLACE FUNCTION public.protect_immutable_columns()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO 'public'
 AS $function$
 BEGIN
-  -- Only protect Stripe idempotency keys to prevent duplicate payments
-  -- Once these are set (not NULL), they should never change
-  IF OLD.stripe_event_id IS DISTINCT FROM NEW.stripe_event_id AND OLD.stripe_event_id IS NOT NULL THEN
-    RAISE EXCEPTION 'Cannot update Stripe idempotency key: stripe_event_id';
+  -- Protect primary key (id)
+  IF OLD.id IS DISTINCT FROM NEW.id THEN
+    RAISE EXCEPTION 'Cannot update primary key column: id';
   END IF;
   
   -- Protect created_at timestamp (skip tables that don't have this column)
@@ -147,14 +144,164 @@ CREATE TRIGGER update_feedback_updated_at_trigger
   EXECUTE FUNCTION update_feedback_updated_at();
 
 -- ============================================================================
--- Stripe Idempotency Protection Trigger
+-- Immutable Column Protection Triggers
 -- ============================================================================
 
--- Only protect credit_purchases table from Stripe idempotency key changes
-CREATE TRIGGER protect_stripe_idempotency_trigger
+-- Student system tables
+CREATE TRIGGER protect_student_immutable
+  BEFORE UPDATE ON student
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_student_draft_immutable
+  BEFORE UPDATE ON student_profile_draft
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_academic_immutable
+  BEFORE UPDATE ON academic
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_experience_immutable
+  BEFORE UPDATE ON experience
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_project_immutable
+  BEFORE UPDATE ON project
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_skill_immutable
+  BEFORE UPDATE ON skill
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_language_immutable
+  BEFORE UPDATE ON language
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_publication_immutable
+  BEFORE UPDATE ON publication
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_certification_immutable
+  BEFORE UPDATE ON certification
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_social_link_immutable
+  BEFORE UPDATE ON social_link
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_resume_immutable
+  BEFORE UPDATE ON resume
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_work_preferences_immutable
+  BEFORE UPDATE ON student_work_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+-- Company system tables
+CREATE TRIGGER protect_company_immutable
+  BEFORE UPDATE ON company
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_company_offer_immutable
+  BEFORE UPDATE ON company_offer
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_company_offer_draft_immutable
+  BEFORE UPDATE ON company_offer_draft
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_offer_skills_immutable
+  BEFORE UPDATE ON offer_skills
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_offer_locations_immutable
+  BEFORE UPDATE ON offer_locations
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_offer_responsibilities_immutable
+  BEFORE UPDATE ON offer_responsibilities
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_offer_capabilities_immutable
+  BEFORE UPDATE ON offer_capabilities
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_offer_questions_immutable
+  BEFORE UPDATE ON offer_questions
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_offer_perks_immutable
+  BEFORE UPDATE ON offer_perks
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+-- Application system tables
+CREATE TRIGGER protect_application_immutable
+  BEFORE UPDATE ON application
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_profile_searched_immutable
+  BEFORE UPDATE ON profile_searched
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+-- Credits and payment system tables
+CREATE TRIGGER protect_user_credits_immutable
+  BEFORE UPDATE ON user_credits
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_daily_credit_grants_immutable
+  BEFORE UPDATE ON daily_credit_grants
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_credit_purchases_immutable
   BEFORE UPDATE ON credit_purchases
   FOR EACH ROW
-  EXECUTE FUNCTION protect_stripe_idempotency();
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_user_feedback_immutable
+  BEFORE UPDATE ON user_feedback
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+-- API system tables
+CREATE TRIGGER protect_api_tokens_immutable
+  BEFORE UPDATE ON api_tokens
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+CREATE TRIGGER protect_api_call_log_immutable
+  BEFORE UPDATE ON api_call_log
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
+
+-- Auth system tables
+CREATE TRIGGER protect_signup_ip_tracking_immutable
+  BEFORE UPDATE ON signup_ip_tracking
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_immutable_columns();
 
 -- ============================================================================
 -- Additional Performance Indexes
