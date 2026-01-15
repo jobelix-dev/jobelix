@@ -1,5 +1,5 @@
 /**
- * Resume Data Extraction API Route (Enhanced with Link Extraction)
+ * Resume Data Extraction API Route (Enhanced with Link Extraction + GitHub Integration)
  * 
  * Extracts structured data from PDF using pdfjs-dist + OpenAI GPT-4o.
  * Route: POST /api/student/profile/draft/extract
@@ -12,6 +12,7 @@
  * - Extracts text content from all PDF pages (page.getTextContent())
  * - Extracts link annotations from PDF (page.getAnnotations()) - captures embedded URLs
  * - Provides both text + links to OpenAI for comprehensive extraction
+ * - **NEW:** Checks for GitHub OAuth connection and merges GitHub repo data with resume data
  */
 
 import "server-only";
@@ -27,6 +28,8 @@ import { ResumeExtractionSchema } from '@/lib/server/resumeSchema'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'
+import { getGitHubConnection } from '@/lib/server/githubOAuth'
+import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService'
 
 // Configure worker for Node.js serverless environment
 // Point to the worker file in node_modules
@@ -61,6 +64,15 @@ export async function POST(request: NextRequest) {
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
+
+    // Fetch EXISTING draft data (if any) to merge with new PDF extraction
+    const { data: existingDraft } = await supabase
+      .from('student_profile_draft')
+      .select('*')
+      .eq('student_id', user.id)
+      .single()
+
+    console.log('Existing draft found:', !!existingDraft)
 
     // Get the file from Supabase Storage
     const userId = user.id
@@ -168,16 +180,58 @@ export async function POST(request: NextRequest) {
         }).join('\n')}`
       : ''
 
-    // Call GPT-4o with extracted text + links for comprehensive extraction
+    // Prepare existing draft data for merging context
+    const existingDataContext = existingDraft ? `
+
+**EXISTING PROFILE DATA (to merge with):**
+${JSON.stringify({
+  student_name: existingDraft.student_name,
+  email: existingDraft.email,
+  phone_number: existingDraft.phone_number,
+  address: existingDraft.address,
+  education: existingDraft.education,
+  experience: existingDraft.experience,
+  projects: existingDraft.projects,
+  skills: existingDraft.skills,
+  languages: existingDraft.languages,
+  publications: existingDraft.publications,
+  certifications: existingDraft.certifications,
+  social_links: existingDraft.social_links,
+}, null, 2)}
+
+**CRITICAL MERGING INSTRUCTIONS:**
+- **PRESERVE ALL existing entries** - do not delete any existing projects, skills, experience, etc.
+- **ADD new entries** from the resume that don't exist in current data
+- **ENHANCE existing entries** if the resume provides additional details (merge descriptions, add missing fields)
+- **UPDATE basic contact info** (name, email, phone, address) with resume data if provided
+- **For duplicate detection:** Compare project names, company names, skill names case-insensitively
+  - If a project/experience/skill appears in BOTH existing data AND resume, merge the information (combine unique details)
+  - If a project/experience/skill appears ONLY in existing data, KEEP IT (do not remove)
+  - If a project/experience/skill appears ONLY in resume, ADD IT
+- **NEVER delete existing data** - the user may have manually entered or imported from GitHub
+- **Think of this as ADDITIVE merging** - start with all existing data, then add/enhance from resume
+- **Example:** If existing data has 5 projects and resume has 3 projects with 1 overlap:
+  - Result should have AT LEAST 7 projects (4 from existing only + 3 from resume, with 1 merged)
+` : '\n**Note:** This is the first resume upload for this user. Extract all data from the resume.\n'
+
+    // Call GPT-4o with extracted text + links + existing data for comprehensive extraction
     const openai = getOpenAI()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: `You are an expert resume parser. Extract ALL structured information from the resume with maximum accuracy.
+          content: `You are an expert resume parser and data merger. Extract ALL structured information from the resume and intelligently merge with existing profile data.
 
-CRITICAL EXTRACTION RULES:
+**WHEN EXISTING DATA IS PROVIDED:**
+Your job is ADDITIVE MERGING - you must preserve ALL existing entries and add new information from the resume.
+- Start with all existing data as your base
+- Add new entries from resume that don't exist
+- Enhance matching entries by merging descriptions/details
+- NEVER remove or delete existing entries
+- Think: "What can I ADD from this resume?" NOT "What should I REPLACE?"
+
+CRITICAL EXTRACTION + MERGING RULES:
 
 1. PERSONAL INFORMATION:
    - student_name: Full name as written (required)
@@ -200,16 +254,23 @@ CRITICAL EXTRACTION RULES:
    - start_year, start_month: Employment start date (integers)
    - end_year, end_month: Employment end date (null if current position)
    - Order: Most recent first
+   - **MERGING:** KEEP all existing experience entries and ADD new ones from resume
 
 4. PROJECTS (extract ALL projects):
    - project_name: Project title (required for each entry)
    - description: Detailed description, technologies used, your role, outcomes
    - link: GitHub URL, live demo, or project website - **USE EMBEDDED LINKS when available**
+   - **MERGING:** If existing data has projects, KEEP ALL of them and ADD any new projects from resume
+   - **Example:** Existing: [GitHub Project A, GitHub Project B, Manual Project C]
+               Resume: [Project X, Project Y]
+               Result: [GitHub Project A, GitHub Project B, Manual Project C, Project X, Project Y]
+   - Only merge if names match closely (e.g., "E-commerce App" = "ecommerce app")
 
 5. SKILLS (extract ALL technical skills):
    - skill_name: Technology/tool name (e.g., "JavaScript", "React", "Python", "Docker")
    - skill_slug: Lowercase, hyphenated version (e.g., "javascript", "react", "python", "docker")
    - Extract programming languages, frameworks, libraries, tools, platforms, methodologies
+   - **MERGING:** KEEP all existing skills and ADD new ones from resume (avoid duplicates based on name/slug)
 
 6. LANGUAGES (extract ALL spoken languages):
    - language_name: Language name (e.g., "English", "Spanish", "Mandarin")
@@ -257,7 +318,7 @@ CRITICAL EXTRACTION RULES:
         },
         {
           role: 'user',
-          content: `Extract ALL information from this resume. Be thorough and detailed.
+          content: `Extract ALL information from this resume and merge with existing profile data (if provided).
 
 **IMPORTANT:** I have extracted embedded link annotations from the PDF along with their context text. 
 - When you see 'Text: "..." → URL: ...', the text shows what was clickable in the PDF
@@ -266,7 +327,7 @@ CRITICAL EXTRACTION RULES:
 
 Resume text:
 
-${resumeText}${linksInfo}`,
+${resumeText}${linksInfo}${existingDataContext}`,
         },
       ],
       response_format: zodResponseFormat(ResumeExtractionSchema, 'resume_extraction'),

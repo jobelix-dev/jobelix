@@ -4,7 +4,7 @@
  */
 
 export { default as ProfileTab } from './ProfileTab';
-export { default as ResumeSection } from './sections/ResumeSection';
+export { default as HeaderSection } from './sections/HeaderSection';
 export { default as ProfileEditorSection } from './sections/ProfileEditorSection';
 export { default as EducationForm } from './sections/ProfileEditorSection/components/EducationForm';
 export { default as ExperienceForm } from './sections/ProfileEditorSection/components/ExperienceForm';

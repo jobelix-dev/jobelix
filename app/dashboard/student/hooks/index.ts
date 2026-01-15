@@ -5,3 +5,5 @@
 
 export { useProfileData } from './useProfileData';
 export { useResumeUpload } from './useResumeUpload';
+export { useGitHubConnection } from './useGitHubConnection';
+export { useGitHubImport } from './useGitHubImport';
