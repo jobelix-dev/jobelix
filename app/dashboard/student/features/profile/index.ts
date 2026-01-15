@@ -8,7 +8,6 @@ export { default as HeaderSection } from './sections/HeaderSection';
 export { default as ProfileEditorSection } from './sections/ProfileEditorSection';
 export { default as EducationForm } from './sections/ProfileEditorSection/components/EducationForm';
 export { default as ExperienceForm } from './sections/ProfileEditorSection/components/ExperienceForm';
-export { default as ProjectForm } from './sections/ProfileEditorSection/components/ProjectForm';
 export { default as SkillsInput } from './sections/ProfileEditorSection/components/SkillsInput';
 export { default as LanguagesInput } from './sections/ProfileEditorSection/components/LanguagesInput';
 export { default as PublicationForm } from './sections/ProfileEditorSection/components/PublicationForm';

@@ -56,7 +56,27 @@ export default function HeaderSection({
     onImportingChange?.(importing);
   }, [importing, onImportingChange]);
 
-  // Auto-sync after first GitHub connection
+  // Listen for OAuth popup messages
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'github-oauth-success') {
+        // GitHub connected successfully via popup, trigger auto-sync
+        setTimeout(() => {
+          handleGitHubImport();
+        }, 1000);
+      } else if (event.data.type === 'github-oauth-error') {
+        console.error('GitHub OAuth error:', event.data.error);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [currentProjects, currentSkills]);
+
+  // Auto-sync after first GitHub connection (fallback for non-popup flow)
   useEffect(() => {
     const shouldAutoSync = searchParams.get('auto_sync') === 'true';
     const isConnected = status?.connected;
@@ -100,7 +120,7 @@ export default function HeaderSection({
         <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <h3 className="font-semibold mb-2 flex items-center gap-2">
             <span className="text-lg">📄</span>
-            Upload Resume
+            Upload PDF Resume
           </h3>
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
             Auto-fill your profile with AI assistance
@@ -170,7 +190,7 @@ export default function HeaderSection({
               ) : (
                 <>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                    Import projects and skills from your repositories
+                    Auto-fill your projects and skills from GitHub
                   </p>
                   <button
                     onClick={connect}
@@ -189,10 +209,6 @@ export default function HeaderSection({
         </div>
       </div>
 
-      <p className="text-center text-sm text-zinc-500 dark:text-zinc-500 mb-6">
-        or fill in your information manually below
-      </p>
-
       {/* Status Messages */}
       {uploadError && (
         <StatusAlert variant="error">{uploadError}</StatusAlert>
@@ -203,15 +219,6 @@ export default function HeaderSection({
           <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-400">
             {connectionError || importError}
-          </p>
-        </div>
-      )}
-
-      {importSuccess && (
-        <div className="mb-4 flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-green-700 dark:text-green-400">
-            Successfully synced! Your projects and skills have been updated.
           </p>
         </div>
       )}
@@ -233,6 +240,11 @@ export default function HeaderSection({
           </button>
         </div>
       )}
+
+      <p className="text-center text-sm text-zinc-500 dark:text-zinc-500 mb-6">
+        or fill in your information manually below
+      </p>
+
     </section>
   );
 }

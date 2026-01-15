@@ -110,7 +110,7 @@ export function useProfileData() {
       } catch (error) {
         console.error('Failed to auto-save draft:', error);
       }
-    }, 2000); // 2 second debounce
+    }, 300); // 0.3 second debounce
 
     return () => clearTimeout(timeoutId);
   }, [profileData, draftId]);
