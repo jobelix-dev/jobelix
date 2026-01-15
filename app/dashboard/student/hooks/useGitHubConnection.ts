@@ -59,12 +59,36 @@ export function useGitHubConnection() {
     }
   }, []);
 
-  // Connect GitHub (redirects to OAuth flow)
+  // Connect GitHub (opens OAuth flow in popup)
   const connect = useCallback(() => {
-    // Redirect to GitHub authorization endpoint
-    // Add force=true to always show account picker (allows switching accounts)
-    window.location.href = '/api/oauth/github/authorize?force=true';
-  }, []);
+    // Open GitHub OAuth in a centered popup window
+    const width = 600;
+    const height = 700;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const popup = window.open(
+      '/api/oauth/github/authorize?force=true',
+      'github-oauth',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!popup) {
+      alert('Please allow popups for this site to connect GitHub');
+      return;
+    }
+
+    // Poll for popup closure and check connection status
+    const pollInterval = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollInterval);
+        // Refresh connection status after popup closes
+        setTimeout(() => {
+          checkStatus();
+        }, 500);
+      }
+    }, 500);
+  }, [checkStatus]);
 
   // Disconnect GitHub
   const disconnect = useCallback(async () => {

@@ -21,13 +21,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('GitHub OAuth error:', error);
       return NextResponse.redirect(
-        new URL(`/dashboard/student?github_error=${encodeURIComponent(error)}`, request.url)
+        new URL(`/oauth/github/callback-success?github_error=${encodeURIComponent(error)}`, request.url)
       );
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        new URL('/dashboard/student?github_error=missing_params', request.url)
+        new URL('/oauth/github/callback-success?github_error=missing_params', request.url)
       );
     }
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error('Invalid state parameter:', err);
       return NextResponse.redirect(
-        new URL('/dashboard/student?github_error=invalid_state', request.url)
+        new URL('/oauth/github/callback-success?github_error=invalid_state', request.url)
       );
     }
 
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user || user.id !== userId) {
       return NextResponse.redirect(
-        new URL('/dashboard/student?github_error=unauthorized', request.url)
+        new URL('/oauth/github/callback-success?github_error=unauthorized', request.url)
       );
     }
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     const tokenData = await exchangeGitHubCode(code);
     if (!tokenData) {
       return NextResponse.redirect(
-        new URL('/dashboard/student?github_error=token_exchange_failed', request.url)
+        new URL('/oauth/github/callback-success?github_error=token_exchange_failed', request.url)
       );
     }
 
@@ -81,18 +81,18 @@ export async function GET(request: NextRequest) {
 
     if (!connection) {
       return NextResponse.redirect(
-        new URL('/dashboard/student?github_error=save_failed', request.url)
+        new URL('/oauth/github/callback-success?github_error=save_failed', request.url)
       );
     }
 
-    // Success! Redirect back to dashboard with success flag and auto-sync trigger
+    // Success! Redirect to callback success page (will close popup and notify parent)
     return NextResponse.redirect(
-      new URL('/dashboard/student?github_connected=true&auto_sync=true', request.url)
+      new URL('/oauth/github/callback-success?github_connected=true', request.url)
     );
   } catch (error) {
     console.error('Error in GitHub callback endpoint:', error);
     return NextResponse.redirect(
-      new URL('/dashboard/student?github_error=unexpected_error', request.url)
+      new URL('/oauth/github/callback-success?github_error=unexpected_error', request.url)
     );
   }
 }

@@ -1,82 +1,72 @@
 /**
- * ProjectForm Component
- * Collapsible form for editing a single project entry
+ * ProjectModal Component
+ * Centered modal for editing project details
+ * Same form fields as ProjectForm, but in a modal overlay
  */
 
-import React, { useState } from 'react';
-import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
+import { X, Trash2, AlertCircle } from 'lucide-react';
 import { ProjectEntry } from '@/lib/shared/types';
 
-interface ProjectFormProps {
+interface ProjectModalProps {
   data: ProjectEntry;
   onChange: (field: keyof ProjectEntry, value: any) => void;
   onRemove: () => void;
+  onClose: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
 }
 
-export default function ProjectForm({ data, onChange, onRemove, fieldErrors = {}, disabled = false }: ProjectFormProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  
-  // Create display title
+export default function ProjectModal({ 
+  data, 
+  onChange, 
+  onRemove, 
+  onClose, 
+  fieldErrors = {}, 
+  disabled = false 
+}: ProjectModalProps) {
   const projectName = data.project_name?.trim() || 'New Project';
-  const hasLink = data.link?.trim();
-  const hasErrors = Object.keys(fieldErrors).length > 0;
 
   return (
-    <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-      {/* Header - Always visible */}
-      <div className="relative">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors text-left"
-        >
-          <div className="flex-1 min-w-0 pr-16">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm truncate">
-                {projectName}
-              </span>
-              {hasErrors && (
-                <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span className="font-medium">Needs update</span>
-                </span>
-              )}
-            </div>
-            {hasLink && (
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                {hasLink}
-              </div>
-            )}
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="sticky top-0 bg-white dark:bg-zinc-900 border-b border-purple-200 dark:border-purple-800 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate pr-4">
+            {projectName}
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (!disabled && confirm('Are you sure you want to delete this project?')) {
+                  onRemove();
+                  onClose();
+                }
+              }}
+              disabled={disabled}
+              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Delete project"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-zinc-400" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-zinc-400" />
-            )}
-          </div>
-        </button>
-        
-        {/* Delete button - positioned absolutely to avoid nesting */}
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!disabled) onRemove();
-          }}
-          className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors ${
-            disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-          }`}
-          title="Remove project"
-        >
-          <Trash2 className="w-4 h-4" />
         </div>
-      </div>
 
-      {/* Expandable content */}
-      {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-purple-200 dark:border-purple-800 space-y-4 bg-purple-50/30 dark:bg-purple-900/10">
+        {/* Modal Body */}
+        <div className="p-6 space-y-4">
           {/* Two column layout for name and link */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -123,13 +113,18 @@ export default function ProjectForm({ data, onChange, onRemove, fieldErrors = {}
               value={data.description || ''}
               onChange={(e) => onChange('description', e.target.value || null)}
               placeholder="Brief description of the project and technologies used..."
-              rows={3}
+              rows={6}
               disabled={disabled}
               className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
+
+          {/* Auto-save indicator */}
+          <div className="text-xs text-zinc-500 dark:text-zinc-400 text-center pt-2">
+            Changes are saved automatically
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
