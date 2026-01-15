@@ -24,7 +24,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
-import { ResumeExtractionSchema } from '@/lib/server/resumeSchema'
+import { 
+  ResumeExtractionSchema,
+  ContactInfoSchema,
+  EducationSectionSchema,
+  ExperienceSectionSchema,
+  ProjectsSectionSchema,
+  SkillsSectionSchema,
+  LanguagesSectionSchema,
+  PublicationsSectionSchema,
+  CertificationsSectionSchema,
+  SocialLinksSectionSchema,
+} from '@/lib/server/resumeSchema'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'
@@ -50,12 +61,57 @@ function getOpenAI() {
 }
 
 /**
+ * Helper function to extract a specific section from resume
+ * Uses the full resume text but focuses on extracting just one section
+ */
+async function extractSection<T>(
+  resumeText: string,
+  linksInfo: string,
+  sectionName: string,
+  existingSectionData: any,
+  schema: any,
+  systemPrompt: string
+): Promise<T> {
+  const openai = getOpenAI();
+  
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: `Extract the ${sectionName} section from this resume and merge with existing data.
+
+**FULL RESUME TEXT:**
+${resumeText}${linksInfo}
+
+**EXISTING ${sectionName.toUpperCase()} DATA (MUST ALL BE PRESERVED):**
+${JSON.stringify(existingSectionData, null, 2)}
+${existingSectionData && existingSectionData.length > 0 ? `Count: ${existingSectionData.length} existing entries` : 'No existing data'}
+
+Focus ONLY on the ${sectionName} section. PRESERVE all existing entries and ADD new ones from the resume.
+Your output MUST contain AT LEAST ${existingSectionData?.length || 0} entries.`,
+      },
+    ],
+    response_format: zodResponseFormat(schema, `${sectionName}_extraction`),
+  });
+
+  return JSON.parse(completion.choices[0].message.content || '{}');
+}
+
+/**
  * POST handler for resume data extraction
  * 
- * Processes uploaded PDF resume using pdfjs-dist to extract:
- * 1. Text content from all pages (visible text layer)
- * 2. Link annotations (embedded URLs - GitHub, LinkedIn, project links, etc.)
- * 3. Combines text + extracted links and sends to OpenAI for structured parsing
+ * Processes uploaded PDF resume section by section:
+ * 1. Extract text content from all pages once
+ * 2. For each section (education, experience, projects, etc.):
+ *    - Send full resume text + current section data
+ *    - LLM focuses on just that section
+ *    - Merge result with existing data
+ * 3. Update draft incrementally
  */
 export async function POST(request: NextRequest) {
   try {
@@ -199,6 +255,9 @@ ${JSON.stringify({
   social_links: existingDraft.social_links,
 }, null, 2)}
 
+⚠️ EXISTING PROJECTS COUNT: ${existingDraft.projects?.length || 0} projects
+⚠️ EXISTING SKILLS COUNT: ${existingDraft.skills?.length || 0} skills
+
 **CRITICAL MERGING INSTRUCTIONS:**
 - **PRESERVE ALL existing entries** - do not delete any existing projects, skills, experience, etc.
 - **ADD new entries** from the resume that don't exist in current data
@@ -208,13 +267,212 @@ ${JSON.stringify({
   - If a project/experience/skill appears in BOTH existing data AND resume, merge the information (combine unique details)
   - If a project/experience/skill appears ONLY in existing data, KEEP IT (do not remove)
   - If a project/experience/skill appears ONLY in resume, ADD IT
+
+⚠️ YOUR OUTPUT MUST CONTAIN AT LEAST ${existingDraft.projects?.length || 0} PROJECTS AND ${existingDraft.skills?.length || 0} SKILLS
+⚠️ This is an ADDITIVE merge - never reduce the number of items!
 - **NEVER delete existing data** - the user may have manually entered or imported from GitHub
 - **Think of this as ADDITIVE merging** - start with all existing data, then add/enhance from resume
 - **Example:** If existing data has 5 projects and resume has 3 projects with 1 overlap:
   - Result should have AT LEAST 7 projects (4 from existing only + 3 from resume, with 1 merged)
 ` : '\n**Note:** This is the first resume upload for this user. Extract all data from the resume.\n'
 
+    console.log('=== STARTING SECTION-BY-SECTION EXTRACTION ===');
+    const openai = getOpenAI();
+    
+    // Initialize extracted data with existing data or empty structure
+    const extractedData: any = {
+      student_name: existingDraft?.student_name || null,
+      phone_number: existingDraft?.phone_number || null,
+      email: existingDraft?.email || null,
+      address: existingDraft?.address || null,
+      education: existingDraft?.education || [],
+      experience: existingDraft?.experience || [],
+      projects: existingDraft?.projects || [],
+      skills: existingDraft?.skills || [],
+      languages: existingDraft?.languages || [],
+      publications: existingDraft?.publications || [],
+      certifications: existingDraft?.certifications || [],
+      social_links: existingDraft?.social_links || {},
+    };
+
+    // Section 1: Contact Information
+    console.log('Extracting section 1/9: Contact Information...');
+    const contactPrompt = `Extract contact information from the resume. Update with resume data if provided, otherwise keep existing.`;
+    const contactData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'contact_info',
+      {
+        student_name: extractedData.student_name,
+        phone_number: extractedData.phone_number,
+        email: extractedData.email,
+        address: extractedData.address,
+      },
+      ContactInfoSchema,
+      contactPrompt
+    );
+    extractedData.student_name = contactData.student_name || extractedData.student_name;
+    extractedData.phone_number = contactData.phone_number || extractedData.phone_number;
+    extractedData.email = contactData.email || extractedData.email;
+    extractedData.address = contactData.address || extractedData.address;
+    console.log(`✓ Contact info extracted`);
+
+    // Section 2: Education
+    console.log(`Extracting section 2/9: Education (${extractedData.education.length} existing)...`);
+    const educationPrompt = `Extract ALL education entries from the resume. 
+PRESERVE all existing education entries and ADD new ones from the resume.
+Compare by school name and degree - only merge if they match closely.
+Your output MUST contain AT LEAST ${extractedData.education.length} entries.`;
+    const educationData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'education',
+      extractedData.education,
+      EducationSectionSchema,
+      educationPrompt
+    );
+    const prevEducationCount = extractedData.education.length;
+    extractedData.education = educationData.education;
+    console.log(`✓ Education: ${prevEducationCount} → ${extractedData.education.length} entries (+${extractedData.education.length - prevEducationCount})`);
+
+    // Section 3: Experience
+    console.log(`Extracting section 3/9: Experience (${extractedData.experience.length} existing)...`);
+    const experiencePrompt = `Extract ALL work experience from the resume.
+PRESERVE all existing experience entries and ADD new ones from the resume.
+Compare by company name and position - only merge if they match closely.
+Your output MUST contain AT LEAST ${extractedData.experience.length} entries.`;
+    const experienceData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'experience',
+      extractedData.experience,
+      ExperienceSectionSchema,
+      experiencePrompt
+    );
+    const prevExperienceCount = extractedData.experience.length;
+    extractedData.experience = experienceData.experience;
+    console.log(`✓ Experience: ${prevExperienceCount} → ${extractedData.experience.length} entries (+${extractedData.experience.length - prevExperienceCount})`);
+
+    // Section 4: Projects (CRITICAL - often includes GitHub projects)
+    console.log(`Extracting section 4/9: Projects (${extractedData.projects.length} existing)...`);
+    const projectsPrompt = `Extract ALL projects from the resume.
+⚠️ CRITICAL: PRESERVE ALL existing projects (may include GitHub imports or manual entries).
+Compare by project name and URL - only merge if they clearly match.
+ADD all new projects from the resume.
+Your output MUST contain AT LEAST ${extractedData.projects.length} projects.
+This is an ADDITIVE merge - NEVER reduce the project count!`;
+    const projectsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'projects',
+      extractedData.projects,
+      ProjectsSectionSchema,
+      projectsPrompt
+    );
+    const prevProjectsCount = extractedData.projects.length;
+    extractedData.projects = projectsData.projects;
+    console.log(`✓ Projects: ${prevProjectsCount} → ${extractedData.projects.length} entries (+${extractedData.projects.length - prevProjectsCount})`);
+    if (extractedData.projects.length < prevProjectsCount) {
+      console.error(`⚠️ WARNING: Projects count DECREASED! ${prevProjectsCount} → ${extractedData.projects.length}`);
+    }
+
+    // Section 5: Skills (CRITICAL - often includes GitHub-derived skills)
+    console.log(`Extracting section 5/9: Skills (${extractedData.skills.length} existing)...`);
+    const skillsPrompt = `Extract ALL skills and technologies from the resume.
+⚠️ CRITICAL: PRESERVE ALL existing skills (may include GitHub imports or manual entries).
+Compare by skill name (case-insensitive) - only skip if duplicate.
+ADD all new skills from the resume.
+Your output MUST contain AT LEAST ${extractedData.skills.length} skills.
+This is an ADDITIVE merge - NEVER reduce the skill count!`;
+    const skillsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'skills',
+      extractedData.skills,
+      SkillsSectionSchema,
+      skillsPrompt
+    );
+    const prevSkillsCount = extractedData.skills.length;
+    extractedData.skills = skillsData.skills;
+    console.log(`✓ Skills: ${prevSkillsCount} → ${extractedData.skills.length} entries (+${extractedData.skills.length - prevSkillsCount})`);
+    if (extractedData.skills.length < prevSkillsCount) {
+      console.error(`⚠️ WARNING: Skills count DECREASED! ${prevSkillsCount} → ${extractedData.skills.length}`);
+    }
+
+    // Section 6: Languages
+    console.log(`Extracting section 6/9: Languages (${extractedData.languages.length} existing)...`);
+    const languagesPrompt = `Extract ALL spoken languages from the resume.
+PRESERVE all existing language entries and ADD new ones from the resume.
+Your output MUST contain AT LEAST ${extractedData.languages.length} entries.`;
+    const languagesData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'languages',
+      extractedData.languages,
+      LanguagesSectionSchema,
+      languagesPrompt
+    );
+    const prevLanguagesCount = extractedData.languages.length;
+    extractedData.languages = languagesData.languages;
+    console.log(`✓ Languages: ${prevLanguagesCount} → ${extractedData.languages.length} entries (+${extractedData.languages.length - prevLanguagesCount})`);
+
+    // Section 7: Publications
+    console.log(`Extracting section 7/9: Publications (${extractedData.publications.length} existing)...`);
+    const publicationsPrompt = `Extract ALL publications, research papers, or academic work from the resume.
+PRESERVE all existing publication entries and ADD new ones from the resume.
+Your output MUST contain AT LEAST ${extractedData.publications.length} entries.`;
+    const publicationsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'publications',
+      extractedData.publications,
+      PublicationsSectionSchema,
+      publicationsPrompt
+    );
+    const prevPublicationsCount = extractedData.publications.length;
+    extractedData.publications = publicationsData.publications;
+    console.log(`✓ Publications: ${prevPublicationsCount} → ${extractedData.publications.length} entries (+${extractedData.publications.length - prevPublicationsCount})`);
+
+    // Section 8: Certifications
+    console.log(`Extracting section 8/9: Certifications (${extractedData.certifications.length} existing)...`);
+    const certificationsPrompt = `Extract ALL certifications, awards, and achievements from the resume.
+PRESERVE all existing certification entries and ADD new ones from the resume.
+Your output MUST contain AT LEAST ${extractedData.certifications.length} entries.`;
+    const certificationsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'certifications',
+      extractedData.certifications,
+      CertificationsSectionSchema,
+      certificationsPrompt
+    );
+    const prevCertificationsCount = extractedData.certifications.length;
+    extractedData.certifications = certificationsData.certifications;
+    console.log(`✓ Certifications: ${prevCertificationsCount} → ${extractedData.certifications.length} entries (+${extractedData.certifications.length - prevCertificationsCount})`);
+
+    // Section 9: Social Links
+    console.log(`Extracting section 9/9: Social Links...`);
+    const socialLinksPrompt = `Extract social media profile URLs from the resume.
+Use embedded links when available. Preserve existing links and add new ones.
+Supported: GitHub, LinkedIn, StackOverflow, Kaggle, LeetCode, Portfolio.`;
+    const socialLinksData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'social_links',
+      extractedData.social_links,
+      SocialLinksSectionSchema,
+      socialLinksPrompt
+    );
+    extractedData.social_links = socialLinksData.social_links;
+    console.log(`✓ Social links extracted`);
+
+    console.log('=== SECTION-BY-SECTION EXTRACTION COMPLETE ===');
+    console.log(`Final: ${extractedData.education.length} education, ${extractedData.experience.length} experience, ${extractedData.projects.length} projects, ${extractedData.skills.length} skills`);
+    console.log('==============================================');
+
     // Call GPT-4o with extracted text + links + existing data for comprehensive extraction
+    // REPLACED WITH SECTION-BY-SECTION EXTRACTION ABOVE
+    /*
     const openai = getOpenAI()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -335,6 +593,25 @@ ${resumeText}${linksInfo}${existingDataContext}`,
 
     // Parse the response as json (response_format makes sure gpt answers in correct format)
     const extractedData = JSON.parse(completion.choices[0].message.content || '{}')
+    */
+
+    // Debug logging removed - now handled in section-by-section extraction above
+    /*
+    // Debug logging
+    console.log('=== RESUME EXTRACTION MERGE DEBUG ===');
+    console.log('Existing projects count:', existingDraft?.projects?.length || 0);
+    console.log('Existing skills count:', existingDraft?.skills?.length || 0);
+    console.log('Extracted projects count:', extractedData.projects?.length || 0);
+    console.log('Extracted skills count:', extractedData.skills?.length || 0);
+    
+    if (existingDraft?.projects?.length > 0) {
+      console.log('Sample existing projects:', existingDraft.projects.slice(0, 2).map((p: any) => p.project_name));
+    }
+    if (extractedData.projects?.length > 0) {
+      console.log('Sample extracted projects:', extractedData.projects.slice(0, 2).map((p: any) => p.project_name));
+    }
+    console.log('=====================================');
+    */
 
     // Store in draft table using UPSERT (handles existing drafts)
     // RLS policy prevents duplicate inserts, so we use upsert to update if exists
