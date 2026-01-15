@@ -39,6 +39,7 @@ export function useProfileData() {
   // State
   const [profileData, setProfileData] = useState<ExtractedResumeData>(EMPTY_PROFILE);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftStatus, setDraftStatus] = useState<'editing' | 'published'>('editing');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -59,6 +60,7 @@ export function useProfileData() {
         const response = await api.getDraft();
         if (response.draft) {
           setDraftId(response.draft.id);
+          setDraftStatus(response.draft.status || 'editing');
           
           // Set profile data from draft
           setProfileData({
@@ -89,6 +91,10 @@ export function useProfileData() {
   // Auto-save draft when profileData changes (debounced)
   useEffect(() => {
     if (!draftId) return; // No draft ID yet, can't save
+    if (!isDataLoaded) return; // Don't trigger on initial load
+    
+    // Set status to 'editing' when data changes
+    setDraftStatus('editing');
     
     const timeoutId = setTimeout(async () => {
       try {
@@ -106,14 +112,14 @@ export function useProfileData() {
           certifications: profileData.certifications,
           social_links: profileData.social_links,
         });
-        console.log('Draft auto-saved');
+        console.log('Draft auto-saved with status: editing');
       } catch (error) {
         console.error('Failed to auto-save draft:', error);
       }
     }, 300); // 0.3 second debounce
 
     return () => clearTimeout(timeoutId);
-  }, [profileData, draftId]);
+  }, [profileData, draftId, isDataLoaded]);
 
   // Finalize profile (publish to main tables)
   const handleFinalize = useCallback(async () => {
@@ -171,6 +177,7 @@ export function useProfileData() {
       
       setSaveSuccess(true);
       setShowValidationErrors(false);
+      setDraftStatus('published'); // Mark as published
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
       console.error('Failed to finalize profile:', err);
@@ -186,6 +193,7 @@ export function useProfileData() {
     setProfileData,
     draftId,
     setDraftId,
+    draftStatus,
     isDataLoaded,
     setIsDataLoaded,
     

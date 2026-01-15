@@ -5,13 +5,12 @@
  */
 
 import React from 'react';
-import { X, Trash2, AlertCircle } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { ProjectEntry } from '@/lib/shared/types';
 
 interface ProjectModalProps {
   data: ProjectEntry;
   onChange: (field: keyof ProjectEntry, value: any) => void;
-  onRemove: () => void;
   onClose: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
@@ -20,7 +19,6 @@ interface ProjectModalProps {
 export default function ProjectModal({ 
   data, 
   onChange, 
-  onRemove, 
   onClose, 
   fieldErrors = {}, 
   disabled = false 
@@ -41,28 +39,13 @@ export default function ProjectModal({
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate pr-4">
             {projectName}
           </h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                if (!disabled && confirm('Are you sure you want to delete this project?')) {
-                  onRemove();
-                  onClose();
-                }
-              }}
-              disabled={disabled}
-              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              title="Delete project"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Modal Body */}
