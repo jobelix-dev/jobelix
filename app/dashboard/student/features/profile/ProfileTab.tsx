@@ -23,6 +23,7 @@ interface ProfileTabProps {
   showValidationErrors: boolean;
   showValidationMessage: boolean;
   draftId: string | null;
+  draftStatus: 'editing' | 'published';
   resumeInfo: { filename?: string; uploaded_at?: string } | null;
   uploading: boolean;
   extracting: boolean;
@@ -42,6 +43,7 @@ export default function ProfileTab({
   showValidationErrors,
   showValidationMessage,
   draftId,
+  draftStatus,
   resumeInfo,
   uploading,
   extracting,
@@ -81,6 +83,7 @@ export default function ProfileTab({
         currentSkills={profileData.skills}
         onGitHubImportComplete={handleGitHubImport}
         onImportingChange={setImportingGitHub}
+        draftStatus={draftStatus}
       />
 
       {/* Profile Editor */}

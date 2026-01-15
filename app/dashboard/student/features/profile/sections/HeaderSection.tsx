@@ -8,7 +8,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Github, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Github, AlertCircle, CheckCircle, RefreshCw, CloudUpload, ArrowDown } from 'lucide-react';
 import StatusAlert from '@/app/components/StatusAlert';
 import { useGitHubConnection, useGitHubImport } from '../../../hooks';
 import { ProjectEntry, SkillEntry } from '@/lib/shared/types';
@@ -29,6 +29,9 @@ interface HeaderSectionProps {
   currentSkills: SkillEntry[];
   onGitHubImportComplete: (projects: ProjectEntry[], skills: SkillEntry[]) => void;
   onImportingChange?: (importing: boolean) => void;
+  
+  // Draft status
+  draftStatus?: 'editing' | 'published';
 }
 
 export default function HeaderSection({
@@ -43,6 +46,7 @@ export default function HeaderSection({
   currentSkills,
   onGitHubImportComplete,
   onImportingChange,
+  draftStatus = 'editing',
 }: HeaderSectionProps) {
   const searchParams = useSearchParams();
   const { status, loading: statusLoading, error: connectionError, connect, disconnect } = useGitHubConnection();
@@ -111,8 +115,35 @@ export default function HeaderSection({
 
   return (
     <section className="max-w-2xl mx-auto">
-      {/* Page Header */}
-      <h1 className="text-2xl font-bold mb-4">Complete Your Profile</h1>
+      {/* Page Header with Status */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Complete & Publish Your Profile</h1>
+        
+        {/* Draft Status Indicator */}
+        {draftStatus === 'editing' && (
+          <button
+            onClick={() => {
+              const publishButton = document.getElementById('publish-profile-button');
+              publishButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+          >
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Unpublished Changes
+            </span>
+            <ArrowDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          </button>
+        )}
+        
+        {draftStatus === 'published' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+            <CloudUpload className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-700 dark:text-green-300">
+              Published
+            </span>
+          </div>
+        )}
+      </div>
       
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -240,10 +271,6 @@ export default function HeaderSection({
           </button>
         </div>
       )}
-
-      <p className="text-center text-sm text-zinc-500 dark:text-zinc-500 mb-6">
-        or fill in your information manually below
-      </p>
 
     </section>
   );

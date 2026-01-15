@@ -47,6 +47,7 @@ export default function StudentDashboard() {
               showValidationErrors={profileState.showValidationErrors}
               showValidationMessage={profileState.showValidationMessage}
               draftId={profileState.draftId}
+              draftStatus={profileState.draftStatus}
               resumeInfo={resumeState.resumeInfo}
               uploading={resumeState.uploading}
               extracting={resumeState.extracting}

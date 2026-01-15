@@ -36,6 +36,17 @@ import {
   CertificationsSectionSchema,
   SocialLinksSectionSchema,
 } from '@/lib/server/resumeSchema'
+import {
+  contactPrompt,
+  educationPrompt,
+  experiencePrompt,
+  projectsPrompt,
+  skillsPrompt,
+  languagesPrompt,
+  publicationsPrompt,
+  certificationsPrompt,
+  socialLinksPrompt,
+} from '@/lib/server/prompts'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'
@@ -297,7 +308,6 @@ ${JSON.stringify({
 
     // Section 1: Contact Information
     console.log('Extracting section 1/9: Contact Information...');
-    const contactPrompt = `Extract contact information from the resume. Update with resume data if provided, otherwise keep existing.`;
     const contactData: any = await extractSection(
       resumeText,
       linksInfo,
@@ -319,17 +329,13 @@ ${JSON.stringify({
 
     // Section 2: Education
     console.log(`Extracting section 2/9: Education (${extractedData.education.length} existing)...`);
-    const educationPrompt = `Extract ALL education entries from the resume. 
-PRESERVE all existing education entries and ADD new ones from the resume.
-Compare by school name and degree - only merge if they match closely.
-Your output MUST contain AT LEAST ${extractedData.education.length} entries.`;
     const educationData: any = await extractSection(
       resumeText,
       linksInfo,
       'education',
       extractedData.education,
       EducationSectionSchema,
-      educationPrompt
+      educationPrompt(extractedData.education.length)
     );
     const prevEducationCount = extractedData.education.length;
     extractedData.education = educationData.education;
@@ -337,17 +343,13 @@ Your output MUST contain AT LEAST ${extractedData.education.length} entries.`;
 
     // Section 3: Experience
     console.log(`Extracting section 3/9: Experience (${extractedData.experience.length} existing)...`);
-    const experiencePrompt = `Extract ALL work experience from the resume.
-PRESERVE all existing experience entries and ADD new ones from the resume.
-Compare by company name and position - only merge if they match closely.
-Your output MUST contain AT LEAST ${extractedData.experience.length} entries.`;
     const experienceData: any = await extractSection(
       resumeText,
       linksInfo,
       'experience',
       extractedData.experience,
       ExperienceSectionSchema,
-      experiencePrompt
+      experiencePrompt(extractedData.experience.length)
     );
     const prevExperienceCount = extractedData.experience.length;
     extractedData.experience = experienceData.experience;
@@ -355,19 +357,13 @@ Your output MUST contain AT LEAST ${extractedData.experience.length} entries.`;
 
     // Section 4: Projects (CRITICAL - often includes GitHub projects)
     console.log(`Extracting section 4/9: Projects (${extractedData.projects.length} existing)...`);
-    const projectsPrompt = `Extract ALL projects from the resume.
-⚠️ CRITICAL: PRESERVE ALL existing projects (may include GitHub imports or manual entries).
-Compare by project name and URL - only merge if they clearly match.
-ADD all new projects from the resume.
-Your output MUST contain AT LEAST ${extractedData.projects.length} projects.
-This is an ADDITIVE merge - NEVER reduce the project count!`;
     const projectsData: any = await extractSection(
       resumeText,
       linksInfo,
       'projects',
       extractedData.projects,
       ProjectsSectionSchema,
-      projectsPrompt
+      projectsPrompt(extractedData.projects.length)
     );
     const prevProjectsCount = extractedData.projects.length;
     extractedData.projects = projectsData.projects;
@@ -378,19 +374,13 @@ This is an ADDITIVE merge - NEVER reduce the project count!`;
 
     // Section 5: Skills (CRITICAL - often includes GitHub-derived skills)
     console.log(`Extracting section 5/9: Skills (${extractedData.skills.length} existing)...`);
-    const skillsPrompt = `Extract ALL skills and technologies from the resume.
-⚠️ CRITICAL: PRESERVE ALL existing skills (may include GitHub imports or manual entries).
-Compare by skill name (case-insensitive) - only skip if duplicate.
-ADD all new skills from the resume.
-Your output MUST contain AT LEAST ${extractedData.skills.length} skills.
-This is an ADDITIVE merge - NEVER reduce the skill count!`;
     const skillsData: any = await extractSection(
       resumeText,
       linksInfo,
       'skills',
       extractedData.skills,
       SkillsSectionSchema,
-      skillsPrompt
+      skillsPrompt(extractedData.skills.length)
     );
     const prevSkillsCount = extractedData.skills.length;
     extractedData.skills = skillsData.skills;
@@ -401,16 +391,13 @@ This is an ADDITIVE merge - NEVER reduce the skill count!`;
 
     // Section 6: Languages
     console.log(`Extracting section 6/9: Languages (${extractedData.languages.length} existing)...`);
-    const languagesPrompt = `Extract ALL spoken languages from the resume.
-PRESERVE all existing language entries and ADD new ones from the resume.
-Your output MUST contain AT LEAST ${extractedData.languages.length} entries.`;
     const languagesData: any = await extractSection(
       resumeText,
       linksInfo,
       'languages',
       extractedData.languages,
       LanguagesSectionSchema,
-      languagesPrompt
+      languagesPrompt(extractedData.languages.length)
     );
     const prevLanguagesCount = extractedData.languages.length;
     extractedData.languages = languagesData.languages;
@@ -418,16 +405,13 @@ Your output MUST contain AT LEAST ${extractedData.languages.length} entries.`;
 
     // Section 7: Publications
     console.log(`Extracting section 7/9: Publications (${extractedData.publications.length} existing)...`);
-    const publicationsPrompt = `Extract ALL publications, research papers, or academic work from the resume.
-PRESERVE all existing publication entries and ADD new ones from the resume.
-Your output MUST contain AT LEAST ${extractedData.publications.length} entries.`;
     const publicationsData: any = await extractSection(
       resumeText,
       linksInfo,
       'publications',
       extractedData.publications,
       PublicationsSectionSchema,
-      publicationsPrompt
+      publicationsPrompt(extractedData.publications.length)
     );
     const prevPublicationsCount = extractedData.publications.length;
     extractedData.publications = publicationsData.publications;
@@ -435,16 +419,13 @@ Your output MUST contain AT LEAST ${extractedData.publications.length} entries.`
 
     // Section 8: Certifications
     console.log(`Extracting section 8/9: Certifications (${extractedData.certifications.length} existing)...`);
-    const certificationsPrompt = `Extract ALL certifications, awards, and achievements from the resume.
-PRESERVE all existing certification entries and ADD new ones from the resume.
-Your output MUST contain AT LEAST ${extractedData.certifications.length} entries.`;
     const certificationsData: any = await extractSection(
       resumeText,
       linksInfo,
       'certifications',
       extractedData.certifications,
       CertificationsSectionSchema,
-      certificationsPrompt
+      certificationsPrompt(extractedData.certifications.length)
     );
     const prevCertificationsCount = extractedData.certifications.length;
     extractedData.certifications = certificationsData.certifications;
@@ -452,9 +433,6 @@ Your output MUST contain AT LEAST ${extractedData.certifications.length} entries
 
     // Section 9: Social Links
     console.log(`Extracting section 9/9: Social Links...`);
-    const socialLinksPrompt = `Extract social media profile URLs from the resume.
-Use embedded links when available. Preserve existing links and add new ones.
-Supported: GitHub, LinkedIn, StackOverflow, Kaggle, LeetCode, Portfolio.`;
     const socialLinksData: any = await extractSection(
       resumeText,
       linksInfo,

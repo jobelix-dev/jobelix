@@ -5,16 +5,17 @@
  */
 
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Trash2 } from 'lucide-react';
 import { ProjectEntry } from '@/lib/shared/types';
 
 interface ProjectCardProps {
   data: ProjectEntry;
   onClick: () => void;
+  onRemove: () => void;
   fieldErrors?: Record<string, string>;
 }
 
-export default function ProjectCard({ data, onClick, fieldErrors = {} }: ProjectCardProps) {
+export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} }: ProjectCardProps) {
   const projectName = data.project_name?.trim() || 'Untitled Project';
   const hasErrors = Object.keys(fieldErrors).length > 0;
   
@@ -34,14 +35,30 @@ export default function ProjectCard({ data, onClick, fieldErrors = {} }: Project
     }
   }
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    if (confirm(`Delete "${projectName}"?`)) {
+      onRemove();
+    }
+  };
+
   return (
-    <button
+    <div
       onClick={onClick}
-      className="group relative p-4 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all text-left w-full"
+      className="group relative p-4 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer"
     >
+      {/* Delete button - shows on hover */}
+      <button
+        onClick={handleDelete}
+        className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 bg-white dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-zinc-400 hover:text-red-600 dark:hover:text-red-500 rounded transition-all shadow-sm z-10"
+        title="Delete project"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+
       {/* Error indicator */}
       {hasErrors && (
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-10">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
         </div>
       )}
@@ -64,6 +81,6 @@ export default function ProjectCard({ data, onClick, fieldErrors = {} }: Project
           </span>
         </div>
       )}
-    </button>
+    </div>
   );
 }
