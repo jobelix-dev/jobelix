@@ -5,7 +5,6 @@
 export { default } from './ProfileEditorSection';
 export { default as EducationForm } from './components/EducationForm';
 export { default as ExperienceForm } from './components/ExperienceForm';
-export { default as ProjectForm } from './components/ProjectForm';
 export { default as SkillsInput } from './components/SkillsInput';
 export { default as LanguagesInput } from './components/LanguagesInput';
 export { default as PublicationForm } from './components/PublicationForm';

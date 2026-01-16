@@ -70,7 +70,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
       <div className="max-w-4xl mx-auto">
-        <header className="flex items-center justify-between mb-8">
+        <header className="flex items-center justify-between mb-8 relative z-40">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">

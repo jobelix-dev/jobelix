@@ -142,7 +142,8 @@ export async function POST(request: NextRequest) {
           role,
         },
         // When the user clicks the email confirmation link, they come back here
-        emailRedirectTo: `${request.nextUrl.origin}/auth/callback`,
+        // Use NEXT_PUBLIC_APP_URL if available, otherwise use request origin
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/auth/callback`,
       },
     })
 

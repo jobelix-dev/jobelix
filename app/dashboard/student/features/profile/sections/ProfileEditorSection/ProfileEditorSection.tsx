@@ -8,13 +8,14 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Save, AlertCircle, Check } from 'lucide-react';
 import { ExtractedResumeData } from '@/lib/shared/types';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
-import ProjectForm from './components/ProjectForm';
+import ProjectCard from './components/ProjectCard';
+import ProjectModal from './components/ProjectModal';
 import SkillsInput from './components/SkillsInput';
 import LanguagesInput from './components/LanguagesInput';
 import PublicationForm from './components/PublicationForm';
@@ -53,6 +54,9 @@ export default function ProfileEditorSection({
   
   // Use the custom hook for all data manipulation logic
   const handlers = useProfileEditor({ data, onChange });
+  
+  // Modal state for project editing
+  const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
 
   return (
     <div className="max-w-2xl mx-auto relative">
@@ -244,7 +248,13 @@ export default function ProfileEditorSection({
         {/* Projects */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Projects</h3>
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">
+              Projects {data.projects.length > 0 && (
+                <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+                  ({data.projects.length})
+                </span>
+              )}
+            </h3>
             <button
               onClick={handlers.addProject}
               disabled={disabled}
@@ -256,50 +266,46 @@ export default function ProfileEditorSection({
           </div>
 
           {data.projects.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No projects added yet</p>
+            <p className="text-sm text-zinc-500 text-center py-8">No projects added yet</p>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {data.projects.map((project, index) => (
-                <ProjectForm
+                <ProjectCard
                   key={index}
                   data={project}
-                  onChange={(field, value) => handlers.updateProject(index, field, value)}
+                  onClick={() => setEditingProjectIndex(index)}
                   onRemove={() => handlers.removeProject(index)}
                   fieldErrors={validation?.fieldErrors?.projects?.[index]}
-                  disabled={disabled}
                 />
               ))}
             </div>
           )}
         </div>
 
+        {/* Project Edit Modal */}
+        {editingProjectIndex !== null && (
+          <ProjectModal
+            data={data.projects[editingProjectIndex]}
+            onChange={(field, value) => handlers.updateProject(editingProjectIndex, field, value)}
+            onClose={() => setEditingProjectIndex(null)}
+            fieldErrors={validation?.fieldErrors?.projects?.[editingProjectIndex]}
+            disabled={disabled}
+          />
+        )}
+
         {/* Divider */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Skills */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Skills</h3>
-            <button
-              onClick={handlers.addSkill}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Skill
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Skills</h3>
 
-          {data.skills.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No skills added yet</p>
-          ) : (
-            <SkillsInput
-              skills={data.skills}
-              onChange={handlers.updateSkills}
-              fieldErrors={validation?.fieldErrors.skills}
-              disabled={disabled}
-            />
-          )}
+          <SkillsInput
+            skills={data.skills}
+            onChange={handlers.updateSkills}
+            fieldErrors={validation?.fieldErrors.skills}
+            disabled={disabled}
+          />
         </div>
 
         {/* Divider */}
@@ -418,6 +424,7 @@ export default function ProfileEditorSection({
 
         {/* Save Button */}
         <button
+          id="publish-profile-button"
           onClick={onSave}
           disabled={isSaving || disabled}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
