@@ -7,10 +7,13 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function GitHubCallbackSuccessPage() {
+// Force dynamic rendering - this page should never be statically generated
+export const dynamic = 'force-dynamic';
+
+function CallbackContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('github_error');
 
@@ -58,5 +61,20 @@ export default function GitHubCallbackSuccessPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function GitHubCallbackSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <h1 className="text-xl font-semibold mb-2">Processing...</h1>
+        </div>
+      </div>
+    }>
+      <CallbackContent />
+    </Suspense>
   );
 }
