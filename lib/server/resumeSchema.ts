@@ -117,6 +117,46 @@ export const ChatUpdateSchema = z.object({
   validation_failed: z.boolean().describe('True if the user provided an invalid or unclear answer that needs clarification. False otherwise.'),
 })
 
+// Section-specific schemas for incremental extraction
+export const ContactInfoSchema = z.object({
+  student_name: z.string().nullable(),
+  phone_number: z.string().nullable(),
+  email: z.string().nullable(),
+  address: z.string().nullable(),
+});
+
+export const EducationSectionSchema = z.object({
+  education: z.array(EducationSchema),
+});
+
+export const ExperienceSectionSchema = z.object({
+  experience: z.array(ExperienceSchema),
+});
+
+export const ProjectsSectionSchema = z.object({
+  projects: z.array(ProjectSchema),
+});
+
+export const SkillsSectionSchema = z.object({
+  skills: z.array(SkillSchema),
+});
+
+export const LanguagesSectionSchema = z.object({
+  languages: z.array(LanguageSchema),
+});
+
+export const PublicationsSectionSchema = z.object({
+  publications: z.array(PublicationSchema),
+});
+
+export const CertificationsSectionSchema = z.object({
+  certifications: z.array(CertificationSchema),
+});
+
+export const SocialLinksSectionSchema = z.object({
+  social_links: SocialLinkSchema,
+});
+
 export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>
 export type Education = z.infer<typeof EducationSchema>
 export type Experience = z.infer<typeof ExperienceSchema>

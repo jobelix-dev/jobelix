@@ -10,9 +10,9 @@
 
 'use client';
 
-import { User, Briefcase, Zap, Activity } from 'lucide-react';
+import { User, Briefcase, Zap, Activity, Rocket } from 'lucide-react';
 
-type DashboardTab = 'profile' | 'matches' | 'auto-apply' | 'activity';
+type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
 interface DashboardNavProps {
   activeTab: DashboardTab;
@@ -21,10 +21,10 @@ interface DashboardNavProps {
 
 export default function DashboardNav({ activeTab, onTabChange }: DashboardNavProps) {
   const tabs = [
-    { id: 'profile' as const, label: 'Profile', icon: User },
-    { id: 'auto-apply' as const, label: 'Auto Apply', icon: Zap },
+    { id: 'profile' as const, label: 'My Profile', icon: User },
+    { id: 'job-preferences' as const, label: 'Job Preferences', icon: Zap },
+    { id: 'auto-apply' as const, label: 'Auto Apply', icon: Rocket },
     { id: 'matches' as const, label: 'Matches', icon: Briefcase, comingSoon: true },
-    { id: 'activity' as const, label: 'Activity', icon: Activity, comingSoon: true },
   ];
 
   return (
@@ -37,6 +37,7 @@ export default function DashboardNav({ activeTab, onTabChange }: DashboardNavPro
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => onTabChange(tab.id)}
               className={`
                 flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-t-lg transition-colors

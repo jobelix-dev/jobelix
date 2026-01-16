@@ -3,7 +3,7 @@
  * Compact two-column language containers with proficiency dropdown
  */
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, AlertCircle, ChevronDown } from 'lucide-react';
 import { LanguageEntry } from '@/lib/shared/types';
 
@@ -12,6 +12,70 @@ interface LanguagesInputProps {
   onChange: (languages: LanguageEntry[]) => void;
   fieldErrors?: Record<number, { language_name?: string; proficiency_level?: string }>;
   disabled?: boolean;
+}
+
+const proficiencyLevels: LanguageEntry['proficiency_level'][] = ['Beginner', 'Intermediate', 'Advanced', 'Fluent', 'Native'];
+
+function CustomDropdown({ 
+  value, 
+  onChange, 
+  disabled 
+}: { 
+  value: LanguageEntry['proficiency_level']; 
+  onChange: (value: LanguageEntry['proficiency_level']) => void; 
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div ref={dropdownRef} className="relative flex-shrink-0">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className="appearance-none bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-100 border border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 text-xs pr-7 pl-3 py-2 rounded-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all shadow-sm hover:shadow-md min-w-[110px] text-center"
+      >
+        {value}
+      </button>
+      <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-purple-600 dark:text-purple-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      
+      {isOpen && (
+        <div className="absolute top-full mt-1 min-w-[110px] bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-2xl shadow-lg overflow-hidden z-50 py-1">
+          {proficiencyLevels.map((level) => (
+            <button
+              key={level}
+              type="button"
+              onClick={() => {
+                onChange(level);
+                setIsOpen(false);
+              }}
+              className={`w-full text-center px-3 py-2 text-xs font-medium transition-colors ${
+                value === level
+                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                  : 'text-zinc-900 dark:text-zinc-100 hover:bg-purple-50 dark:hover:bg-purple-900/20'
+              }`}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function LanguagesInput({ languages, onChange, fieldErrors = {}, disabled = false }: LanguagesInputProps) {
@@ -57,21 +121,11 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
                 disabled={disabled}
                 className="flex-1 bg-transparent border-none focus:outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed min-w-0"
               />
-              <div className="relative flex-shrink-0">
-                <select
-                  value={language.proficiency_level}
-                  onChange={(e) => updateLanguage(index, 'proficiency_level', e.target.value as LanguageEntry['proficiency_level'])}
-                  disabled={disabled}
-                  className="appearance-none bg-white dark:bg-zinc-800 border-none focus:outline-none text-xs pr-5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer text-zinc-600 dark:text-zinc-400 rounded px-2 py-1"
-                >
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                  <option value="Fluent">Fluent</option>
-                  <option value="Native">Native</option>
-                </select>
-                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-zinc-400" />
-              </div>
+              <CustomDropdown
+                value={language.proficiency_level}
+                onChange={(level) => updateLanguage(index, 'proficiency_level', level)}
+                disabled={disabled}
+              />
               <button
                 onClick={() => removeLanguage(index)}
                 disabled={disabled}

@@ -1,0 +1,31 @@
+/**
+ * Certifications Section Extraction Prompt
+ * Used for extracting certifications, awards, and achievements from resume
+ */
+
+export const certificationsPrompt = (existingCount: number) => `Extract ALL certifications, licenses, and awards from the resume.
+PRESERVE all existing certifications entries and ADD new ones from the resume.
+Your output MUST contain AT LEAST ${existingCount} entries.
+
+IMPORTANT DISTINCTIONS:
+- Certifications: Professional certifications, licenses, credentials (e.g., "AWS Certified Developer", "PMP Certification", "Google Analytics Certified")
+- Awards: Recognitions, honors, prizes (e.g., "Dean's List", "Best Innovation Award", "Scholarship Winner")
+- DO NOT INCLUDE: Projects, GitHub repositories, or work experience - these belong in other sections
+
+Extract from resume sections like: Certifications, Licenses, Awards, Honors, Achievements, Credentials
+
+Expected JSON format for each entry:
+{
+  "name": "Certification or Award Name",
+  "issuing_organization": "Organization that issued it" or null,
+  "url": "Verification URL if available" or null
+}
+
+Examples:
+- "AWS Certified Solutions Architect" by Amazon Web Services
+- "Professional Scrum Master (PSM I)" by Scrum.org
+- "Dean's List Spring 2023" by University Name
+- "Google Cloud Professional Data Engineer" with certification URL
+
+DO NOT extract GitHub repos, personal projects, or work experience as certifications.`;
+

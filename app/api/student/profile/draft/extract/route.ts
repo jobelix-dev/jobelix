@@ -1,5 +1,5 @@
 /**
- * Resume Data Extraction API Route (Enhanced with Link Extraction)
+ * Resume Data Extraction API Route (Enhanced with Link Extraction + GitHub Integration)
  * 
  * Extracts structured data from PDF using pdfjs-dist + OpenAI GPT-4o.
  * Route: POST /api/student/profile/draft/extract
@@ -12,6 +12,7 @@
  * - Extracts text content from all PDF pages (page.getTextContent())
  * - Extracts link annotations from PDF (page.getAnnotations()) - captures embedded URLs
  * - Provides both text + links to OpenAI for comprehensive extraction
+ * - **NEW:** Checks for GitHub OAuth connection and merges GitHub repo data with resume data
  */
 
 import "server-only";
@@ -23,10 +24,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
-import { ResumeExtractionSchema } from '@/lib/server/resumeSchema'
+import { 
+  ResumeExtractionSchema,
+  ContactInfoSchema,
+  EducationSectionSchema,
+  ExperienceSectionSchema,
+  ProjectsSectionSchema,
+  SkillsSectionSchema,
+  LanguagesSectionSchema,
+  PublicationsSectionSchema,
+  CertificationsSectionSchema,
+  SocialLinksSectionSchema,
+} from '@/lib/server/resumeSchema'
+import {
+  contactPrompt,
+  educationPrompt,
+  experiencePrompt,
+  projectsPrompt,
+  skillsPrompt,
+  languagesPrompt,
+  publicationsPrompt,
+  certificationsPrompt,
+  socialLinksPrompt,
+} from '@/lib/server/prompts'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'
+import { getGitHubConnection } from '@/lib/server/githubOAuth'
+import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService'
 
 // Configure worker for Node.js serverless environment
 // Point to the worker file in node_modules
@@ -47,12 +72,57 @@ function getOpenAI() {
 }
 
 /**
+ * Helper function to extract a specific section from resume
+ * Uses the full resume text but focuses on extracting just one section
+ */
+async function extractSection<T>(
+  resumeText: string,
+  linksInfo: string,
+  sectionName: string,
+  existingSectionData: any,
+  schema: any,
+  systemPrompt: string
+): Promise<T> {
+  const openai = getOpenAI();
+  
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: `Extract the ${sectionName} section from this resume and merge with existing data.
+
+**FULL RESUME TEXT:**
+${resumeText}${linksInfo}
+
+**EXISTING ${sectionName.toUpperCase()} DATA (MUST ALL BE PRESERVED):**
+${JSON.stringify(existingSectionData, null, 2)}
+${existingSectionData && existingSectionData.length > 0 ? `Count: ${existingSectionData.length} existing entries` : 'No existing data'}
+
+Focus ONLY on the ${sectionName} section. PRESERVE all existing entries and ADD new ones from the resume.
+Your output MUST contain AT LEAST ${existingSectionData?.length || 0} entries.`,
+      },
+    ],
+    response_format: zodResponseFormat(schema, `${sectionName}_extraction`),
+  });
+
+  return JSON.parse(completion.choices[0].message.content || '{}');
+}
+
+/**
  * POST handler for resume data extraction
  * 
- * Processes uploaded PDF resume using pdfjs-dist to extract:
- * 1. Text content from all pages (visible text layer)
- * 2. Link annotations (embedded URLs - GitHub, LinkedIn, project links, etc.)
- * 3. Combines text + extracted links and sends to OpenAI for structured parsing
+ * Processes uploaded PDF resume section by section:
+ * 1. Extract text content from all pages once
+ * 2. For each section (education, experience, projects, etc.):
+ *    - Send full resume text + current section data
+ *    - LLM focuses on just that section
+ *    - Merge result with existing data
+ * 3. Update draft incrementally
  */
 export async function POST(request: NextRequest) {
   try {
@@ -61,6 +131,15 @@ export async function POST(request: NextRequest) {
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
+
+    // Fetch EXISTING draft data (if any) to merge with new PDF extraction
+    const { data: existingDraft } = await supabase
+      .from('student_profile_draft')
+      .select('*')
+      .eq('student_id', user.id)
+      .single()
+
+    console.log('Existing draft found:', !!existingDraft)
 
     // Get the file from Supabase Storage
     const userId = user.id
@@ -168,112 +247,206 @@ export async function POST(request: NextRequest) {
         }).join('\n')}`
       : ''
 
-    // Call GPT-4o with extracted text + links for comprehensive extraction
-    const openai = getOpenAI()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert resume parser. Extract ALL structured information from the resume with maximum accuracy.
+    // Prepare existing draft data for merging context
+    const existingDataContext = existingDraft ? `
 
-CRITICAL EXTRACTION RULES:
+**EXISTING PROFILE DATA (to merge with):**
+${JSON.stringify({
+  student_name: existingDraft.student_name,
+  email: existingDraft.email,
+  phone_number: existingDraft.phone_number,
+  address: existingDraft.address,
+  education: existingDraft.education,
+  experience: existingDraft.experience,
+  projects: existingDraft.projects,
+  skills: existingDraft.skills,
+  languages: existingDraft.languages,
+  publications: existingDraft.publications,
+  certifications: existingDraft.certifications,
+  social_links: existingDraft.social_links,
+}, null, 2)}
 
-1. PERSONAL INFORMATION:
-   - student_name: Full name as written (required)
-   - phone_number: Complete phone number with country code if present, only digits and '+' sign
-   - email: Email address (required)
-   - address: Full address including city, state/country
+⚠️ EXISTING PROJECTS COUNT: ${existingDraft.projects?.length || 0} projects
+⚠️ EXISTING SKILLS COUNT: ${existingDraft.skills?.length || 0} skills
 
-2. EDUCATION (extract ALL education entries):
-   - school_name: Full institution name (required for each entry)
-   - degree: Complete degree name (e.g., "Bachelor of Science in Computer Science", "MBA", "High School Diploma")
-   - description: GPA, honors, relevant coursework, achievements - be detailed
-   - start_year, start_month: When studies began (integers, month 1-12)
-   - end_year, end_month: When studies ended (null if ongoing)
-   - Order: Most recent first
+**CRITICAL MERGING INSTRUCTIONS:**
+- **PRESERVE ALL existing entries** - do not delete any existing projects, skills, experience, etc.
+- **ADD new entries** from the resume that don't exist in current data
+- **ENHANCE existing entries** if the resume provides additional details (merge descriptions, add missing fields)
+- **UPDATE basic contact info** (name, email, phone, address) with resume data if provided
+- **For duplicate detection:** Compare project names, company names, skill names case-insensitively
+  - If a project/experience/skill appears in BOTH existing data AND resume, merge the information (combine unique details)
+  - If a project/experience/skill appears ONLY in existing data, KEEP IT (do not remove)
+  - If a project/experience/skill appears ONLY in resume, ADD IT
 
-3. EXPERIENCE (extract ALL work experience):
-   - organisation_name: Full company/organization name (required for each entry)
-   - position_name: Complete job title (required for each entry)
-   - description: Detailed responsibilities, achievements, technologies used - extract ALL bullet points
-   - start_year, start_month: Employment start date (integers)
-   - end_year, end_month: Employment end date (null if current position)
-   - Order: Most recent first
+⚠️ YOUR OUTPUT MUST CONTAIN AT LEAST ${existingDraft.projects?.length || 0} PROJECTS AND ${existingDraft.skills?.length || 0} SKILLS
+⚠️ This is an ADDITIVE merge - never reduce the number of items!
+- **NEVER delete existing data** - the user may have manually entered or imported from GitHub
+- **Think of this as ADDITIVE merging** - start with all existing data, then add/enhance from resume
+- **Example:** If existing data has 5 projects and resume has 3 projects with 1 overlap:
+  - Result should have AT LEAST 7 projects (4 from existing only + 3 from resume, with 1 merged)
+` : '\n**Note:** This is the first resume upload for this user. Extract all data from the resume.\n'
 
-4. PROJECTS (extract ALL projects):
-   - project_name: Project title (required for each entry)
-   - description: Detailed description, technologies used, your role, outcomes
-   - link: GitHub URL, live demo, or project website - **USE EMBEDDED LINKS when available**
+    console.log('=== STARTING SECTION-BY-SECTION EXTRACTION ===');
+    const openai = getOpenAI();
+    
+    // Initialize extracted data with existing data or empty structure
+    const extractedData: any = {
+      student_name: existingDraft?.student_name || null,
+      phone_number: existingDraft?.phone_number || null,
+      email: existingDraft?.email || null,
+      address: existingDraft?.address || null,
+      education: existingDraft?.education || [],
+      experience: existingDraft?.experience || [],
+      projects: existingDraft?.projects || [],
+      skills: existingDraft?.skills || [],
+      languages: existingDraft?.languages || [],
+      publications: existingDraft?.publications || [],
+      certifications: existingDraft?.certifications || [],
+      social_links: existingDraft?.social_links || {},
+    };
 
-5. SKILLS (extract ALL technical skills):
-   - skill_name: Technology/tool name (e.g., "JavaScript", "React", "Python", "Docker")
-   - skill_slug: Lowercase, hyphenated version (e.g., "javascript", "react", "python", "docker")
-   - Extract programming languages, frameworks, libraries, tools, platforms, methodologies
+    // Section 1: Contact Information
+    console.log('Extracting section 1/9: Contact Information...');
+    const contactData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'contact_info',
+      {
+        student_name: extractedData.student_name,
+        phone_number: extractedData.phone_number,
+        email: extractedData.email,
+        address: extractedData.address,
+      },
+      ContactInfoSchema,
+      contactPrompt
+    );
+    extractedData.student_name = contactData.student_name || extractedData.student_name;
+    extractedData.phone_number = contactData.phone_number || extractedData.phone_number;
+    extractedData.email = contactData.email || extractedData.email;
+    extractedData.address = contactData.address || extractedData.address;
+    console.log(`✓ Contact info extracted`);
 
-6. LANGUAGES (extract ALL spoken languages):
-   - language_name: Language name (e.g., "English", "Spanish", "Mandarin")
-   - proficiency_level: Must be one of: "Native", "Fluent", "Advanced", "Intermediate", "Beginner"
-   - Estimate proficiency from context clues (e.g., "fluent", "conversational", "basic")
+    // Section 2: Education
+    console.log(`Extracting section 2/9: Education (${extractedData.education.length} existing)...`);
+    const educationData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'education',
+      extractedData.education,
+      EducationSectionSchema,
+      educationPrompt(extractedData.education.length)
+    );
+    const prevEducationCount = extractedData.education.length;
+    extractedData.education = educationData.education;
+    console.log(`✓ Education: ${prevEducationCount} → ${extractedData.education.length} entries (+${extractedData.education.length - prevEducationCount})`);
 
-7. PUBLICATIONS (extract ALL papers, articles, blog posts):
-   - title: Full publication title (required for each entry)
-   - journal_name: Where published (journal, conference, blog platform)
-   - description: Abstract summary, key findings, your contribution
-   - publication_year, publication_month: When published (integers)
-   - link: DOI, URL, or publication link - **USE EMBEDDED LINKS when available**
+    // Section 3: Experience
+    console.log(`Extracting section 3/9: Experience (${extractedData.experience.length} existing)...`);
+    const experienceData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'experience',
+      extractedData.experience,
+      ExperienceSectionSchema,
+      experiencePrompt(extractedData.experience.length)
+    );
+    const prevExperienceCount = extractedData.experience.length;
+    extractedData.experience = experienceData.experience;
+    console.log(`✓ Experience: ${prevExperienceCount} → ${extractedData.experience.length} entries (+${extractedData.experience.length - prevExperienceCount})`);
 
-8. CERTIFICATIONS & AWARDS (extract ALL certifications, licenses, awards):
-   - name: Full certification/award name (required for each entry)
-   - issuing_organization: Issuing body (e.g., "AWS", "Google", "Microsoft")
-   - url: Verification link or credential URL - **USE EMBEDDED LINKS when available**
+    // Section 4: Projects (CRITICAL - often includes GitHub projects)
+    console.log(`Extracting section 4/9: Projects (${extractedData.projects.length} existing)...`);
+    const projectsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'projects',
+      extractedData.projects,
+      ProjectsSectionSchema,
+      projectsPrompt(extractedData.projects.length)
+    );
+    const prevProjectsCount = extractedData.projects.length;
+    extractedData.projects = projectsData.projects;
+    console.log(`✓ Projects: ${prevProjectsCount} → ${extractedData.projects.length} entries (+${extractedData.projects.length - prevProjectsCount})`);
+    if (extractedData.projects.length < prevProjectsCount) {
+      console.error(`⚠️ WARNING: Projects count DECREASED! ${prevProjectsCount} → ${extractedData.projects.length}`);
+    }
 
-9. SOCIAL LINKS (extract ONLY these specific platforms):
-   - github: GitHub profile URL (e.g., "https://github.com/username")
-   - linkedin: LinkedIn profile URL (e.g., "https://www.linkedin.com/in/username")
-   - stackoverflow: Stack Overflow profile URL (e.g., "https://stackoverflow.com/users/...")
-   - kaggle: Kaggle profile URL (e.g., "https://www.kaggle.com/username")
-   - leetcode: LeetCode profile URL (e.g., "https://leetcode.com/username")
-   - **PRIORITIZE embedded links from PDF over text URLs**
-   - Match embedded links to platforms based on domain (github.com, linkedin.com, etc.)
-   - Set field to null if platform not found
+    // Section 5: Skills (CRITICAL - often includes GitHub-derived skills)
+    console.log(`Extracting section 5/9: Skills (${extractedData.skills.length} existing)...`);
+    const skillsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'skills',
+      extractedData.skills,
+      SkillsSectionSchema,
+      skillsPrompt(extractedData.skills.length)
+    );
+    const prevSkillsCount = extractedData.skills.length;
+    extractedData.skills = skillsData.skills;
+    console.log(`✓ Skills: ${prevSkillsCount} → ${extractedData.skills.length} entries (+${extractedData.skills.length - prevSkillsCount})`);
+    if (extractedData.skills.length < prevSkillsCount) {
+      console.error(`⚠️ WARNING: Skills count DECREASED! ${prevSkillsCount} → ${extractedData.skills.length}`);
+    }
 
-10. DATE FORMATTING:
-    - year: 4-digit integer (e.g., 2024)
-    - month: Integer 1-12 (Jan=1, Feb=2, ..., Dec=12)
-    - Current/ongoing positions: set end_year and end_month to null
-    - If only year is mentioned, set month to null
+    // Section 6: Languages
+    console.log(`Extracting section 6/9: Languages (${extractedData.languages.length} existing)...`);
+    const languagesData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'languages',
+      extractedData.languages,
+      LanguagesSectionSchema,
+      languagesPrompt(extractedData.languages.length)
+    );
+    const prevLanguagesCount = extractedData.languages.length;
+    extractedData.languages = languagesData.languages;
+    console.log(`✓ Languages: ${prevLanguagesCount} → ${extractedData.languages.length} entries (+${extractedData.languages.length - prevLanguagesCount})`);
 
-11. DATA QUALITY:
-    - Extract information EXACTLY as written in resume
-    - **When embedded links are provided WITH CONTEXT, use the context to understand what the link is for**
-    - Example: If you see 'Text: "GitHub" → URL: https://github.com/username', put that URL in social_links.github
-    - Example: If you see 'Text: "Project Demo" → URL: https://example.com/demo', put that URL in the corresponding project's link field
-    - **Match links to the appropriate fields based on their context text and URL domain**
-    - Do NOT invent or infer information not present
-    - Set fields to null if truly not found
-    - Preserve ALL details from descriptions and bullet points
-    - Maintain chronological order (recent first)`,
-        },
-        {
-          role: 'user',
-          content: `Extract ALL information from this resume. Be thorough and detailed.
+    // Section 7: Publications
+    console.log(`Extracting section 7/9: Publications (${extractedData.publications.length} existing)...`);
+    const publicationsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'publications',
+      extractedData.publications,
+      PublicationsSectionSchema,
+      publicationsPrompt(extractedData.publications.length)
+    );
+    const prevPublicationsCount = extractedData.publications.length;
+    extractedData.publications = publicationsData.publications;
+    console.log(`✓ Publications: ${prevPublicationsCount} → ${extractedData.publications.length} entries (+${extractedData.publications.length - prevPublicationsCount})`);
 
-**IMPORTANT:** I have extracted embedded link annotations from the PDF along with their context text. 
-- When you see 'Text: "..." → URL: ...', the text shows what was clickable in the PDF
-- Use this context to understand what each link is for (social profile, project demo, publication, etc.)
-- Match links to the appropriate fields based on context and domain
+    // Section 8: Certifications
+    console.log(`Extracting section 8/9: Certifications (${extractedData.certifications.length} existing)...`);
+    const certificationsData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'certifications',
+      extractedData.certifications,
+      CertificationsSectionSchema,
+      certificationsPrompt(extractedData.certifications.length)
+    );
+    const prevCertificationsCount = extractedData.certifications.length;
+    extractedData.certifications = certificationsData.certifications;
+    console.log(`✓ Certifications: ${prevCertificationsCount} → ${extractedData.certifications.length} entries (+${extractedData.certifications.length - prevCertificationsCount})`);
 
-Resume text:
+    // Section 9: Social Links
+    console.log(`Extracting section 9/9: Social Links...`);
+    const socialLinksData: any = await extractSection(
+      resumeText,
+      linksInfo,
+      'social_links',
+      extractedData.social_links,
+      SocialLinksSectionSchema,
+      socialLinksPrompt
+    );
+    extractedData.social_links = socialLinksData.social_links;
+    console.log(`✓ Social links extracted`);
 
-${resumeText}${linksInfo}`,
-        },
-      ],
-      response_format: zodResponseFormat(ResumeExtractionSchema, 'resume_extraction'),
-    })
-
-    // Parse the response as json (response_format makes sure gpt answers in correct format)
-    const extractedData = JSON.parse(completion.choices[0].message.content || '{}')
+    console.log('=== SECTION-BY-SECTION EXTRACTION COMPLETE ===');
+    console.log(`Final: ${extractedData.education.length} education, ${extractedData.experience.length} experience, ${extractedData.projects.length} projects, ${extractedData.skills.length} skills`);
+    console.log('==============================================');
 
     // Store in draft table using UPSERT (handles existing drafts)
     // RLS policy prevents duplicate inserts, so we use upsert to update if exists

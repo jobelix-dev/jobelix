@@ -18,7 +18,7 @@ export default function LoadingOverlay({
   submessage 
 }: LoadingOverlayProps) {
   return (
-    <div className="absolute -inset-2 z-50 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-lg flex flex-col items-center pt-8">
+    <div className="absolute -inset-2 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-lg flex flex-col items-center pt-8">
       <div className="text-center mb-4">
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {message}

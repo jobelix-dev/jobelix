@@ -9,20 +9,21 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, Dispatch, SetStateAction } from 'react';
 import { api } from '@/lib/client/api';
 import ProfileEditorSection from './sections/ProfileEditorSection';
-import ResumeSection from './sections/ResumeSection';
+import HeaderSection from './sections/HeaderSection';
 import type { ExtractedResumeData } from '@/lib/shared/types';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 
 interface ProfileTabProps {
   profileData: ExtractedResumeData;
-  setProfileData: (data: ExtractedResumeData) => void;
+  setProfileData: Dispatch<SetStateAction<ExtractedResumeData>>;
   validation: ProfileValidationResult;
   showValidationErrors: boolean;
   showValidationMessage: boolean;
   draftId: string | null;
+  draftStatus: 'editing' | 'published';
   resumeInfo: { filename?: string; uploaded_at?: string } | null;
   uploading: boolean;
   extracting: boolean;
@@ -42,6 +43,7 @@ export default function ProfileTab({
   showValidationErrors,
   showValidationMessage,
   draftId,
+  draftStatus,
   resumeInfo,
   uploading,
   extracting,
@@ -53,10 +55,23 @@ export default function ProfileTab({
   handleDownload,
   handleFinalize,
 }: ProfileTabProps) {
+  const [importingGitHub, setImportingGitHub] = useState(false);
+
+  // Handler for GitHub import completion - ONLY update projects and skills
+  const handleGitHubImport = (projects: any[], skills: any[]) => {
+    // Preserve ALL existing profile data, only update projects and skills
+    // Using functional update to avoid stale closure issues
+    setProfileData((prevData) => ({
+      ...prevData,
+      projects,
+      skills,
+    }));
+  };
+
   return (
     <>
-      {/* Resume Upload Section */}
-      <ResumeSection
+      {/* Header Section with Resume Upload and GitHub Integration */}
+      <HeaderSection
         resumeInfo={resumeInfo}
         uploading={uploading}
         extracting={extracting}
@@ -64,6 +79,11 @@ export default function ProfileTab({
         uploadError={uploadError}
         onFileChange={handleFileChange}
         onDownload={handleDownload}
+        currentProjects={profileData.projects}
+        currentSkills={profileData.skills}
+        onGitHubImportComplete={handleGitHubImport}
+        onImportingChange={setImportingGitHub}
+        draftStatus={draftStatus}
       />
 
       {/* Profile Editor */}
@@ -74,9 +94,9 @@ export default function ProfileTab({
         isSaving={finalizing}
         canSave={validation.isValid}
         validation={showValidationErrors ? validation : undefined}
-        disabled={uploading || extracting}
-        loadingMessage={uploading ? 'Uploading Resume...' : extracting ? 'Extracting Data...' : undefined}
-        loadingSubmessage={uploading ? 'Please wait while we upload your resume' : extracting ? 'AI is analyzing your resume and extracting information' : undefined}
+        disabled={uploading || extracting || importingGitHub}
+        loadingMessage={uploading ? 'Uploading Resume...' : extracting ? 'Extracting Data...' : importingGitHub ? 'Importing from GitHub...' : undefined}
+        loadingSubmessage={uploading ? 'Please wait while we upload your resume' : extracting ? 'AI is analyzing your resume and extracting information' : importingGitHub ? 'Fetching repositories and merging with your profile' : undefined}
         saveSuccess={saveSuccess}
         showValidationErrors={showValidationMessage}
       />

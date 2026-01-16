@@ -17,7 +17,8 @@ CREATE OR REPLACE FUNCTION public.protect_immutable_columns()
 AS $function$
 BEGIN
   -- Protect primary key (id) - skip tables with composite keys or special cases
-  IF TG_TABLE_NAME NOT IN ('credit_purchases', 'user_credits', 'daily_credit_grants') THEN
+  -- resume table uses student_id as PK, not id
+  IF TG_TABLE_NAME NOT IN ('credit_purchases', 'user_credits', 'daily_credit_grants', 'resume') THEN
     IF OLD.id IS DISTINCT FROM NEW.id THEN
       RAISE EXCEPTION 'Cannot update primary key column: id';
     END IF;
