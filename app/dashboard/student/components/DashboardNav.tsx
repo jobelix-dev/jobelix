@@ -37,6 +37,7 @@ export default function DashboardNav({ activeTab, onTabChange }: DashboardNavPro
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => onTabChange(tab.id)}
               className={`
                 flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-t-lg transition-colors

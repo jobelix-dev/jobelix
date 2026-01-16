@@ -2,7 +2,7 @@
  * Bot Control Section - Credits and Launch Controls
  */
 
-import { Rocket } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import CreditsPanel from './components/CreditsPanel';
 import BotLaunchPanel from './components/BotLaunchPanel';
 
@@ -30,21 +30,36 @@ interface BotControlSectionProps {
 export default function BotControlSection({ credits, botLauncher }: BotControlSectionProps) {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-          <Rocket className="w-6 h-6 text-zinc-600 dark:text-zinc-400" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            Auto Apply Bot
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-3 leading-relaxed">
-            This auto-apply bot is currently in beta and provided on an experimental basis.
-            Use is at your own discretion. We are not responsible for any account restrictions,
-            suspensions, or other consequences resulting from its use.
-          </p>
-        </div>
+      {/* Features List */}
+      <div className="mb-6 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+        <ul className="space-y-3">
+          <li className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              Finds jobs matching your preferences
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              Generates tailored resumes and cover letters for each job based on their requirements
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              Fills forms using AI to answer questions based off your profile data
+            </span>
+          </li>
+        </ul>
       </div>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
+        This auto-apply bot is currently in beta and provided on an experimental basis.
+        Use is at your own discretion. We are not responsible for any account restrictions,
+        suspensions, or other consequences resulting from its use.
+      </p>
 
       <div className="grid md:grid-cols-2 gap-6">
         <CreditsPanel {...credits} />

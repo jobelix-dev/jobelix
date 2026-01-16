@@ -23,7 +23,7 @@ export default function BlacklistSection({
 }: BlacklistSectionProps) {
   return (
     <div className="space-y-4">
-      <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
         <Ban className="w-4 h-4" />
         Filters & Exclusions
       </h4>
@@ -33,8 +33,7 @@ export default function BlacklistSection({
         placeholder="e.g., CompanyName Inc"
         value={companyBlacklist}
         onChange={(val) => onChange('company_blacklist', val)}
-        icon={<Ban className="w-4 h-4" />}
-        tagColorClass="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
       />
 
       <ArrayInputField
@@ -42,8 +41,7 @@ export default function BlacklistSection({
         placeholder="e.g., Senior, Lead"
         value={titleBlacklist}
         onChange={(val) => onChange('title_blacklist', val)}
-        icon={<Ban className="w-4 h-4" />}
-        tagColorClass="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
       />
     </div>
   );
