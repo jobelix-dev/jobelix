@@ -12,18 +12,21 @@ import { Briefcase, MapPin, DollarSign } from 'lucide-react';
 export default function MatchesTab() {
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-          Job Matches
-        </h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Startups looking for talent like you
-        </p>
+      {/* Page Header */}
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-2">
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            Job Matches
+          </h2>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+            Startups looking for talent like you
+          </p>
+        </div>
       </div>
 
       {/* Empty State */}
-      <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-12 text-center">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-12 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">
           <Briefcase className="w-8 h-8 text-blue-600 dark:text-blue-400" />
         </div>
@@ -36,6 +39,7 @@ export default function MatchesTab() {
         <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto">
           We're building a smart matching system to connect you with startups looking for talent like you.
         </p>
+        </div>
       </div>
 
       {/* Placeholder for future matches */}

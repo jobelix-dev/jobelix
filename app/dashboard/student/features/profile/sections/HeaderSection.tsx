@@ -116,8 +116,13 @@ export default function HeaderSection({
   return (
     <section className="max-w-2xl mx-auto">
       {/* Page Header with Status */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+            Set and publish your profile to receive better startup matches <br /> and enable the LinkedIn Auto-Apply bot
+          </p>
+        </div>
         
         {/* Draft Status Indicator */}
         {draftStatus === 'editing' && (
@@ -126,7 +131,7 @@ export default function HeaderSection({
               const publishButton = document.getElementById('publish-profile-button');
               publishButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer flex-shrink-0"
           >
             <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
               Unpublished Changes
@@ -136,7 +141,7 @@ export default function HeaderSection({
         )}
         
         {draftStatus === 'published' && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 flex-shrink-0">
             <CloudUpload className="w-4 h-4 text-green-600 dark:text-green-400" />
             <span className="text-sm font-medium text-green-700 dark:text-green-300">
               Published
@@ -146,7 +151,7 @@ export default function HeaderSection({
       </div>
       
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6">
         {/* Resume Upload Card */}
         <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <h3 className="font-semibold mb-2 flex items-center gap-2">
@@ -239,6 +244,9 @@ export default function HeaderSection({
           )}
         </div>
       </div>
+
+      {/* Divider */}
+      <div className="border-t border-zinc-200 dark:border-zinc-800 mb-6"></div>
 
       {/* Status Messages */}
       {uploadError && (

@@ -74,7 +74,7 @@ const defaultPreferences: WorkPreferences = {
   remote_work: true,
   exp_internship: false,
   exp_entry: true,
-  exp_associate: false,
+  exp_associate: true,
   exp_mid_senior: false,
   exp_director: false,
   exp_executive: false,
@@ -90,34 +90,36 @@ const defaultPreferences: WorkPreferences = {
   date_month: false,
   date_all_time: false,
   positions: [],
-  locations: ['United States'],
+  locations: ['France'],
   company_blacklist: [],
   title_blacklist: [],
-  date_of_birth: '1990-01-01',
-  pronouns: 'They/Them',
-  gender: 'Prefer not to say',
+  date_of_birth: '2000-01-01',
+  pronouns: 'he/him',
+  gender: 'Male',
   is_veteran: false,
   has_disability: false,
-  ethnicity: 'Prefer not to say',
-  eu_work_authorization: false,
-  us_work_authorization: true,
+  ethnicity: 'European',
+  eu_work_authorization: true,
+  us_work_authorization: false,
   in_person_work: true,
-  open_to_relocation: false,
+  open_to_relocation: true,
   willing_to_complete_assessments: true,
   willing_to_undergo_drug_tests: true,
   willing_to_undergo_background_checks: true,
-  notice_period: '2 weeks',
-  salary_expectation_usd: 80000,
+  notice_period: '1 day',
+  salary_expectation_usd: 1000,
 };
 
-export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void }) {
+export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { onSave?: () => void; onUnsavedChanges?: (hasChanges: boolean) => void }) {
   const [preferences, setPreferences] = useState<WorkPreferences>(defaultPreferences);
+  const [initialPreferences, setInitialPreferences] = useState<WorkPreferences>(defaultPreferences);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [validationWarning, setValidationWarning] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Fetch existing preferences on mount
   useEffect(() => {
@@ -127,7 +129,9 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
         const data = await response.json();
         
         if (data.preferences) {
-          setPreferences({ ...defaultPreferences, ...data.preferences });
+          const loadedPrefs = { ...defaultPreferences, ...data.preferences };
+          setPreferences(loadedPrefs);
+          setInitialPreferences(loadedPrefs);
         }
       } catch (error) {
         console.error('Failed to fetch preferences:', error);
@@ -138,6 +142,15 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
 
     fetchPreferences();
   }, []);
+
+  // Track unsaved changes
+  useEffect(() => {
+    const hasChanges = JSON.stringify(preferences) !== JSON.stringify(initialPreferences);
+    setHasUnsavedChanges(hasChanges);
+    if (onUnsavedChanges) {
+      onUnsavedChanges(hasChanges);
+    }
+  }, [preferences, initialPreferences, onUnsavedChanges]);
 
   // Generic field updater
   const updateField = (field: string, value: any) => {
@@ -218,6 +231,10 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
         throw new Error('Failed to save preferences');
       }
 
+      // Update initial preferences to current state after successful save
+      setInitialPreferences(preferences);
+      setHasUnsavedChanges(false);
+      
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       
@@ -252,103 +269,92 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-2xl mx-auto space-y-6">
       {/* Validation warning */}
       {validationWarning && (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          <span className="text-amber-700 dark:text-amber-300">{validationWarning}</span>
+        <div className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm shadow-sm">
+          <AlertCircle className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+          <span className="text-purple-700 dark:text-purple-300">{validationWarning}</span>
         </div>
       )}
 
       {/* Save error feedback */}
       {saveError && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm">
-          <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-          <span className="text-red-700 dark:text-red-300">{saveError}</span>
+        <div className="flex items-center gap-2 p-3 bg-purple-100/60 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg text-sm shadow-sm">
+          <AlertCircle className="w-4 h-4 text-purple-700 dark:text-purple-400 flex-shrink-0" />
+          <span className="text-purple-800 dark:text-purple-300">{saveError}</span>
         </div>
       )}
 
       {/* Main Container */}
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">
-            Job Search Preferences
+            Main Settings
           </h3>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {saveSuccess ? (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                Saved
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save'}
-              </>
-            )}
-          </button>
         </div>
 
         {/* Essential Fields */}
         <div className="space-y-4">
           {/* Target Positions & Locations */}
-          <SearchCriteriaSection
-            positions={preferences.positions}
-            locations={preferences.locations}
-            remoteWork={preferences.remote_work}
-            onChange={updateSearchCriteria}
-          />
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+            <SearchCriteriaSection
+              positions={preferences.positions}
+              locations={preferences.locations}
+              remoteWork={preferences.remote_work}
+              onChange={updateSearchCriteria}
+            />
+          </div>
 
           {/* Experience Levels & Job Types Side by Side */}
           <div className="grid grid-cols-2 gap-4">
-            <ExperienceLevelsSection
-              values={{
-                exp_internship: preferences.exp_internship,
-                exp_entry: preferences.exp_entry,
-                exp_associate: preferences.exp_associate,
-                exp_mid_senior: preferences.exp_mid_senior,
-                exp_director: preferences.exp_director,
-                exp_executive: preferences.exp_executive,
-              }}
-              onChange={updateCheckbox}
-            />
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+              <ExperienceLevelsSection
+                values={{
+                  exp_internship: preferences.exp_internship,
+                  exp_entry: preferences.exp_entry,
+                  exp_associate: preferences.exp_associate,
+                  exp_mid_senior: preferences.exp_mid_senior,
+                  exp_director: preferences.exp_director,
+                  exp_executive: preferences.exp_executive,
+                }}
+                onChange={updateCheckbox}
+              />
+            </div>
 
-            <JobTypesSection
-              values={{
-                job_full_time: preferences.job_full_time,
-                job_part_time: preferences.job_part_time,
-                job_contract: preferences.job_contract,
-                job_temporary: preferences.job_temporary,
-                job_internship: preferences.job_internship,
-                job_volunteer: preferences.job_volunteer,
-                job_other: preferences.job_other,
-              }}
-              onChange={updateCheckbox}
-            />
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+              <JobTypesSection
+                values={{
+                  job_full_time: preferences.job_full_time,
+                  job_part_time: preferences.job_part_time,
+                  job_contract: preferences.job_contract,
+                  job_temporary: preferences.job_temporary,
+                  job_internship: preferences.job_internship,
+                  job_volunteer: preferences.job_volunteer,
+                  job_other: preferences.job_other,
+                }}
+                onChange={updateCheckbox}
+              />
+            </div>
           </div>
         </div>
 
         {/* Advanced Settings Toggle */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
+        <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-6">
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+            className="flex items-center gap-2 text-sm font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 transition-colors"
           >
             {showAdvanced ? (
               <>
                 <ChevronUp className="w-4 h-4" />
-                Hide optional settings
+                Hide Optional Settings
               </>
             ) : (
               <>
                 <ChevronDown className="w-4 h-4" />
-                Show optional settings
+                Show Optional Settings
               </>
             )}
           </button>
@@ -356,70 +362,100 @@ export default function WorkPreferencesEditor({ onSave }: { onSave?: () => void 
           {/* Advanced Settings Section - Collapsible */}
           {showAdvanced && (
             <div className="mt-6 space-y-4">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                These fields have sensible defaults but can be customized
+              <p className="text-sm text-purple-700 dark:text-purple-300 italic">
+                These fields are optional and have sensible defaults
               </p>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Left Column */}
                 <div className="space-y-4">
-                  <BlacklistSection
-                    companyBlacklist={preferences.company_blacklist}
-                    titleBlacklist={preferences.title_blacklist}
-                    onChange={updateArray}
-                  />
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                    <BlacklistSection
+                      companyBlacklist={preferences.company_blacklist}
+                      titleBlacklist={preferences.title_blacklist}
+                      onChange={updateArray}
+                    />
+                  </div>
 
-                  <DateFiltersSection
-                    values={{
-                      date_24_hours: preferences.date_24_hours,
-                      date_week: preferences.date_week,
-                      date_month: preferences.date_month,
-                      date_all_time: preferences.date_all_time,
-                    }}
-                    onChange={updateCheckbox}
-                  />
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                    <DateFiltersSection
+                      values={{
+                        date_24_hours: preferences.date_24_hours,
+                        date_week: preferences.date_week,
+                        date_month: preferences.date_month,
+                        date_all_time: preferences.date_all_time,
+                      }}
+                      onChange={updateCheckbox}
+                    />
+                  </div>
 
-                  <WorkAuthorizationSection
-                    values={{
-                      eu_work_authorization: preferences.eu_work_authorization,
-                      us_work_authorization: preferences.us_work_authorization,
-                    }}
-                    onChange={updateCheckbox}
-                  />
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                    <WorkAuthorizationSection
+                      values={{
+                        eu_work_authorization: preferences.eu_work_authorization,
+                        us_work_authorization: preferences.us_work_authorization,
+                      }}
+                      onChange={updateCheckbox}
+                    />
+                  </div>
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-4">
-                  <WorkPreferencesSubSection
-                    values={{
-                      in_person_work: preferences.in_person_work,
-                      open_to_relocation: preferences.open_to_relocation,
-                      willing_to_complete_assessments: preferences.willing_to_complete_assessments,
-                      willing_to_undergo_drug_tests: preferences.willing_to_undergo_drug_tests,
-                      willing_to_undergo_background_checks: preferences.willing_to_undergo_background_checks,
-                      notice_period: preferences.notice_period,
-                      salary_expectation_usd: preferences.salary_expectation_usd,
-                    }}
-                    onChange={updateField}
-                  />
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                    <WorkPreferencesSubSection
+                      values={{
+                        in_person_work: preferences.in_person_work,
+                        open_to_relocation: preferences.open_to_relocation,
+                        willing_to_complete_assessments: preferences.willing_to_complete_assessments,
+                        willing_to_undergo_drug_tests: preferences.willing_to_undergo_drug_tests,
+                        willing_to_undergo_background_checks: preferences.willing_to_undergo_background_checks,
+                        notice_period: preferences.notice_period,
+                        salary_expectation_usd: preferences.salary_expectation_usd,
+                      }}
+                      onChange={updateField}
+                    />
+                  </div>
 
-                  <PersonalInfoSection
-                    values={{
-                      date_of_birth: preferences.date_of_birth,
-                      pronouns: preferences.pronouns,
-                      gender: preferences.gender,
-                      ethnicity: preferences.ethnicity,
-                      is_veteran: preferences.is_veteran,
-                      has_disability: preferences.has_disability,
-                    }}
-                    onChange={updateField}
-                  />
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                    <PersonalInfoSection
+                      values={{
+                        date_of_birth: preferences.date_of_birth,
+                        pronouns: preferences.pronouns,
+                        gender: preferences.gender,
+                        ethnicity: preferences.ethnicity,
+                        is_veteran: preferences.is_veteran,
+                        has_disability: preferences.has_disability,
+                      }}
+                      onChange={updateField}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Save Button */}
+      <button
+        id="save-preferences-button"
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {saveSuccess ? (
+          <>
+            <CheckCircle className="w-4 h-4" />
+            Saved!
+          </>
+        ) : (
+          <>
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save Preferences'}
+          </>
+        )}
+      </button>
     </div>
   );
 }

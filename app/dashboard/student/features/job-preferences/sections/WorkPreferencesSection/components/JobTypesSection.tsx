@@ -7,7 +7,7 @@
 'use client';
 
 import React from 'react';
-import { Clock } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 
 interface JobTypesSectionProps {
@@ -31,9 +31,9 @@ export default function JobTypesSection({
 }: JobTypesSectionProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-        <Clock className="w-4 h-4" />
-        Job Type
+      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+        <FileText className="w-4 h-4" />
+        Contract Type
       </h4>
 
       <CheckboxGroup
@@ -41,7 +41,7 @@ export default function JobTypesSection({
         options={JOB_TYPE_OPTIONS}
         values={values}
         onChange={onChange}
-        columns={1}
+        columns={2}
       />
     </div>
   );

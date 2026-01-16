@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 
 export function useBotLauncher() {
   const [launching, setLaunching] = useState(false);
@@ -39,6 +40,23 @@ export function useBotLauncher() {
         setLaunching(false);
         setTimeout(() => setError(null), 5000);
         return { success: false, error: message };
+      }
+
+      // Ensure YAML config exists locally (important for users who filled data online first)
+      try {
+        console.log('Ensuring YAML config exists locally...');
+        const prefsResponse = await fetch('/api/student/work-preferences');
+        if (!prefsResponse.ok) {
+          throw new Error('Failed to fetch work preferences');
+        }
+        const prefsData = await prefsResponse.json();
+        if (prefsData.preferences) {
+          await exportPreferencesToYAML(prefsData.preferences);
+          console.log('YAML config ensured locally');
+        }
+      } catch (yamlError) {
+        console.error('Failed to ensure YAML config:', yamlError);
+        throw new Error('Failed to create local config file. Please save your job preferences again.');
       }
 
       // Fetch API token

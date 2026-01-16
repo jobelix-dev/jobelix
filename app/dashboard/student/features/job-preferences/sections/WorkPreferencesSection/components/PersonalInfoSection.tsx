@@ -26,13 +26,13 @@ export default function PersonalInfoSection({
   onChange,
 }: PersonalInfoSectionProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-        <User className="w-5 h-5 text-purple-600" />
+    <div className="space-y-3">
+      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+        <User className="w-4 h-4" />
         Personal Information
-      </h3>
+      </h4>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Date of Birth
@@ -41,7 +41,7 @@ export default function PersonalInfoSection({
             type="date"
             value={values.date_of_birth || ''}
             onChange={(e) => onChange('date_of_birth', e.target.value)}
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="w-full px-3 py-2 text-sm border border-purple-200 dark:border-purple-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-colors"
           />
         </div>
 
@@ -53,8 +53,8 @@ export default function PersonalInfoSection({
             type="text"
             value={values.pronouns || ''}
             onChange={(e) => onChange('pronouns', e.target.value)}
-            placeholder="e.g., he/him, she/her, they/them"
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            placeholder="e.g., he/him, she/her"
+            className="w-full px-3 py-2 text-sm border border-purple-200 dark:border-purple-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-colors"
           />
         </div>
 
@@ -66,8 +66,8 @@ export default function PersonalInfoSection({
             type="text"
             value={values.gender || ''}
             onChange={(e) => onChange('gender', e.target.value)}
-            placeholder="e.g., Male, Female, Non-binary"
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            placeholder="e.g., Male, Female"
+            className="w-full px-3 py-2 text-sm border border-purple-200 dark:border-purple-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-colors"
           />
         </div>
 
@@ -79,21 +79,21 @@ export default function PersonalInfoSection({
             type="text"
             value={values.ethnicity || ''}
             onChange={(e) => onChange('ethnicity', e.target.value)}
-            placeholder="e.g., Asian, Hispanic, White, Black"
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            placeholder="Optional"
+            className="w-full px-3 py-2 text-sm border border-purple-200 dark:border-purple-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-colors"
           />
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 pt-2">
         <label className="flex items-center gap-2 cursor-pointer group">
           <input
             type="checkbox"
             checked={values.is_veteran}
             onChange={(e) => onChange('is_veteran', e.target.checked)}
-            className="w-4 h-4 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer"
+            className="w-4 h-4 text-purple-600 bg-white dark:bg-zinc-900 border-purple-200 dark:border-purple-800 rounded focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer"
           />
-          <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+          <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
             I am a veteran
           </span>
         </label>
@@ -103,9 +103,9 @@ export default function PersonalInfoSection({
             type="checkbox"
             checked={values.has_disability}
             onChange={(e) => onChange('has_disability', e.target.checked)}
-            className="w-4 h-4 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer"
+            className="w-4 h-4 text-purple-600 bg-white dark:bg-zinc-900 border-purple-200 dark:border-purple-800 rounded focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer"
           />
-          <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+          <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
             I have a disability
           </span>
         </label>

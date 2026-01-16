@@ -30,9 +30,9 @@ export default function ExperienceLevelsSection({
 }: ExperienceLevelsSectionProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
         <Briefcase className="w-4 h-4" />
-        Experience Level
+        Expected experience level
       </h4>
 
       <CheckboxGroup
@@ -40,7 +40,7 @@ export default function ExperienceLevelsSection({
         options={EXPERIENCE_OPTIONS}
         values={values}
         onChange={onChange}
-        columns={1}
+        columns={2}
       />
     </div>
   );

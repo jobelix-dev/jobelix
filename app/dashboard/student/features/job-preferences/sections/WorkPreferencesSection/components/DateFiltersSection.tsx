@@ -27,18 +27,18 @@ export default function DateFiltersSection({
   onChange,
 }: DateFiltersSectionProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-        <Calendar className="w-5 h-5 text-purple-600" />
+    <div className="space-y-3">
+      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+        <Calendar className="w-4 h-4" />
         Date Filters
-      </h3>
+      </h4>
 
       <CheckboxGroup
-        label="Show jobs posted within"
+        label=""
         options={DATE_FILTER_OPTIONS}
         values={values}
         onChange={onChange}
-        columns={2}
+        columns={1}
       />
     </div>
   );
