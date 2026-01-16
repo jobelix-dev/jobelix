@@ -10,6 +10,9 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+// Force dynamic rendering - this page should never be statically generated
+export const dynamic = 'force-dynamic';
+
 export default function GitHubCallbackSuccessPage() {
   const searchParams = useSearchParams();
   const error = searchParams.get('github_error');
