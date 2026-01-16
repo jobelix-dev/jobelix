@@ -29,10 +29,10 @@ interface BotControlSectionProps {
 
 export default function BotControlSection({ credits, botLauncher }: BotControlSectionProps) {
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
-          <Rocket className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+        <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+          <Rocket className="w-6 h-6 text-zinc-600 dark:text-zinc-400" />
         </div>
         <div>
           <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">

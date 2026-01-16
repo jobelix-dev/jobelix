@@ -117,7 +117,7 @@ export default function HeaderSection({
     <section className="max-w-2xl mx-auto">
       {/* Page Header with Status */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Complete & Publish Your Profile</h1>
+        <h1 className="text-2xl font-bold">Complete Your Profile</h1>
         
         {/* Draft Status Indicator */}
         {draftStatus === 'editing' && (

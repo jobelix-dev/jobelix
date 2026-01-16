@@ -9,7 +9,7 @@
 import BotControlSection from '../job-preferences/sections/BotControlSection';
 import { useCredits, usePreferences, useBotLauncher } from '../job-preferences/hooks';
 
-export default function AutoApplyTab() {
+export default function BotLauncherTab() {
   // Custom hooks for separated concerns
   const credits = useCredits();
   const preferences = usePreferences();
