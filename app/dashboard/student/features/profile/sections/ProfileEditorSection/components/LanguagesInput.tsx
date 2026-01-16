@@ -47,7 +47,7 @@ function CustomDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="appearance-none bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-100 border border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 text-xs pr-7 pl-3 py-2 rounded-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all shadow-sm hover:shadow-md min-w-[110px] text-left"
+        className="appearance-none bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-100 border border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 text-xs pr-7 pl-3 py-2 rounded-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all shadow-sm hover:shadow-md min-w-[110px] text-center"
       >
         {value}
       </button>
@@ -63,7 +63,7 @@ function CustomDropdown({
                 onChange(level);
                 setIsOpen(false);
               }}
-              className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors ${
+              className={`w-full text-center px-3 py-2 text-xs font-medium transition-colors ${
                 value === level
                   ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
                   : 'text-zinc-900 dark:text-zinc-100 hover:bg-purple-50 dark:hover:bg-purple-900/20'

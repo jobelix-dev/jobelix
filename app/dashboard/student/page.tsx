@@ -11,11 +11,11 @@ import { useState } from 'react';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
 import { MatchesTab } from './features/matches';
+import { JobPreferencesTab } from './features/job-preferences';
 import { AutoApplyTab } from './features/auto-apply';
-import { ActivityTab } from './features/activity';
 import { useProfileData, useResumeUpload } from './hooks';
 
-type DashboardTab = 'profile' | 'matches' | 'auto-apply' | 'activity';
+type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
 export default function StudentDashboard() {
   // Active tab state
@@ -63,9 +63,9 @@ export default function StudentDashboard() {
 
           {activeTab === 'matches' && <MatchesTab />}
 
-          {activeTab === 'auto-apply' && <AutoApplyTab />}
+          {activeTab === 'job-preferences' && <JobPreferencesTab />}
 
-          {activeTab === 'activity' && <ActivityTab />}
+          {activeTab === 'auto-apply' && <AutoApplyTab />}
         </div>
       </div>
     </div>

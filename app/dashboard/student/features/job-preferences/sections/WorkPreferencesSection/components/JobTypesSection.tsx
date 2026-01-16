@@ -30,18 +30,18 @@ export default function JobTypesSection({
   onChange,
 }: JobTypesSectionProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-        <Clock className="w-5 h-5 text-purple-600" />
-        Job Types
-      </h3>
+    <div className="space-y-3">
+      <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+        <Clock className="w-4 h-4" />
+        Job Type
+      </h4>
 
       <CheckboxGroup
-        label="Select all that apply"
+        label=""
         options={JOB_TYPE_OPTIONS}
         values={values}
         onChange={onChange}
-        columns={2}
+        columns={1}
       />
     </div>
   );
