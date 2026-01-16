@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useState, Dispatch, SetStateAction } from 'react';
+import { useState, Dispatch, SetStateAction, Suspense } from 'react';
 import { api } from '@/lib/client/api';
 import ProfileEditorSection from './sections/ProfileEditorSection';
 import HeaderSection from './sections/HeaderSection';
@@ -71,20 +71,33 @@ export default function ProfileTab({
   return (
     <>
       {/* Header Section with Resume Upload and GitHub Integration */}
-      <HeaderSection
-        resumeInfo={resumeInfo}
-        uploading={uploading}
-        extracting={extracting}
-        uploadSuccess={uploadSuccess}
-        uploadError={uploadError}
-        onFileChange={handleFileChange}
-        onDownload={handleDownload}
-        currentProjects={profileData.projects}
-        currentSkills={profileData.skills}
-        onGitHubImportComplete={handleGitHubImport}
-        onImportingChange={setImportingGitHub}
-        draftStatus={draftStatus}
-      />
+      <Suspense fallback={
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                Loading...
+              </p>
+            </div>
+          </div>
+        </div>
+      }>
+        <HeaderSection
+          resumeInfo={resumeInfo}
+          uploading={uploading}
+          extracting={extracting}
+          uploadSuccess={uploadSuccess}
+          uploadError={uploadError}
+          onFileChange={handleFileChange}
+          onDownload={handleDownload}
+          currentProjects={profileData.projects}
+          currentSkills={profileData.skills}
+          onGitHubImportComplete={handleGitHubImport}
+          onImportingChange={setImportingGitHub}
+          draftStatus={draftStatus}
+        />
+      </Suspense>
 
       {/* Profile Editor */}
       <ProfileEditorSection
