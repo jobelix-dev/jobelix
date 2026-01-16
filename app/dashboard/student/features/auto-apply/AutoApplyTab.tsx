@@ -24,11 +24,12 @@ export default function AutoApplyTab() {
   useEffect(() => {
     const checkProfile = async () => {
       try {
-        const response = await fetch('/api/student/profile/published');
+        // Check the draft status to see if profile has been published
+        const response = await fetch('/api/student/profile/draft');
         if (response.ok) {
           const data = await response.json();
-          // Check if student data exists (the API returns { student: ... })
-          setProfilePublished(!!data.student);
+          // Profile is published if draft status is 'published'
+          setProfilePublished(data.draft?.status === 'published');
         } else {
           setProfilePublished(false);
         }
