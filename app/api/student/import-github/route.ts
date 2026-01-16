@@ -12,6 +12,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { getGitHubConnection, updateLastSynced } from '@/lib/server/githubOAuth';
 import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService';
 import OpenAI from 'openai';
@@ -54,6 +55,21 @@ export async function POST(request: NextRequest) {
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;
+
+    // Rate limiting: 5 imports per hour, 20 per day (this is expensive with OpenAI)
+    const rateLimitResult = await checkRateLimit(user.id, {
+      endpoint: 'github-import',
+      hourlyLimit: 5,
+      dailyLimit: 20,
+    })
+
+    if (rateLimitResult.error) return rateLimitResult.error
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(
+        { endpoint: 'github-import', hourlyLimit: 5, dailyLimit: 20 },
+        rateLimitResult.data
+      )
+    }
 
     // Get request body
     const body = await request.json();
@@ -254,6 +270,9 @@ Process ALL ${batch.length} repositories in this batch.`,
     // Update last_synced_at timestamp
     await updateLastSynced(user.id, 'github');
 
+    // Log the API call for rate limiting
+    await logApiCall(user.id, 'github-import')
+
     console.log(`GitHub import successful: Total added ${mergedProjects.length - currentProjects.length} projects, ${mergedSkills.length - currentSkills.length} skills`);
 
     return NextResponse.json({
@@ -266,7 +285,7 @@ Process ALL ${batch.length} repositories in this batch.`,
   } catch (error: any) {
     console.error('GitHub import error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to import GitHub data' },
+      { success: false, error: 'Failed to import GitHub data' },
       { status: 500 }
     );
   }
