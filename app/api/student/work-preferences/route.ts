@@ -9,6 +9,8 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
+import { validateRequest, workPreferencesSchema } from '@/lib/server/validation'
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
 
 export async function GET() {
   try {
@@ -42,7 +44,30 @@ export async function POST(request: NextRequest) {
 
     const { user, supabase } = auth
 
-    const preferences = await request.json()
+    // Rate limiting: 20 updates per hour, 100 per day
+    const rateLimitResult = await checkRateLimit(user.id, {
+      endpoint: 'work-preferences',
+      hourlyLimit: 20,
+      dailyLimit: 100,
+    })
+
+    if (rateLimitResult.error) return rateLimitResult.error
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(
+        { endpoint: 'work-preferences', hourlyLimit: 20, dailyLimit: 100 },
+        rateLimitResult.data
+      )
+    }
+
+    // Parse and validate request body
+    const body = await request.json()
+    const validation = validateRequest(body, workPreferencesSchema)
+    
+    if (validation.error) {
+      return NextResponse.json(validation.error, { status: validation.error.status })
+    }
+
+    const preferences = validation.data
 
     // Use UPSERT to handle both insert and update in one operation
     // This works with the RLS policy and avoids race conditions
@@ -61,8 +86,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error saving work preferences:', error)
-      return NextResponse.json({ error: 'Failed to save preferences', details: error.message }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to save preferences' 
+      }, { status: 500 })
     }
+
+    // Log the API call for rate limiting
+    await logApiCall(user.id, 'work-preferences')
 
     return NextResponse.json({ success: true, preferences: data })
   } catch (error: any) {

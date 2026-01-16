@@ -238,14 +238,16 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       
-      // Export preferences to YAML file in repo root
-      try {
-        console.log('Exporting YAML config...');
-        await exportPreferencesToYAML(preferences);
-        console.log('YAML config exported successfully');
-      } catch (yamlError) {
-        console.error('Failed to export YAML:', yamlError);
-        // Don't fail the whole save if YAML export fails
+      // Export preferences to YAML file in repo root (Electron only)
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        try {
+          console.log('Exporting YAML config...');
+          await exportPreferencesToYAML(preferences);
+          console.log('YAML config exported successfully');
+        } catch (yamlError) {
+          console.error('Failed to export YAML:', yamlError);
+          // Don't fail the whole save if YAML export fails
+        }
       }
       
       // Notify parent component
