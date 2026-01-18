@@ -46,8 +46,8 @@ export default function ArrayInputField({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-muted">
-        {icon && <span className="inline-flex items-center mr-1">{icon}</span>}
+      <label className="text-sm font-semibold text-primary-hover flex items-center gap-2">
+        {icon}
         {label}
       </label>
       <div className="flex gap-2">
