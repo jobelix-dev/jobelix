@@ -28,7 +28,7 @@ export default function DateFiltersSection({
 }: DateFiltersSectionProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+      <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <Calendar className="w-4 h-4" />
         Date Filters
       </h4>

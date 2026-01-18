@@ -68,14 +68,14 @@ export default function SignupForm({ role }: { role: string }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Gestion des erreurs */}
       {error && (
-        <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error/20">
           {error}
         </div>
       )}
 
       {/* Message de succès (Check your email) */}
       {message && (
-        <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-600 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+        <div className="rounded bg-success-subtle px-3 py-2 text-sm text-success border border-success/20">
           {message}
         </div>
       )}
@@ -84,25 +84,25 @@ export default function SignupForm({ role }: { role: string }) {
       {!message && (
         <>
           <label className="flex flex-col">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">Email</span>
+            <span className="text-sm text-muted">Email</span>
             <input
               required
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="you@example.com"
             />
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">Password</span>
+            <span className="text-sm text-muted">Password</span>
             <input
               required
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Choose a password"
             />
           </label>
@@ -110,7 +110,7 @@ export default function SignupForm({ role }: { role: string }) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 rounded bg-purple-600 hover:bg-purple-700 px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
+            className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
           >
             {loading ? 'Creating account...' : 'Sign up as student'}
           </button>

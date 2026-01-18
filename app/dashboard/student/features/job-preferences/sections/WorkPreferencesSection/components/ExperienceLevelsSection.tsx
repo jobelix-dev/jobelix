@@ -30,7 +30,7 @@ export default function ExperienceLevelsSection({
 }: ExperienceLevelsSectionProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+      <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <Briefcase className="w-4 h-4" />
         Expected experience level
       </h4>

@@ -12,9 +12,9 @@ interface StatusAlertProps {
 
 export default function StatusAlert({ variant, children }: StatusAlertProps) {
   const variants = {
-    success: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400',
-    error: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
-    info: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
+    success: 'bg-success-subtle text-success/20',
+    error: 'bg-error-subtle text-error/20',
+    info: 'bg-info-subtle text-info/20',
   };
 
   return (

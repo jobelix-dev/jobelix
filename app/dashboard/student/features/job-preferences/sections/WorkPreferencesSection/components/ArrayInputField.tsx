@@ -23,7 +23,7 @@ export default function ArrayInputField({
   value,
   onChange,
   icon,
-  tagColorClass = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+  tagColorClass = 'bg-primary-subtle/30 text-primary-hover',
 }: ArrayInputFieldProps) {
   const [input, setInput] = useState('');
 
@@ -46,7 +46,7 @@ export default function ArrayInputField({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <label className="block text-sm font-medium text-muted">
         {icon && <span className="inline-flex items-center mr-1">{icon}</span>}
         {label}
       </label>
@@ -57,11 +57,11 @@ export default function ArrayInputField({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="flex-1 px-3 py-2 text-sm border border-purple-200 dark:border-purple-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-colors"
+          className="flex-1 px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
         />
         <button
           onClick={handleAdd}
-          className="px-4 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
           type="button"
         >
           Add
