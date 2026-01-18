@@ -27,5 +27,7 @@ Examples:
 - "Dean's List Spring 2023" by University Name
 - "Google Cloud Professional Data Engineer" with certification URL
 
-DO NOT extract GitHub repos, personal projects, or work experience as certifications.`;
+DO NOT extract GitHub repos, personal projects, or work experience as certifications.
+
+⚠️ IMPORTANT: ALL extracted text MUST be translated to English. If the resume is in another language, translate certification names, award names, and descriptions to English (organization names can stay original).`;
 

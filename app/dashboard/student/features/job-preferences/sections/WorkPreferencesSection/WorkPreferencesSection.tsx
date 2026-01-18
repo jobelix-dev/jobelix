@@ -265,7 +265,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-zinc-500 dark:text-zinc-400">Loading preferences...</div>
+        <div className="text-muted">Loading preferences...</div>
       </div>
     );
   }
@@ -274,25 +274,25 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Validation warning */}
       {validationWarning && (
-        <div className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm shadow-sm">
-          <AlertCircle className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
-          <span className="text-purple-700 dark:text-purple-300">{validationWarning}</span>
+        <div className="flex items-center gap-2 p-3 bg-primary-subtle/20 border border-border rounded-lg text-sm shadow-sm">
+          <AlertCircle className="w-4 h-4 text-primary flex-shrink-0" />
+          <span className="text-primary-hover">{validationWarning}</span>
         </div>
       )}
 
       {/* Save error feedback */}
       {saveError && (
-        <div className="flex items-center gap-2 p-3 bg-purple-100/60 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg text-sm shadow-sm">
-          <AlertCircle className="w-4 h-4 text-purple-700 dark:text-purple-400 flex-shrink-0" />
-          <span className="text-purple-800 dark:text-purple-300">{saveError}</span>
+        <div className="flex items-center gap-2 p-3 bg-primary-subtle/60/30 border border-border rounded-lg text-sm shadow-sm">
+          <AlertCircle className="w-4 h-4 text-primary-hover flex-shrink-0" />
+          <span className="text-primary-hover">{saveError}</span>
         </div>
       )}
 
       {/* Main Container */}
       <div className="space-y-8">
         {/* Header */}
-        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
-          <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">
+        <div className="pt-4">
+          <h3 className="text-lg font-semibold text-muted">
             Main Settings
           </h3>
         </div>
@@ -300,7 +300,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         {/* Essential Fields */}
         <div className="space-y-4">
           {/* Target Positions & Locations */}
-          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+          <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
             <SearchCriteriaSection
               positions={preferences.positions}
               locations={preferences.locations}
@@ -311,7 +311,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
           {/* Experience Levels & Job Types Side by Side */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+            <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
               <ExperienceLevelsSection
                 values={{
                   exp_internship: preferences.exp_internship,
@@ -325,7 +325,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
               />
             </div>
 
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+            <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
               <JobTypesSection
                 values={{
                   job_full_time: preferences.job_full_time,
@@ -343,10 +343,10 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         </div>
 
         {/* Advanced Settings Toggle */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-6">
+        <div className="pt-4 mt-6">
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 transition-colors"
+            className="flex items-center gap-2 text-sm font-semibold text-primary-hover hover:text-primary-hover transition-colors"
           >
             {showAdvanced ? (
               <>
@@ -364,14 +364,14 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
           {/* Advanced Settings Section - Collapsible */}
           {showAdvanced && (
             <div className="mt-6 space-y-4">
-              <p className="text-sm text-purple-700 dark:text-purple-300 italic">
+              <p className="text-sm text-primary-hover italic">
                 These fields are optional and have sensible defaults
               </p>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Left Column */}
                 <div className="space-y-4">
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                  <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
                     <BlacklistSection
                       companyBlacklist={preferences.company_blacklist}
                       titleBlacklist={preferences.title_blacklist}
@@ -379,7 +379,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                     />
                   </div>
 
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                  <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
                     <DateFiltersSection
                       values={{
                         date_24_hours: preferences.date_24_hours,
@@ -391,7 +391,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                     />
                   </div>
 
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                  <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
                     <WorkAuthorizationSection
                       values={{
                         eu_work_authorization: preferences.eu_work_authorization,
@@ -404,7 +404,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
                 {/* Right Column */}
                 <div className="space-y-4">
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                  <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
                     <WorkPreferencesSubSection
                       values={{
                         in_person_work: preferences.in_person_work,
@@ -419,7 +419,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                     />
                   </div>
 
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border border-purple-100 dark:border-purple-900/40">
+                  <div className="bg-background rounded-xl p-4 shadow-sm border border-border">
                     <PersonalInfoSection
                       values={{
                         date_of_birth: preferences.date_of_birth,
@@ -444,7 +444,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         id="save-preferences-button"
         onClick={handleSave}
         disabled={saving}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-primary hover:bg-primary-hover text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {saveSuccess ? (
           <>

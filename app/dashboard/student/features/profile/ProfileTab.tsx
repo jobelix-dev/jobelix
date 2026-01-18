@@ -76,7 +76,7 @@ export default function ProfileTab({
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className="text-2xl font-bold">Complete Your Profile</h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+              <p className="text-sm text-muted mt-1">
                 Loading...
               </p>
             </div>
@@ -108,8 +108,8 @@ export default function ProfileTab({
         canSave={validation.isValid}
         validation={showValidationErrors ? validation : undefined}
         disabled={uploading || extracting || importingGitHub}
-        loadingMessage={uploading ? 'Uploading Resume...' : extracting ? 'Extracting Data...' : importingGitHub ? 'Importing from GitHub...' : undefined}
-        loadingSubmessage={uploading ? 'Please wait while we upload your resume' : extracting ? 'AI is analyzing your resume and extracting information' : importingGitHub ? 'Fetching repositories and merging with your profile' : undefined}
+        loadingMessage={uploading ? 'Parsing Resume...' : extracting ? 'Extracting Data...' : importingGitHub ? 'Importing from GitHub...' : undefined}
+        loadingSubmessage={uploading ? 'Please wait while AI analyzes your resume' : extracting ? 'AI is analyzing your resume and extracting information' : importingGitHub ? 'Fetching repositories and merging with your profile' : undefined}
         saveSuccess={saveSuccess}
         showValidationErrors={showValidationMessage}
       />

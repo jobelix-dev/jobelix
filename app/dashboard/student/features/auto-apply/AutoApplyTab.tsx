@@ -79,10 +79,10 @@ export default function AutoApplyTab() {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+        <h2 className="text-2xl font-bold text-default mb-2">
           Auto Apply
         </h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted">
           Launch the LinkedIn Auto-Apply bot to automatically apply to jobs using your credits. <br />
           Don't forget to log in!
         </p>
@@ -92,14 +92,14 @@ export default function AutoApplyTab() {
       {isLoading ? (
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-center py-12">
-            <div className="text-zinc-500 dark:text-zinc-400">Checking requirements...</div>
+            <div className="text-muted">Checking requirements...</div>
           </div>
         </div>
       ) : isBlocked ? (
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-            <div className="text-sm text-amber-800 dark:text-amber-200">
+          <div className="flex items-center gap-3 p-4 bg-warning-subtle/20 border border-warning rounded-lg">
+            <AlertCircle className="w-5 h-5 text-warning flex-shrink-0" />
+            <div className="text-sm text-warning">
               {!profilePublished && !preferences.preferencesComplete
                 ? 'Please publish your profile and save your job preferences first.'
                 : !profilePublished

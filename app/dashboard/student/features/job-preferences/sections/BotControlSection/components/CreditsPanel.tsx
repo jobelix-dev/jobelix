@@ -47,24 +47,24 @@ export default function CreditsPanel({
   };
 
   if (loading) {
-    return <div className="text-sm text-zinc-500">Loading...</div>;
+    return <div className="text-sm text-muted">Loading...</div>;
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between p-4 bg-primary-subtle/20 rounded-lg border border-border">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Available Credits</span>
+          <span className="text-sm font-medium text-muted">Available Credits</span>
           <button
             onClick={onRefresh}
             disabled={refreshing}
-            className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors disabled:cursor-not-allowed"
+            className="p-1 hover:bg-primary-subtle rounded transition-colors disabled:cursor-not-allowed"
             title="Refresh credits"
           >
-            <RefreshCw className={`w-4 h-4 text-zinc-500 dark:text-zinc-400 transition-transform ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-muted transition-transform ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
-        <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+        <span className="text-3xl font-bold bg-gradient-to-r from-primary to-info bg-clip-text text-transparent">
           {balance.toLocaleString()}
         </span>
       </div>
@@ -73,32 +73,32 @@ export default function CreditsPanel({
         <button
           onClick={handleClaim}
           disabled={claiming}
-          className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {claiming ? 'Claiming...' : '🎁 Claim Daily 50'}
         </button>
         <button 
           onClick={handleBuy}
-          className="flex-1 px-4 py-2 text-sm font-medium border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all"
+          className="flex-1 px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white text-muted rounded-lg transition-all"
         >
           💳 Buy Credits
         </button>
       </div>
 
       {showBuyWarning && (
-        <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
+        <div className="p-2 bg-error-subtle/20 border border-error rounded text-xs text-error">
           Failed to create checkout. Please try again.
         </div>
       )}
 
       {showClaimWarning && (
-        <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
+        <div className="p-2 bg-warning-subtle/20 border border-warning rounded text-xs text-warning">
           Already claimed today
         </div>
       )}
 
       {error && (
-        <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
+        <div className="p-2 bg-error-subtle/20 border border-error rounded text-xs text-error">
           {error}
         </div>
       )}

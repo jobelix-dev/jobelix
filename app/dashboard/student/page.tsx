@@ -32,7 +32,7 @@ export default function StudentDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Dashboard Navigation */}
         <DashboardNav activeTab={activeTab} onTabChange={setActiveTab} />

@@ -47,14 +47,14 @@ function CustomDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="appearance-none bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-100 border border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 text-xs pr-7 pl-3 py-2 rounded-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all shadow-sm hover:shadow-md min-w-[110px] text-center"
+        className="appearance-none bg-surface/50 text-default border border-primary-subtle hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary-subtle text-xs pr-7 pl-3 py-2 rounded-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all shadow-sm hover:shadow-md min-w-[110px] text-center"
       >
         {value}
       </button>
-      <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-purple-600 dark:text-purple-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-primary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       
       {isOpen && (
-        <div className="absolute top-full mt-1 min-w-[110px] bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-2xl shadow-lg overflow-hidden z-50 py-1">
+        <div className="absolute top-full mt-1 min-w-[110px] bg-surface border border-primary-subtle rounded-2xl shadow-lg overflow-hidden z-50 py-1">
           {proficiencyLevels.map((level) => (
             <button
               key={level}
@@ -65,8 +65,8 @@ function CustomDropdown({
               }}
               className={`w-full text-center px-3 py-2 text-xs font-medium transition-colors ${
                 value === level
-                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
-                  : 'text-zinc-900 dark:text-zinc-100 hover:bg-purple-50 dark:hover:bg-purple-900/20'
+                  ? 'bg-primary-subtle/50 text-primary-hover'
+                  : 'text-default hover:bg-primary-subtle'
               }`}
             >
               {level}
@@ -100,7 +100,7 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
           <div key={index} className="space-y-1">
             <div className="h-4">
               {(nameError || proficiencyError) && (
-                <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500 px-1">
+                <div className="flex items-center gap-1 text-xs text-warning px-1">
                   <AlertCircle className="w-3 h-3" />
                   <span>{nameError || proficiencyError}</span>
                 </div>
@@ -109,9 +109,9 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
             <div
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
                 hasError
-                  ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50'
-                  : 'border-purple-200 dark:border-purple-800'
-              } bg-purple-50/30 dark:bg-purple-900/10`}
+                  ? 'border-warning ring-1 ring-warning/50'
+                  : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30'
+              } bg-white transition-colors`}
             >
               <input
                 type="text"
@@ -129,7 +129,7 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
               <button
                 onClick={() => removeLanguage(index)}
                 disabled={disabled}
-                className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
+                className="p-1 text-error hover:bg-error-subtle rounded transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
                 title="Remove language"
               >
                 <Trash2 className="w-4 h-4" />

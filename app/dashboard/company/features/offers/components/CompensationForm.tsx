@@ -28,7 +28,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Compensation and Benefits</h3>
+        <h3 className="text-lg font-semibold text-muted">Compensation and Benefits</h3>
       </div>
 
       {/* Salary Range */}
@@ -41,7 +41,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
             type="number"
             value={data.salary_min || ''}
             onChange={(e) => handleChange('salary_min', e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
             placeholder="50000"
           />
         </div>
@@ -53,7 +53,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
             type="number"
             value={data.salary_max || ''}
             onChange={(e) => handleChange('salary_max', e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
             placeholder="80000"
           />
         </div>
@@ -68,7 +68,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
           <select
             value={data.salary_currency || 'EUR'}
             onChange={(e) => handleChange('salary_currency', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
           >
             <option value="EUR">EUR (€)</option>
             <option value="USD">USD ($)</option>
@@ -83,7 +83,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
           <select
             value={data.salary_period || 'year'}
             onChange={(e) => handleChange('salary_period', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
           >
             <option value="year">Yearly</option>
             <option value="month">Monthly</option>
@@ -101,7 +101,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
           <select
             value={data.equity === true ? 'true' : 'false'}
             onChange={(e) => handleChange('equity', e.target.value === 'true')}
-            className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
           >
             <option value="false">No</option>
             <option value="true">Yes</option>
@@ -115,7 +115,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
             type="text"
             value={data.equity_range || ''}
             onChange={(e) => handleChange('equity_range', e.target.value || null)}
-            className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent disabled:opacity-60"
+            className="w-full px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60"
             placeholder="e.g. 0.1-0.5"
             disabled={data.equity !== true}
           />

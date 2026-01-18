@@ -28,8 +28,8 @@ export default function DashboardNav({ activeTab, onTabChange }: DashboardNavPro
   ];
 
   return (
-    <div className="border-b border-zinc-200 dark:border-zinc-800 mb-8">
-      <div className="flex gap-1">
+    <div className="flex justify-center mb-8">
+      <div className="inline-flex gap-2 p-1.5 bg-primary-subtle/30 rounded-full">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -40,17 +40,17 @@ export default function DashboardNav({ activeTab, onTabChange }: DashboardNavPro
               type="button"
               onClick={() => onTabChange(tab.id)}
               className={`
-                flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-t-lg transition-colors
+                flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-full transition-all
                 ${isActive 
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-t border-x border-zinc-200 dark:border-zinc-800' 
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                  ? 'bg-white text-primary shadow-sm' 
+                  : 'text-muted hover:text-default hover:bg-white/50'
                 }
               `}
             >
               <Icon className="w-4 h-4" />
               {tab.label}
               {tab.comingSoon && (
-                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-info/30 text-info rounded-full">
                   Coming Soon
                 </span>
               )}

@@ -65,31 +65,31 @@ export default function WindowControls() {
       {/* Minimize Button */}
       <button
         onClick={handleMinimize}
-        className="h-12 w-12 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="h-12 w-12 flex items-center justify-center hover:bg-primary-subtle transition-colors"
         aria-label="Minimize"
         title="Minimize"
       >
-        <Minus className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+        <Minus className="w-4 h-4 text-muted" />
       </button>
 
       {/* Maximize/Restore Button */}
       <button
         onClick={handleMaximize}
-        className="h-12 w-12 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="h-12 w-12 flex items-center justify-center hover:bg-primary-subtle transition-colors"
         aria-label={isMaximized ? "Restore" : "Maximize"}
         title={isMaximized ? "Restore" : "Maximize"}
       >
-        <Square className="w-3.5 h-3.5 text-gray-700 dark:text-gray-300" />
+        <Square className="w-3.5 h-3.5 text-muted" />
       </button>
 
       {/* Close Button */}
       <button
         onClick={handleClose}
-        className="h-12 w-12 flex items-center justify-center hover:bg-red-600 transition-colors group"
+        className="h-12 w-12 flex items-center justify-center hover:bg-error transition-colors group"
         aria-label="Close"
         title="Close"
       >
-        <X className="w-4 h-4 text-gray-700 dark:text-gray-300 group-hover:text-white" />
+        <X className="w-4 h-4 text-muted group-hover:text-white" />
       </button>
     </div>
   );
