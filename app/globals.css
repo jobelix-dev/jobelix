@@ -51,6 +51,11 @@
   --color-warning-subtle: #FFF0E6;    /* Light peach background */
 }
 
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
 /* 
  * Dark mode is DISABLED - using LinkedIn-style light theme only.
  * To re-enable, uncomment the @media block below.
