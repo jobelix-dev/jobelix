@@ -36,7 +36,7 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
         <button
           type="button"
           onClick={addCapability}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Capability
@@ -44,7 +44,7 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
       </div>
 
       {capabilities.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No capabilities added yet</p>
+        <p className="text-muted text-sm text-center py-4">No capabilities added yet</p>
       )}
 
       <div className="space-y-2">
@@ -54,13 +54,13 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
               type="text"
               value={capability.text}
               onChange={(e) => updateCapability(index, 'text', e.target.value)}
-              className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              className="flex-1 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
               placeholder="e.g. Strong communication skills"
             />
             <select
               value={capability.importance}
               onChange={(e) => updateCapability(index, 'importance', e.target.value as 'must' | 'nice')}
-              className="w-32 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              className="w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
             >
               <option value="must">Required</option>
               <option value="nice">Nice to Have</option>
@@ -68,7 +68,7 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
             <button
               type="button"
               onClick={() => removeCapability(index)}
-              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove capability"
             >
               <Trash2 className="w-4 h-4" />

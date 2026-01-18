@@ -22,10 +22,10 @@ export default function JobPreferencesTab() {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-2xl font-bold text-default">
               Job Preferences
             </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+            <p className="text-sm text-muted mt-1">
               Set your job preferences to receive better startup matches <br /> and enable the LinkedIn Auto-Apply bot.
             </p>
           </div>
@@ -38,17 +38,17 @@ export default function JobPreferencesTab() {
                   const saveButton = document.getElementById('save-preferences-button');
                   saveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0"
               >
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                <span className="text-sm font-medium text-warning">
                   Unsaved
                 </span>
-                <ArrowDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <ArrowDown className="w-4 h-4 text-warning" />
               </button>
             ) : preferences.preferencesComplete ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 flex-shrink-0">
-                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0">
+                <CheckCircle className="w-4 h-4 text-success" />
+                <span className="text-sm font-medium text-success">
                   Saved
                 </span>
               </div>
@@ -58,12 +58,12 @@ export default function JobPreferencesTab() {
                   const saveButton = document.getElementById('save-preferences-button');
                   saveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0"
               >
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                <span className="text-sm font-medium text-warning">
                   Unsaved
                 </span>
-                <ArrowDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <ArrowDown className="w-4 h-4 text-warning" />
               </button>
             )
           )}

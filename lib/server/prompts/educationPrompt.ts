@@ -6,4 +6,6 @@
 export const educationPrompt = (existingCount: number) => `Extract ALL education entries from the resume. 
 PRESERVE all existing education entries and ADD new ones from the resume.
 Compare by school name and degree - only merge if they match closely.
-Your output MUST contain AT LEAST ${existingCount} entries.`;
+Your output MUST contain AT LEAST ${existingCount} entries.
+
+⚠️ IMPORTANT: ALL extracted text MUST be translated to English. If the resume is in another language, translate all content (school names, degrees, field of study, descriptions) to English.`;

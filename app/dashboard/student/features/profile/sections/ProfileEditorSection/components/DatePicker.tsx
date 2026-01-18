@@ -74,7 +74,7 @@ export default function DatePicker({
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-sm font-medium">{label}</label>
           {hasError && (
-            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+            <span className="flex items-center gap-1 text-xs text-warning">
               <AlertCircle className="w-3 h-3" />
               <span>
                 {yearError && monthError ? `${yearError}, ${monthError}` : yearError || monthError}
@@ -90,9 +90,9 @@ export default function DatePicker({
           disabled={disabled}
           className={`w-full px-3 py-2 text-sm rounded border ${
             monthError 
-              ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-              : 'border-purple-200 dark:border-purple-800'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+              ? 'border-warning ring-1 ring-warning/50/50' 
+              : 'border-border'
+          } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           <option value="">Month</option>
           {months.map(m => (
@@ -105,9 +105,9 @@ export default function DatePicker({
           disabled={disabled}
           className={`w-full px-3 py-2 text-sm rounded border ${
             yearError 
-              ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-              : 'border-purple-200 dark:border-purple-800'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+              ? 'border-warning ring-1 ring-warning/50/50' 
+              : 'border-border'
+          } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           <option value="">Year</option>
           {years.map(y => (
