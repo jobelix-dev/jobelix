@@ -40,7 +40,7 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error/20">
+        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error border border-error">
           {error}
         </div>
       )}

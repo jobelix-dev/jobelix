@@ -57,15 +57,15 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
           </h2>
           
           <p className="text-muted mb-6">
-            No download needed. You're all set to use Jobelix's automation features.
+            No download needed. Sign in to access your dashboard and start automating your job applications.
           </p>
 
           <Link
-            href="/dashboard/student"
+            href="/login"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white font-medium rounded-lg transition-colors shadow-md"
           >
             <Rocket className="w-5 h-5" />
-            Go to Dashboard
+            Sign In to Your Account
           </Link>
 
           {releaseInfo && (
