@@ -33,7 +33,7 @@ export default function CheckboxGroup({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="block text-sm font-medium text-muted">
           {label}
         </label>
       )}
@@ -47,9 +47,9 @@ export default function CheckboxGroup({
               type="checkbox"
               checked={values[key] || false}
               onChange={(e) => onChange(key, e.target.checked)}
-              className="w-4 h-4 text-purple-600 bg-white dark:bg-zinc-900 border-purple-200 dark:border-purple-800 rounded focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer"
+              className="w-4 h-4 text-primary bg-white border border-border rounded focus:ring-2 focus:ring-primary transition-colors cursor-pointer"
             />
-            <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
+            <span className="text-sm text-muted group-hover:text-primary-hover transition-colors">
               {label}
             </span>
           </label>

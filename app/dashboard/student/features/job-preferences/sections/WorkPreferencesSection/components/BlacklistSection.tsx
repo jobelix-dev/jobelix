@@ -23,7 +23,7 @@ export default function BlacklistSection({
 }: BlacklistSectionProps) {
   return (
     <div className="space-y-4">
-      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+      <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <Ban className="w-4 h-4" />
         Filters & Exclusions
       </h4>
@@ -33,7 +33,7 @@ export default function BlacklistSection({
         placeholder="e.g., CompanyName Inc"
         value={companyBlacklist}
         onChange={(val) => onChange('company_blacklist', val)}
-        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+        tagColorClass="bg-primary-subtle/30 text-primary-hover"
       />
 
       <ArrayInputField
@@ -41,7 +41,7 @@ export default function BlacklistSection({
         placeholder="e.g., Senior, Lead"
         value={titleBlacklist}
         onChange={(val) => onChange('title_blacklist', val)}
-        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+        tagColorClass="bg-primary-subtle/30 text-primary-hover"
       />
     </div>
   );

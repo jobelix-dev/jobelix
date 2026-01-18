@@ -24,12 +24,12 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
   const hasErrors = Object.keys(fieldErrors).length > 0;
 
   return (
-    <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
+    <div className="rounded-lg border border-border bg-background overflow-hidden shadow-sm">
       {/* Header - Always visible */}
       <div className="relative">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors text-left"
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary-subtle transition-colors text-left"
         >
           <div className="flex-1 min-w-0 pr-16">
             <div className="flex items-center gap-2">
@@ -37,14 +37,14 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
                 {certName}
               </span>
               {hasErrors && (
-                <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500">
+                <span className="flex items-center gap-1.5 text-xs text-warning">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span className="font-medium">Needs update</span>
                 </span>
               )}
             </div>
             {organization && (
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+              <div className="text-xs text-muted truncate mt-0.5">
                 {organization}
               </div>
             )}
@@ -52,9 +52,9 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
           
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
             {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-zinc-400" />
+              <ChevronUp className="w-5 h-5 text-muted" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-zinc-400" />
+              <ChevronDown className="w-5 h-5 text-muted" />
             )}
           </div>
         </button>
@@ -65,7 +65,7 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
             e.stopPropagation();
             if (!disabled) onRemove();
           }}
-          className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors ${
+          className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-error hover:bg-error-subtle rounded transition-colors ${
             disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
           }`}
           title="Remove certification"
@@ -76,13 +76,13 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
 
       {/* Expandable content */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-purple-200 dark:border-purple-800 space-y-4 bg-purple-50/30 dark:bg-purple-900/10">
+        <div className="px-4 pb-4 pt-2 border-t border-primary-subtle space-y-4 bg-primary-subtle/30/10">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Certification/Award Name</label>
                 {fieldErrors.name && (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                  <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
                     <span>{fieldErrors.name}</span>
                   </span>
@@ -96,9 +96,9 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   fieldErrors.name 
-                    ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-purple-200 dark:border-purple-800'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    ? 'border-warning ring-1 ring-warning/50/50' 
+                    : 'border-border'
+                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -110,7 +110,7 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
                 onChange={(e) => onChange('issuing_organization', e.target.value || null)}
                 placeholder="e.g., Amazon Web Services"
                 disabled={disabled}
-                className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 text-sm rounded bg-white border border-border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
               onChange={(e) => onChange('url', e.target.value || null)}
               placeholder="https://..."
               disabled={disabled}
-              className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 text-sm rounded bg-white border border-border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
         </div>

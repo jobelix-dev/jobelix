@@ -42,7 +42,7 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
         <button
           type="button"
           onClick={addLocation}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add
@@ -50,7 +50,7 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
       </div>
 
       {locations.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No locations added yet</p>
+        <p className="text-muted text-sm text-center py-4">No locations added yet</p>
       )}
 
       <div className="space-y-2">
@@ -61,21 +61,21 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
                 type="text"
                 value={location.city || ''}
                 onChange={(e) => updateLocation(index, 'city', e.target.value || null)}
-                className="px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+                className="px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                 placeholder="City"
               />
               <input
                 type="text"
                 value={location.country || ''}
                 onChange={(e) => updateLocation(index, 'country', e.target.value || null)}
-                className="px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+                className="px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                 placeholder="Country"
               />
             </div>
             <button
               type="button"
               onClick={() => removeLocation(index)}
-              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove location"
             >
               <Trash2 className="w-4 h-4" />

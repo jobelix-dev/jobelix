@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
 
 ⚠️ CRITICAL: This is an ADDITIVE merge ONLY. You must PRESERVE ALL existing data and only ADD new items.
 
+⚠️ IMPORTANT: ALL output text MUST be in English. If repository descriptions, README content, or any text is in another language, translate it to English.
+
 This is batch ${batchNum} of ${totalBatches}. Process EVERY repository in this batch - do not skip any.
 
 RULES FOR MERGING PROJECTS:
@@ -164,8 +166,8 @@ RULES FOR MERGING PROJECTS:
    - ❌ NEVER remove or modify existing projects
 
 3. **New Project Fields from GitHub:**
-   - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly)
-   - description: Generate from README summary if available, otherwise use repo description + primary language
+   - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly) - translate to English if needed
+   - description: Generate from README summary if available, otherwise use repo description + primary language - MUST be in English
    - link: Use repository URL (url field)
 
 RULES FOR MERGING SKILLS:
@@ -180,7 +182,8 @@ RULES FOR MERGING SKILLS:
    - ❌ NEVER remove existing skills
 
 OUTPUT:
-Return the MERGED projects and skills arrays. YOUR OUTPUT MUST HAVE AT LEAST AS MANY ITEMS AS THE INPUT.`,
+Return the MERGED projects and skills arrays. YOUR OUTPUT MUST HAVE AT LEAST AS MANY ITEMS AS THE INPUT.
+ALL text content must be in English.`,
           },
           {
             role: 'user',

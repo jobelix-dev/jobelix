@@ -40,7 +40,7 @@ export default function RoleRequirementsForm({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-4 text-zinc-900 dark:text-zinc-100">Role Requirements</h3>
+        <h3 className="text-lg font-semibold mb-4 text-default">Role Requirements</h3>
       </div>
 
       {/* Required Skills */}

@@ -8,7 +8,7 @@
  * - Draft finalization
  */
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { api } from '@/lib/client/api';
 import { validateProfile } from '@/lib/client/profileValidation';
 import { generateResumeYaml } from '@/lib/client/resumeYamlGenerator';
@@ -45,6 +45,10 @@ export function useProfileData() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showValidationMessage, setShowValidationMessage] = useState(false);
+  
+  // Use a ref to track the last saved data - prevents auto-save on initial load
+  const lastSavedDataRef = useRef<string | null>(null);
+  const hasUserEditedRef = useRef(false);
 
   // Validation (recalculates when profileData changes)
   const validation = useMemo(() => {
@@ -53,17 +57,17 @@ export function useProfileData() {
 
   const canSave = validation.isValid;
 
-  // Load existing draft data on mount
+  // Load existing draft data on mount and auto-generate YAML if published
   useEffect(() => {
     async function loadDraftData() {
       try {
         const response = await api.getDraft();
         if (response.draft) {
           setDraftId(response.draft.id);
-          setDraftStatus(response.draft.status || 'editing');
+          const loadedStatus = response.draft.status || 'editing';
+          setDraftStatus(loadedStatus);
           
-          // Set profile data from draft
-          setProfileData({
+          const loadedData = {
             student_name: response.draft.student_name,
             phone_number: response.draft.phone_number,
             email: response.draft.email,
@@ -76,7 +80,38 @@ export function useProfileData() {
             publications: response.draft.publications || [],
             certifications: response.draft.certifications || [],
             social_links: response.draft.social_links || [],
-          });
+          };
+          
+          // Store the initial data hash to compare later
+          lastSavedDataRef.current = JSON.stringify(loadedData);
+          
+          // Set profile data from draft
+          setProfileData(loadedData);
+          
+          // If status is published, try to auto-generate YAML on load
+          // This ensures the local resume.yaml is always in sync
+          if (loadedStatus === 'published' && typeof window !== 'undefined' && (window as any).electronAPI) {
+            try {
+              const publishedResponse = await fetch('/api/student/profile/published');
+              if (publishedResponse.ok) {
+                const publishedProfileData = await publishedResponse.json();
+                const yamlContent = generateResumeYaml(publishedProfileData);
+                const result = await (window as any).electronAPI.writeResumeFile(yamlContent);
+                if (result.success) {
+                  console.log('✅ Resume YAML auto-synced on load:', result.path);
+                } else {
+                  console.warn('⚠️ Failed to sync resume.yaml, marking as unpublished');
+                  setDraftStatus('editing');
+                }
+              } else {
+                console.warn('⚠️ No published profile found, marking as unpublished');
+                setDraftStatus('editing');
+              }
+            } catch (yamlError) {
+              console.warn('⚠️ Failed to auto-sync YAML on load, marking as unpublished:', yamlError);
+              setDraftStatus('editing');
+            }
+          }
         }
       } catch (error) {
         console.log('Failed to load draft, starting fresh');
@@ -89,11 +124,20 @@ export function useProfileData() {
   }, []);
 
   // Auto-save draft when profileData changes (debounced)
+  // Only saves if data actually changed from what was loaded/saved
   useEffect(() => {
     if (!draftId) return; // No draft ID yet, can't save
-    if (!isDataLoaded) return; // Don't trigger on initial load
+    if (!isDataLoaded) return; // Don't trigger before initial load completes
     
-    // Set status to 'editing' when data changes
+    const currentDataString = JSON.stringify(profileData);
+    
+    // Skip if data hasn't actually changed from last saved state
+    if (currentDataString === lastSavedDataRef.current) {
+      return;
+    }
+    
+    // Data has changed - mark as user edit and set to editing
+    hasUserEditedRef.current = true;
     setDraftStatus('editing');
     
     const timeoutId = setTimeout(async () => {
@@ -112,6 +156,8 @@ export function useProfileData() {
           certifications: profileData.certifications,
           social_links: profileData.social_links,
         });
+        // Update the last saved data ref
+        lastSavedDataRef.current = currentDataString;
         console.log('Draft auto-saved with status: editing');
       } catch (error) {
         console.error('Failed to auto-save draft:', error);
