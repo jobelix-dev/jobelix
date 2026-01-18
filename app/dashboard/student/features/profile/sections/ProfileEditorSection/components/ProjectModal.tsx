@@ -31,11 +31,11 @@ export default function ProjectModal({
       onClick={onClose}
     >
       <div 
-        className="bg-surface rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-background rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="sticky top-0 bg-surface border-b border-primary-subtle px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-default truncate pr-4">
             {projectName}
           </h3>

@@ -290,12 +290,6 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
       {/* Main Container */}
       <div className="space-y-8">
-        {/* Header */}
-        <div className="pt-4">
-          <h3 className="text-lg font-semibold text-muted">
-            Main Settings
-          </h3>
-        </div>
 
         {/* Essential Fields */}
         <div className="space-y-4">
