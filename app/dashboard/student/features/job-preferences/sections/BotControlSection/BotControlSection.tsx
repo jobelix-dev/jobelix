@@ -28,10 +28,10 @@ interface BotControlSectionProps {
 
 export default function BotControlSection({ credits, botLauncher }: BotControlSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
       <h3 className="text-lg font-semibold text-default">Credits & Launch</h3>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="space-y-4">
         <CreditsPanel {...credits} />
         <BotLaunchPanel {...botLauncher} />
       </div>
