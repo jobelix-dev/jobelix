@@ -52,37 +52,40 @@ export default function CreditsPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between p-4 bg-primary-subtle/20 rounded-lg border border-border">
+      {/* Credits display and actions in one row */}
+      <div className="flex items-center gap-4 p-3 bg-primary-subtle/20 rounded-lg">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted">Available Credits</span>
+          <span className="text-sm text-muted">Credits:</span>
+          <span className="text-2xl font-bold bg-gradient-to-r from-primary to-info bg-clip-text text-transparent">
+            {balance.toLocaleString()}
+          </span>
           <button
             onClick={onRefresh}
             disabled={refreshing}
             className="p-1 hover:bg-primary-subtle rounded transition-colors disabled:cursor-not-allowed"
             title="Refresh credits"
           >
-            <RefreshCw className={`w-4 h-4 text-muted transition-transform ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-muted transition-transform ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
-        <span className="text-3xl font-bold bg-gradient-to-r from-primary to-info bg-clip-text text-transparent">
-          {balance.toLocaleString()}
-        </span>
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={handleClaim}
-          disabled={claiming}
-          className="flex-1 px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {claiming ? 'Claiming...' : '🎁 Claim Daily 50'}
-        </button>
-        <button 
-          onClick={handleBuy}
-          className="flex-1 px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white text-muted rounded-lg transition-all"
-        >
-          💳 Buy Credits
-        </button>
+        
+        <div className="flex-1" />
+        
+        <div className="flex gap-2">
+          <button
+            onClick={handleClaim}
+            disabled={claiming}
+            className="px-3 py-1.5 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {claiming ? 'Claiming...' : '🎁 Claim 25'}
+          </button>
+          <button 
+            onClick={handleBuy}
+            className="px-3 py-1.5 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg transition-all"
+          >
+            💳 Buy
+          </button>
+        </div>
       </div>
 
       {showBuyWarning && (

@@ -19,7 +19,6 @@ export default function SignupForm({ role }: { role: string }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [errorType, setErrorType] = useState<'generic' | 'user_exists' | 'rate_limit'>('generic');
   const [message, setMessage] = useState('');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -36,7 +35,11 @@ export default function SignupForm({ role }: { role: string }) {
       });
 
       if (response.success) {
-        if (response.message) {
+        if (response.loggedIn) {
+          // User already existed and was logged in with provided credentials
+          router.refresh();
+          router.push('/dashboard');
+        } else if (response.message) {
           // Email confirmation required
           setMessage(response.message);
         } else {
@@ -46,14 +49,8 @@ export default function SignupForm({ role }: { role: string }) {
         }
       }
     } catch (err: any) {
-      // Check if error is about existing user
       const errorMessage = err.message || 'An unexpected error occurred';
-      
-      if (errorMessage.toLowerCase().includes('already exists')) {
-        setError('An account with this email already exists. Try logging in instead.');
-      } else {
-        setError(errorMessage);
-      }
+      setError(errorMessage);
       
       // Don't auto-clear the error for "already exists" - let user read it
       if (!errorMessage.toLowerCase().includes('already exists')) {
@@ -66,14 +63,14 @@ export default function SignupForm({ role }: { role: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Gestion des erreurs */}
+      {/* Error message */}
       {error && (
-        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error/20">
+        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error border border-error/20">
           {error}
         </div>
       )}
 
-      {/* Message de succès (Check your email) */}
+      {/* Success message (Check your email) */}
       {message && (
         <div className="rounded bg-success-subtle px-3 py-2 text-sm text-success border border-success/20">
           {message}

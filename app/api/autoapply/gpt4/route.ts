@@ -61,7 +61,7 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
  * You can tune these numbers later.
  */
 const MAX_MESSAGES = 5 // 🔐
-const MAX_CHARS_PER_MESSAGE = 8_000 // 🔐
+const MAX_CHARS_PER_MESSAGE = 30_000 // 🔐
 const MAX_TOTAL_CHARS = 30_000 // 🔐
 
 /**
