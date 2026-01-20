@@ -57,8 +57,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
-        <p className="text-zinc-600 dark:text-zinc-400">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted">Loading...</p>
       </div>
     );
   }
@@ -68,33 +68,33 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto">
-        <header className="flex items-center justify-between mb-8">
+        <header className="flex items-center justify-between mb-8 relative z-40">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-muted">
               Logged in as <strong>{profile.role}</strong>
             </p>
           </div>
           <div className="flex gap-3">
             <button
               onClick={() => setShowFeedbackModal(true)}
-              className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900 flex items-center gap-2"
+              className="px-4 py-2 rounded border border-border hover:bg-primary-subtle flex items-center gap-2"
             >
               <MessageSquare size={18} />
               Feedback
             </button>
             <button
               onClick={() => setShowPrivacyModal(true)}
-              className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900 flex items-center gap-2"
+              className="px-4 py-2 rounded border border-border hover:bg-primary-subtle flex items-center gap-2"
             >
               <Shield size={18} />
               Privacy
             </button>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              className="px-4 py-2 rounded border border-border hover:bg-primary-subtle"
             >
               Log out
             </button>
@@ -108,16 +108,16 @@ export default function DashboardPage() {
       {/* Privacy Modal */}
       {showPrivacyModal && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-30 flex items-start justify-center z-50 pt-20"
+          className="fixed inset-0 bg-background bg-opacity-30 flex items-start justify-center z-50 pt-20"
           onClick={() => setShowPrivacyModal(false)}
         >
           <div 
-            className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl p-6 max-w-md w-full mx-4 relative"
+            className="bg-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4 relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowPrivacyModal(false)}
-              className="absolute top-3 right-3 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded"
+              className="absolute top-3 right-3 p-1 hover:bg-primary-subtle rounded"
             >
               <X size={20} />
             </button>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
                 Data & Privacy
               </h2>
               
-              <div className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+              <div className="space-y-3 text-sm text-muted">
                 <p>
                   We process your personal data (profile, resume, applications) in accordance with GDPR.
                 </p>
@@ -141,13 +141,13 @@ export default function DashboardPage() {
                   <strong>Contact:</strong>{' '}
                   <a 
                     href="mailto:jobelix.contact@gmail.com" 
-                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-info hover:underline"
                   >
                     jobelix.contact@gmail.com
                   </a>
                 </p>
                 
-                <p className="text-xs text-zinc-500 dark:text-zinc-500 pt-2">
+                <p className="text-xs text-muted pt-2">
                   We respond within 30 days • Updated January 2025
                 </p>
               </div>

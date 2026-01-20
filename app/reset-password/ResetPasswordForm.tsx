@@ -44,18 +44,18 @@ export default function ResetPasswordForm() {
   if (success) {
     return (
       <div className="text-center space-y-6">
-        <svg className="mx-auto h-16 w-16 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="mx-auto h-16 w-16 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
         <div>
-          <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Check your email</h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <h3 className="text-xl font-semibold text-default mb-2">Check your email</h3>
+          <p className="text-sm text-muted">
             We've sent you a password reset link. Please check your inbox.
           </p>
         </div>
         <button
           onClick={() => setSuccess(false)}
-          className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 underline"
+          className="text-sm font-medium text-primary hover:text-primary-hover underline"
         >
           Send another email
         </button>
@@ -66,13 +66,13 @@ export default function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="rounded-lg bg-error-subtle/30 border border-error px-4 py-3 text-sm text-error">
           {error}
         </div>
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+        <label htmlFor="email" className="block text-sm font-medium text-muted mb-2">
           Email address
         </label>
         <input
@@ -81,7 +81,7 @@ export default function ResetPasswordForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2.5 text-sm focus:border-purple-400 dark:focus:border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400/20 dark:focus:ring-purple-600/20"
+          className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           placeholder="you@example.com"
         />
       </div>
@@ -89,7 +89,7 @@ export default function ResetPasswordForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? 'Sending...' : 'Send reset link'}
       </button>

@@ -49,7 +49,7 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
         <button
           type="button"
           onClick={addSkill}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Skill
@@ -57,7 +57,7 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
       </div>
 
       {skills.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center py-4">No skills added yet</p>
+        <p className="text-muted text-sm text-center py-4">No skills added yet</p>
       )}
 
       <div className="space-y-2">
@@ -67,13 +67,13 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
               type="text"
               value={skill.skill_text}
               onChange={(e) => updateSkill(index, 'skill_text', e.target.value)}
-              className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              className="flex-1 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
               placeholder="Skill name (e.g. React)"
             />
             <select
               value={skill.importance}
               onChange={(e) => updateSkill(index, 'importance', e.target.value as 'must' | 'nice')}
-              className="w-32 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              className="w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
             >
               <option value="must">Required</option>
               <option value="nice">Nice to Have</option>
@@ -81,7 +81,7 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
             <select
               value={skill.level || ''}
               onChange={(e) => updateSkill(index, 'level', e.target.value || null)}
-              className="w-32 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              className="w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
             >
               <option value="">Any Level</option>
               <option value="beginner">Beginner</option>
@@ -93,14 +93,14 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
               type="number"
               value={skill.years || ''}
               onChange={(e) => updateSkill(index, 'years', e.target.value ? parseInt(e.target.value) : null)}
-              className="w-20 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent"
+              className="w-20 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
               placeholder="Yrs"
               min={0}
             />
             <button
               type="button"
               onClick={() => removeSkill(index)}
-              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove skill"
             >
               <Trash2 className="w-4 h-4" />

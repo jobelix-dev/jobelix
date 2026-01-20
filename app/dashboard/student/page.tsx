@@ -11,11 +11,11 @@ import { useState } from 'react';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
 import { MatchesTab } from './features/matches';
+import { JobPreferencesTab } from './features/job-preferences';
 import { AutoApplyTab } from './features/auto-apply';
-import { ActivityTab } from './features/activity';
 import { useProfileData, useResumeUpload } from './hooks';
 
-type DashboardTab = 'profile' | 'matches' | 'auto-apply' | 'activity';
+type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
 export default function StudentDashboard() {
   // Active tab state
@@ -32,7 +32,7 @@ export default function StudentDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Dashboard Navigation */}
         <DashboardNav activeTab={activeTab} onTabChange={setActiveTab} />
@@ -47,6 +47,7 @@ export default function StudentDashboard() {
               showValidationErrors={profileState.showValidationErrors}
               showValidationMessage={profileState.showValidationMessage}
               draftId={profileState.draftId}
+              draftStatus={profileState.draftStatus}
               resumeInfo={resumeState.resumeInfo}
               uploading={resumeState.uploading}
               extracting={resumeState.extracting}
@@ -62,9 +63,9 @@ export default function StudentDashboard() {
 
           {activeTab === 'matches' && <MatchesTab />}
 
-          {activeTab === 'auto-apply' && <AutoApplyTab />}
+          {activeTab === 'job-preferences' && <JobPreferencesTab />}
 
-          {activeTab === 'activity' && <ActivityTab />}
+          {activeTab === 'auto-apply' && <AutoApplyTab />}
         </div>
       </div>
     </div>
