@@ -52,10 +52,10 @@ export default function Home() {
         <section className="pt-20 pb-24 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center max-w-4xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-subtle/50 rounded-full text-sm font-medium text-primary mb-6">
+              {/* <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-subtle/50 rounded-full text-sm font-medium text-primary mb-6">
                 <Star className="w-4 h-4" />
                 Trusted by 2,400+ professionals across France
-              </div>
+              </div> */}
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-default mb-6 leading-tight">
                 Where Top Talents
@@ -96,7 +96,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Stats Section */}
+        {/* Stats Section
         <section className="py-16 bg-white border-y border-border">
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -118,10 +118,11 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* Features Section */}
-        <section id="about" className="py-24 px-6">
+        {/* <section id="about" className="py-24 px-6"> */}
+        <section id="about" className="py-16 bg-white border-y border-border">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold text-default mb-4">
@@ -193,7 +194,8 @@ export default function Home() {
         </section>
 
         {/* How It Works */}
-        <section className="py-24 px-6 bg-white">
+        {/* <section className="py-24 px-6 bg-white"> */}
+        <section className="py-24 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold text-default mb-4">
@@ -245,7 +247,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Social Proof */}
+        {/* Social Proof
         <section className="py-24 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
@@ -319,10 +321,10 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* FAQ Section */}
-        <section id="faq" className="py-24 px-6 bg-white">
+        <section id="faq" className="py-24 px-6 bg-white border-y border-border">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold text-default mb-4">
@@ -337,29 +339,31 @@ export default function Home() {
               <div className="bg-background rounded-xl p-6 border border-border">
                 <h4 className="font-semibold text-default mb-2">Is Jobelix really free?</h4>
                 <p className="text-muted">
-                  Yes. Creating an account and using the employer matching feature is completely free. 
-                  The auto-apply bot requires the desktop app but has no additional cost.
+                  Yes, the core platform is free. You can create a profile and get matched with employers at no cost. 
+                  For the auto-apply bot, we offer a "Freemium" model: you receive free daily tokens to apply to jobs, 
+                  or you can buy tokens to enable more automated applications.
                 </p>
               </div>
               <div className="bg-background rounded-xl p-6 border border-border">
                 <h4 className="font-semibold text-default mb-2">How does the auto-apply bot work?</h4>
                 <p className="text-muted">
-                  Our desktop app connects to LinkedIn and automatically applies to jobs matching your preferences. 
-                  It fills forms with your profile data and can generate tailored cover letters.
+                  To use the bot, you must download the desktop app. The bot connects to LinkedIn and applies to jobs that match your criteria. 
+                  Crucially, it uses AI to <strong>tailor your resume and generate a unique cover letter</strong> for every single application, increasing your chances of being noticed.
                 </p>
               </div>
               <div className="bg-background rounded-xl p-6 border border-border">
                 <h4 className="font-semibold text-default mb-2">Will employers contact me directly?</h4>
                 <p className="text-muted">
-                  Yes. Once your profile is complete, our algorithm matches you with relevant employers. 
-                  Hiring managers can reach out to you directly through the platform.
+                  Absolutely. Once your profile is live, our matching algorithm highlights you to relevant companies. 
+                  Hiring managers review your profile and can initiate a conversation directly through the Jobelix platform.
                 </p>
               </div>
               <div className="bg-background rounded-xl p-6 border border-border">
                 <h4 className="font-semibold text-default mb-2">Is the auto-apply bot safe to use?</h4>
                 <p className="text-muted">
-                  The bot is currently in beta. While we design it to respect platform guidelines, 
-                  automated activity may carry some risk. Use at your own discretion.
+                  The bot is currently in beta. While we design it to respect platform guidelines,
+                  automated activity may carry some risk (account suspension, banishment, or other).
+                  Use at your own discretion.
                 </p>
               </div>
             </div>

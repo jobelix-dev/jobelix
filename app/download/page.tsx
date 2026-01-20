@@ -106,7 +106,9 @@ export default async function DownloadPage() {
             </div>
             <div>
               <p className="font-medium text-default mb-1">macOS</p>
-              <p>macOS 10.15 (Catalina) or later</p>
+              {/* <p>macOS 10.15 (Catalina) or later</p> */}
+              <p>Currently not distributed on macOS.</p>
+              <p>Coming soon...</p>
             </div>
             <div>
               <p className="font-medium text-default mb-1">Linux</p>
