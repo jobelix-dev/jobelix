@@ -7,7 +7,7 @@
  */
 
 'use client';
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
@@ -18,7 +18,8 @@ import { useProfileData, useResumeUpload } from './hooks';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
-export default function StudentDashboard() {
+// Inner component that uses useSearchParams
+function StudentDashboardContent() {
   const searchParams = useSearchParams();
   
   // Active tab state - initialize from URL param if present
@@ -80,5 +81,18 @@ export default function StudentDashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrapper component with Suspense boundary for useSearchParams
+export default function StudentDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted">Loading dashboard...</p>
+      </div>
+    }>
+      <StudentDashboardContent />
+    </Suspense>
   );
 }
