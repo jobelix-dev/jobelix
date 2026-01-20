@@ -24,6 +24,7 @@ export interface SignupResponse {
   userId?: string;
   error?: string;
   message?: string;
+  loggedIn?: boolean;
   profile?: UserProfile;
 }
 

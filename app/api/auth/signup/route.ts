@@ -168,12 +168,29 @@ export async function POST(request: NextRequest) {
         )
       }
       
-      // Check if user already exists
+      // Check if user already exists - attempt to login instead
       if (error.message?.toLowerCase().includes('already registered') || 
           error.message?.toLowerCase().includes('user already exists')) {
+        
+        // Try to log them in with the provided credentials
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        
+        if (!loginError) {
+          // Login succeeded - return success with flag indicating they were logged in
+          return NextResponse.json({ 
+            success: true, 
+            loggedIn: true,
+            message: 'Welcome back! You have been logged in.'
+          })
+        }
+        
+        // Login failed - credentials don't match existing account
         return NextResponse.json(
           { 
-            error: 'An account with this email already exists',
+            error: 'An account with this email already exists.',
             code: 'USER_ALREADY_EXISTS'
           },
           { status: 400 }

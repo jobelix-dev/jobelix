@@ -139,7 +139,7 @@ CREATE OR REPLACE FUNCTION public.grant_daily_credits(p_user_id uuid)
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_credits_amount INTEGER := 50;
+  v_credits_amount INTEGER := 25;
   v_new_balance INTEGER;
 BEGIN
   -- Try to insert daily grant (will fail if already claimed today)
