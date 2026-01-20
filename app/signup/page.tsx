@@ -1,17 +1,18 @@
 /**
  * Signup Page
  * 
- * User registration interface for students and companies.
- * Route: /signup?role=student or /signup?role=company
+ * User registration interface for talents and employers.
+ * Route: /signup?role=talent or /signup?role=employer
  * Uses: SignupForm component for account creation.
- * Defaults to student role if not specified.
+ * Defaults to talent role if not specified.
+ * Note: UI uses "talent/employer" but DB stores as "student/company"
  */
 
 /**
  * Signup Page
  * 
- * User registration interface with role selection (student/company).
- * Route: /signup?role=student or /signup?role=company
+ * User registration interface with role selection (talent/employer).
+ * Route: /signup?role=talent or /signup?role=employer
  * Uses: SignupForm component
  * Redirects to /login after successful registration
  */
@@ -30,23 +31,25 @@ export default async function SignupPage({
 }) {
   // Await searchParams (Next.js 15 requirement)
   const params = await searchParams;
-  // default to student if role is missing/invalid
-  const role = params?.role === "company" ? "company" : "student";
+  // Map URL role to DB role: talent->student, employer->company
+  // Default to student/talent if role is missing/invalid
+  const dbRole = (params?.role === "company" || params?.role === "employer") ? "company" : "student";
+  const displayRole = dbRole === 'student' ? 'talent' : 'employer';
 
   return (
     <div className="min-h-screen flex items-center justify-center p-12 bg-background">
       <Header />
       <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-8 rounded-lg shadow-lg border border-primary-subtle">
         <h2 className="text-2xl font-semibold mb-4 text-default">
-          {role === 'student' ? 'Join as a student' : 'Join as a company'}
+          {displayRole === 'talent' ? 'Join as a talent' : 'Join as an employer'}
         </h2>
         <p className="text-sm text-muted mb-6">
-          {role === 'student' 
+          {displayRole === 'talent' 
             ? 'Create your account to start exploring job opportunities and connect with top employers.'
             : 'Create your account to post positions and discover exceptional talent.'}
         </p>
 
-        <SignupForm role={role} />
+        <SignupForm role={dbRole} />
 
         <div className="mt-6 text-center text-sm text-muted">
           Already have an account?{' '}
