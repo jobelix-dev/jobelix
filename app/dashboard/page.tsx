@@ -1,10 +1,11 @@
 /**
  * Dashboard Router Page
  * 
- * Main dashboard that routes to student or company views based on user role.
+ * Main dashboard that routes to talent or employer views based on user role.
  * Route: /dashboard
  * Requires: Authentication (redirects to /login if not authenticated)
- * Renders: StudentDashboard or CompanyDashboard based on user profile.
+ * Renders: TalentDashboard or EmployerDashboard based on user profile.
+ * Note: DB stores role as student/company, UI displays as talent/employer
  */
 
 'use client';
@@ -16,6 +17,13 @@ import { Shield, X, MessageSquare } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
+
+// Map DB role to display role
+function getDisplayRole(dbRole: string): string {
+  if (dbRole === 'student') return 'top talent';
+  if (dbRole === 'company') return 'employer';
+  return dbRole;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -74,7 +82,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-sm text-muted">
-              Logged in as <strong>{profile.role}</strong>
+              Logged in as <strong>{getDisplayRole(profile.role)}</strong>
             </p>
           </div>
           <div className="flex gap-3">

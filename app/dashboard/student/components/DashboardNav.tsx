@@ -1,11 +1,12 @@
 /**
- * Student Dashboard Navigation
+ * Talent Dashboard Navigation
  * 
- * Tab-based navigation for student dashboard sections:
+ * Tab-based navigation for talent dashboard sections:
  * - Profile: Resume upload and profile editor
- * - Matches: Job matches from startups
+ * - Matches: Job matches from employers
  * - Auto Apply: Mass application tools
  * - Activity: Application tracking
+ * Note: Component/folder uses "student" for DB compatibility, UI shows "talent"
  */
 
 'use client';

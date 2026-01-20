@@ -4,7 +4,8 @@
  * Client-side registration form with role selection.
  * Used by: app/signup/page.tsx
  * Calls: lib/api.ts -> app/api/auth/signup/route.ts
- * Creates user account and initializes student/company profile.
+ * Creates user account and initializes talent/employer profile.
+ * Note: DB stores role as student/company, UI displays as talent/employer
  */
 
 'use client';
@@ -14,6 +15,8 @@ import { api } from '@/lib/client/api';
 
 export default function SignupForm({ role }: { role: string }) {
   const router = useRouter();
+  // Display role for UI (talent/employer) vs DB role (student/company)
+  const displayRole = role === 'student' ? 'talent' : 'employer';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -109,7 +112,7 @@ export default function SignupForm({ role }: { role: string }) {
             disabled={loading}
             className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
           >
-            {loading ? 'Creating account...' : 'Sign up as student'}
+            {loading ? 'Creating account...' : `Sign up as ${displayRole}`}
           </button>
         </>
       )}

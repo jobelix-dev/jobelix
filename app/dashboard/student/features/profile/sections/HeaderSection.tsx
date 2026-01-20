@@ -120,7 +120,7 @@ export default function HeaderSection({
         <div>
           <h1 className="text-2xl font-bold">Complete Your Profile</h1>
           <p className="text-sm text-muted mt-1">
-            Set and publish your profile to receive better startup matches <br /> and enable the LinkedIn Auto-Apply bot
+            Set and publish your profile to receive better employer matches <br /> and enable the LinkedIn Auto-Apply bot
           </p>
         </div>
         

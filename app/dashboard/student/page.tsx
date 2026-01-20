@@ -1,9 +1,10 @@
 /**
- * Student Dashboard Component
+ * Talent Dashboard Component
  * 
- * Main interface for students to manage their profile.
+ * Main interface for talents to manage their profile.
  * Features: Manual profile editing, PDF upload with AI extraction.
  * ProfileEditor always visible - allows manual entry or displays AI-extracted data.
+ * Note: Component/folder uses "student" for DB compatibility, UI shows "talent"
  */
 
 'use client';
