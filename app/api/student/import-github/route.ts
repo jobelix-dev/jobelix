@@ -167,7 +167,7 @@ RULES FOR MERGING PROJECTS:
 
 3. **New Project Fields from GitHub:**
    - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly) - translate to English if needed
-   - description: Generate from README summary if available, otherwise use repo description + primary language - MUST be in English
+   - description: Generate from README summary and repo description + primary language - MUST be in English. REWRITE the project description as it should appear in a final, professional resume. Use clear, concise, and impactful language. Focus on achievements, technologies used, and outcomes. Avoid copying raw text or bullet points from the resume if they are not well-written.
    - link: Use repository URL (url field)
 
 RULES FOR MERGING SKILLS:
