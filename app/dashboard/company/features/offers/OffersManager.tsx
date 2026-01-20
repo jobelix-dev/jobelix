@@ -144,10 +144,10 @@ export default function OffersManager() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Job Offers</h1>
+        <h1 className="text-2xl font-bold text-default">Job Offers</h1>
         <button
           onClick={handleCreateNew}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors font-medium"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors font-medium"
         >
           <Plus className="w-4 h-4" />
           Create New Offer

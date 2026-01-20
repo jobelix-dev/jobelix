@@ -8,13 +8,14 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Save, AlertCircle, Check } from 'lucide-react';
 import { ExtractedResumeData } from '@/lib/shared/types';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
-import ProjectForm from './components/ProjectForm';
+import ProjectCard from './components/ProjectCard';
+import ProjectModal from './components/ProjectModal';
 import SkillsInput from './components/SkillsInput';
 import LanguagesInput from './components/LanguagesInput';
 import PublicationForm from './components/PublicationForm';
@@ -53,6 +54,9 @@ export default function ProfileEditorSection({
   
   // Use the custom hook for all data manipulation logic
   const handlers = useProfileEditor({ data, onChange });
+  
+  // Modal state for project editing
+  const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
 
   return (
     <div className="max-w-2xl mx-auto relative">
@@ -67,14 +71,14 @@ export default function ProfileEditorSection({
       <div className="space-y-8">
         {/* Basic Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Basic Information</h3>
+          <h3 className="text-lg font-semibold text-muted">Basic Information</h3>
           
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Full Name</label>
                 {validation?.fieldErrors?.student_name && (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                  <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
                     <span>{validation.fieldErrors.student_name}</span>
                   </span>
@@ -88,9 +92,9 @@ export default function ProfileEditorSection({
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.student_name 
-                    ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-purple-200 dark:border-purple-800'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    ? 'border-warning ring-1 ring-warning/50/50' 
+                    : 'border-border'
+                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -98,7 +102,7 @@ export default function ProfileEditorSection({
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Email</label>
                 {validation?.fieldErrors?.email && (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                  <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
                     <span>{validation.fieldErrors.email}</span>
                   </span>
@@ -112,9 +116,9 @@ export default function ProfileEditorSection({
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.email 
-                    ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-purple-200 dark:border-purple-800'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    ? 'border-warning ring-1 ring-warning/50/50' 
+                    : 'border-border'
+                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -122,7 +126,7 @@ export default function ProfileEditorSection({
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Phone Number</label>
                 {validation?.fieldErrors?.phone_number && (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                  <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
                     <span>{validation.fieldErrors.phone_number}</span>
                   </span>
@@ -136,9 +140,9 @@ export default function ProfileEditorSection({
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.phone_number 
-                    ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-purple-200 dark:border-purple-800'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    ? 'border-warning ring-1 ring-warning/50/50' 
+                    : 'border-border'
+                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
 
@@ -146,7 +150,7 @@ export default function ProfileEditorSection({
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Address</label>
                 {validation?.fieldErrors?.address && (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                  <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
                     <span>{validation.fieldErrors.address}</span>
                   </span>
@@ -160,25 +164,23 @@ export default function ProfileEditorSection({
                 disabled={disabled}
                 className={`w-full px-3 py-2 text-sm rounded border ${
                   validation?.fieldErrors?.address 
-                    ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50' 
-                    : 'border-purple-200 dark:border-purple-800'
-                } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+                    ? 'border-warning ring-1 ring-warning/50/50' 
+                    : 'border-border'
+                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
               />
             </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Education */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Education</h3>
+            <h3 className="text-lg font-semibold text-muted">Education</h3>
             <button
               onClick={handlers.addEducation}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Education
@@ -186,7 +188,7 @@ export default function ProfileEditorSection({
           </div>
 
           {data.education.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No education added yet</p>
+            <p className="text-sm text-muted text-center py-4">No education added yet</p>
           ) : (
             <div className="space-y-6">
               {data.education.map((edu, index) => (
@@ -203,17 +205,15 @@ export default function ProfileEditorSection({
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Experience */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Experience</h3>
+            <h3 className="text-lg font-semibold text-muted">Experience</h3>
             <button
               onClick={handlers.addExperience}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Experience
@@ -221,7 +221,7 @@ export default function ProfileEditorSection({
           </div>
 
           {data.experience.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No work experience added yet</p>
+            <p className="text-sm text-muted text-center py-4">No work experience added yet</p>
           ) : (
             <div className="space-y-6">
               {data.experience.map((exp, index) => (
@@ -238,17 +238,21 @@ export default function ProfileEditorSection({
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Projects */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Projects</h3>
+            <h3 className="text-lg font-semibold text-muted">
+              Projects {data.projects.length > 0 && (
+                <span className="text-sm font-normal text-muted">
+                  ({data.projects.length})
+                </span>
+              )}
+            </h3>
             <button
               onClick={handlers.addProject}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Project
@@ -256,63 +260,55 @@ export default function ProfileEditorSection({
           </div>
 
           {data.projects.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No projects added yet</p>
+            <p className="text-sm text-muted text-center py-8">No projects added yet</p>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {data.projects.map((project, index) => (
-                <ProjectForm
+                <ProjectCard
                   key={index}
                   data={project}
-                  onChange={(field, value) => handlers.updateProject(index, field, value)}
+                  onClick={() => setEditingProjectIndex(index)}
                   onRemove={() => handlers.removeProject(index)}
                   fieldErrors={validation?.fieldErrors?.projects?.[index]}
-                  disabled={disabled}
                 />
               ))}
             </div>
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
+        {/* Project Edit Modal */}
+        {editingProjectIndex !== null && (
+          <ProjectModal
+            data={data.projects[editingProjectIndex]}
+            onChange={(field, value) => handlers.updateProject(editingProjectIndex, field, value)}
+            onClose={() => setEditingProjectIndex(null)}
+            fieldErrors={validation?.fieldErrors?.projects?.[editingProjectIndex]}
+            disabled={disabled}
+          />
+        )}
+
 
         {/* Skills */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Skills</h3>
-            <button
-              onClick={handlers.addSkill}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Skill
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold text-muted">Skills</h3>
 
-          {data.skills.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No skills added yet</p>
-          ) : (
-            <SkillsInput
-              skills={data.skills}
-              onChange={handlers.updateSkills}
-              fieldErrors={validation?.fieldErrors.skills}
-              disabled={disabled}
-            />
-          )}
+          <SkillsInput
+            skills={data.skills}
+            onChange={handlers.updateSkills}
+            fieldErrors={validation?.fieldErrors.skills}
+            disabled={disabled}
+          />
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Languages */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Languages</h3>
+            <h3 className="text-lg font-semibold text-muted">Languages</h3>
             <button
               onClick={handlers.addLanguage}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Language
@@ -320,7 +316,7 @@ export default function ProfileEditorSection({
           </div>
 
           {data.languages.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No languages added yet</p>
+            <p className="text-sm text-muted text-center py-4">No languages added yet</p>
           ) : (
             <LanguagesInput
               languages={data.languages}
@@ -331,17 +327,15 @@ export default function ProfileEditorSection({
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Publications */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Publications</h3>
+            <h3 className="text-lg font-semibold text-muted">Publications</h3>
             <button
               onClick={handlers.addPublication}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Publication
@@ -349,7 +343,7 @@ export default function ProfileEditorSection({
           </div>
 
           {data.publications.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No publications added yet</p>
+            <p className="text-sm text-muted text-center py-4">No publications added yet</p>
           ) : (
             <div className="space-y-4">
               {data.publications.map((publication, index) => (
@@ -366,17 +360,15 @@ export default function ProfileEditorSection({
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Certifications */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Certifications & Awards</h3>
+            <h3 className="text-lg font-semibold text-muted">Certifications & Awards</h3>
             <button
               onClick={handlers.addCertification}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Add Certification
@@ -384,7 +376,7 @@ export default function ProfileEditorSection({
           </div>
 
           {data.certifications.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-4">No certifications added yet</p>
+            <p className="text-sm text-muted text-center py-4">No certifications added yet</p>
           ) : (
             <div className="space-y-4">
               {data.certifications.map((certification, index) => (
@@ -401,12 +393,10 @@ export default function ProfileEditorSection({
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-200 dark:border-zinc-800 my-8"></div>
 
         {/* Social Links */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Social Links</h3>
+          <h3 className="text-lg font-semibold text-muted">Social Links</h3>
 
           <SocialLinksInput
             social_links={data.social_links}
@@ -418,9 +408,10 @@ export default function ProfileEditorSection({
 
         {/* Save Button */}
         <button
+          id="publish-profile-button"
           onClick={onSave}
           disabled={isSaving || disabled}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-primary hover:bg-primary-hover text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saveSuccess ? (
             <>
@@ -437,8 +428,8 @@ export default function ProfileEditorSection({
 
         {/* Validation Error Message */}
         {showValidationErrors && validation && !validation.isValid && (
-          <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+          <div className="p-4 bg-error-subtle/30 border border-error rounded-lg">
+            <p className="text-sm text-error font-medium">
               Please fix all required fields before saving
             </p>
           </div>

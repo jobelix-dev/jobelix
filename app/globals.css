@@ -3,33 +3,119 @@
  * 
  * Application-wide CSS with Tailwind imports and theme configuration.
  * Used by: All pages via app/layout.tsx
- * Defines: Color scheme, fonts, dark mode support
+ * Defines: Color scheme, fonts, dark mode support, design tokens
+ * 
+ * Theme: Cozy & Calm - Soft, warm, easy on the eyes
  */
 
 @import "tailwindcss";
 
+/*
+ * ==========================================================================
+ * DESIGN TOKENS - Cozy & Calm Color System
+ * ==========================================================================
+ * 
+ * A warm, muted palette that reduces eye strain and feels inviting.
+ * Low contrast, soft tones, gentle accent color.
+ * 
+ * Usage in components:
+ *   - bg-primary, text-primary, border-primary
+ *   - bg-primary-hover, bg-primary-subtle
+ *   - bg-surface, bg-background
+ *   - text-default, text-muted
+ *   - border-default
+ *   - bg-error, text-error, bg-error-subtle
+ *   - bg-success, text-success, bg-success-subtle
+ *   - bg-warning, text-warning, bg-warning-subtle
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ========== PRIMARY - Forest Green ========== */
+  --color-primary: #2D8659;           /* Rich forest green - fresh, trustworthy */
+  --color-primary-hover: #1E6B45;     /* Deep evergreen - hover state */
+  --color-primary-subtle: #D4EDDA;    /* Soft mint tint */
+
+  /* ========== NEUTRAL - Natural Green Tones ========== */
+  --color-surface: #FAFDFB;           /* Fresh white with green hint - cards */
+  --color-background: #F0F7F2;        /* Soft sage cream - easy on eyes */
+  --color-border: #1E6B45;            /* Soft green-gray borders */
+  --color-text: #2C3E35;              /* Deep forest text - natural reading */
+  --color-text-muted: #5F7A6A;        /* Muted sage for secondary text */
+  
+  /* ========== SEMANTIC - Red/Orange for warnings, visible! ========== */
+  --color-error: #DC3545;             /* Bright red - clearly visible! */
+  --color-error-subtle: #FBE9EB;      /* Light red background */
+  --color-success: #198754;           /* Darker green - distinct from primary */
+  --color-success-subtle: #D1E7DD;    /* Soft green background */
+  --color-warning: #E85D04;           /* Bright orange-red - attention! */
+  --color-warning-subtle: #FFF0E6;    /* Light peach background */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
 }
 
+/* 
+ * Dark mode is DISABLED - using LinkedIn-style light theme only.
+ * To re-enable, uncomment the @media block below.
+ */
+/*
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-primary: #70B5F9;
+    --color-primary-hover: #9ECAED;
+    --color-primary-subtle: #1D4E7F;
+    --color-surface: #1B1F23;
+    --color-background: #000000;
+    --color-border: #345E80;
+    --color-text: #FFFFFF;
+    --color-text-muted: #B0B0B0;
+    --color-error: #F5706C;
+    --color-error-subtle: #4A1515;
+    --color-success: #7FC15E;
+    --color-success-subtle: #1A3D1F;
+    --color-warning: #F5C75D;
+    --color-warning-subtle: #4A3A15;
   }
+}
+*/
+
+/* Tailwind v4 theme configuration - maps tokens to utility classes */
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Primary */
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-subtle: var(--color-primary-subtle);
+  
+  /* Neutral */
+  --color-surface: var(--color-surface);
+  --color-background: var(--color-background);
+  --color-border: var(--color-border);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  
+  /* Semantic */
+  --color-error: var(--color-error);
+  --color-error-subtle: var(--color-error-subtle);
+  --color-success: var(--color-success);
+  --color-success-subtle: var(--color-success-subtle);
+  --color-warning: var(--color-warning);
+  --color-warning-subtle: var(--color-warning-subtle);
+  --color-info: var(--color-primary);
+  --color-info-subtle: var(--color-primary-subtle);
+  
+  /* Aliases for common patterns */
+  --color-default: var(--color-text);
+  --color-muted: var(--color-text-muted);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-background);
+  color: var(--color-text);
   font-family: Arial, Helvetica, sans-serif;
 }
 
