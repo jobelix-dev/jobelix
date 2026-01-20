@@ -118,7 +118,7 @@ export default function WorkPreferencesSection({
           <input
             type="number"
             min="0"
-            step="1000"
+            step="40000"
             value={values.salary_expectation_usd || ''}
             onChange={(e) => onChange('salary_expectation_usd', parseInt(e.target.value) || 0)}
             placeholder="e.g., 100000"
