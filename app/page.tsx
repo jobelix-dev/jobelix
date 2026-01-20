@@ -54,18 +54,18 @@ export default function Home() {
             <div className="text-center max-w-4xl mx-auto">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-subtle/50 rounded-full text-sm font-medium text-primary mb-6">
                 <Star className="w-4 h-4" />
-                Trusted by 2,400+ engineers across France
+                Trusted by 2,400+ professionals across France
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-default mb-6 leading-tight">
-                Where Top Engineers
+                Where Top Talents
                 <span className="block bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent">
-                  Meet Top Startups
+                  Meet Top Jobs
                 </span>
               </h1>
               
               <p className="text-xl text-muted max-w-2xl mx-auto mb-10">
-                Jobelix connects exceptional tech talent with France's most innovative startups. 
+                Jobelix connects exceptional talent with the best job opportunities. 
                 AI-powered matching and automated applications help you find your dream role faster.
               </p>
 
@@ -78,7 +78,7 @@ export default function Home() {
                   Download Desktop App
                 </Link>
                 <Link
-                  href="/signup?role=student"
+                  href="/signup?role=talent"
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border-2 border-primary text-primary hover:bg-primary-subtle text-lg font-semibold rounded-xl transition-all"
                 >
                   Create Free Account
@@ -102,11 +102,11 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold text-primary mb-2">2,400+</div>
-                <div className="text-sm text-muted">Engineers Registered</div>
+                <div className="text-sm text-muted">Talents Registered</div>
               </div>
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold text-primary mb-2">180+</div>
-                <div className="text-sm text-muted">Partner Startups</div>
+                <div className="text-sm text-muted">Partner Employers</div>
               </div>
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold text-primary mb-2">12,000+</div>
@@ -167,16 +167,16 @@ export default function Home() {
                   <Target className="w-7 h-7 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-default mb-3">
-                  Startup Matching
+                  Employer Matching
                 </h3>
                 <p className="text-muted mb-6">
-                  Get discovered by France's top startups. Our AI matches your skills and preferences 
+                  Get discovered by top employers. Our AI matches your skills and preferences 
                   with companies actively hiring and they come to you with personalized opportunities.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3 text-sm text-default">
                     <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
-                    Vetted startups with real funding
+                    Vetted employers with real opportunities
                   </li>
                   <li className="flex items-center gap-3 text-sm text-default">
                     <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
@@ -238,7 +238,7 @@ export default function Home() {
                 </div>
                 <h4 className="font-semibold text-default mb-2">Launch & Match</h4>
                 <p className="text-sm text-muted">
-                  Start auto-applying and receive startup matches
+                  Start auto-applying and receive employer matches
                 </p>
               </div>
             </div>
@@ -250,10 +250,10 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold text-default mb-4">
-                Engineers Love Jobelix
+                Professionals Love Jobelix
               </h2>
               <p className="text-lg text-muted">
-                Join thousands of developers who found their perfect role
+                Join thousands of professionals who found their perfect role
               </p>
             </div>
 
@@ -265,7 +265,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-default mb-4">
-                  "Jobelix sent out 200 applications in a week. I got 15 interviews and landed a Senior role at a Series B startup. Incredible."
+                  "Jobelix sent out 200 applications in a week. I got 15 interviews and landed a Senior role at a Series B company. Incredible."
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary-subtle rounded-full flex items-center justify-center text-primary font-semibold">
@@ -285,7 +285,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-default mb-4">
-                  "The startup matching is amazing. A CTO reached out directly and I skipped 3 interview rounds. Best career move ever."
+                  "The employer matching is amazing. A CTO reached out directly and I skipped 3 interview rounds. Best career move ever."
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-success-subtle rounded-full flex items-center justify-center text-success font-semibold">
@@ -337,7 +337,7 @@ export default function Home() {
               <div className="bg-background rounded-xl p-6 border border-border">
                 <h4 className="font-semibold text-default mb-2">Is Jobelix really free?</h4>
                 <p className="text-muted">
-                  Yes. Creating an account and using the startup matching feature is completely free. 
+                  Yes. Creating an account and using the employer matching feature is completely free. 
                   The auto-apply bot requires the desktop app but has no additional cost.
                 </p>
               </div>
@@ -349,9 +349,9 @@ export default function Home() {
                 </p>
               </div>
               <div className="bg-background rounded-xl p-6 border border-border">
-                <h4 className="font-semibold text-default mb-2">Will startups contact me directly?</h4>
+                <h4 className="font-semibold text-default mb-2">Will employers contact me directly?</h4>
                 <p className="text-muted">
-                  Yes. Once your profile is complete, our algorithm matches you with relevant startups. 
+                  Yes. Once your profile is complete, our algorithm matches you with relevant employers. 
                   Hiring managers can reach out to you directly through the platform.
                 </p>
               </div>
@@ -377,7 +377,7 @@ export default function Home() {
               Jobelix Blog
             </h2>
             <p className="text-lg text-muted max-w-2xl mx-auto">
-              Career tips, startup insights, and industry trends. 
+              Career tips, industry insights, and trends. 
               Our blog is launching soon. Stay tuned.
             </p>
           </div>
@@ -390,7 +390,7 @@ export default function Home() {
               Ready to Accelerate Your Career?
             </h2>
             <p className="text-xl text-white/80 mb-8">
-              Join thousands of engineers discovering better opportunities with Jobelix.
+              Join thousands of professionals discovering better opportunities with Jobelix.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -401,7 +401,7 @@ export default function Home() {
                 Download Desktop App
               </Link>
               <Link
-                href="/signup?role=student"
+                href="/signup?role=talent"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 border-2 border-white text-white text-lg font-semibold rounded-xl hover:bg-white/20 transition-all"
               >
                 Create Free Account
@@ -425,7 +425,7 @@ export default function Home() {
                 <a href="#faq" className="hover:text-default transition-colors cursor-pointer">FAQ</a>
                 <a href="#blog" className="hover:text-default transition-colors cursor-pointer">Blog</a>
                 <Link href="/login" className="hover:text-default transition-colors">Sign In</Link>
-                <Link href="/signup?role=student" className="hover:text-default transition-colors">Sign Up</Link>
+                <Link href="/signup?role=talent" className="hover:text-default transition-colors">Sign Up</Link>
                 <Link href="/download" className="hover:text-default transition-colors">Download</Link>
               </div>
               <div className="text-sm text-muted">

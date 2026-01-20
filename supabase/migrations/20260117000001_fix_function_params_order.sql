@@ -1,8 +1,7 @@
--- Fix parameter order for PostgREST compatibility
--- PostgREST expects parameters in alphabetical order
--- Note: Parameters with defaults must come AFTER parameters without defaults
+-- Fix parameter order for PostgreSQL compatibility
+-- Parameters with DEFAULT values must come after required parameters
 
--- Recreate function with correct parameter order (required params first, then optional with defaults)
+-- Recreate function with correct parameter order
 CREATE OR REPLACE FUNCTION public.count_recent_signups_from_ip(p_ip_address text, p_hours_ago integer DEFAULT 24)
  RETURNS integer
  LANGUAGE plpgsql
