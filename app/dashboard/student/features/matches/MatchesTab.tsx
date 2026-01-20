@@ -1,8 +1,8 @@
 /**
  * Matches Tab Content
  * 
- * Displays job matches from startups.
- * Shows available positions that match the student's profile.
+ * Displays job matches from employers.
+ * Shows available positions that match the talent's profile.
  */
 
 'use client';
@@ -19,7 +19,7 @@ export default function MatchesTab() {
             Job Matches
           </h2>
           <p className="text-sm text-muted mt-1">
-            Startups looking for talent like you
+            Employers looking for talent like you
           </p>
         </div>
       </div>
@@ -37,7 +37,7 @@ export default function MatchesTab() {
           Job Matches
         </h3>
         <p className="text-sm text-muted max-w-md mx-auto">
-          We're building a smart matching system to connect you with startups looking for talent like you.
+          We're building a smart matching system to connect you with employers looking for talent like you.
         </p>
         </div>
       </div>

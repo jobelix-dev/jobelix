@@ -1,9 +1,10 @@
 /**
  * ProfileEditorSection Component
  * 
- * Editable form for student profile data.
+ * Editable form for talent profile data.
  * Always visible - allows manual entry or displays AI-extracted data.
  * Changes kept in local state until user clicks Save.
+ * Note: Uses "student" internally for DB compatibility
  */
 
 'use client';

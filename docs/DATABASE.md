@@ -217,9 +217,6 @@ publish_offer_draft(p_draft_id uuid) RETURNS uuid
   - `salary_expectation_usd` (integer)
 - **Constraint**: One preference row per student (UNIQUE `student_id`)
 
-**Table**: `profile_searched` (legacy/unused)
-- Appears to be deprecated search criteria storage
-
 ---
 
 ### Credits & Payment System
