@@ -7,7 +7,8 @@
  */
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
 import { MatchesTab } from './features/matches';
@@ -18,8 +19,18 @@ import { useProfileData, useResumeUpload } from './hooks';
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
 export default function StudentDashboard() {
-  // Active tab state
+  const searchParams = useSearchParams();
+  
+  // Active tab state - initialize from URL param if present
   const [activeTab, setActiveTab] = useState<DashboardTab>('profile');
+  
+  // Read tab from URL on mount (e.g., after Stripe redirect)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['profile', 'matches', 'job-preferences', 'auto-apply'].includes(tabParam)) {
+      setActiveTab(tabParam as DashboardTab);
+    }
+  }, [searchParams]);
   
   // Profile data management (custom hook)
   const profileState = useProfileData();

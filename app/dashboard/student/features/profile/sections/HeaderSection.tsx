@@ -262,7 +262,7 @@ export default function HeaderSection({
 
       {/* Compact Resume Info */}
       {resumeInfo && (
-        <div className="flex items-center gap-4 p-3 rounded-lg border border-primary-subtle bg-primary-subtle/30/10">
+        <div className="flex items-center gap-4 p-3 rounded-lg bg-primary-subtle/10">
           <div className="flex-1">
             <p className="font-medium text-sm">{resumeInfo.filename}</p>
             <p className="text-xs text-muted">

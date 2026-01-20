@@ -45,12 +45,16 @@ function getStripe(): Stripe {
 // User can only buy what you list here.
 // Client sends "plan", server decides everything else.
 const PLAN_TO_PRICE_ID: Record<string, string> = {
-  credits_1000: process.env.STRIPE_PRICE_CREDITS_1000 || '',
+  credits_100: process.env.STRIPE_PRICE_CREDITS_100 || '',
+  credits_300: process.env.STRIPE_PRICE_CREDITS_300 || '',
+  credits_500: process.env.STRIPE_PRICE_CREDITS_500 || '',
 };
 
 // Plan to credits amount mapping
 const PLAN_TO_CREDITS: Record<string, number> = {
-  credits_1000: 1000,
+  credits_100: 100,
+  credits_300: 300,
+  credits_500: 500,
 };
 
 // -----------------------------
@@ -181,8 +185,8 @@ export async function POST(request: NextRequest) {
         locale: "en",
         line_items: [{ price: priceId, quantity: 1 }],
 
-        success_url: `${APP_ORIGIN}/dashboard/student?success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${APP_ORIGIN}/dashboard/student?canceled=true`,
+        success_url: `${APP_ORIGIN}/dashboard?tab=auto-apply&success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${APP_ORIGIN}/dashboard?tab=auto-apply&canceled=true`,
 
         metadata: {
           purchase_id: String(purchaseId),

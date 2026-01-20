@@ -211,7 +211,7 @@ export default function Home() {
                 </div>
                 <h4 className="font-semibold text-default mb-2">Create Account</h4>
                 <p className="text-sm text-muted">
-                  Sign up free and download our desktop app
+                  Sign up for free and download our desktop app
                 </p>
               </div>
               <div className="text-center">
