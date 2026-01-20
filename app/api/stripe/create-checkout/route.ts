@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       plan, 
       hasPriceId: !!priceId, 
       creditsAmount,
-      hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
+      hasEnvVar: !!process.env[`STRIPE_PRICE_CREDITS_${creditsAmount}`]
     });
     
     if (!priceId || !creditsAmount) {
