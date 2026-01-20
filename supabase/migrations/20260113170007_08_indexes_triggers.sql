@@ -264,11 +264,6 @@ CREATE TRIGGER protect_application_immutable
   FOR EACH ROW
   EXECUTE FUNCTION protect_immutable_columns();
 
-CREATE TRIGGER protect_profile_searched_immutable
-  BEFORE UPDATE ON profile_searched
-  FOR EACH ROW
-  EXECUTE FUNCTION protect_immutable_columns();
-
 -- Credits and payment system tables
 CREATE TRIGGER protect_user_credits_immutable
   BEFORE UPDATE ON user_credits

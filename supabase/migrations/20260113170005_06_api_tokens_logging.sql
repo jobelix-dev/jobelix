@@ -259,12 +259,13 @@ for select
 to authenticated
 using ((user_id = (SELECT auth.uid())));
 
-create policy "api_tokens_delete_own"
-on "public"."api_tokens"
-as permissive
-for delete
-to authenticated
-using ((user_id = (SELECT auth.uid())));
+-- Users are not allowed to delete/insert their own API tokens for the moment
+-- create policy "api_tokens_delete_own"
+-- on "public"."api_tokens"
+-- as permissive
+-- for delete
+-- to authenticated
+-- using ((user_id = (SELECT auth.uid())));
 
 -- API call log policies
 create policy "api_call_log_select_own"
