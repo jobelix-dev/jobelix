@@ -98,6 +98,8 @@ export async function POST(request: NextRequest) {
       hasEnvVar: !!process.env[`STRIPE_PRICE_CREDITS_${creditsAmount}`]
     });
     
+    console.log('[Stripe Checkout] priceId =', priceId);
+
     if (!priceId || !creditsAmount) {
       console.error('[Stripe Checkout] Invalid plan configuration:', { 
         plan, 
@@ -111,14 +113,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4) (Optional extra check) Verify the price exists in Stripe
-    // This is not strictly required, but it helps catch env misconfig.
+
+    // // 4) (Optional extra check) Verify the price exists in Stripe
+    // // This is not strictly required, but it helps catch env misconfig.
+    // try {
+    //   await getStripe().prices.retrieve(priceId);
+    // } catch (err: any) {
+    //   console.error('[Stripe Checkout] Price verification failed');
+    //   return NextResponse.json(
+    //     { error: 'Invalid payment configuration' },
+    //     { status: 400 }
+    //   );
+    // }
+
+    
     try {
       await getStripe().prices.retrieve(priceId);
     } catch (err: any) {
-      console.error('[Stripe Checkout] Price verification failed');
+      console.error('[Stripe Checkout] Price verification failed:', {
+        message: err?.message,
+        type: err?.type,
+        code: err?.code,
+        statusCode: err?.statusCode,
+        rawMessage: err?.raw?.message,
+        priceId,
+        keyMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
+      });
+
       return NextResponse.json(
-        { error: 'Invalid payment configuration' },
+        {
+          error: 'Invalid payment configuration',
+          details: {
+            message: err?.raw?.message ?? err?.message,
+            code: err?.code,
+            priceId,
+            keyMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
+          },
+        },
         { status: 400 }
       );
     }
