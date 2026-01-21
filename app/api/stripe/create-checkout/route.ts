@@ -98,6 +98,8 @@ export async function POST(request: NextRequest) {
       hasEnvVar: !!process.env[`STRIPE_PRICE_CREDITS_${creditsAmount}`]
     });
     
+    console.log('[Stripe Checkout] priceId =', priceId);
+
     if (!priceId || !creditsAmount) {
       console.error('[Stripe Checkout] Invalid plan configuration:', { 
         plan, 
@@ -110,6 +112,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
 
     // 4) (Optional extra check) Verify the price exists in Stripe
     // This is not strictly required, but it helps catch env misconfig.
