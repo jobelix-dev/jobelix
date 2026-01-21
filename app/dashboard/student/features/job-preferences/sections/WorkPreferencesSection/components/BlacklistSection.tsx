@@ -6,9 +6,9 @@
 
 'use client';
 
-import React from 'react';
+import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import { Ban } from 'lucide-react';
-import ArrayInputField from './ArrayInputField';
+import ArrayInputField, { ArrayInputFieldRef } from './ArrayInputField';
 
 interface BlacklistSectionProps {
   companyBlacklist: string[];
@@ -16,11 +16,29 @@ interface BlacklistSectionProps {
   onChange: (field: string, value: string[]) => void;
 }
 
-export default function BlacklistSection({
-  companyBlacklist,
-  titleBlacklist,
-  onChange,
-}: BlacklistSectionProps) {
+export interface BlacklistSectionRef {
+  flushAllPendingInputs: () => void;
+}
+
+const BlacklistSection = forwardRef<BlacklistSectionRef, BlacklistSectionProps>((
+  {
+    companyBlacklist,
+    titleBlacklist,
+    onChange,
+  },
+  ref
+) => {
+  const companyRef = useRef<ArrayInputFieldRef>(null);
+  const titleRef = useRef<ArrayInputFieldRef>(null);
+
+  // Expose flush method to parent
+  useImperativeHandle(ref, () => ({
+    flushAllPendingInputs: () => {
+      companyRef.current?.flushPendingInput();
+      titleRef.current?.flushPendingInput();
+    },
+  }));
+
   return (
     <div className="space-y-4">
       <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
@@ -29,6 +47,7 @@ export default function BlacklistSection({
       </h4>
 
       <ArrayInputField
+        ref={companyRef}
         label="Company Blacklist"
         placeholder="e.g., CompanyName Inc"
         value={companyBlacklist}
@@ -37,6 +56,7 @@ export default function BlacklistSection({
       />
 
       <ArrayInputField
+        ref={titleRef}
         label="Job Title Blacklist"
         placeholder="e.g., Senior, Lead"
         value={titleBlacklist}
@@ -45,4 +65,8 @@ export default function BlacklistSection({
       />
     </div>
   );
-}
+});
+
+BlacklistSection.displayName = 'BlacklistSection';
+
+export default BlacklistSection;

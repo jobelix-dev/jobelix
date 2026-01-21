@@ -87,8 +87,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 onClick={() => setType('bug')}
                 className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
                   type === 'bug'
-                    ? 'border-error bg-error-subtle/20'
-                    : 'border-border hover:border-primary'
+                    ? 'border-error bg-error-subtle/30 shadow-sm'
+                    : 'border-border bg-surface hover:border-error/50'
                 }`}
               >
                 <Bug className={`w-5 h-5 ${type === 'bug' ? 'text-error' : 'text-muted'}`} />
@@ -101,12 +101,12 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 onClick={() => setType('feature')}
                 className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
                   type === 'feature'
-                    ? 'border-primary bg-primary-subtle/20'
-                    : 'border-border hover:border-primary'
+                    ? 'border-info bg-info-subtle shadow-sm'
+                    : 'border-border bg-surface hover:border-info/50'
                 }`}
               >
-                <Lightbulb className={`w-5 h-5 ${type === 'feature' ? 'text-primary' : 'text-muted'}`} />
-                <span className={`font-medium ${type === 'feature' ? 'text-primary-hover' : 'text-muted'}`}>
+                <Lightbulb className={`w-5 h-5 ${type === 'feature' ? 'text-info' : 'text-muted'}`} />
+                <span className={`font-medium ${type === 'feature' ? 'text-info' : 'text-muted'}`}>
                   Feature Request
                 </span>
               </button>

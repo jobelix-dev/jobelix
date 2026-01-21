@@ -49,6 +49,8 @@
   --color-success-subtle: #D1E7DD;    /* Soft green background */
   --color-warning: #E85D04;           /* Bright orange-red - attention! */
   --color-warning-subtle: #FFF0E6;    /* Light peach background */
+  --color-info: #0A66C2;              /* LinkedIn blue - for info/features */
+  --color-info-subtle: #E7F3FF;       /* Light blue background */
 }
 
 /* Smooth scrolling for anchor links */
@@ -105,8 +107,8 @@ html {
   --color-success-subtle: var(--color-success-subtle);
   --color-warning: var(--color-warning);
   --color-warning-subtle: var(--color-warning-subtle);
-  --color-info: var(--color-primary);
-  --color-info-subtle: var(--color-primary-subtle);
+  --color-info: var(--color-info);
+  --color-info-subtle: var(--color-info-subtle);
   
   /* Aliases for common patterns */
   --color-default: var(--color-text);
