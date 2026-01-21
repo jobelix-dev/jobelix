@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.stripe.com https://api.github.com https://api.openai.com http://127.0.0.1:54321 wss://127.0.0.1:54321 https://vitals.vercel-insights.com https://va.vercel-scripts.com",
+              `connect-src 'self' https://api.stripe.com https://api.github.com https://api.openai.com wss://127.0.0.1:54321 https://vitals.vercel-insights.com https://va.vercel-scripts.com ${process.env.NEXT_PUBLIC_SUPABASE_URL}`,
               "frame-src 'self' https://js.stripe.com",
               "object-src 'none'",
               "base-uri 'self'",
