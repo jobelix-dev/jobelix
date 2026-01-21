@@ -122,8 +122,11 @@ export async function launchBot(token) {
       };
     }
 
-    // Spawn the bot process with --playwright flag and token
-    const botProcess = spawn(botPath, ['--playwright', token], {
+    // Get backend API URL from environment or use default
+    const backendApiUrl = process.env.BACKEND_API_URL || 'http://www.jobelix.fr/api/autoapply/gpt4';
+
+    // Spawn the bot process with --playwright flag, token, and backend API URL
+    const botProcess = spawn(botPath, ['--playwright', token, '--backend_api_url', backendApiUrl], {
       ...SPAWN_CONFIG.BOT,
       cwd: botCwd
     });
