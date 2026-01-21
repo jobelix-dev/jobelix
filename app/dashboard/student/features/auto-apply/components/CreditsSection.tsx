@@ -36,6 +36,7 @@ export default function CreditsSection({
 }: CreditsSectionProps) {
   const [claimMessage, setClaimMessage] = useState<string | null>(null);
   const [buyingPlan, setBuyingPlan] = useState<string | null>(null);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
 
   const handleClaim = async () => {
     const result = await onClaim();
@@ -74,9 +75,14 @@ export default function CreditsSection({
           <Coins className="w-5 h-5 text-primary" />
           <div>
             <p className="text-sm text-muted">Available Balance</p>
-            <p className="text-3xl font-bold bg-gradient-to-r from-primary to-info bg-clip-text text-transparent">
-              {balance.toLocaleString()}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-3xl font-bold bg-gradient-to-r from-primary to-info bg-clip-text text-transparent">
+                {balance.toLocaleString()}
+              </p>
+              <p className="text-3xl font-bold text-success">
+                ≈ {Math.ceil(balance / 4)} jobs
+              </p>
+            </div>
           </div>
         </div>
         <button
@@ -111,38 +117,55 @@ export default function CreditsSection({
         <p className="text-xs text-warning text-center">{claimMessage}</p>
       )}
 
-      {/* Purchase Options */}
-      <div>
-        <p className="text-sm font-medium text-default mb-3">Buy Credits</p>
-        <div className="grid grid-cols-3 gap-3">
-          {CREDIT_PLANS.map((plan) => (
-            <button
-              key={plan.id}
-              onClick={() => handleBuy(plan.id)}
-              disabled={buyingPlan !== null}
-              className={`relative p-4 rounded-lg border-2 transition-all hover:scale-[1.02] ${
-                plan.popular
-                  ? 'border-primary bg-primary-subtle/10 hover:bg-primary-subtle/30 hover:shadow-md'
-                  : 'border-border hover:border-primary hover:bg-primary-subtle/5'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {plan.popular && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-primary text-white text-xs font-medium rounded-full">
-                  Popular
-                </span>
-              )}
-              <p className="text-2xl font-bold text-default">{plan.credits}</p>
-              <p className="text-xs text-muted">credits</p>
-              <p className="text-sm font-semibold text-primary mt-2">{plan.price}</p>
-              {buyingPlan === plan.id && (
-                <p className="text-xs text-muted mt-1">Redirecting...</p>
-              )}
-            </button>
-          ))}
+      {/* Buy Credits Toggle Button */}
+      <div className="flex items-center justify-between p-3 bg-primary-subtle/10 rounded-lg border border-primary/20">
+        <div className="flex items-center gap-3">
+          <Coins className="w-5 h-5 text-primary" />
+          <div>
+            <p className="text-sm font-medium text-default">Buy Credits</p>
+            <p className="text-xs text-muted">Purchase credits to continue applying</p>
+          </div>
         </div>
+        <button
+          onClick={() => setShowBuyCredits(!showBuyCredits)}
+          className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {showBuyCredits ? 'Hide' : 'Show'}
+        </button>
       </div>
 
-      {error && (
+      {/* Purchase Options */}
+      {showBuyCredits && (
+        <div className="animate-in slide-in-from-top-2 duration-300">
+          <p className="text-sm font-medium text-default mb-3">Choose a Plan</p>
+          <div className="grid grid-cols-3 gap-3">
+            {CREDIT_PLANS.map((plan) => (
+              <button
+                key={plan.id}
+                onClick={() => handleBuy(plan.id)}
+                disabled={buyingPlan !== null}
+                className={`relative p-4 rounded-lg border-2 transition-all hover:scale-[1.02] ${
+                  plan.popular
+                    ? 'border-primary bg-primary-subtle/10 hover:bg-primary-subtle/30 hover:shadow-md'
+                    : 'border-border hover:border-primary hover:bg-primary-subtle/5'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {plan.popular && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-primary text-white text-xs font-medium rounded-full">
+                    Popular
+                  </span>
+                )}
+                <p className="text-2xl font-bold text-default">{plan.credits}</p>
+                <p className="text-xs text-muted">credits</p>
+                <p className="text-sm font-semibold text-primary mt-2">{plan.price}</p>
+                {buyingPlan === plan.id && (
+                  <p className="text-xs text-muted mt-1">Redirecting...</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}      {error && (
         <p className="text-xs text-error text-center">{error}</p>
       )}
     </div>
