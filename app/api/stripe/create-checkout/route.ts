@@ -105,7 +105,9 @@ export async function POST(request: NextRequest) {
         plan, 
         hasPriceId: !!priceId, 
         hasCreditsAmount: !!creditsAmount,
-        hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
+        hasEnvVar100: !!process.env.STRIPE_PRICE_CREDITS_100,
+        hasEnvVar300: !!process.env.STRIPE_PRICE_CREDITS_300,
+        hasEnvVar500: !!process.env.STRIPE_PRICE_CREDITS_500,
       });
       return NextResponse.json(
         { error: 'Invalid plan configuration - check environment variables' },
@@ -114,46 +116,19 @@ export async function POST(request: NextRequest) {
     }
 
 
-    // // 4) (Optional extra check) Verify the price exists in Stripe
-    // // This is not strictly required, but it helps catch env misconfig.
-    // try {
-    //   await getStripe().prices.retrieve(priceId);
-    // } catch (err: any) {
-    //   console.error('[Stripe Checkout] Price verification failed');
-    //   return NextResponse.json(
-    //     { error: 'Invalid payment configuration' },
-    //     { status: 400 }
-    //   );
-    // }
-
-    
+    // 4) (Optional extra check) Verify the price exists in Stripe
+    // This is not strictly required, but it helps catch env misconfig.
     try {
       await getStripe().prices.retrieve(priceId);
     } catch (err: any) {
-      console.error('[Stripe Checkout] Price verification failed:', {
-        message: err?.message,
-        type: err?.type,
-        code: err?.code,
-        statusCode: err?.statusCode,
-        rawMessage: err?.raw?.message,
-        priceId,
-        keyMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
-      });
-
+      console.error('[Stripe Checkout] Price verification failed');
       return NextResponse.json(
-        {
-          error: 'Invalid payment configuration',
-          details: {
-            message: err?.raw?.message ?? err?.message,
-            code: err?.code,
-            priceId,
-            keyMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
-          },
-        },
+        { error: 'Invalid payment configuration' },
         { status: 400 }
       );
     }
 
+    
     /**
      * 5) Create a database record FIRST (idempotency)
      *
