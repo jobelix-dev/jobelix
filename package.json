@@ -97,6 +97,7 @@
     "@supabase/supabase-js": "^2.89.0",
     "@vercel/analytics": "^1.6.1",
     "ai": "^6.0.3",
+    "dotenv": "^17.2.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.7.3",
     "lucide-react": "^0.562.0",
