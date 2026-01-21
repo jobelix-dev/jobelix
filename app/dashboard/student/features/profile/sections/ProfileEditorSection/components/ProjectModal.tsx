@@ -102,9 +102,17 @@ export default function ProjectModal({
             />
           </div>
 
-          {/* Auto-save indicator */}
-          <div className="text-xs text-muted text-center pt-2">
-            Changes are saved automatically
+          {/* Bottom bar with auto-save indicator and done button */}
+          <div className="flex items-center justify-between pt-4 border-t border-border">
+            <div className="text-xs text-muted">
+              Changes are saved automatically
+            </div>
+            <button
+              onClick={onClose}
+              className="px-8 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-lg transition-colors shadow-sm"
+            >
+              Done
+            </button>
           </div>
         </div>
       </div>
