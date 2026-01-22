@@ -6,9 +6,9 @@
 
 'use client';
 
-import React from 'react';
+import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import { Target, MapPin } from 'lucide-react';
-import ArrayInputField from './ArrayInputField';
+import ArrayInputField, { ArrayInputFieldRef } from './ArrayInputField';
 
 interface SearchCriteriaSectionProps {
   positions: string[];
@@ -17,15 +17,34 @@ interface SearchCriteriaSectionProps {
   onChange: (field: string, value: string[] | boolean) => void;
 }
 
-export default function SearchCriteriaSection({
-  positions,
-  locations,
-  remoteWork,
-  onChange,
-}: SearchCriteriaSectionProps) {
+export interface SearchCriteriaSectionRef {
+  flushAllPendingInputs: () => void;
+}
+
+const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteriaSectionProps>((
+  {
+    positions,
+    locations,
+    remoteWork,
+    onChange,
+  },
+  ref
+) => {
+  const positionsRef = useRef<ArrayInputFieldRef>(null);
+  const locationsRef = useRef<ArrayInputFieldRef>(null);
+
+  // Expose flush method to parent
+  useImperativeHandle(ref, () => ({
+    flushAllPendingInputs: () => {
+      positionsRef.current?.flushPendingInput();
+      locationsRef.current?.flushPendingInput();
+    },
+  }));
+
   return (
     <div className="space-y-4">
       <ArrayInputField
+        ref={positionsRef}
         label="Target Positions"
         placeholder="e.g., Software Engineer, Data Analyst"
         value={positions}
@@ -35,6 +54,7 @@ export default function SearchCriteriaSection({
       />
 
       <ArrayInputField
+        ref={locationsRef}
         label="Locations"
         placeholder="e.g., San Francisco, Remote, United States"
         value={locations}
@@ -56,4 +76,8 @@ export default function SearchCriteriaSection({
       </label>
     </div>
   );
-}
+});
+
+SearchCriteriaSection.displayName = 'SearchCriteriaSection';
+
+export default SearchCriteriaSection;

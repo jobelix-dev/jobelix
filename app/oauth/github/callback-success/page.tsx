@@ -22,9 +22,9 @@ function CallbackContent() {
     if (window.opener) {
       // Notify parent window of success/error
       if (error) {
-        window.opener.postMessage({ type: 'github-oauth-error', error }, window.location.origin);
+        window.opener.postMessage({ type: 'github-oauth-error', error }, process.env.NEXT_PUBLIC_APP_URL);
       } else {
-        window.opener.postMessage({ type: 'github-oauth-success' }, window.location.origin);
+        window.opener.postMessage({ type: 'github-oauth-success' }, process.env.NEXT_PUBLIC_APP_URL);
       }
       
       // Close popup after a short delay

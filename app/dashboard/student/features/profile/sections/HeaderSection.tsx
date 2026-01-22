@@ -60,7 +60,7 @@ export default function HeaderSection({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Verify origin for security
-      if (event.origin !== window.location.origin) return;
+      if (event.origin !== process.env.NEXT_PUBLIC_APP_URL) return;
       
       if (event.data.type === 'github-oauth-success') {
         // GitHub connected successfully via popup, trigger auto-sync
@@ -115,7 +115,7 @@ export default function HeaderSection({
         <div>
           <h1 className="text-2xl font-bold">Complete Your Profile</h1>
           <p className="text-sm text-muted mt-1">
-            Set and publish your profile to receive better employer matches <br /> and enable the LinkedIn Auto-Apply bot
+            Set and save your profile to receive better employer matches <br /> and enable the LinkedIn Auto-Apply bot
           </p>
         </div>
         
@@ -129,7 +129,7 @@ export default function HeaderSection({
             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0"
           >
             <span className="text-sm font-medium text-warning">
-              Unpublished Changes
+              Unsaved Changes
             </span>
             <ArrowDown className="w-4 h-4 text-warning" />
           </button>
@@ -139,7 +139,7 @@ export default function HeaderSection({
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0">
             <CloudUpload className="w-4 h-4 text-success" />
             <span className="text-sm font-medium text-success">
-              Published
+              Saved
             </span>
           </div>
         )}
