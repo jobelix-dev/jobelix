@@ -17,12 +17,19 @@ const RESUME_UPLOAD_LIMIT = 5; // Max 5 resume uploads per day
 const RESUME_EXTRACT_LIMIT = 5; // Max 5 GPT extractions per day
 const RESUME_RATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours (1 day)
 
+// Auth rate limits (stricter for security)
+const AUTH_RATE_LIMIT = 10; // Max 10 auth attempts per hour
+const AUTH_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
 // In-memory store for rate limiting
 // Map<IP, { count: number, resetTime: number }>
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 // Separate store for resume operations (longer window)
 const resumeRateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+// Separate store for auth operations (security-focused)
+const authRateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 // Cleanup old entries every 5 minutes to prevent memory leaks
 setInterval(() => {
@@ -36,6 +43,12 @@ setInterval(() => {
   for (const [ip, data] of resumeRateLimitStore.entries()) {
     if (data.resetTime < now) {
       resumeRateLimitStore.delete(ip);
+    }
+  }
+  // Also cleanup auth rate limit store
+  for (const [ip, data] of authRateLimitStore.entries()) {
+    if (data.resetTime < now) {
+      authRateLimitStore.delete(ip);
     }
   }
 }, 5 * 60 * 1000);
@@ -142,6 +155,47 @@ function checkResumeRateLimit(ip: string, route: 'upload' | 'extract'): { allowe
   };
 }
 
+function checkAuthRateLimit(ip: string): { allowed: boolean; limit: number; remaining: number; reset: number } {
+  const now = Date.now();
+  const data = authRateLimitStore.get(ip);
+
+  if (!data || data.resetTime < now) {
+    // No data or window expired - create new window
+    authRateLimitStore.set(ip, {
+      count: 1,
+      resetTime: now + AUTH_RATE_WINDOW_MS
+    });
+
+    return {
+      allowed: true,
+      limit: AUTH_RATE_LIMIT,
+      remaining: AUTH_RATE_LIMIT - 1,
+      reset: now + AUTH_RATE_WINDOW_MS
+    };
+  }
+
+  // Increment counter
+  data.count++;
+
+  if (data.count > AUTH_RATE_LIMIT) {
+    // Rate limit exceeded
+    return {
+      allowed: false,
+      limit: AUTH_RATE_LIMIT,
+      remaining: 0,
+      reset: data.resetTime
+    };
+  }
+
+  // Within limits
+  return {
+    allowed: true,
+    limit: AUTH_RATE_LIMIT,
+    remaining: AUTH_RATE_LIMIT - data.count,
+    reset: data.resetTime
+  };
+}
+
 export function proxy(request: NextRequest) {
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
@@ -173,6 +227,21 @@ export function proxy(request: NextRequest) {
       response.headers.set('X-RateLimit-Limit', extractCheck.limit.toString());
       response.headers.set('X-RateLimit-Remaining', extractCheck.remaining.toString());
       response.headers.set('X-RateLimit-Reset', new Date(extractCheck.reset).toISOString());
+      return response;
+    }
+  }
+
+  // Check for auth-specific rate limits (security-focused)
+  if (pathname.startsWith('/api/auth/') && (request.method === 'POST' || request.method === 'PUT')) {
+    const authCheck = checkAuthRateLimit(ip);
+    if (!authCheck.allowed) {
+      const response = NextResponse.json(
+        { error: 'Too many authentication attempts. Please try again later.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', authCheck.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', authCheck.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', new Date(authCheck.reset).toISOString());
       return response;
     }
   }

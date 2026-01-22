@@ -73,14 +73,31 @@ export async function POST(request: NextRequest) {
       password: password
     })
 
-
     if (error) {
       /**
        * 🔐 SECURITY:
-       * - Do NOT return error.message to the client
-       * - It can reveal internal auth details
-       * - Always log the full error server-side
+       * - Do NOT return error.message to the client directly
+       * - Check for specific known errors and return user-friendly messages
        */
+      console.error('Supabase updateUser error:', error);
+      
+      // Check for specific password-related errors
+      if (error.message?.includes('same_password') || error.message?.includes('Password should be different')) {
+        return NextResponse.json(
+          { error: 'New password should be different from your current password' },
+          { status: 400 }
+        )
+      }
+      
+      // Check for weak password errors
+      if (error.message?.includes('weak') || error.message?.includes('Password should be at least')) {
+        return NextResponse.json(
+          { error: 'Password is too weak. Please choose a stronger password.' },
+          { status: 400 }
+        )
+      }
+
+      // Generic error for other cases
       return NextResponse.json(
         { error: 'Failed to update password' }, // 🔐
         { status: 400 }
