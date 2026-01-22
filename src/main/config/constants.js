@@ -41,10 +41,6 @@ export const PLATFORM_FOLDERS = {
 
 // Executable names
 export const EXECUTABLES = {
-  ENGINE: {
-    BASE: 'engine',
-    WINDOWS: 'engine.exe',
-  },
   BOT: {
     BASE: 'main',
     WINDOWS: 'main.exe',
@@ -125,8 +121,5 @@ export const SPAWN_CONFIG = {
   BOT: {
     detached: true,
     stdio: 'ignore',
-  },
-  ENGINE: {
-    // Standard spawn, will use default options
   },
 };
