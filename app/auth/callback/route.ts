@@ -51,9 +51,14 @@ export async function GET(request: NextRequest) {
     console.log('[Callback] Session exchange successful, checking user...')
     
     // Verify the session was created
-    const { data: { user, session }, error: userError } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     console.log('[Callback] User after exchange:', user ? { id: user.id, email: user.email, email_confirmed_at: user.email_confirmed_at } : 'null')
+    
+    // Get session information separately
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     console.log('[Callback] Session after exchange:', session ? { access_token: session.access_token ? 'present' : 'missing', refresh_token: session.refresh_token ? 'present' : 'missing' } : 'null')
+    console.log('[Callback] Session error:', sessionError)
+    
     console.log('[Callback] User error:', userError)
     
     if (!user) {
