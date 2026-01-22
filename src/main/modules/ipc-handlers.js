@@ -6,6 +6,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { launchBot } from './process-manager.js';
+import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
@@ -114,7 +115,49 @@ export function setupIpcHandlers() {
     return window ? window.isMaximized() : false;
   });
 
-  logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW')).length} IPC handlers registered`);
+  // Handler: Save auth cache
+  ipcMain.handle(IPC_CHANNELS.SAVE_AUTH_CACHE, async (event, tokens) => {
+    logger.ipc(IPC_CHANNELS.SAVE_AUTH_CACHE, 'Saving auth cache');
+    const result = await saveAuthCache(tokens);
+
+    if (result.success) {
+      logger.ipc(IPC_CHANNELS.SAVE_AUTH_CACHE, 'Auth cache saved successfully');
+    } else {
+      logger.ipc(IPC_CHANNELS.SAVE_AUTH_CACHE, `Auth cache save failed: ${result.error}`);
+    }
+
+    return result;
+  });
+
+  // Handler: Load auth cache
+  ipcMain.handle(IPC_CHANNELS.LOAD_AUTH_CACHE, async () => {
+    logger.ipc(IPC_CHANNELS.LOAD_AUTH_CACHE, 'Loading auth cache');
+    const result = await loadAuthCache();
+
+    if (result) {
+      logger.ipc(IPC_CHANNELS.LOAD_AUTH_CACHE, 'Auth cache loaded successfully');
+    } else {
+      logger.ipc(IPC_CHANNELS.LOAD_AUTH_CACHE, 'No valid auth cache found');
+    }
+
+    return result;
+  });
+
+  // Handler: Clear auth cache
+  ipcMain.handle(IPC_CHANNELS.CLEAR_AUTH_CACHE, async () => {
+    logger.ipc(IPC_CHANNELS.CLEAR_AUTH_CACHE, 'Clearing auth cache');
+    const result = await clearAuthCache();
+
+    if (result.success) {
+      logger.ipc(IPC_CHANNELS.CLEAR_AUTH_CACHE, 'Auth cache cleared successfully');
+    } else {
+      logger.ipc(IPC_CHANNELS.CLEAR_AUTH_CACHE, `Auth cache clear failed: ${result.error}`);
+    }
+
+    return result;
+  });
+
+  logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW') || k.startsWith('SAVE') || k.startsWith('LOAD') || k.startsWith('CLEAR')).length} IPC handlers registered`);
 }
 
 /**
@@ -133,6 +176,9 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_CLOSE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_IS_MAXIMIZED);
+  ipcMain.removeHandler(IPC_CHANNELS.SAVE_AUTH_CACHE);
+  ipcMain.removeHandler(IPC_CHANNELS.LOAD_AUTH_CACHE);
+  ipcMain.removeHandler(IPC_CHANNELS.CLEAR_AUTH_CACHE);
   
   logger.success('IPC handlers removed');
 }

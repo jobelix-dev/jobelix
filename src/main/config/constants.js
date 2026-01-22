@@ -102,6 +102,11 @@ export const IPC_CHANNELS = {
   WRITE_RESUME: 'write-resume',
   LAUNCH_BOT: 'launch-bot',
   
+  // Auth cache
+  SAVE_AUTH_CACHE: 'save-auth-cache',
+  LOAD_AUTH_CACHE: 'load-auth-cache',
+  CLEAR_AUTH_CACHE: 'clear-auth-cache',
+  
   // Window controls
   WINDOW_MINIMIZE: 'window-minimize',
   WINDOW_MAXIMIZE: 'window-maximize',

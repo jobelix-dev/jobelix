@@ -10,7 +10,8 @@
  */
 
 import Link from "next/link";
-import { Rocket, Sparkles, Target, Zap, Users, Building2, TrendingUp, CheckCircle, ArrowRight, Star } from "lucide-react";
+import Image from "next/image";
+import { Sparkles, Target, Zap, Users, Building2, TrendingUp, CheckCircle, ArrowRight, Star } from "lucide-react";
 import "./globals.css";
 
 export default function Home() {
@@ -20,8 +21,8 @@ export default function Home() {
       <nav className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Rocket className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+              <Image src="/icon.png" alt="Jobelix" width={20} height={20} />
             </div>
             <span className="text-xl font-bold text-default">Jobelix</span>
           </div>
@@ -74,7 +75,7 @@ export default function Home() {
                   href="/download"
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary hover:bg-primary-hover text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
                 >
-                  <Rocket className="w-5 h-5" />
+                  <Image src="/icon.png" alt="Download" width={20} height={20} />
                   Download Desktop App
                 </Link>
                 <Link
@@ -397,7 +398,7 @@ export default function Home() {
                 href="/download"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-primary text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
               >
-                <Rocket className="w-5 h-5" />
+                <Image src="/icon.png" alt="Download" width={20} height={20} />
                 Download Desktop App
               </Link>
               <Link
@@ -415,8 +416,8 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <Rocket className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+                  <Image src="/icon.png" alt="Jobelix" width={20} height={20} />
                 </div>
                 <span className="text-xl font-bold text-default">Jobelix</span>
               </div>
