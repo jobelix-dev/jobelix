@@ -127,6 +127,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determine the correct base URL for email redirects
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    
+    if (!baseUrl) {
+      // On Vercel, use forwarded headers to get the correct preview URL
+      const forwardedHost = request.headers.get('x-forwarded-host')
+      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+      
+      if (forwardedHost) {
+        baseUrl = `${forwardedProto}://${forwardedHost}`
+      } else {
+        baseUrl = request.nextUrl.origin
+      }
+    }
+
+    console.log('[Signup] Determined base URL:', baseUrl)
+
     // -----------------------------
     // 5) Create the Auth user (cookie-based client)
     // -----------------------------
@@ -147,10 +164,17 @@ export async function POST(request: NextRequest) {
         },
         // When the user clicks the email confirmation link, they come back here
         // Use NEXT_PUBLIC_APP_URL if available, otherwise use request origin
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/auth/callback`,
+        emailRedirectTo: `${baseUrl}/auth/callback`,
         captchaToken: captchaToken ?? undefined,
       },
     })
+
+    console.log('[Signup] Email redirect URL set to:', `${baseUrl}/auth/callback`)
+    console.log('[Signup] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL)
+    console.log('[Signup] request.nextUrl.origin:', request.nextUrl.origin)
+    console.log('[Signup] request.headers.get("host"):', request.headers.get('host'))
+    console.log('[Signup] request.headers.get("x-forwarded-host"):', request.headers.get('x-forwarded-host'))
+    console.log('[Signup] request.headers.get("x-forwarded-proto"):', request.headers.get('x-forwarded-proto'))
 
     // -----------------------------
     // 6) Handle signup errors safely
