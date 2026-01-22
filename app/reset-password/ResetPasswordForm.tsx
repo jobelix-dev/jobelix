@@ -7,6 +7,7 @@
 
 'use client';
 import { useState } from 'react';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { createClient } from '@/lib/client/supabaseClient';
 
 export default function ResetPasswordForm() {
@@ -14,6 +15,7 @@ export default function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,6 +28,7 @@ export default function ResetPasswordForm() {
       
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/update-password`,
+        captchaToken: captchaToken || undefined,
       });
 
       if (resetError) {
@@ -86,9 +89,29 @@ export default function ResetPasswordForm() {
         />
       </div>
 
+      <div className="flex justify-center">
+        <HCaptcha
+          sitekey="9f186d2a-621c-4b40-b788-ba2e74fcd88a"
+          onVerify={(token) => {
+            console.log('HCaptcha token', token)
+            setCaptchaToken(token)
+          }}
+          onExpire={() => {
+            console.log('HCaptcha expired')
+            setCaptchaToken(null)
+          }}
+          onError={(err) => {
+            console.error('HCaptcha error', err)
+            setCaptchaToken(null)
+          }}
+          onLoad={() => console.log('HCaptcha loaded')}
+          sentry={false}
+        />
+      </div>
+
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !captchaToken}
         className="w-full rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? 'Sending...' : 'Send reset link'}
