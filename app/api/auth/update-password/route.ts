@@ -82,9 +82,18 @@ export async function POST(request: NextRequest) {
       console.error('Supabase updateUser error:', error);
       
       // Check for specific password-related errors
-      if (error.message?.includes('same_password') || error.message?.includes('Password should be different')) {
+      if (error.code === 'same_password' || error.message?.includes('same_password') || error.message?.includes('Password should be different')) {
         return NextResponse.json(
           { error: 'New password should be different from your current password' },
+          { status: 400 }
+        )
+      }
+      
+      // Check for expired/invalid session errors (when reset link has expired)
+      if (error.code === 'invalid_grant' || error.code === 'expired_token' || error.code === 'session_not_found' || 
+          error.message?.includes('invalid') || error.message?.includes('expired') || error.message?.includes('session')) {
+        return NextResponse.json(
+          { error: 'This password reset link has expired. Please request a new password reset.' },
           { status: 400 }
         )
       }

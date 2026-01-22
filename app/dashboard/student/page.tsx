@@ -15,7 +15,7 @@ import { ProfileTab } from './features/profile';
 import { MatchesTab } from './features/matches';
 import { JobPreferencesTab } from './features/job-preferences';
 import { AutoApplyTab } from './features/auto-apply';
-import { useProfileData, useResumeUpload } from './hooks';
+import { useProfileData, useResumeUpload, useGitHubImportDashboard } from './hooks';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
@@ -44,6 +44,9 @@ function StudentDashboardContent() {
     setIsDataLoaded: profileState.setIsDataLoaded,
   });
 
+  // GitHub import management (custom hook)
+  const gitHubState = useGitHubImportDashboard();
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8">
@@ -71,6 +74,8 @@ function StudentDashboardContent() {
               handleFileChange={resumeState.handleFileChange}
               handleDownload={resumeState.handleDownload}
               handleFinalize={profileState.handleFinalize}
+              importingGitHub={gitHubState.importingGitHub}
+              onGitHubImport={gitHubState.importGitHubData}
             />
           )}
 
