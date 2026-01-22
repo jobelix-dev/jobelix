@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
      * Read the JSON body sent by the browser.
      * We expect it to contain an email and a password.
      */
-    const { email, password } = await request.json()
+    const { email, password, captchaToken } = await request.json()
 
     /**
      * Basic validation:
@@ -69,9 +69,12 @@ export async function POST(request: NextRequest) {
      * If they are wrong:
      * - Supabase returns an error
      */
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: {
+        captchaToken: captchaToken ?? undefined,
+      },
     })
 
     /**
