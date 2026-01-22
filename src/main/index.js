@@ -3,6 +3,10 @@
  * Orchestrates all modules and manages application lifecycle
  */
 
+// Load environment variables from .env.local (for Electron main process)
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
 import { app } from 'electron';
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { startPython, stopPython } from './modules/process-manager.js';
