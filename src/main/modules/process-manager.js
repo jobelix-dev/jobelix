@@ -123,14 +123,13 @@ export async function launchBot(token) {
     }
 
     // Get backend API URL from environment or use default
-    const backendApiUrl = process.env.BACKEND_API_URL || 'http://www.jobelix.fr/api/autoapply/gpt4';
+    const public_app_url = process.env.NEXT_PUBLIC_APP_URL || 'http://www.jobelix.fr/';
     
     // Debug: Log the backend API URL being used
-    logger.info(`BACKEND_API_URL from env: "${process.env.BACKEND_API_URL}"`);
-    logger.info(`Using backend API URL: "${backendApiUrl}"`);
+    logger.info(`public app url from env: "${process.env.NEXT_PUBLIC_APP_URL}"`);
 
     // Spawn the bot process with --playwright flag, token, and backend API URL
-    const botProcess = spawn(botPath, ['--playwright', token, '--backend_api_url', backendApiUrl], {
+    const botProcess = spawn(botPath, ['--playwright', token, '--public_app_url', public_app_url], {
       ...SPAWN_CONFIG.BOT,
       cwd: botCwd
     });

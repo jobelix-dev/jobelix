@@ -131,7 +131,7 @@ alter table "public"."user_feedback" validate constraint "user_feedback_user_id_
 
 set check_function_bodies = off;
 
--- Grant daily credits (50 credits per day, once per day per user)
+-- Grant daily credits (25 credits per day, once per day per user)
 CREATE OR REPLACE FUNCTION public.grant_daily_credits(p_user_id uuid)
  RETURNS TABLE(success boolean, credits_granted integer, new_balance integer)
  LANGUAGE plpgsql
