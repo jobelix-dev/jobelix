@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     // -----------------------------
     // 1) Read the request body
     // -----------------------------
-    const { email, password, role } = await request.json()
+    const { email, password, role, captchaToken } = await request.json()
 
     // -----------------------------
     // 2) Validate input (server-side)
@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
         // When the user clicks the email confirmation link, they come back here
         // Use NEXT_PUBLIC_APP_URL if available, otherwise use request origin
         emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/auth/callback`,
+        captchaToken: captchaToken ?? undefined,
       },
     })
 

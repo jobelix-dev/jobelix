@@ -17,6 +17,7 @@ export interface SignupPayload {
   email: string;
   password: string;
   role: 'student' | 'company';
+  captchaToken?: string;
 }
 
 export interface SignupResponse {
