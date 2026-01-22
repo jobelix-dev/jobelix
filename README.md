@@ -249,3 +249,11 @@ create product in that dashboard and get price id, set it in .env
 Start webhook
 ./stripe listen --forward-to localhost:3000/api/stripe/webhook
 set it in .env
+
+
+# Guide for deployement: 
+- check the version in github (jobelix-releases), and set the right number in package.json, 
+- update also the version of the engine, 
+- clean the resources folder, 
+- push the release (npm run release)
+- validate the release on github (from draft to latest)

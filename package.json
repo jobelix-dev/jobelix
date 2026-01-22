@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
@@ -47,8 +47,9 @@
         "from": "resources/${os}/",
         "to": "./${os}/",
         "filter": [
-          "engine",
-          "engine.exe",
+          "main/main",
+          "main/main.exe",
+          "main/_internal/", 
           "version.txt"
         ]
       }

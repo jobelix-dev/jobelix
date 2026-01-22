@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 
 interface ArrayInputFieldProps {
   label: string;
@@ -17,14 +17,21 @@ interface ArrayInputFieldProps {
   tagColorClass?: string;
 }
 
-export default function ArrayInputField({
-  label,
-  placeholder,
-  value,
-  onChange,
-  icon,
-  tagColorClass = 'bg-primary-subtle/30 text-primary-hover',
-}: ArrayInputFieldProps) {
+export interface ArrayInputFieldRef {
+  flushPendingInput: () => void;
+}
+
+const ArrayInputField = forwardRef<ArrayInputFieldRef, ArrayInputFieldProps>((
+  {
+    label,
+    placeholder,
+    value,
+    onChange,
+    icon,
+    tagColorClass = 'bg-primary-subtle/30 text-primary-hover',
+  },
+  ref
+) => {
   const [input, setInput] = useState('');
 
   const handleAdd = () => {
@@ -32,6 +39,13 @@ export default function ArrayInputField({
     onChange([...value, input.trim()]);
     setInput('');
   };
+
+  // Expose flush method to parent via ref
+  useImperativeHandle(ref, () => ({
+    flushPendingInput: () => {
+      handleAdd();
+    },
+  }));
 
   const handleRemove = (index: number) => {
     onChange(value.filter((_, i) => i !== index));
@@ -86,4 +100,8 @@ export default function ArrayInputField({
       </div>
     </div>
   );
-}
+});
+
+ArrayInputField.displayName = 'ArrayInputField';
+
+export default ArrayInputField;

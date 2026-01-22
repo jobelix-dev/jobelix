@@ -422,7 +422,7 @@ export default function ProfileEditorSection({
           ) : (
             <>
               <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Publish Profile'}
+              {isSaving ? 'Saving...' : 'Save Profile'}
             </>
           )}
         </button>

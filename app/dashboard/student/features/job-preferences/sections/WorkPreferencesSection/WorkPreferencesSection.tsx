@@ -7,17 +7,17 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Save, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-import SearchCriteriaSection from './components/SearchCriteriaSection';
+import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
 import ExperienceLevelsSection from './components/ExperienceLevelsSection';
 import JobTypesSection from './components/JobTypesSection';
 import DateFiltersSection from './components/DateFiltersSection';
 import PersonalInfoSection from './components/PersonalInfoSection';
 import WorkAuthorizationSection from './components/WorkAuthorizationSection';
 import WorkPreferencesSubSection from './components/WorkPreferencesSection';
-import BlacklistSection from './components/BlacklistSection';
+import BlacklistSection, { BlacklistSectionRef } from './components/BlacklistSection';
 
 interface WorkPreferences {
   // Work location
@@ -121,6 +121,10 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Refs to child components with array inputs
+  const searchCriteriaRef = useRef<SearchCriteriaSectionRef>(null);
+  const blacklistRef = useRef<BlacklistSectionRef>(null);
+
   // Fetch existing preferences on mount
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -156,6 +160,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const updateField = (field: string, value: any) => {
     setPreferences((prev) => ({ ...prev, [field]: value }));
     setSaveSuccess(false);
+    setValidationWarning(null);
   };
 
   // Checkbox group handler
@@ -177,6 +182,9 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const getValidationError = (): string | null => {
     // At least one position is required
     if (preferences.positions.length === 0) return 'At least 1 target position is required';
+    
+    // At least one location is required
+    if (preferences.locations.length === 0) return 'At least 1 location is required';
     
     // At least one experience level must be selected
     const hasExperienceLevel = 
@@ -208,11 +216,17 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
   // Save preferences to database
   const handleSave = async () => {
-    // Check validation first
+    // First, flush any pending inputs in array fields
+    searchCriteriaRef.current?.flushAllPendingInputs();
+    blacklistRef.current?.flushAllPendingInputs();
+
+    // Wait a brief moment for state updates to complete
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Check validation after flushing
     const validationError = getValidationError();
     if (validationError) {
       setValidationWarning(validationError);
-      setTimeout(() => setValidationWarning(null), 1500);
       return;
     }
 
@@ -274,7 +288,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Validation warning */}
       {validationWarning && (
-        <div className="flex items-center gap-2 p-3 bg-warning-subtle border border-warning rounded-lg text-sm shadow-sm">
+          <div className="flex items-center gap-2 p-3 bg-warning-subtle border border-warning rounded-lg text-sm shadow-sm">
           <AlertCircle className="w-4 h-4 text-warning flex-shrink-0" />
           <span className="text-warning">{validationWarning}</span>
         </div>
@@ -296,6 +310,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
           {/* Target Positions & Locations */}
           <div className="bg-background rounded-xl p-4 shadow-sm">
             <SearchCriteriaSection
+              ref={searchCriteriaRef}
               positions={preferences.positions}
               locations={preferences.locations}
               remoteWork={preferences.remote_work}
@@ -367,6 +382,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                 <div className="space-y-4">
                   <div className="bg-background rounded-xl p-4 shadow-sm">
                     <BlacklistSection
+                      ref={blacklistRef}
                       companyBlacklist={preferences.company_blacklist}
                       titleBlacklist={preferences.title_blacklist}
                       onChange={updateArray}
