@@ -42,16 +42,6 @@ export function getResourceRoot() {
 }
 
 /**
- * Get platform-specific executable name for the engine
- * @returns {string} Executable filename (e.g., 'engine.exe' on Windows, 'engine' on Unix)
- */
-export function getEngineExecutableName() {
-  return process.platform === 'win32' 
-    ? EXECUTABLES.ENGINE.WINDOWS 
-    : EXECUTABLES.ENGINE.BASE;
-}
-
-/**
  * Get platform-specific executable name for the bot
  * @returns {string} Executable filename (e.g., 'main.exe' on Windows, 'main' on Unix)
  */
@@ -66,9 +56,6 @@ export function getBotExecutableName() {
  * @param {...string} pathSegments - Path segments to join (after platform folder)
  * @returns {string} Absolute path to the resource
  * @example
- * // Returns: /path/to/resources/win/engine.exe
- * getPlatformResourcePath('engine.exe')
- * 
  * // Returns: /path/to/resources/linux/main/data_folder/config.yaml
  * getPlatformResourcePath('main', 'data_folder', 'config.yaml')
  */
@@ -76,15 +63,6 @@ export function getPlatformResourcePath(...pathSegments) {
   const resourceRoot = getResourceRoot();
   const platformFolder = getPlatformFolder();
   return path.join(resourceRoot, platformFolder, ...pathSegments);
-}
-
-/**
- * Get the full path to the engine executable
- * @returns {string} Absolute path to engine executable
- */
-export function getEnginePath() {
-  const execName = getEngineExecutableName();
-  return getPlatformResourcePath(execName);
 }
 
 /**
