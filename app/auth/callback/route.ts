@@ -22,6 +22,10 @@ export async function GET(request: NextRequest) {
     
     if (error) {
       console.error('Error exchanging code for session:', error)
+      // Check for expired/invalid code errors
+      if (error.message?.includes('expired') || error.message?.includes('invalid') || error.code === 'invalid_grant') {
+        return NextResponse.redirect(new URL(`/login?error=This+password+reset+link+has+expired.+Please+request+a+new+one.`, requestUrl.origin))
+      }
       // Redirect to login with error
       return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin))
     }

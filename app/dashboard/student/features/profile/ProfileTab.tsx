@@ -34,6 +34,8 @@ interface ProfileTabProps {
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDownload: () => void;
   handleFinalize: () => void;
+  importingGitHub: boolean;
+  onGitHubImport: (currentProjects: any[], currentSkills: any[], onComplete?: (projects: any[], skills: any[]) => void) => Promise<any>;
 }
 
 export default function ProfileTab({
@@ -54,9 +56,9 @@ export default function ProfileTab({
   handleFileChange,
   handleDownload,
   handleFinalize,
+  importingGitHub,
+  onGitHubImport,
 }: ProfileTabProps) {
-  const [importingGitHub, setImportingGitHub] = useState(false);
-
   // Handler for GitHub import completion - ONLY update projects and skills
   const handleGitHubImport = (projects: any[], skills: any[]) => {
     // Preserve ALL existing profile data, only update projects and skills
@@ -94,7 +96,8 @@ export default function ProfileTab({
           currentProjects={profileData.projects}
           currentSkills={profileData.skills}
           onGitHubImportComplete={handleGitHubImport}
-          onImportingChange={setImportingGitHub}
+          onGitHubImport={onGitHubImport}
+          importingGitHub={importingGitHub}
           draftStatus={draftStatus}
         />
       </Suspense>

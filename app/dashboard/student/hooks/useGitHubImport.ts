@@ -81,3 +81,72 @@ export function useGitHubImport() {
     reset,
   };
 }
+
+/**
+ * useGitHubImportDashboard Hook
+ * 
+ * Dashboard-level hook for GitHub import that persists state across tab switches.
+ * Similar to useResumeUpload but for GitHub imports.
+ */
+export function useGitHubImportDashboard() {
+  const [importingGitHub, setImportingGitHub] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState(false);
+
+  const importGitHubData = useCallback(async (
+    currentProjects: ProjectEntry[],
+    currentSkills: SkillEntry[],
+    onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void
+  ): Promise<ImportGitHubResponse | null> => {
+    try {
+      setImportingGitHub(true);
+      setImportError(null);
+      setImportSuccess(false);
+
+      const response = await fetch('/api/student/import-github', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_projects: currentProjects,
+          current_skills: currentSkills,
+        }),
+      });
+
+      const data: ImportGitHubResponse = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to import GitHub data');
+      }
+
+      setImportSuccess(true);
+      console.log(`GitHub import successful: ${data.repos_imported} repositories processed`);
+
+      if (onComplete) {
+        onComplete(data.projects, data.skills);
+      }
+
+      return data;
+    } catch (err: any) {
+      console.error('Error importing GitHub data:', err);
+      setImportError(err.message);
+      return null;
+    } finally {
+      setImportingGitHub(false);
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setImportError(null);
+    setImportSuccess(false);
+  }, []);
+
+  return {
+    importGitHubData,
+    importingGitHub,
+    importError,
+    importSuccess,
+    reset,
+  };
+}
