@@ -15,6 +15,8 @@
  * - The server validates inputs and enforces rate limiting.
  * - Sensitive tables (like signup_ip_tracking) must be written with a service key
  *   because anonymous users cannot pass RLS safely.
+ * 
+ *  student or company entry is automatically created via
  */
 
 import "server-only";
@@ -125,6 +127,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determine the correct base URL for email redirects
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
+
+    if (!baseUrl) {
+      const forwardedHost = request.headers.get('x-forwarded-host')
+      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+
+      if (forwardedHost) {
+        baseUrl = `${forwardedProto}://${forwardedHost}`
+      } else {
+        baseUrl = request.nextUrl.origin
+      }
+    }
+
+    // At this point baseUrl is guaranteed to be a string
+    baseUrl = baseUrl.replace(/\/+$/, '')
+
+    const redirectTo = `${baseUrl}/auth/callback`
+
+    console.log('[Signup] Determined base URL:', baseUrl)
+    console.log('[Signup] Email redirect URL will be:', redirectTo)
+
     // -----------------------------
     // 5) Create the Auth user (cookie-based client)
     // -----------------------------
@@ -133,20 +157,30 @@ export async function POST(request: NextRequest) {
     // - It is meant to behave like a real user session (cookies, RLS, etc.)
     const supabase = await createClient()
 
+    // Creates user in Supabase Auth table, hashes and stores password, sends email
+    // data.session is null if email confirmation is required
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         // This gets saved in auth.users.user_metadata
-        data: {
+        data: {  // This becomes raw_user_meta_data in public.handle_new_user() 
           role,
         },
         // When the user clicks the email confirmation link, they come back here
         // Use NEXT_PUBLIC_APP_URL if available, otherwise use request origin
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/auth/callback`,
+        emailRedirectTo: redirectTo, // I added preview email in supabase 
+        // authorized callbacks 
         captchaToken: captchaToken ?? undefined,
       },
     })
+
+    console.log('[Signup] Email redirect URL set to:', `${baseUrl}/auth/callback`)
+    console.log('[Signup] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL)
+    console.log('[Signup] request.nextUrl.origin:', request.nextUrl.origin)
+    console.log('[Signup] request.headers.get("host"):', request.headers.get('host'))
+    console.log('[Signup] request.headers.get("x-forwarded-host"):', request.headers.get('x-forwarded-host'))
+    console.log('[Signup] request.headers.get("x-forwarded-proto"):', request.headers.get('x-forwarded-proto'))
 
     // -----------------------------
     // 6) Handle signup errors safely
@@ -230,7 +264,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, userId: data.user.id })
     }
 
-    if (data.user && !data.session) {
+    if (data.user && !data.session) { // Email confirmation required
       return NextResponse.json({
         success: true,
         userId: data.user.id,

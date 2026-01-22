@@ -35,9 +35,12 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadProfile() {
       try {
+        console.log('[Dashboard] Starting profile load')
         const response = await api.getProfile();
+        console.log('[Dashboard] Profile API response:', response)
         
         if (!response.profile) {
+          console.log('[Dashboard] No profile found, clearing cache and redirecting to /')
           // Clear cache if profile loading fails (invalid session)
           if (typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
             try {
@@ -52,7 +55,8 @@ export default function DashboardPage() {
 
         setProfile(response.profile);
       } catch (error) {
-        console.error('Failed to load profile:', error);
+        console.error('[Dashboard] Failed to load profile:', error);
+        console.log('[Dashboard] Clearing cache and redirecting to / due to error')
         // Clear cache if profile loading fails (invalid session)
         if (typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
           try {
