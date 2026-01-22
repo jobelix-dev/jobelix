@@ -26,6 +26,32 @@ export async function GET(request: NextRequest) {
   console.log('[Callback] Code value:', code ? code.substring(0, 10) + '...' : 'null')
   console.log('[Callback] Next URL:', next)
   console.log('[Callback] Origin:', requestUrl.origin)
+  console.log('[Callback] Host:', request.headers.get('host'))
+
+  // WORKAROUND: If we're on the wrong domain (www.jobelix.fr instead of preview URL),
+  // redirect to the correct preview URL
+  const currentHost = request.headers.get('host')
+  const isWrongDomain = currentHost === 'www.jobelix.fr' || currentHost?.includes('jobelix.fr')
+  
+  if (isWrongDomain) {
+    // Determine the correct preview URL from environment or headers
+    let correctUrl = process.env.NEXT_PUBLIC_APP_URL
+    
+    if (!correctUrl) {
+      const forwardedHost = request.headers.get('x-forwarded-host')
+      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+      
+      if (forwardedHost) {
+        correctUrl = `${forwardedProto}://${forwardedHost}`
+      }
+    }
+    
+    if (correctUrl && correctUrl !== requestUrl.origin) {
+      console.log('[Callback] Wrong domain detected! Redirecting from', requestUrl.origin, 'to', correctUrl)
+      const correctCallbackUrl = new URL(requestUrl.pathname + requestUrl.search, correctUrl)
+      return NextResponse.redirect(correctCallbackUrl)
+    }
+  }
 
   if (code) {
     const supabase = await createClient()
