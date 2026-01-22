@@ -20,15 +20,22 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') || '/dashboard'
 
-  console.log('[Callback] Starting callback process')
+  console.log('[Callback] ===== STARTING CALLBACK PROCESS =====')
+  console.log('[Callback] Full URL:', requestUrl.toString())
   console.log('[Callback] Code present:', !!code)
+  console.log('[Callback] Code value:', code ? code.substring(0, 10) + '...' : 'null')
   console.log('[Callback] Next URL:', next)
+  console.log('[Callback] Origin:', requestUrl.origin)
 
   if (code) {
     const supabase = await createClient()
     
     console.log('[Callback] Exchanging code for session...')
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    console.log('[Callback] Exchange result - data.session exists:', !!data?.session)
+    console.log('[Callback] Exchange result - data.user exists:', !!data?.user)
+    console.log('[Callback] Exchange error:', error)
     
     if (error) {
       console.error('[Callback] Error exchanging code for session:', error)
@@ -44,9 +51,22 @@ export async function GET(request: NextRequest) {
     console.log('[Callback] Session exchange successful, checking user...')
     
     // Verify the session was created
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log('[Callback] User after exchange:', user ? user.id : 'null')
+    const { data: { user, session }, error: userError } = await supabase.auth.getUser()
+    console.log('[Callback] User after exchange:', user ? { id: user.id, email: user.email, email_confirmed_at: user.email_confirmed_at } : 'null')
+    console.log('[Callback] Session after exchange:', session ? { access_token: session.access_token ? 'present' : 'missing', refresh_token: session.refresh_token ? 'present' : 'missing' } : 'null')
     console.log('[Callback] User error:', userError)
+    
+    if (!user) {
+      console.error('[Callback] No user found after successful exchange!')
+      return NextResponse.redirect(new URL(`/login?error=Authentication+failed`, requestUrl.origin))
+    }
+    
+    if (!user.email_confirmed_at) {
+      console.log('[Callback] User email not confirmed yet, but exchange succeeded')
+    } else {
+      console.log('[Callback] User email confirmed at:', user.email_confirmed_at)
+    }
+    
   } else {
     console.log('[Callback] No code provided, redirecting to login')
     // No code provided, redirect with error
