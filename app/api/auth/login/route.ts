@@ -20,7 +20,6 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
-import { getServiceSupabase } from '@/lib/server/supabaseService'
 
 
 /**
@@ -86,12 +85,9 @@ export async function POST(request: NextRequest) {
      */
     if (error) {
       console.log('[Login] Login failed, checking if user exists in database...')
-      const serviceClient = getServiceSupabase()
-      const { data: userData, error: userError } = await serviceClient.auth.admin.getUserByEmail(email)
-      console.log('[Login] User exists in auth:', !!userData.user)
-      console.log('[Login] User email confirmed:', userData.user?.email_confirmed_at ? true : false)
-      console.log('[Login] User disabled:', userData.user?.disabled ? true : false)
-      console.log('[Login] User check error:', userError)
+      // Note: getUserByEmail doesn't exist, we'd need to use listUsers or query auth.users table
+      // For now, just log that login failed
+      console.log('[Login] Login failed - check if email is confirmed or credentials are correct')
     }
 
     /**
