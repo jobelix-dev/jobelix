@@ -26,8 +26,11 @@ export default function ResetPasswordForm() {
     try {
       const supabase = createClient();
       
+      console.log('NEXT_PUBLIC_APP_URL in browser =', process.env.NEXT_PUBLIC_APP_URL)
+      const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/update-password`;
+      console.log('Using redirect URL for reset password:', redirectUrl);
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/update-password`,
+        redirectTo: redirectUrl,
         captchaToken: captchaToken || undefined,
       });
 
