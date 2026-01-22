@@ -10,7 +10,7 @@
 import React, { useEffect } from 'react';
 import { Github, AlertCircle, CheckCircle, RefreshCw, CloudUpload, ArrowDown } from 'lucide-react';
 import StatusAlert from '@/app/components/StatusAlert';
-import { useGitHubConnection, useGitHubImport } from '../../../hooks';
+import { useGitHubConnection } from '../../../hooks';
 import { ProjectEntry, SkillEntry } from '@/lib/shared/types';
 import { useSearchParams } from 'next/navigation';
 
@@ -28,7 +28,8 @@ interface HeaderSectionProps {
   currentProjects: ProjectEntry[];
   currentSkills: SkillEntry[];
   onGitHubImportComplete: (projects: ProjectEntry[], skills: SkillEntry[]) => void;
-  onImportingChange?: (importing: boolean) => void;
+  onGitHubImport?: (currentProjects: ProjectEntry[], currentSkills: SkillEntry[], onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void) => Promise<any>;
+  importingGitHub?: boolean;
   
   // Draft status
   draftStatus?: 'editing' | 'published';
@@ -45,20 +46,15 @@ export default function HeaderSection({
   currentProjects,
   currentSkills,
   onGitHubImportComplete,
-  onImportingChange,
+  onGitHubImport,
+  importingGitHub = false,
   draftStatus = 'editing',
 }: HeaderSectionProps) {
   const searchParams = useSearchParams();
   const { status, loading: statusLoading, error: connectionError, connect, disconnect } = useGitHubConnection();
-  const { importGitHubData, importing, error: importError, success: importSuccess } = useGitHubImport();
 
-  const isResumeDisabled = uploading || extracting || importing;
+  const isResumeDisabled = uploading || extracting || importingGitHub;
   const isGitHubDisabled = uploading || extracting;
-
-  // Notify parent when importing state changes
-  React.useEffect(() => {
-    onImportingChange?.(importing);
-  }, [importing, onImportingChange]);
 
   // Listen for OAuth popup messages
   useEffect(() => {
@@ -85,7 +81,7 @@ export default function HeaderSection({
     const shouldAutoSync = searchParams.get('auto_sync') === 'true';
     const isConnected = status?.connected;
     
-    if (shouldAutoSync && isConnected && !statusLoading && !importing) {
+    if (shouldAutoSync && isConnected && !statusLoading && !importingGitHub) {
       // Clear the URL parameter
       const url = new URL(window.location.href);
       url.searchParams.delete('auto_sync');
@@ -95,12 +91,11 @@ export default function HeaderSection({
       // Trigger auto-sync
       handleGitHubImport();
     }
-  }, [searchParams, status?.connected, statusLoading, importing]);
+  }, [searchParams, status?.connected, statusLoading, importingGitHub]);
 
   const handleGitHubImport = async () => {
-    const result = await importGitHubData(currentProjects, currentSkills);
-    if (result) {
-      onGitHubImportComplete(result.projects, result.skills);
+    if (onGitHubImport) {
+      await onGitHubImport(currentProjects, currentSkills, onGitHubImportComplete);
     }
   };
 
@@ -197,12 +192,12 @@ export default function HeaderSection({
                   <div className="flex gap-2">
                     <button
                       onClick={handleGitHubImport}
-                      disabled={importing || isGitHubDisabled}
+                      disabled={importingGitHub || isGitHubDisabled}
                       className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white shadow-sm transition-colors ${
-                        importing || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                        importingGitHub || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
-                      {importing ? (
+                      {importingGitHub ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin mr-2" />
                           Syncing...
@@ -213,9 +208,9 @@ export default function HeaderSection({
                     </button>
                     <button
                       onClick={handleChangeAccount}
-                      disabled={importing || isGitHubDisabled}
+                      disabled={importingGitHub || isGitHubDisabled}
                       className={`px-3 py-2.5 text-sm font-medium rounded-lg border border-border hover:bg-primary-subtle transition-colors ${
-                        importing || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                        importingGitHub || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                       title="Change GitHub account"
                     >
@@ -251,11 +246,11 @@ export default function HeaderSection({
         <StatusAlert variant="error">{uploadError}</StatusAlert>
       )}
 
-      {(connectionError || importError) && (
+      {connectionError && (
         <div className="mb-4 flex items-start gap-2 p-3 bg-error-subtle/20 border border-error rounded-lg">
           <AlertCircle className="w-4 h-4 text-error mt-0.5 flex-shrink-0" />
           <p className="text-sm text-error">
-            {connectionError || importError}
+            {connectionError}
           </p>
         </div>
       )}

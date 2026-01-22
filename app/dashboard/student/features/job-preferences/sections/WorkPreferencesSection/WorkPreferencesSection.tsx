@@ -288,7 +288,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Validation warning */}
       {validationWarning && (
-        <div className="flex items-center gap-2 p-3 bg-warning-subtle/20 border border-warning rounded-lg text-sm shadow-sm">
+          <div className="flex items-center gap-2 p-3 bg-warning-subtle border border-warning rounded-lg text-sm shadow-sm">
           <AlertCircle className="w-4 h-4 text-warning flex-shrink-0" />
           <span className="text-warning">{validationWarning}</span>
         </div>
