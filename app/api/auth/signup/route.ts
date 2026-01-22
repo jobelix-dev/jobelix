@@ -129,12 +129,11 @@ export async function POST(request: NextRequest) {
 
     // Determine the correct base URL for email redirects
     let baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    
+
     if (!baseUrl) {
-      // On Vercel, use forwarded headers to get the correct preview URL
       const forwardedHost = request.headers.get('x-forwarded-host')
       const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
-      
+
       if (forwardedHost) {
         baseUrl = `${forwardedProto}://${forwardedHost}`
       } else {
@@ -142,7 +141,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // At this point baseUrl is guaranteed to be a string
+    baseUrl = baseUrl.replace(/\/+$/, '')
+
+    const redirectTo = `${baseUrl}/auth/callback`
+
     console.log('[Signup] Determined base URL:', baseUrl)
+    console.log('[Signup] Email redirect URL will be:', redirectTo)
 
     // -----------------------------
     // 5) Create the Auth user (cookie-based client)
@@ -164,7 +169,8 @@ export async function POST(request: NextRequest) {
         },
         // When the user clicks the email confirmation link, they come back here
         // Use NEXT_PUBLIC_APP_URL if available, otherwise use request origin
-        emailRedirectTo: `${baseUrl}/auth/callback`,
+        emailRedirectTo: redirectTo, // I added preview email in supabase 
+        // authorized callbacks 
         captchaToken: captchaToken ?? undefined,
       },
     })
