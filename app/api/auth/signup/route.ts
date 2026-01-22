@@ -15,6 +15,8 @@
  * - The server validates inputs and enforces rate limiting.
  * - Sensitive tables (like signup_ip_tracking) must be written with a service key
  *   because anonymous users cannot pass RLS safely.
+ * 
+ *  student or company entry is automatically created via
  */
 
 import "server-only";
@@ -133,12 +135,14 @@ export async function POST(request: NextRequest) {
     // - It is meant to behave like a real user session (cookies, RLS, etc.)
     const supabase = await createClient()
 
+    // Creates user in Supabase Auth table, hashes and stores password, sends email
+    // data.session is null if email confirmation is required
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         // This gets saved in auth.users.user_metadata
-        data: {
+        data: {  // This becomes raw_user_meta_data in public.handle_new_user() 
           role,
         },
         // When the user clicks the email confirmation link, they come back here
@@ -230,7 +234,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, userId: data.user.id })
     }
 
-    if (data.user && !data.session) {
+    if (data.user && !data.session) { // Email confirmation required
       return NextResponse.json({
         success: true,
         userId: data.user.id,
