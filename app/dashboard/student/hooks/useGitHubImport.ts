@@ -56,7 +56,6 @@ export function useGitHubImport() {
       }
 
       setSuccess(true);
-      console.log(`GitHub import successful: ${data.repos_imported} repositories processed`);
 
       return data;
     } catch (err: any) {
@@ -121,7 +120,6 @@ export function useGitHubImportDashboard() {
       }
 
       setImportSuccess(true);
-      console.log(`GitHub import successful: ${data.repos_imported} repositories processed`);
 
       if (onComplete) {
         onComplete(data.projects, data.skills);
