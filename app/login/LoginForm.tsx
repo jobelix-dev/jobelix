@@ -10,6 +10,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { createClient } from '@/lib/client/supabaseClient';
 
@@ -21,6 +22,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   // Read error from URL parameters (e.g., from expired reset links)
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function LoginForm() {
     setError('');
 
     try {
-      await api.login({ email, password });
+      await api.login({ email, password, captchaToken: captchaToken || undefined });
       
       // Save auth tokens to cache for automatic login
       if (typeof window !== 'undefined' && window.electronAPI?.saveAuthCache) {
@@ -115,9 +117,29 @@ export default function LoginForm() {
         </a>
       </div>
 
+      <div className="flex justify-center">
+        <HCaptcha
+          sitekey="9f186d2a-621c-4b40-b788-ba2e74fcd88a"
+          onVerify={(token) => {
+            console.log('HCaptcha token', token)
+            setCaptchaToken(token)
+          }}
+          onExpire={() => {
+            console.log('HCaptcha expired')
+            setCaptchaToken(null)
+          }}
+          onError={(err) => {
+            console.error('HCaptcha error', err)
+            setCaptchaToken(null)
+          }}
+          onLoad={() => console.log('HCaptcha loaded')}
+          sentry={false}
+        />
+      </div>
+
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !captchaToken}
         className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
       >
         {loading ? 'Logging in...' : 'Log in'}
