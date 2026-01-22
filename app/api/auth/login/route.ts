@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
      * Read the JSON body sent by the browser.
      * We expect it to contain an email and a password.
      */
-    const { email, password } = await request.json()
+    const { email, password, captchaToken } = await request.json()
 
     /**
      * Basic validation:
@@ -69,26 +69,13 @@ export async function POST(request: NextRequest) {
      * If they are wrong:
      * - Supabase returns an error
      */
-    console.log('[Login] Attempting login for email:', email)
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: {
+        captchaToken: captchaToken ?? undefined,
+      },
     })
-
-    console.log('[Login] Login result - user exists:', !!data.user)
-    console.log('[Login] Login result - session created:', !!data.session)
-    console.log('[Login] Login error:', error ? { message: error.message, status: error.status } : null)
-
-    /**
-     * If login failed, let's check if the user account exists at all
-     * This helps debug whether it's credentials vs account state issues
-     */
-    if (error) {
-      console.log('[Login] Login failed, checking if user exists in database...')
-      // Note: getUserByEmail doesn't exist, we'd need to use listUsers or query auth.users table
-      // For now, just log that login failed
-      console.log('[Login] Login failed - check if email is confirmed or credentials are correct')
-    }
 
     /**
      * If login failed, return a generic error.
