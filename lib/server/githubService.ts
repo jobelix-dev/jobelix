@@ -22,12 +22,33 @@ export interface GitHubRepo {
   topics: string[];
   stargazers_count: number;
   forks_count: number;
+  watchers_count: number;
+  subscribers_count: number;
+  network_count: number;
+  size: number; // KB
   created_at: string;
   updated_at: string;
   pushed_at: string;
   fork: boolean;
   archived: boolean;
+  disabled: boolean;
   private: boolean;
+  default_branch: string;
+  open_issues_count: number;
+  has_issues: boolean;
+  has_projects: boolean;
+  has_wiki: boolean;
+  has_pages: boolean;
+  has_downloads: boolean;
+  has_discussions: boolean;
+  is_template: boolean;
+  license: {
+    key: string;
+    name: string;
+    spdx_id: string;
+    url: string;
+    node_id: string;
+  } | null;
 }
 
 export interface GitHubLanguages {
@@ -41,17 +62,85 @@ export interface GitHubRepoForLLM {
   homepage: string | null;
   primary_language: string | null;
   all_languages: string[];
+  language_bytes: { [language: string]: number }; // Lines of code per language for expertise levels
   topics: string[];
   stars: number;
+  forks: number;
+  watchers: number;
+  subscribers: number;
+  size_kb: number; // Repository size in KB
   is_fork: boolean;
+  is_archived: boolean;
+  is_disabled: boolean;
+  is_template: boolean;
+  default_branch: string;
+  open_issues_count: number;
+  has_issues: boolean;
+  has_projects: boolean;
+  has_wiki: boolean;
+  has_pages: boolean;
+  has_discussions: boolean;
+  license_key: string | null; // e.g., "mit", "apache-2.0"
+  license_name: string | null; // e.g., "MIT License"
   created_at: string;
   last_updated: string;
+  last_pushed: string; // Last commit/activity date
   readme_summary?: string | null;
+  contributors_count?: number | null; // Number of contributors
+  releases_count?: number | null; // Number of releases
+  last_commit_date?: string | null; // Date of last commit
+}
+
+export interface GitHubUser {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string;
+  html_url: string;
+  bio: string | null;
+  company: string | null;
+  location: string | null;
+  blog: string | null;
+  public_repos: number;
+  public_gists: number;
+  followers: number;
+  following: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // =============================================================================
 // GITHUB API FUNCTIONS
 // =============================================================================
+
+/**
+ * Fetch GitHub user information
+ * @param accessToken - GitHub OAuth access token
+ * @returns GitHub user data or null if failed
+ */
+export async function fetchGitHubUser(accessToken: string): Promise<GitHubUser | null> {
+  try {
+    const response = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Jobelix-App'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`GitHub API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const userData = await response.json();
+    return userData as GitHubUser;
+  } catch (error) {
+    console.error('Error fetching GitHub user:', error);
+    return null;
+  }
+}
 
 /**
  * Fetch user's repositories from GitHub
@@ -161,7 +250,7 @@ export async function fetchRepoReadme(
   accessToken: string,
   owner: string,
   repo: string,
-  maxLines: number = 15
+  maxLines: number = 30
 ): Promise<string | null> {
   try {
     const response = await fetch(
@@ -194,31 +283,130 @@ export async function fetchRepoReadme(
 }
 
 /**
- * Get GitHub user info
+ * Fetch repository contributors count
  * @param accessToken - GitHub OAuth access token
+ * @param owner - Repository owner username
+ * @param repo - Repository name
  */
-export async function fetchGitHubUser(accessToken: string): Promise<{
-  login: string;
-  name: string | null;
-  avatar_url: string;
-  html_url: string;
-} | null> {
+export async function fetchRepoContributorsCount(
+  accessToken: string,
+  owner: string,
+  repo: string
+): Promise<number> {
   try {
-    const response = await fetch('https://api.github.com/user', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Jobelix-App'
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contributors?per_page=1&anon=1`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Jobelix-App'
+        }
       }
-    });
+    );
 
     if (!response.ok) {
-      throw new Error(`GitHub API error (${response.status})`);
+      return 0;
     }
 
-    return await response.json();
+    // Get the Link header to find the last page number
+    const linkHeader = response.headers.get('link');
+    if (linkHeader) {
+      const lastPageMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
+      if (lastPageMatch) {
+        return parseInt(lastPageMatch[1]);
+      }
+    }
+
+    // If no pagination, get the count from the response
+    const contributors = await response.json();
+    return contributors.length;
   } catch (error) {
-    console.error('Error fetching GitHub user:', error);
+    console.error(`Error fetching contributors count for ${owner}/${repo}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Fetch repository releases count
+ * @param accessToken - GitHub OAuth access token
+ * @param owner - Repository owner username
+ * @param repo - Repository name
+ */
+export async function fetchRepoReleasesCount(
+  accessToken: string,
+  owner: string,
+  repo: string
+): Promise<number> {
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/releases?per_page=1`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Jobelix-App'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      return 0;
+    }
+
+    // Get the Link header to find the last page number
+    const linkHeader = response.headers.get('link');
+    if (linkHeader) {
+      const lastPageMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
+      if (lastPageMatch) {
+        return parseInt(lastPageMatch[1]);
+      }
+    }
+
+    // If no pagination, get the count from the response
+    const releases = await response.json();
+    return releases.length;
+  } catch (error) {
+    console.error(`Error fetching releases count for ${owner}/${repo}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Fetch repository last commit date
+ * @param accessToken - GitHub OAuth access token
+ * @param owner - Repository owner username
+ * @param repo - Repository name
+ */
+export async function fetchRepoLastCommitDate(
+  accessToken: string,
+  owner: string,
+  repo: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Jobelix-App'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const commits = await response.json();
+    if (commits.length > 0) {
+      return commits[0].commit.committer.date;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error fetching last commit date for ${owner}/${repo}:`, error);
     return null;
   }
 }
@@ -257,6 +445,13 @@ export async function transformReposForLLM(
           includeReadme ? fetchRepoReadme(accessToken, owner, repoName) : Promise.resolve(null)
         ]);
 
+        // Fetch additional metadata in parallel (contributors, releases, last commit)
+        const [contributorsCount, releasesCount, lastCommitDate] = await Promise.all([
+          fetchRepoContributorsCount(accessToken, owner, repoName),
+          fetchRepoReleasesCount(accessToken, owner, repoName),
+          fetchRepoLastCommitDate(accessToken, owner, repoName)
+        ]);
+
         const allLanguages = Object.keys(languages);
 
         return {
@@ -266,12 +461,33 @@ export async function transformReposForLLM(
           homepage: repo.homepage,
           primary_language: repo.language,
           all_languages: allLanguages,
+          language_bytes: languages, // Include byte counts for expertise analysis
           topics: repo.topics || [],
           stars: repo.stargazers_count,
+          forks: repo.forks_count,
+          watchers: repo.watchers_count,
+          subscribers: repo.subscribers_count,
+          size_kb: repo.size,
           is_fork: repo.fork,
+          is_archived: repo.archived,
+          is_disabled: repo.disabled,
+          is_template: repo.is_template,
+          default_branch: repo.default_branch,
+          open_issues_count: repo.open_issues_count,
+          has_issues: repo.has_issues,
+          has_projects: repo.has_projects,
+          has_wiki: repo.has_wiki,
+          has_pages: repo.has_pages,
+          has_discussions: repo.has_discussions,
+          license_key: repo.license?.key || null,
+          license_name: repo.license?.name || null,
           created_at: repo.created_at,
           last_updated: repo.updated_at,
-          readme_summary: readmeSummary
+          last_pushed: repo.pushed_at, // Last commit/activity date
+          readme_summary: readmeSummary,
+          contributors_count: contributorsCount,
+          releases_count: releasesCount,
+          last_commit_date: lastCommitDate,
         };
       } catch (error) {
         console.error(`Error transforming repo ${repo.full_name}:`, error);
@@ -283,12 +499,33 @@ export async function transformReposForLLM(
           homepage: repo.homepage,
           primary_language: repo.language,
           all_languages: repo.language ? [repo.language] : [],
+          language_bytes: {}, // Empty object when languages fetch fails
           topics: repo.topics || [],
           stars: repo.stargazers_count,
+          forks: repo.forks_count,
+          watchers: repo.watchers_count,
+          subscribers: repo.subscribers_count,
+          size_kb: repo.size,
           is_fork: repo.fork,
+          is_archived: repo.archived,
+          is_disabled: repo.disabled,
+          is_template: repo.is_template,
+          default_branch: repo.default_branch,
+          open_issues_count: repo.open_issues_count,
+          has_issues: repo.has_issues,
+          has_projects: repo.has_projects,
+          has_wiki: repo.has_wiki,
+          has_pages: repo.has_pages,
+          has_discussions: repo.has_discussions,
+          license_key: repo.license?.key || null,
+          license_name: repo.license?.name || null,
           created_at: repo.created_at,
           last_updated: repo.updated_at,
-          readme_summary: null
+          last_pushed: repo.pushed_at, // Last commit/activity date
+          readme_summary: null,
+          contributors_count: 0,
+          releases_count: 0,
+          last_commit_date: undefined,
         };
       }
     });
