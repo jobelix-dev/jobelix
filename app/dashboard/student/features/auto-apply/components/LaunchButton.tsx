@@ -32,7 +32,15 @@ export default function LaunchButton({
       setTimeout(() => setShowWarning(false), 3000);
       return;
     }
-    // Show instructions modal before launching
+    
+    // Check if running in desktop app
+    if (!window.electronAPI) {
+      // Show desktop required error
+      onLaunch(); // This will trigger the DESKTOP_REQUIRED error
+      return;
+    }
+    
+    // Show instructions modal before launching (desktop app only)
     setShowInstructions(true);
   };
 

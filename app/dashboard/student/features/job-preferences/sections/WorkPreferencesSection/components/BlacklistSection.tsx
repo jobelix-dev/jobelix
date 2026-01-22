@@ -18,6 +18,7 @@ interface BlacklistSectionProps {
 
 export interface BlacklistSectionRef {
   flushAllPendingInputs: () => void;
+  getPendingInputs: () => { company: string; title: string };
 }
 
 const BlacklistSection = forwardRef<BlacklistSectionRef, BlacklistSectionProps>((
@@ -31,12 +32,16 @@ const BlacklistSection = forwardRef<BlacklistSectionRef, BlacklistSectionProps>(
   const companyRef = useRef<ArrayInputFieldRef>(null);
   const titleRef = useRef<ArrayInputFieldRef>(null);
 
-  // Expose flush method to parent
+  // Expose flush and get methods to parent
   useImperativeHandle(ref, () => ({
     flushAllPendingInputs: () => {
       companyRef.current?.flushPendingInput();
       titleRef.current?.flushPendingInput();
     },
+    getPendingInputs: () => ({
+      company: companyRef.current?.getPendingInput() || '',
+      title: titleRef.current?.getPendingInput() || '',
+    }),
   }));
 
   return (
