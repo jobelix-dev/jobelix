@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
   launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
   
+  // Auth cache
+  saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),
+  loadAuthCache: () => ipcRenderer.invoke('load-auth-cache'),
+  clearAuthCache: () => ipcRenderer.invoke('clear-auth-cache'),
+  
   // Window controls
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),

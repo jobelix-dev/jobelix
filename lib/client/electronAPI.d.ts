@@ -10,6 +10,21 @@ export interface ElectronAPI {
     platform?: string;
   }>;
   
+  // Auth cache
+  saveAuthCache: (tokens: { 
+    access_token: string; 
+    refresh_token: string; 
+    expires_at?: number; 
+    user_id: string 
+  }) => Promise<{ success: boolean; error?: string }>;
+  loadAuthCache: () => Promise<{ 
+    access_token: string; 
+    refresh_token: string; 
+    expires_at?: number; 
+    user_id: string 
+  } | null>;
+  clearAuthCache: () => Promise<{ success: boolean; error?: string }>;
+  
   // Window controls
   windowMinimize: () => Promise<void>;
   windowMaximize: () => Promise<void>;

@@ -12,6 +12,7 @@ import "./globals.css";
 import UpdateNotification from "./components/UpdateNotification";
 import WindowControls from "./components/WindowControls";
 import TitleBar from "./components/TitleBar";
+import AutoLogin from "./components/AutoLogin";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
       >
         <TitleBar />
         <WindowControls />
+        <AutoLogin />
         {children}
         <UpdateNotification />
         <Analytics />

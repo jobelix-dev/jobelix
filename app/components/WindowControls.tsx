@@ -59,7 +59,7 @@ export default function WindowControls() {
 
   return (
     <div 
-      className="fixed top-0 right-0 z-50 flex items-center h-12 gap-0 select-none"
+      className="fixed top-0 right-0 z-[60] flex items-center h-12 gap-0 select-none"
       style={{ WebkitAppRegion: 'no-drag' } as any}
     >
       {/* Minimize Button */}
