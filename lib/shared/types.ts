@@ -17,6 +17,7 @@ export interface SignupPayload {
   email: string;
   password: string;
   role: 'student' | 'company';
+  captchaToken?: string;
 }
 
 export interface SignupResponse {
@@ -382,6 +383,30 @@ export interface CompanyOfferDraft {
   questions: OfferQuestionEntry[];
   perks: OfferPerkEntry[];
   status: 'editing' | 'ready_to_publish';
+  created_at: string;
+  updated_at: string;
+}
+
+// Bot Session Types
+export type BotSessionStatus = 'starting' | 'running' | 'completed' | 'failed' | 'stopped';
+
+export interface BotSession {
+  id: string;
+  user_id: string;
+  status: BotSessionStatus;
+  started_at: string;
+  last_heartbeat_at: string | null;
+  completed_at: string | null;
+  current_activity: string | null;
+  activity_details: Record<string, any> | null;
+  jobs_found: number;
+  jobs_applied: number;
+  jobs_failed: number;
+  credits_used: number;
+  error_message: string | null;
+  error_details: Record<string, any> | null;
+  bot_version: string | null;
+  platform: string | null;
   created_at: string;
   updated_at: string;
 }

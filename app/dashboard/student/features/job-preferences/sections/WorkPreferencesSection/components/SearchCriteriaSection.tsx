@@ -19,6 +19,7 @@ interface SearchCriteriaSectionProps {
 
 export interface SearchCriteriaSectionRef {
   flushAllPendingInputs: () => void;
+  getPendingInputs: () => { positions: string; locations: string };
 }
 
 const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteriaSectionProps>((
@@ -33,12 +34,16 @@ const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteri
   const positionsRef = useRef<ArrayInputFieldRef>(null);
   const locationsRef = useRef<ArrayInputFieldRef>(null);
 
-  // Expose flush method to parent
+  // Expose flush and get methods to parent
   useImperativeHandle(ref, () => ({
     flushAllPendingInputs: () => {
       positionsRef.current?.flushPendingInput();
       locationsRef.current?.flushPendingInput();
     },
+    getPendingInputs: () => ({
+      positions: positionsRef.current?.getPendingInput() || '',
+      locations: locationsRef.current?.getPendingInput() || '',
+    }),
   }));
 
   return (

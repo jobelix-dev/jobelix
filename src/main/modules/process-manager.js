@@ -1,11 +1,10 @@
 /**
  * Process Manager
- * Manages external processes (Python engine and bot automation)
+ * Manages external bot automation process
  */
 
 import { spawn } from 'child_process';
 import { 
-  getEnginePath, 
   getBotPath, 
   getBotWorkingDirectory,
   getPlatformName 
@@ -13,84 +12,6 @@ import {
 import { fileExists } from '../utils/file-system.js';
 import { SPAWN_CONFIG } from '../config/constants.js';
 import logger from '../utils/logger.js';
-
-let pythonProcess = null;
-
-/**
- * Start the Python engine process
- * Spawns the platform-specific engine executable
- * @returns {boolean} True if process started successfully
- */
-export function startPython() {
-  try {
-    const scriptPath = getEnginePath();
-
-    logger.info(`Starting Python engine at: ${scriptPath}`);
-
-    // Verify file exists before spawning
-    if (!fileExists(scriptPath)) {
-      logger.error('CRITICAL ERROR: Engine executable not found at:', scriptPath);
-      logger.error(`Please ensure the engine executable exists in the resources/${getPlatformName().toLowerCase()} directory`);
-      return false;
-    }
-
-    // Spawn the engine process
-    logger.info('Launching Python engine...');
-    pythonProcess = spawn(scriptPath, [], SPAWN_CONFIG.ENGINE);
-
-    // Log stdout
-    pythonProcess.stdout.on('data', (data) => {
-      logger.process('Python', data.toString().trim());
-    });
-
-    // Log stderr
-    pythonProcess.stderr.on('data', (data) => {
-      logger.error(`Python Error: ${data.toString().trim()}`);
-    });
-
-    // Handle process exit
-    pythonProcess.on('exit', (code, signal) => {
-      if (code !== null) {
-        logger.warn(`Python engine exited with code ${code}`);
-      } else if (signal !== null) {
-        logger.warn(`Python engine killed with signal ${signal}`);
-      }
-      pythonProcess = null;
-    });
-
-    // Handle spawn errors
-    pythonProcess.on('error', (error) => {
-      logger.error('Failed to start Python engine:', error);
-      pythonProcess = null;
-    });
-
-    logger.success('Python engine started successfully');
-    return true;
-  } catch (error) {
-    logger.error('Exception while starting Python engine:', error);
-    return false;
-  }
-}
-
-/**
- * Stop the Python engine process
- * Gracefully terminates the running process
- */
-export function stopPython() {
-  if (pythonProcess) {
-    logger.info('Stopping Python engine...');
-    pythonProcess.kill();
-    pythonProcess = null;
-  }
-}
-
-/**
- * Check if Python engine is running
- * @returns {boolean}
- */
-export function isPythonRunning() {
-  return pythonProcess !== null && !pythonProcess.killed;
-}
 
 /**
  * Launch the bot automation process
@@ -123,14 +44,13 @@ export async function launchBot(token) {
     }
 
     // Get backend API URL from environment or use default
-    const backendApiUrl = process.env.BACKEND_API_URL || 'http://www.jobelix.fr/api/autoapply/gpt4';
+    const public_app_url = process.env.NEXT_PUBLIC_APP_URL || 'http://www.jobelix.fr/';
     
     // Debug: Log the backend API URL being used
-    logger.info(`BACKEND_API_URL from env: "${process.env.BACKEND_API_URL}"`);
-    logger.info(`Using backend API URL: "${backendApiUrl}"`);
+    logger.info(`public app url from env: "${process.env.NEXT_PUBLIC_APP_URL}"`);
 
     // Spawn the bot process with --playwright flag, token, and backend API URL
-    const botProcess = spawn(botPath, ['--playwright', token, '--backend_api_url', backendApiUrl], {
+    const botProcess = spawn(botPath, ['--playwright', token, '--public_app_url', public_app_url], {
       ...SPAWN_CONFIG.BOT,
       cwd: botCwd
     });
@@ -155,14 +75,4 @@ export async function launchBot(token) {
       error: error.message || 'Unknown error launching bot' 
     };
   }
-}
-
-/**
- * Get process manager status
- * @returns {{pythonRunning: boolean}}
- */
-export function getProcessStatus() {
-  return {
-    pythonRunning: isPythonRunning()
-  };
 }

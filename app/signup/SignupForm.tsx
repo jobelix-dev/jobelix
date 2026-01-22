@@ -11,6 +11,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 
 export default function SignupForm({ role }: { role: string }) {
@@ -23,6 +24,7 @@ export default function SignupForm({ role }: { role: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,6 +37,7 @@ export default function SignupForm({ role }: { role: string }) {
         email,
         password,
         role: role as 'student' | 'company',
+        captchaToken: captchaToken || undefined,
       });
 
       if (response.success) {
@@ -107,9 +110,29 @@ export default function SignupForm({ role }: { role: string }) {
             />
           </label>
 
+          <div className="flex justify-center">
+            <HCaptcha
+              sitekey="9f186d2a-621c-4b40-b788-ba2e74fcd88a"
+              onVerify={(token) => {
+                console.log('HCaptcha token', token)
+                setCaptchaToken(token)
+              }}
+              onExpire={() => {
+                console.log('HCaptcha expired')
+                setCaptchaToken(null)
+              }}
+              onError={(err) => {
+                console.error('HCaptcha error', err)
+                setCaptchaToken(null)
+              }}
+              onLoad={() => console.log('HCaptcha loaded')}
+              sentry={false}
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !captchaToken}
             className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
           >
             {loading ? 'Creating account...' : `Sign up as ${displayRole}`}

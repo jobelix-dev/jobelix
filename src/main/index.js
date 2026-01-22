@@ -9,7 +9,6 @@ dotenv.config({ path: '.env.local' });
 
 import { app } from 'electron';
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
-import { startPython, stopPython } from './modules/process-manager.js';
 import { createMainWindow } from './modules/window-manager.js';
 import { checkForUpdates } from './modules/version-manager.js';
 import { setupAutoUpdater, setupAutoUpdaterListeners, showUpdateRequiredWindow } from './modules/update-manager.js';
@@ -64,12 +63,6 @@ async function initializeApp() {
       // Versions are compatible, proceed normally
       logger.success('Version check passed - starting application normally');
       
-      // Start Python engine
-      const pythonStarted = startPython();
-      if (!pythonStarted) {
-        logger.error('Failed to start Python engine, but continuing anyway');
-      }
-      
       // Create main window
       mainWindow = await createMainWindow();
       
@@ -100,7 +93,6 @@ app.whenReady().then(() => {
 // Before app quits, clean up processes
 app.on('will-quit', () => {
   logger.info('Application shutting down...');
-  stopPython();
   logger.info('Cleanup complete');
 });
 

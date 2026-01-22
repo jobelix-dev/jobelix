@@ -66,6 +66,26 @@ export function useBotLauncher() {
       }
       const { token } = await tokenResponse.json();
 
+      // Create initial bot session on backend
+      console.log('Creating bot session...');
+      const sessionResponse = await fetch('/api/autoapply/bot/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          bot_version: '1.0.0', // TODO: Get from package.json or config
+          platform: navigator.platform
+        })
+      });
+
+      if (!sessionResponse.ok) {
+        const sessionError = await sessionResponse.json();
+        throw new Error(sessionError.error || 'Failed to create bot session');
+      }
+
+      const { session_id } = await sessionResponse.json();
+      console.log('Bot session created:', session_id);
+
       // Launch the bot via Electron IPC
       const result = await window.electronAPI.launchBot(token);
       
@@ -75,6 +95,7 @@ export function useBotLauncher() {
       
       console.log('Bot launched:', result);
       console.log('Platform:', result.platform, 'PID:', result.pid);
+      console.log('Session ID:', session_id);
       
       return { success: true };
     } catch (err) {

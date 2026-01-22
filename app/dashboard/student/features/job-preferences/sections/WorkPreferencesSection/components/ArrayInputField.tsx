@@ -19,6 +19,7 @@ interface ArrayInputFieldProps {
 
 export interface ArrayInputFieldRef {
   flushPendingInput: () => void;
+  getPendingInput: () => string;
 }
 
 const ArrayInputField = forwardRef<ArrayInputFieldRef, ArrayInputFieldProps>((
@@ -40,10 +41,13 @@ const ArrayInputField = forwardRef<ArrayInputFieldRef, ArrayInputFieldProps>((
     setInput('');
   };
 
-  // Expose flush method to parent via ref
+  // Expose flush and get methods to parent via ref
   useImperativeHandle(ref, () => ({
     flushPendingInput: () => {
       handleAdd();
+    },
+    getPendingInput: () => {
+      return input;
     },
   }));
 
