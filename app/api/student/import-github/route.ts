@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Process in batches of 10 repos to avoid overwhelming the LLM
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 5;
     let mergedProjects = [...currentProjects];
     let mergedSkills = [...currentSkills];
     let totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
@@ -167,7 +167,14 @@ RULES FOR MERGING PROJECTS:
 
 3. **New Project Fields from GitHub:**
    - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly) - translate to English if needed
-   - description: Generate from README summary and repo description + primary language - MUST be in English. REWRITE the project description as it should appear in a final, professional resume. Use clear, concise, and impactful language. Focus on achievements, technologies used, and outcomes. Avoid copying raw text or bullet points from the resume if they are not well-written.
+   - description: Generate comprehensive, professional project descriptions using ALL available data:
+     * Use README summary and repo description as foundation
+     * Include project timeline: "Developed [created_at] - [pushed_at]" showing duration and recency
+     * Analyze language_bytes to determine expertise levels: "Built with [primary_language] (primary) and [other_languages] - [X] lines of code total"
+     * Use topics for categorization: Identify project type (web app, API, library, mobile app, data analysis, etc.)
+     * Infer advanced skills from topics, languages, and README: frameworks (React, Django), tools (Docker, AWS), methodologies (TDD, CI/CD)
+     * Focus on achievements, technologies used, and outcomes in resume-style language
+     * Example: "Full-stack web application built with React and Node.js, featuring user authentication and real-time data visualization. Developed over 18 months with 15,000+ lines of code across 8 programming languages."
    - link: Use repository URL (url field)
 
 RULES FOR MERGING SKILLS:
@@ -175,6 +182,9 @@ RULES FOR MERGING SKILLS:
 1. **Skill Extraction from GitHub:**
    - Extract programming languages from all_languages field
    - Extract frameworks/tools from topics field
+   - Analyze language_bytes to determine expertise levels: languages with higher byte counts indicate stronger proficiency
+   - Infer advanced skills from topics, README content, and project patterns (e.g., testing frameworks, deployment tools, cloud services)
+   - Extract technologies mentioned in README summaries and descriptions
 
 2. **Merging Strategy - PRESERVE EXISTING:**
    - ✅ KEEP all existing skills exactly as they are
