@@ -38,6 +38,14 @@ export default function DashboardPage() {
         const response = await api.getProfile();
         
         if (!response.profile) {
+          // Clear cache if profile loading fails (invalid session)
+          if (typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+            try {
+              await window.electronAPI.clearAuthCache();
+            } catch (cacheError) {
+              console.warn('Failed to clear auth cache on session invalidation:', cacheError);
+            }
+          }
           router.push('/');
           return;
         }
@@ -45,6 +53,14 @@ export default function DashboardPage() {
         setProfile(response.profile);
       } catch (error) {
         console.error('Failed to load profile:', error);
+        // Clear cache if profile loading fails (invalid session)
+        if (typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+          try {
+            await window.electronAPI.clearAuthCache();
+          } catch (cacheError) {
+            console.warn('Failed to clear auth cache on session invalidation:', cacheError);
+          }
+        }
         router.push('/');
       } finally {
         setLoading(false);

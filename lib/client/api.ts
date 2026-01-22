@@ -58,9 +58,21 @@ class ApiClient {
   }
 
   async logout(): Promise<{ success: boolean }> {
-    return this.request('/api/auth/logout', {
+    const result = await this.request<{ success: boolean }>('/api/auth/logout', {
       method: 'POST',
-    })
+    });
+
+    // Clear auth cache on logout
+    if (result.success && typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+      try {
+        await window.electronAPI.clearAuthCache();
+      } catch (error) {
+        console.warn('Failed to clear auth cache on logout:', error);
+        // Don't fail logout if cache clear fails
+      }
+    }
+
+    return result;
   }
 
   // DEPRECATED: Use Supabase client directly from the client side for proper PKCE flow
