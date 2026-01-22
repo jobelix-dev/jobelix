@@ -20,6 +20,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
+import { getServiceSupabase } from '@/lib/server/supabaseService'
 
 
 /**
@@ -69,10 +70,29 @@ export async function POST(request: NextRequest) {
      * If they are wrong:
      * - Supabase returns an error
      */
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('[Login] Attempting login for email:', email)
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
+
+    console.log('[Login] Login result - user exists:', !!data.user)
+    console.log('[Login] Login result - session created:', !!data.session)
+    console.log('[Login] Login error:', error ? { message: error.message, status: error.status } : null)
+
+    /**
+     * If login failed, let's check if the user account exists at all
+     * This helps debug whether it's credentials vs account state issues
+     */
+    if (error) {
+      console.log('[Login] Login failed, checking if user exists in database...')
+      const serviceClient = getServiceSupabase()
+      const { data: userData, error: userError } = await serviceClient.auth.admin.getUserByEmail(email)
+      console.log('[Login] User exists in auth:', !!userData.user)
+      console.log('[Login] User email confirmed:', userData.user?.email_confirmed_at ? true : false)
+      console.log('[Login] User disabled:', userData.user?.disabled ? true : false)
+      console.log('[Login] User check error:', userError)
+    }
 
     /**
      * If login failed, return a generic error.
