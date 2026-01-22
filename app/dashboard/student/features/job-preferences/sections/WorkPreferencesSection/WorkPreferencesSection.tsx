@@ -216,37 +216,76 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
   // Save preferences to database
   const handleSave = async () => {
-    // First, flush any pending inputs in array fields
-    searchCriteriaRef.current?.flushAllPendingInputs();
-    blacklistRef.current?.flushAllPendingInputs();
+    // Get pending inputs before flushing
+    const pendingSearch = searchCriteriaRef.current?.getPendingInputs();
+    const pendingBlacklist = blacklistRef.current?.getPendingInputs();
 
-    // Wait a brief moment for state updates to complete
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Create temporary preferences with pending inputs added
+    const prefsToValidate = { ...preferences };
+    if (pendingSearch?.positions.trim()) {
+      prefsToValidate.positions = [...preferences.positions, pendingSearch.positions.trim()];
+    }
+    if (pendingSearch?.locations.trim()) {
+      prefsToValidate.locations = [...preferences.locations, pendingSearch.locations.trim()];
+    }
+    if (pendingBlacklist?.company.trim()) {
+      prefsToValidate.company_blacklist = [...preferences.company_blacklist, pendingBlacklist.company.trim()];
+    }
+    if (pendingBlacklist?.title.trim()) {
+      prefsToValidate.title_blacklist = [...preferences.title_blacklist, pendingBlacklist.title.trim()];
+    }
 
-    // Check validation after flushing
-    const validationError = getValidationError();
+    // Validate with pending inputs included
+    const validationError = (() => {
+      if (prefsToValidate.positions.length === 0) return 'At least 1 target position is required';
+      if (prefsToValidate.locations.length === 0) return 'At least 1 location is required';
+      const hasExperienceLevel = 
+        preferences.exp_internship ||
+        preferences.exp_entry ||
+        preferences.exp_associate ||
+        preferences.exp_mid_senior ||
+        preferences.exp_director ||
+        preferences.exp_executive;
+      if (!hasExperienceLevel) return 'Select at least 1 experience level';
+      const hasJobType =
+        preferences.job_full_time ||
+        preferences.job_part_time ||
+        preferences.job_contract ||
+        preferences.job_temporary ||
+        preferences.job_internship ||
+        preferences.job_volunteer ||
+        preferences.job_other;
+      if (!hasJobType) return 'Select at least 1 job type';
+      return null;
+    })();
+
     if (validationError) {
       setValidationWarning(validationError);
       return;
     }
+
+    // Now flush the pending inputs to actually add them to the UI state
+    searchCriteriaRef.current?.flushAllPendingInputs();
+    blacklistRef.current?.flushAllPendingInputs();
 
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
 
     try {
+      // Save the complete preferences (including pending inputs)
       const response = await fetch('/api/student/work-preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(preferences),
+        body: JSON.stringify(prefsToValidate),
       });
 
       if (!response.ok) {
         throw new Error('Failed to save preferences');
       }
 
-      // Update initial preferences to current state after successful save
-      setInitialPreferences(preferences);
+      // Update initial preferences to the saved state
+      setInitialPreferences(prefsToValidate);
       setHasUnsavedChanges(false);
       
       setSaveSuccess(true);
@@ -256,7 +295,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
       if (typeof window !== 'undefined' && window.electronAPI) {
         try {
           console.log('Exporting YAML config...');
-          await exportPreferencesToYAML(preferences);
+          await exportPreferencesToYAML(prefsToValidate);
           console.log('YAML config exported successfully');
         } catch (yamlError) {
           console.error('Failed to export YAML:', yamlError);
