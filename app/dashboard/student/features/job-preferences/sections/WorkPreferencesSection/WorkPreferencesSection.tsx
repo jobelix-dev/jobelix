@@ -107,7 +107,7 @@ const defaultPreferences: WorkPreferences = {
   willing_to_undergo_drug_tests: true,
   willing_to_undergo_background_checks: true,
   notice_period: '1 day',
-  salary_expectation_usd: 1000,
+  salary_expectation_usd: 100000,
 };
 
 export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { onSave?: () => void; onUnsavedChanges?: (hasChanges: boolean) => void }) {
@@ -129,9 +129,11 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   useEffect(() => {
     const fetchPreferences = async () => {
       try {
+        // fetches saved preferences from the backend
         const response = await fetch('/api/student/work-preferences');
         const data = await response.json();
         
+        // merges with defaults
         if (data.preferences) {
           const loadedPrefs = { ...defaultPreferences, ...data.preferences };
           setPreferences(loadedPrefs);
@@ -145,10 +147,12 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     };
 
     fetchPreferences();
-  }, []);
+  }, []); // only runs when component mounts
 
   // Track unsaved changes
   useEffect(() => {
+    // preferences is what we see in the form
+    // initial is what was loaded at first and is in db 
     const hasChanges = JSON.stringify(preferences) !== JSON.stringify(initialPreferences);
     setHasUnsavedChanges(hasChanges);
     if (onUnsavedChanges) {
@@ -179,39 +183,64 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   };
 
   // Validation: Check if all required fields are filled and return error message
-  const getValidationError = (): string | null => {
+  const getValidationError = (prefs: WorkPreferences): string | null => {
     // At least one position is required
-    if (preferences.positions.length === 0) return 'At least 1 target position is required';
+    if (prefs.positions.length === 0) return 'At least 1 target position is required';
     
     // At least one location is required
-    if (preferences.locations.length === 0) return 'At least 1 location is required';
+    if (prefs.locations.length === 0) return 'At least 1 location is required';
     
     // At least one experience level must be selected
     const hasExperienceLevel = 
-      preferences.exp_internship ||
-      preferences.exp_entry ||
-      preferences.exp_associate ||
-      preferences.exp_mid_senior ||
-      preferences.exp_director ||
-      preferences.exp_executive;
+      prefs.exp_internship ||
+      prefs.exp_entry ||
+      prefs.exp_associate ||
+      prefs.exp_mid_senior ||
+      prefs.exp_director ||
+      prefs.exp_executive;
     if (!hasExperienceLevel) return 'Select at least 1 experience level';
     
     // At least one job type must be selected
     const hasJobType =
-      preferences.job_full_time ||
-      preferences.job_part_time ||
-      preferences.job_contract ||
-      preferences.job_temporary ||
-      preferences.job_internship ||
-      preferences.job_volunteer ||
-      preferences.job_other;
+      prefs.job_full_time ||
+      prefs.job_part_time ||
+      prefs.job_contract ||
+      prefs.job_temporary ||
+      prefs.job_internship ||
+      prefs.job_volunteer ||
+      prefs.job_other;
     if (!hasJobType) return 'Select at least 1 job type';
+
+    // At least one date filter must be selected
+    const hasDateFilter =
+      prefs.date_24_hours ||
+      prefs.date_week ||
+      prefs.date_month ||
+      prefs.date_all_time;
+    if (!hasDateFilter) return 'Select at least 1 date filter';
+
+    // Work authorization required (at least one)
+    if (!prefs.eu_work_authorization && !prefs.us_work_authorization) {
+      return 'Select at least 1 work authorization';
+    }
+
+    // Personal info required
+    if (!prefs.date_of_birth?.trim()) return 'Date of birth is required';
+    if (!prefs.pronouns?.trim()) return 'Pronouns are required';
+    if (!prefs.gender?.trim()) return 'Gender is required';
+    if (!prefs.ethnicity?.trim()) return 'Ethnicity is required';
+
+    // Additional preferences required
+    if (!prefs.notice_period?.trim()) return 'Notice period is required';
+    if (!prefs.salary_expectation_usd || prefs.salary_expectation_usd <= 0) {
+      return 'Salary expectation must be greater than 0';
+    }
     
     return null;
   };
 
   const isFormComplete = () => {
-    return getValidationError() === null;
+    return getValidationError(preferences) === null;
   };
 
   // Save preferences to database
@@ -236,28 +265,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     }
 
     // Validate with pending inputs included
-    const validationError = (() => {
-      if (prefsToValidate.positions.length === 0) return 'At least 1 target position is required';
-      if (prefsToValidate.locations.length === 0) return 'At least 1 location is required';
-      const hasExperienceLevel = 
-        preferences.exp_internship ||
-        preferences.exp_entry ||
-        preferences.exp_associate ||
-        preferences.exp_mid_senior ||
-        preferences.exp_director ||
-        preferences.exp_executive;
-      if (!hasExperienceLevel) return 'Select at least 1 experience level';
-      const hasJobType =
-        preferences.job_full_time ||
-        preferences.job_part_time ||
-        preferences.job_contract ||
-        preferences.job_temporary ||
-        preferences.job_internship ||
-        preferences.job_volunteer ||
-        preferences.job_other;
-      if (!hasJobType) return 'Select at least 1 job type';
-      return null;
-    })();
+    const validationError = getValidationError(prefsToValidate);
 
     if (validationError) {
       setValidationWarning(validationError);
@@ -286,7 +294,11 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
       // Update initial preferences to the saved state
       setInitialPreferences(prefsToValidate);
-      setHasUnsavedChanges(false);
+      setHasUnsavedChanges(false); // all changes now saved
+      if (onUnsavedChanges) {
+        console.log('Calling onUnsavedChanges(false) after save');
+        onUnsavedChanges(false);
+      }
       
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

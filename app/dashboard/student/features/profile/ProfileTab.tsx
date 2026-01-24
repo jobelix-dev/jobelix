@@ -14,6 +14,7 @@ import { api } from '@/lib/client/api';
 import ProfileEditorSection from './sections/ProfileEditorSection';
 import HeaderSection from './sections/HeaderSection';
 import type { ExtractedResumeData } from '@/lib/shared/types';
+import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 
 interface ProfileTabProps {
@@ -29,6 +30,13 @@ interface ProfileTabProps {
   extracting: boolean;
   uploadSuccess: boolean;
   uploadError: string;
+  extractionProgress?: {
+    stepIndex: number;
+    step: string;
+    progress: number;
+    complete?: boolean;
+    updatedAt: string;
+  } | null;
   finalizing: boolean;
   saveSuccess: boolean;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -51,6 +59,7 @@ export default function ProfileTab({
   extracting,
   uploadSuccess,
   uploadError,
+  extractionProgress,
   finalizing,
   saveSuccess,
   handleFileChange,
@@ -59,6 +68,34 @@ export default function ProfileTab({
   importingGitHub,
   onGitHubImport,
 }: ProfileTabProps) {
+  const resumeUploadSteps = [
+    'Validating file',
+    'Uploading to secure storage',
+    'Preparing extraction',
+  ];
+
+  const resumeExtractionSteps = RESUME_EXTRACTION_STEPS;
+
+  const githubImportSteps = [
+    'Connecting to GitHub',
+    'Fetching repositories',
+    'Summarizing projects',
+    'Merging skills',
+    'Updating profile',
+  ];
+
+  const loadingSteps = extracting
+    ? resumeExtractionSteps
+    : uploading
+      ? resumeUploadSteps
+      : importingGitHub
+        ? githubImportSteps
+        : undefined;
+
+  const loadingEstimatedMs = extracting ? 45000 : uploading ? 7000 : importingGitHub ? 12000 : undefined;
+  const extractionStepIndex = extractionProgress?.stepIndex;
+  const extractionProgressPercent = extractionProgress?.progress;
+
   // Handler for GitHub import completion - ONLY update projects and skills
   const handleGitHubImport = (projects: any[], skills: any[]) => {
     // Preserve ALL existing profile data, only update projects and skills
@@ -103,19 +140,23 @@ export default function ProfileTab({
       </Suspense>
 
       {/* Profile Editor */}
-      <ProfileEditorSection
-        data={profileData}
-        onChange={setProfileData}
-        onSave={handleFinalize}
-        isSaving={finalizing}
-        canSave={validation.isValid}
-        validation={showValidationErrors ? validation : undefined}
-        disabled={uploading || extracting || importingGitHub}
-        loadingMessage={uploading ? 'Parsing Resume...' : extracting ? 'Extracting Data...' : importingGitHub ? 'Importing from GitHub...' : undefined}
-        loadingSubmessage={uploading ? 'Please wait while AI analyzes your resume' : extracting ? 'AI is analyzing your resume and extracting information' : importingGitHub ? 'Fetching repositories and merging with your profile' : undefined}
-        saveSuccess={saveSuccess}
-        showValidationErrors={showValidationMessage}
-      />
+        <ProfileEditorSection
+          data={profileData}
+          onChange={setProfileData}
+          onSave={handleFinalize}
+          isSaving={finalizing}
+          canSave={validation.isValid}
+          validation={showValidationErrors ? validation : undefined}
+          disabled={uploading || extracting || importingGitHub}
+          loadingMessage={extracting ? 'Parsing Resume with AI...' : uploading ? 'Uploading Resume...' : importingGitHub ? 'Importing from GitHub...' : undefined}
+          loadingSubmessage={extracting ? 'This can take a few minutes - extracting section by section' : uploading ? 'Uploading your PDF securely' : importingGitHub ? 'Fetching repositories and merging with your profile' : undefined}
+          loadingSteps={loadingSteps}
+          loadingEstimatedMs={loadingEstimatedMs}
+          loadingStepIndex={extracting ? extractionStepIndex : undefined}
+          loadingProgress={extracting ? extractionProgressPercent : undefined}
+          saveSuccess={saveSuccess}
+          showValidationErrors={showValidationMessage}
+        />
     </>
   );
 }
