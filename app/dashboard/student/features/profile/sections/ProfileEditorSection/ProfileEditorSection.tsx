@@ -35,6 +35,10 @@ interface ProfileEditorSectionProps {
   disabled?: boolean;
   loadingMessage?: string;
   loadingSubmessage?: string;
+  loadingSteps?: string[];
+  loadingEstimatedMs?: number;
+  loadingProgress?: number;
+  loadingStepIndex?: number;
   saveSuccess?: boolean;
   showValidationErrors?: boolean;
 }
@@ -49,6 +53,10 @@ export default function ProfileEditorSection({
   disabled = false,
   loadingMessage,
   loadingSubmessage,
+  loadingSteps,
+  loadingEstimatedMs,
+  loadingProgress,
+  loadingStepIndex,
   saveSuccess = false,
   showValidationErrors = false
 }: ProfileEditorSectionProps) {
@@ -66,6 +74,10 @@ export default function ProfileEditorSection({
         <LoadingOverlay 
           message={loadingMessage} 
           submessage={loadingSubmessage}
+          steps={loadingSteps}
+          estimatedDurationMs={loadingEstimatedMs}
+          progressPercent={loadingProgress}
+          currentStepIndex={loadingStepIndex}
         />
       )}
       

@@ -69,6 +69,7 @@ function StudentDashboardContent() {
               extracting={resumeState.extracting}
               uploadSuccess={resumeState.uploadSuccess}
               uploadError={resumeState.uploadError}
+              extractionProgress={resumeState.extractionProgress}
               finalizing={profileState.finalizing}
               saveSuccess={profileState.saveSuccess}
               handleFileChange={resumeState.handleFileChange}

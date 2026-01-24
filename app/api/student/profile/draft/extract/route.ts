@@ -52,6 +52,8 @@ import path from 'path'
 import { pathToFileURL } from 'url'
 import { getGitHubConnection } from '@/lib/server/githubOAuth'
 import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService'
+import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps'
+import { setExtractionProgress } from '@/lib/server/extractionProgress'
 
 // Configure worker for Node.js serverless environment
 // Point to the worker file in node_modules
@@ -132,6 +134,14 @@ export async function POST(request: NextRequest) {
     
     const { user, supabase } = auth
 
+    const updateProgress = (stepIndex: number, complete = false) => {
+      const step = RESUME_EXTRACTION_STEPS[stepIndex] || 'Processing';
+      const progress = Math.round(((stepIndex + 1) / RESUME_EXTRACTION_STEPS.length) * 100);
+      setExtractionProgress(user.id, { stepIndex, step, progress, complete });
+    };
+
+    updateProgress(0);
+
     // Fetch EXISTING draft data (if any) to merge with new PDF extraction
     const { data: existingDraft } = await supabase
       .from('student_profile_draft')
@@ -155,6 +165,8 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    updateProgress(1);
 
     // Convert blob to Uint8Array for pdfjs-dist
     const arrayBuffer = await fileData.arrayBuffer()
@@ -212,6 +224,8 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    updateProgress(2);
 
     if (!resumeText || resumeText.trim().length === 0) {
       return NextResponse.json(
@@ -326,6 +340,7 @@ ${JSON.stringify({
     extractedData.email = contactData.email || extractedData.email;
     extractedData.address = contactData.address || extractedData.address;
     console.log(`✓ Contact info extracted`);
+    updateProgress(3);
 
     // Section 2: Education
     console.log(`Extracting section 2/9: Education (${extractedData.education.length} existing)...`);
@@ -340,6 +355,7 @@ ${JSON.stringify({
     const prevEducationCount = extractedData.education.length;
     extractedData.education = educationData.education;
     console.log(`✓ Education: ${prevEducationCount} → ${extractedData.education.length} entries (+${extractedData.education.length - prevEducationCount})`);
+    updateProgress(4);
 
     // Section 3: Experience
     console.log(`Extracting section 3/9: Experience (${extractedData.experience.length} existing)...`);
@@ -354,6 +370,7 @@ ${JSON.stringify({
     const prevExperienceCount = extractedData.experience.length;
     extractedData.experience = experienceData.experience;
     console.log(`✓ Experience: ${prevExperienceCount} → ${extractedData.experience.length} entries (+${extractedData.experience.length - prevExperienceCount})`);
+    updateProgress(5);
 
     // Section 4: Projects (CRITICAL - often includes GitHub projects)
     console.log(`Extracting section 4/9: Projects (${extractedData.projects.length} existing)...`);
@@ -371,6 +388,7 @@ ${JSON.stringify({
     if (extractedData.projects.length < prevProjectsCount) {
       console.error(`⚠️ WARNING: Projects count DECREASED! ${prevProjectsCount} → ${extractedData.projects.length}`);
     }
+    updateProgress(6);
 
     // Section 5: Skills (CRITICAL - often includes GitHub-derived skills)
     console.log(`Extracting section 5/9: Skills (${extractedData.skills.length} existing)...`);
@@ -388,6 +406,7 @@ ${JSON.stringify({
     if (extractedData.skills.length < prevSkillsCount) {
       console.error(`⚠️ WARNING: Skills count DECREASED! ${prevSkillsCount} → ${extractedData.skills.length}`);
     }
+    updateProgress(7);
 
     // Section 6: Languages
     console.log(`Extracting section 6/9: Languages (${extractedData.languages.length} existing)...`);
@@ -402,6 +421,7 @@ ${JSON.stringify({
     const prevLanguagesCount = extractedData.languages.length;
     extractedData.languages = languagesData.languages;
     console.log(`✓ Languages: ${prevLanguagesCount} → ${extractedData.languages.length} entries (+${extractedData.languages.length - prevLanguagesCount})`);
+    updateProgress(8);
 
     // Section 7: Publications
     console.log(`Extracting section 7/9: Publications (${extractedData.publications.length} existing)...`);
@@ -416,6 +436,7 @@ ${JSON.stringify({
     const prevPublicationsCount = extractedData.publications.length;
     extractedData.publications = publicationsData.publications;
     console.log(`✓ Publications: ${prevPublicationsCount} → ${extractedData.publications.length} entries (+${extractedData.publications.length - prevPublicationsCount})`);
+    updateProgress(9);
 
     // Section 8: Certifications
     console.log(`Extracting section 8/9: Certifications (${extractedData.certifications.length} existing)...`);
@@ -430,6 +451,7 @@ ${JSON.stringify({
     const prevCertificationsCount = extractedData.certifications.length;
     extractedData.certifications = certificationsData.certifications;
     console.log(`✓ Certifications: ${prevCertificationsCount} → ${extractedData.certifications.length} entries (+${extractedData.certifications.length - prevCertificationsCount})`);
+    updateProgress(10);
 
     // Section 9: Social Links
     console.log(`Extracting section 9/9: Social Links...`);
@@ -443,6 +465,7 @@ ${JSON.stringify({
     );
     extractedData.social_links = socialLinksData.social_links;
     console.log(`✓ Social links extracted`);
+    updateProgress(11);
 
     console.log('=== SECTION-BY-SECTION EXTRACTION COMPLETE ===');
     console.log(`Final: ${extractedData.education.length} education, ${extractedData.experience.length} experience, ${extractedData.projects.length} projects, ${extractedData.skills.length} skills`);
@@ -450,6 +473,8 @@ ${JSON.stringify({
 
     // Store in draft table using UPSERT (handles existing drafts)
     // RLS policy prevents duplicate inserts, so we use upsert to update if exists
+    updateProgress(12);
+
     const { data: draftData, error: draftError } = await supabase
       .from('student_profile_draft')
       .upsert({
@@ -482,6 +507,7 @@ ${JSON.stringify({
     }
 
     console.log('Extraction complete - data saved to draft')
+    updateProgress(13, true);
 
     return NextResponse.json({
       success: true,
