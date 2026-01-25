@@ -23,7 +23,7 @@ import {
   Info,
   Eye
 } from 'lucide-react';
-import { confirmWithFocusRestore, alertWithFocusRestore } from '@/lib/client/nativeDialog';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 
 interface HistoricalTotals {
   jobs_found: number;
@@ -94,6 +94,7 @@ function getStatusDisplay(status: BotSession['status']) {
 }
 
 export default function BotStatusCard({ session, historicalTotals, onStop, onLaunch, onShowInstructions }: BotStatusCardProps) {
+  const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
   const statusDisplay = getStatusDisplay(session.status);
   const isActive = session.status === 'starting' || session.status === 'running';
   const isCompleted = session.status === 'completed' || session.status === 'failed' || session.status === 'stopped';
@@ -171,13 +172,17 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
   // Handle stop button click
   const handleStop = async () => {
-    if (!confirmWithFocusRestore('Are you sure you want to stop the bot? The current operation will complete before stopping.')) {
+    const confirmed = await confirm(
+      'Are you sure you want to stop the bot? The current operation will complete before stopping.',
+      { title: 'Stop Bot', variant: 'danger', confirmText: 'Stop', cancelText: 'Cancel' }
+    );
+    if (!confirmed) {
       return;
     }
 
     const result = await onStop();
     if (!result.success && result.error) {
-      alertWithFocusRestore(`Failed to stop bot: ${result.error}`);
+      await alert(`Failed to stop bot: ${result.error}`, { title: 'Error' });
     }
   };
 
@@ -345,6 +350,8 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
           </p>
         </div>
       )}
+      
+      {ConfirmDialogComponent}
     </div>
   );
 }

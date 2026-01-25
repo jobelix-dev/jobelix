@@ -7,16 +7,16 @@
 import React from 'react';
 import { AlertCircle, Trash2 } from 'lucide-react';
 import { ProjectEntry } from '@/lib/shared/types';
-import { confirmWithFocusRestore } from '@/lib/client/nativeDialog';
 
 interface ProjectCardProps {
   data: ProjectEntry;
   onClick: () => void;
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
+  onConfirmDelete?: (message: string) => Promise<boolean>;
 }
 
-export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} }: ProjectCardProps) {
+export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {}, onConfirmDelete }: ProjectCardProps) {
   const projectName = data.project_name?.trim() || 'Untitled Project';
   const hasErrors = Object.keys(fieldErrors).length > 0;
   
@@ -36,9 +36,15 @@ export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} 
     }
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    if (confirmWithFocusRestore(`Delete "${projectName}"?`)) {
+    if (onConfirmDelete) {
+      const confirmed = await onConfirmDelete(`Delete "${projectName}"?`);
+      if (confirmed) {
+        onRemove();
+      }
+    } else {
+      // Fallback to immediate removal if no confirm dialog provided
       onRemove();
     }
   };

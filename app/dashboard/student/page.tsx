@@ -16,7 +16,7 @@ import { MatchesTab } from './features/matches';
 import { JobPreferencesTab } from './features/job-preferences';
 import { AutoApplyTab } from './features/auto-apply';
 import { useProfileData, useResumeUpload, useGitHubImportDashboard } from './hooks';
-import { confirmWithFocusRestore } from '@/lib/client/nativeDialog';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 import { restoreFocusAfterDialog } from '@/lib/client/focusRestore';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
@@ -24,6 +24,7 @@ type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 // Inner component that uses useSearchParams
 function StudentDashboardContent() {
   const searchParams = useSearchParams();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   
   // Active tab state - initialize from URL param if present
   const [activeTab, setActiveTab] = useState<DashboardTab>('profile');
@@ -70,9 +71,14 @@ function StudentDashboardContent() {
     };
   }, [jobPreferencesUnsaved]);
 
-  const handleTabChange = (nextTab: DashboardTab) => {
+  const handleTabChange = async (nextTab: DashboardTab) => {
     if (activeTab === 'job-preferences' && nextTab !== 'job-preferences' && jobPreferencesUnsaved) {
-      const shouldLeave = confirmWithFocusRestore('You have unsaved job preferences. Leave without saving?');
+      const shouldLeave = await confirm('You have unsaved job preferences. Leave without saving?', {
+        title: 'Unsaved Changes',
+        confirmText: 'Leave',
+        cancelText: 'Stay',
+        variant: 'danger'
+      });
       if (!shouldLeave) {
         return;
       }
@@ -122,6 +128,7 @@ function StudentDashboardContent() {
           {activeTab === 'auto-apply' && <AutoApplyTab />}
         </div>
       </div>
+      {ConfirmDialogComponent}
     </div>
   );
 }

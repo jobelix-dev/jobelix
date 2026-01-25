@@ -16,6 +16,7 @@ import type { ExtractedResumeData } from '@/lib/shared/types';
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import ValidationTour, { ValidationTourStep } from '@/app/dashboard/student/components/ValidationTour';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 
 interface ProfileTabProps {
   profileData: ExtractedResumeData;
@@ -74,6 +75,8 @@ export default function ProfileTab({
   importingGitHub,
   onGitHubImport,
 }: ProfileTabProps) {
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  
   const resumeUploadSteps = [
     'Validating file',
     'Uploading to secure storage',
@@ -564,6 +567,7 @@ export default function ProfileTab({
         expandedExperienceIndex={expandedExperienceIndex}
         expandedPublicationIndex={expandedPublicationIndex}
         expandedCertificationIndex={expandedCertificationIndex}
+        onConfirmDelete={(message) => confirm(message, { title: 'Delete Project', variant: 'danger', confirmText: 'Delete', cancelText: 'Cancel' })}
       />
 
       <ValidationTour
@@ -573,6 +577,8 @@ export default function ProfileTab({
         onBack={handleProfileTourBack}
         onExit={handleProfileTourExit}
       />
+      
+      {ConfirmDialogComponent}
     </>
   );
 }

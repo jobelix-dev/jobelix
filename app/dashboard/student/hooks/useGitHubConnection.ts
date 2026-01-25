@@ -8,7 +8,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
 
 export interface GitHubConnectionStatus {
   connected: boolean;
@@ -26,6 +25,7 @@ export function useGitHubConnection() {
   const [status, setStatus] = useState<GitHubConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
 
   // Check GitHub connection status
   const checkStatus = useCallback(async () => {
@@ -75,9 +75,11 @@ export function useGitHubConnection() {
     );
 
     if (!popup) {
-      alertWithFocusRestore('Please allow popups for this site to connect GitHub');
+      setPopupBlocked(true);
       return;
     }
+
+    setPopupBlocked(false);
 
     // Poll for popup closure and check connection status
     const pollInterval = setInterval(() => {
@@ -152,6 +154,7 @@ export function useGitHubConnection() {
     status,
     loading,
     error,
+    popupBlocked,
     connect,
     disconnect,
     refresh: checkStatus,

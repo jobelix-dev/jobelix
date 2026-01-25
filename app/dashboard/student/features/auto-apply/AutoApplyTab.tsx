@@ -26,6 +26,16 @@ export default function AutoApplyTab() {
   const botLauncher = useBotLauncher();
   const botStatus = useBotStatus();
 
+  // Wrapper for bot launch that refreshes status after launch
+  const handleLaunchBot = async () => {
+    const result = await botLauncher.launchBot();
+    if (result.success) {
+      // Refresh bot status to immediately show the new session
+      await botStatus.refresh();
+    }
+    return result;
+  };
+
   // Check if profile is published
   useEffect(() => {
     const checkProfile = async () => {
@@ -217,7 +227,7 @@ export default function AutoApplyTab() {
                 session={botStatus.session}
                 historicalTotals={botStatus.historicalTotals}
                 onStop={botStatus.stopBot}
-                onLaunch={canLaunch ? botLauncher.launchBot : undefined}
+                onLaunch={canLaunch ? handleLaunchBot : undefined}
                 onShowInstructions={() => setShowInstructions(true)}
               />
             ) : (
@@ -226,7 +236,7 @@ export default function AutoApplyTab() {
                 launching={botLauncher.launching}
                 launchError={botLauncher.error}
                 hasCredits={hasCredits}
-                onLaunch={botLauncher.launchBot}
+                onLaunch={handleLaunchBot}
               />
             )}
           </>
