@@ -15,9 +15,12 @@ import { authenticateRequest } from '@/lib/server/auth';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { getGitHubConnection, updateLastSynced } from '@/lib/server/githubOAuth';
 import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService';
+import { setGitHubImportProgress } from '@/lib/server/githubImportProgress';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
+
+export const runtime = 'nodejs';
 
 // Lazy initialization to avoid build-time errors
 let openaiInstance: OpenAI | null = null;
@@ -56,17 +59,54 @@ export async function POST(request: NextRequest) {
     
     const { user, supabase } = auth;
 
-    // Rate limiting: 5 imports per hour, 20 per day (this is expensive with OpenAI)
+    let lastBatchRepos: string[] = [];
+    let lastReposTotal = 0;
+
+    const updateProgress = (params: {
+      step: string;
+      reposProcessed: number;
+      reposTotal: number;
+      batchRepos: string[];
+      complete?: boolean;
+    }) => {
+      if (params.batchRepos && params.batchRepos.length > 0) {
+        lastBatchRepos = params.batchRepos;
+      }
+      if (params.reposTotal && params.reposTotal > 0) {
+        lastReposTotal = params.reposTotal;
+      }
+      const effectiveTotal = params.reposTotal > 0 ? params.reposTotal : lastReposTotal;
+      const progress = effectiveTotal > 0
+        ? Math.round((params.reposProcessed / effectiveTotal) * 100)
+        : 0;
+      setGitHubImportProgress(user.id, {
+        step: params.step,
+        progress,
+        reposProcessed: params.reposProcessed,
+        reposTotal: effectiveTotal,
+        batchRepos: lastBatchRepos,
+        complete: params.complete,
+      });
+    };
+
+    updateProgress({
+      step: 'Connecting to GitHub',
+      reposProcessed: 0,
+      reposTotal: 0,
+      batchRepos: [],
+    });
+
+    // Rate limiting: 3 imports per hour, 6 per day (this is expensive with OpenAI)
     const rateLimitResult = await checkRateLimit(user.id, {
       endpoint: 'github-import',
-      hourlyLimit: 5,
-      dailyLimit: 20,
+      hourlyLimit: 15,
+      dailyLimit: 15,
     })
 
     if (rateLimitResult.error) return rateLimitResult.error
     if (!rateLimitResult.data.allowed) {
       return rateLimitExceededResponse(
-        { endpoint: 'github-import', hourlyLimit: 5, dailyLimit: 20 },
+        { endpoint: 'github-import', hourlyLimit: 15, dailyLimit: 15 },
         rateLimitResult.data
       )
     }
@@ -85,11 +125,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const BATCH_SIZE = 10;
+
     // Fetch GitHub repositories with README excerpts for better descriptions
     console.log('Fetching GitHub repositories with README content...');
-    const repos = await fetchGitHubRepos(connection.access_token, true, 50);
+    updateProgress({
+      step: 'Fetching repositories',
+      reposProcessed: 0,
+      reposTotal: 0,
+      batchRepos: [],
+    });
+    const repos = await fetchGitHubRepos(connection.access_token, false, 50);
+    if (repos.length > 0) {
+    updateProgress({
+      step: 'Collecting repositories',
+      reposProcessed: 0,
+      reposTotal: repos.length,
+      batchRepos: repos.slice(0, BATCH_SIZE).map((repo: any) => repo.name || repo.full_name || 'Repository'),
+    });
+    }
     
     console.log(`Processing ${repos.length} repositories (fetching languages + READMEs)...`);
+    updateProgress({
+      step: 'Preparing repository analysis',
+      reposProcessed: 0,
+      reposTotal: repos.length,
+      batchRepos: [],
+    });
     const transformedRepos = await transformReposForLLM(connection.access_token, repos, true); // Enable README fetching
 
     const reposWithReadme = transformedRepos.filter(r => r.readme_summary).length;
@@ -122,8 +184,7 @@ export async function POST(request: NextRequest) {
       return scoreB - scoreA;
     });
 
-    // Process in batches of 10 repos to avoid overwhelming the LLM
-    const BATCH_SIZE = 5;
+    // Process in batches to avoid overwhelming the LLM
     let mergedProjects = [...currentProjects];
     let mergedSkills = [...currentSkills];
     let totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
@@ -135,6 +196,12 @@ export async function POST(request: NextRequest) {
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
       
       console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} repos)...`);
+      updateProgress({
+        step: 'Parsing repositories',
+        reposProcessed: i,
+        reposTotal: sortedRepos.length,
+        batchRepos: batch.map((repo: any) => repo.name || repo.full_name || 'Repository'),
+      });
 
       // Call OpenAI to merge this batch with current merged data
       const openai = getOpenAI();
@@ -234,6 +301,13 @@ Process ALL ${batch.length} repositories in this batch.`,
       // Update merged data for next iteration
       mergedProjects = batchResult.projects;
       mergedSkills = batchResult.skills;
+
+      updateProgress({
+        step: 'Parsing repositories',
+        reposProcessed: Math.min(i + batch.length, sortedRepos.length),
+        reposTotal: sortedRepos.length,
+        batchRepos: batch.map((repo: any) => repo.name || repo.full_name || 'Repository'),
+      });
     }
 
     // Final debug logging
@@ -263,6 +337,12 @@ Process ALL ${batch.length} repositories in this batch.`,
     console.log('==========================================');
 
     // Update the draft with merged projects and skills
+    updateProgress({
+      step: 'Saving imported data',
+      reposProcessed: sortedRepos.length,
+      reposTotal: sortedRepos.length,
+      batchRepos: [],
+    });
     const { error: updateError } = await supabase
       .from('student_profile_draft')
       .update({
@@ -288,6 +368,14 @@ Process ALL ${batch.length} repositories in this batch.`,
 
     console.log(`GitHub import successful: Total added ${mergedProjects.length - currentProjects.length} projects, ${mergedSkills.length - currentSkills.length} skills`);
 
+    updateProgress({
+      step: 'Import complete',
+      reposProcessed: sortedRepos.length,
+      reposTotal: sortedRepos.length,
+      batchRepos: [],
+      complete: true,
+    });
+
     return NextResponse.json({
       success: true,
       projects: mergedProjects,
@@ -298,7 +386,7 @@ Process ALL ${batch.length} repositories in this batch.`,
   } catch (error: any) {
     console.error('GitHub import error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to import GitHub data' },
+      { success: false, error: error?.message || 'Failed to import GitHub data' },
       { status: 500 }
     );
   }

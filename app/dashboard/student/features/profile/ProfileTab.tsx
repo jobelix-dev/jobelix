@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useState, Dispatch, SetStateAction, Suspense } from 'react';
+import { useState, Dispatch, SetStateAction, Suspense, useEffect } from 'react';
 import { api } from '@/lib/client/api';
 import ProfileEditorSection from './sections/ProfileEditorSection';
 import HeaderSection from './sections/HeaderSection';
@@ -37,6 +37,15 @@ interface ProfileTabProps {
     complete?: boolean;
     updatedAt: string;
   } | null;
+  githubImportProgress?: {
+    step: string;
+    progress: number;
+    reposProcessed: number;
+    reposTotal: number;
+    batchRepos: string[];
+    complete?: boolean;
+    updatedAt: string;
+  } | null;
   finalizing: boolean;
   saveSuccess: boolean;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -60,6 +69,7 @@ export default function ProfileTab({
   uploadSuccess,
   uploadError,
   extractionProgress,
+  githubImportProgress,
   finalizing,
   saveSuccess,
   handleFileChange,
@@ -76,25 +86,45 @@ export default function ProfileTab({
 
   const resumeExtractionSteps = RESUME_EXTRACTION_STEPS;
 
-  const githubImportSteps = [
-    'Connecting to GitHub',
-    'Fetching repositories',
-    'Summarizing projects',
-    'Merging skills',
-    'Updating profile',
-  ];
+  const githubImportSteps = ['Analyzing repositories'];
+
+  const loadingEstimatedMs = extracting ? 45000 : uploading ? 7000 : importingGitHub ? 12000 : undefined;
+  const extractionStepIndex = extractionProgress?.stepIndex;
+  const extractionProgressPercent = extractionProgress?.progress;
+  const githubProgressPercent = importingGitHub ? (githubImportProgress?.progress ?? 0) : undefined;
+  const githubRepos = githubImportProgress?.batchRepos || [];
+  const [visibleRepos, setVisibleRepos] = useState<string[]>([]);
+  const [repoTickerIndex, setRepoTickerIndex] = useState(0);
+
+  useEffect(() => {
+    if (githubRepos.length > 0) {
+      setVisibleRepos(githubRepos);
+    }
+  }, [githubRepos.join('|')]);
+
+  useEffect(() => {
+    setRepoTickerIndex(0);
+  }, [visibleRepos.join('|')]);
+
+  useEffect(() => {
+    if (!importingGitHub || visibleRepos.length <= 1) return;
+    const interval = setInterval(() => {
+      setRepoTickerIndex((prev) => (prev + 1) % visibleRepos.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [importingGitHub, visibleRepos]);
+
+  const githubStepLabel = visibleRepos.length > 0
+    ? `Parsing repo: ${visibleRepos[repoTickerIndex]}`
+    : 'Collecting repositories';
 
   const loadingSteps = extracting
     ? resumeExtractionSteps
     : uploading
       ? resumeUploadSteps
       : importingGitHub
-        ? githubImportSteps
+        ? [githubStepLabel]
         : undefined;
-
-  const loadingEstimatedMs = extracting ? 45000 : uploading ? 7000 : importingGitHub ? 12000 : undefined;
-  const extractionStepIndex = extractionProgress?.stepIndex;
-  const extractionProgressPercent = extractionProgress?.progress;
 
   // Handler for GitHub import completion - ONLY update projects and skills
   const handleGitHubImport = (projects: any[], skills: any[]) => {
@@ -148,12 +178,12 @@ export default function ProfileTab({
           canSave={validation.isValid}
           validation={showValidationErrors ? validation : undefined}
           disabled={uploading || extracting || importingGitHub}
-          loadingMessage={extracting ? 'Parsing Resume with AI...' : uploading ? 'Uploading Resume...' : importingGitHub ? 'Importing from GitHub...' : undefined}
-          loadingSubmessage={extracting ? 'This can take a few minutes - extracting section by section' : uploading ? 'Uploading your PDF securely' : importingGitHub ? 'Fetching repositories and merging with your profile' : undefined}
+          loadingMessage={extracting ? 'Parsing your resume with AI...' : uploading ? 'Uploading your resume...' : importingGitHub ? 'AI is analyzing your GitHub repositories' : undefined}
+          loadingSubmessage={extracting ? 'This can take a few minutes. Extracting section by section.' : uploading ? 'Uploading your PDF securely' : importingGitHub ? 'Reviewing code and README files to build projects and skills' : undefined}
           loadingSteps={loadingSteps}
           loadingEstimatedMs={loadingEstimatedMs}
           loadingStepIndex={extracting ? extractionStepIndex : undefined}
-          loadingProgress={extracting ? extractionProgressPercent : undefined}
+          loadingProgress={extracting ? extractionProgressPercent : importingGitHub ? githubProgressPercent : undefined}
           saveSuccess={saveSuccess}
           showValidationErrors={showValidationMessage}
         />

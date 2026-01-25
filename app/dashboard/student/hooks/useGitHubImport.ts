@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { ProjectEntry, SkillEntry } from '@/lib/shared/types';
 
 interface ImportGitHubParams {
@@ -91,6 +91,16 @@ export function useGitHubImportDashboard() {
   const [importingGitHub, setImportingGitHub] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    step: string;
+    progress: number;
+    reposProcessed: number;
+    reposTotal: number;
+    batchRepos: string[];
+    complete?: boolean;
+    updatedAt: string;
+  } | null>(null);
+  const progressSourceRef = useRef<EventSource | null>(null);
 
   const importGitHubData = useCallback(async (
     currentProjects: ProjectEntry[],
@@ -101,6 +111,33 @@ export function useGitHubImportDashboard() {
       setImportingGitHub(true);
       setImportError(null);
       setImportSuccess(false);
+      setImportProgress(null);
+
+      if (progressSourceRef.current) {
+        progressSourceRef.current.close();
+        progressSourceRef.current = null;
+      }
+
+      const progressSource = new EventSource('/api/student/import-github/progress');
+      progressSourceRef.current = progressSource;
+
+      progressSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setImportProgress(data);
+          if (data.complete) {
+            progressSource.close();
+            progressSourceRef.current = null;
+          }
+        } catch (error) {
+          console.warn('Failed to parse GitHub import progress event', error);
+        }
+      };
+
+      progressSource.onerror = () => {
+        progressSource.close();
+        progressSourceRef.current = null;
+      };
 
       const response = await fetch('/api/student/import-github', {
         method: 'POST',
@@ -132,12 +169,17 @@ export function useGitHubImportDashboard() {
       return null;
     } finally {
       setImportingGitHub(false);
+      if (progressSourceRef.current) {
+        progressSourceRef.current.close();
+        progressSourceRef.current = null;
+      }
     }
   }, []);
 
   const reset = useCallback(() => {
     setImportError(null);
     setImportSuccess(false);
+    setImportProgress(null);
   }, []);
 
   return {
@@ -145,6 +187,7 @@ export function useGitHubImportDashboard() {
     importingGitHub,
     importError,
     importSuccess,
+    importProgress,
     reset,
   };
 }
