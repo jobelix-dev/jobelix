@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
+import { registerFocusLock } from '@/lib/client/focusRestore';
 
 export interface ValidationTourStep {
   id: string;
@@ -42,6 +43,69 @@ export default function ValidationTour({
   const [overlayReady, setOverlayReady] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const previousOverflow = useRef<string | null>(null);
+  const isOpenRef = useRef(isOpen);
+  const lockActiveRef = useRef(false);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  const releaseLock = useCallback(() => {
+    if (!lockActiveRef.current) return;
+    if (previousOverflow.current !== null) {
+      document.body.style.overflow = previousOverflow.current;
+    } else {
+      document.body.style.overflow = '';
+    }
+    window.removeEventListener('wheel', preventScrollRef.current, { passive: false } as AddEventListenerOptions);
+    window.removeEventListener('touchmove', preventScrollRef.current, { passive: false } as AddEventListenerOptions);
+    window.removeEventListener('keydown', preventScrollKeysRef.current);
+    lockActiveRef.current = false;
+  }, []);
+
+  const preventScrollRef = useRef<(event: Event) => void>(() => {});
+  const preventScrollKeysRef = useRef<(event: KeyboardEvent) => void>(() => {});
+
+  const acquireLock = useCallback(() => {
+    if (lockActiveRef.current) return;
+    previousOverflow.current = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const preventScroll = (event: Event) => {
+      event.preventDefault();
+    };
+
+    const preventScrollKeys = (event: KeyboardEvent) => {
+      const blockedKeys = [
+        'ArrowUp',
+        'ArrowDown',
+        'PageUp',
+        'PageDown',
+        'Home',
+        'End',
+        ' ',
+        'Spacebar',
+      ];
+      const target = event.target as HTMLElement | null;
+      const isEditable = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+      if (blockedKeys.includes(event.key) && !isEditable) {
+        event.preventDefault();
+      }
+    };
+
+    preventScrollRef.current = preventScroll;
+    preventScrollKeysRef.current = preventScrollKeys;
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+    window.addEventListener('keydown', preventScrollKeys);
+    lockActiveRef.current = true;
+  }, []);
 
   const updateRect = useCallback(() => {
     if (!step) return;
@@ -183,53 +247,21 @@ export default function ValidationTour({
   }, [isOpen, step, updateRect]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+      acquireLock();
+    } else {
+      releaseLock();
+    }
+    return () => releaseLock();
+  }, [isOpen, acquireLock, releaseLock]);
 
-    previousOverflow.current = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const preventScroll = (event: Event) => {
-      event.preventDefault();
-    };
-
-    const preventScrollKeys = (event: KeyboardEvent) => {
-      const blockedKeys = [
-        'ArrowUp',
-        'ArrowDown',
-        'PageUp',
-        'PageDown',
-        'Home',
-        'End',
-        ' ',
-        'Spacebar',
-      ];
-      const target = event.target as HTMLElement | null;
-      const isEditable = !!target && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable
-      );
-      if (blockedKeys.includes(event.key) && !isEditable) {
-        event.preventDefault();
-      }
-    };
-
-    window.addEventListener('wheel', preventScroll, { passive: false });
-    window.addEventListener('touchmove', preventScroll, { passive: false });
-    window.addEventListener('keydown', preventScrollKeys);
-
-    return () => {
-      if (previousOverflow.current !== null) {
-        document.body.style.overflow = previousOverflow.current;
-      } else {
-        document.body.style.overflow = '';
-      }
-      window.removeEventListener('wheel', preventScroll);
-      window.removeEventListener('touchmove', preventScroll);
-      window.removeEventListener('keydown', preventScrollKeys);
-    };
-  }, [isOpen]);
+  useEffect(() => {
+    return registerFocusLock({
+      acquire: acquireLock,
+      release: releaseLock,
+      isActive: () => isOpenRef.current,
+    });
+  }, [acquireLock, releaseLock]);
 
   if (!isOpen || !step || !overlayReady || !targetRect) return null;
 

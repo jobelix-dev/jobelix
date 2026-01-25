@@ -10,6 +10,7 @@
 
 import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import { Trash2, Edit3 } from 'lucide-react';
+import { confirmWithFocusRestore } from '@/lib/client/nativeDialog';
 
 interface OffersListProps {
   publishedOffers: CompanyOffer[];
@@ -99,7 +100,7 @@ export default function OffersList({
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm('Are you sure you want to delete this draft?')) {
+                        if (confirmWithFocusRestore('Are you sure you want to delete this draft?')) {
                           onDeleteDraft(draft.id);
                         }
                       }}
@@ -197,7 +198,7 @@ export default function OffersList({
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm('Are you sure you want to delete this offer?')) {
+                        if (confirmWithFocusRestore('Are you sure you want to delete this offer?')) {
                           onDeleteOffer(offer.id);
                         }
                       }}
