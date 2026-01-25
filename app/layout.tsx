@@ -14,6 +14,7 @@ import WindowControls from "./components/WindowControls";
 import TitleBar from "./components/TitleBar";
 import AutoLogin from "./components/AutoLogin";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default function RootLayout({
         {children}
         <UpdateNotification />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
