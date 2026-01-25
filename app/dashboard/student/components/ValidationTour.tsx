@@ -7,6 +7,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 
 export interface ValidationTourStep {
@@ -40,6 +41,7 @@ export default function ValidationTour({
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [overlayReady, setOverlayReady] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const previousOverflow = useRef<string | null>(null);
 
   const updateRect = useCallback(() => {
     if (!step) return;
@@ -151,9 +153,18 @@ export default function ValidationTour({
         return;
       }
 
+      const originalOverflow = document.body.style.overflow;
+      if (originalOverflow === 'hidden') {
+        document.body.style.overflow = previousOverflow.current ?? '';
+      }
+
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       await waitForScrollIdle();
       await new Promise((resolve) => setTimeout(resolve, 150));
+
+      if (document.body.style.overflow !== 'hidden') {
+        document.body.style.overflow = 'hidden';
+      }
 
       const focusTarget = target.matches('input, select, textarea, button, [tabindex]')
         ? target
@@ -170,6 +181,55 @@ export default function ValidationTour({
       if (rafId) cancelAnimationFrame(rafId);
     };
   }, [isOpen, step, updateRect]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previousOverflow.current = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const preventScroll = (event: Event) => {
+      event.preventDefault();
+    };
+
+    const preventScrollKeys = (event: KeyboardEvent) => {
+      const blockedKeys = [
+        'ArrowUp',
+        'ArrowDown',
+        'PageUp',
+        'PageDown',
+        'Home',
+        'End',
+        ' ',
+        'Spacebar',
+      ];
+      const target = event.target as HTMLElement | null;
+      const isEditable = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+      if (blockedKeys.includes(event.key) && !isEditable) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+    window.addEventListener('keydown', preventScrollKeys);
+
+    return () => {
+      if (previousOverflow.current !== null) {
+        document.body.style.overflow = previousOverflow.current;
+      } else {
+        document.body.style.overflow = '';
+      }
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+      window.removeEventListener('keydown', preventScrollKeys);
+    };
+  }, [isOpen]);
 
   if (!isOpen || !step || !overlayReady || !targetRect) return null;
 
@@ -213,8 +273,11 @@ export default function ValidationTour({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[1000] pointer-events-none">
+  const content = (
+    <div
+      className="fixed inset-0 z-[1000] pointer-events-none"
+      style={{ width: '100vw', height: '100vh' }}
+    >
       {/* Dimming layers around the spotlight (clear center area) */}
       <div
         className="absolute left-0 right-0 top-0 bg-black/55 pointer-events-auto"
@@ -297,4 +360,7 @@ export default function ValidationTour({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }
