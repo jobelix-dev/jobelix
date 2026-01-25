@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BotSession } from '@/lib/shared/types';
 import { 
   Play, 
@@ -62,36 +62,31 @@ function getStatusDisplay(status: BotSession['status']) {
       return {
         icon: <Loader2 className="w-5 h-5 text-primary animate-spin" />,
         text: 'Starting...',
-        color: 'text-primary',
-        pill: 'bg-primary/10 text-primary'
+        pill: 'bg-primary-subtle/20 text-primary border-primary/40'
       };
     case 'running':
       return {
-        icon: <Play className="w-5 h-5 text-success" />,
+        icon: <Play className="w-5 h-5 text-primary" />,
         text: 'Running',
-        color: 'text-success',
-        pill: 'bg-success/10 text-success'
+        pill: 'bg-primary-subtle/20 text-primary border-primary/40'
       };
     case 'completed':
       return {
         icon: <CheckCircle className="w-5 h-5 text-success" />,
         text: 'Completed',
-        color: 'text-success',
-        pill: 'bg-success/10 text-success'
+        pill: 'bg-success-subtle/20 text-success border-success/40'
       };
     case 'failed':
       return {
-        icon: <XCircle className="w-5 h-5 text-danger" />,
+        icon: <XCircle className="w-5 h-5 text-error" />,
         text: 'Failed',
-        color: 'text-danger',
-        pill: 'bg-danger/10 text-danger'
+        pill: 'bg-error-subtle/20 text-error border-error/40'
       };
     case 'stopped':
       return {
         icon: <OctagonX className="w-5 h-5 text-warning" />,
         text: 'Stopped',
-        color: 'text-warning',
-        pill: 'bg-warning/10 text-warning'
+        pill: 'bg-warning-subtle/20 text-warning border-warning/40'
       };
   }
 }
@@ -100,6 +95,14 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
   const statusDisplay = getStatusDisplay(session.status);
   const isActive = session.status === 'starting' || session.status === 'running';
   const isCompleted = session.status === 'completed' || session.status === 'failed' || session.status === 'stopped';
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => {
+    if (!session.started_at) return 0;
+    const start = new Date(session.started_at).getTime();
+    const end = session.completed_at
+      ? new Date(session.completed_at).getTime()
+      : Date.now();
+    return Math.max(0, Math.floor((end - start) / 1000));
+  });
 
   // Calculate display values (combined totals + session delta)
   const displayStats = useMemo(() => {
@@ -123,22 +126,41 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
     };
   }, [session, historicalTotals, isActive]);
 
+  useEffect(() => {
+    const getElapsedSeconds = () => {
+      if (!session.started_at) return 0;
+      const start = new Date(session.started_at).getTime();
+      const end = session.completed_at
+        ? new Date(session.completed_at).getTime()
+        : Date.now();
+      return Math.max(0, Math.floor((end - start) / 1000));
+    };
+
+    setElapsedSeconds(getElapsedSeconds());
+
+    if (!isActive || session.completed_at) return;
+
+    const interval = setInterval(() => {
+      setElapsedSeconds(getElapsedSeconds());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session.started_at, session.completed_at, isActive]);
+
   // Calculate elapsed time
   const elapsedTime = useMemo(() => {
-    const start = new Date(session.started_at).getTime();
-    const end = session.completed_at 
-      ? new Date(session.completed_at).getTime()
-      : Date.now();
-    
-    const diffMs = end - start;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-    
-    if (diffMins > 0) {
-      return `${diffMins}m ${diffSecs}s`;
+    const hours = Math.floor(elapsedSeconds / 3600);
+    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+    const seconds = elapsedSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
     }
-    return `${diffSecs}s`;
-  }, [session.started_at, session.completed_at]);
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  }, [elapsedSeconds]);
 
   // Get current activity message
   const activityMessage = session.current_activity 
@@ -165,7 +187,7 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
           {statusDisplay.icon}
           <div>
             <h3 className="font-semibold text-default">Bot Status</h3>
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusDisplay.pill}`}>
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusDisplay.pill}`}>
               {statusDisplay.text}
             </span>
           </div>
@@ -204,7 +226,7 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
       {/* Current Activity */}
       {isActive && activityMessage && (
-        <div className="p-3 bg-info-subtle/10 rounded-lg">
+        <div className="p-3 bg-primary-subtle/20 border border-primary/20 rounded-lg">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
             <span className="text-sm text-default">
@@ -224,14 +246,14 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-lg p-3 bg-primary-subtle/20">
           <div className="flex items-center gap-2 mb-1">
-            <Briefcase className="w-4 h-4 text-primary" />
+            <Briefcase className="w-4 h-4 text-info" />
             <span className="text-xs text-muted">Jobs Found</span>
           </div>
-          <p className="text-2xl font-bold text-default">
+          <p className="text-2xl font-bold text-info">
             {displayStats.totals.jobs_found}
           </p>
           {isActive && displayStats.current.jobs_found > 0 && (
-            <p className="text-xs text-primary mt-1">
+            <p className="text-xs text-info mt-1">
               Session {displayStats.current.jobs_found}
             </p>
           )}
@@ -254,14 +276,14 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
         
         <div className="rounded-lg p-3 bg-error-subtle/20">
           <div className="flex items-center gap-2 mb-1">
-            <XSquare className="w-4 h-4 text-danger" />
+            <XSquare className="w-4 h-4 text-error" />
             <span className="text-xs text-muted">Failed</span>
           </div>
-          <p className="text-2xl font-bold text-danger">
+          <p className="text-2xl font-bold text-error">
             {displayStats.totals.jobs_failed}
           </p>
           {isActive && displayStats.current.jobs_failed > 0 && (
-            <p className="text-xs text-danger mt-1">
+            <p className="text-xs text-error mt-1">
               Session {displayStats.current.jobs_failed}
             </p>
           )}
@@ -297,8 +319,8 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
       {/* Error Display */}
       {session.status === 'failed' && session.error_message && (
-        <div className="mt-4 p-3 bg-danger/10 rounded-lg">
-          <p className="text-sm text-danger">
+        <div className="mt-4 p-3 bg-error-subtle/20 border border-error rounded-lg">
+          <p className="text-sm text-error">
             <strong>Error:</strong> {session.error_message}
           </p>
         </div>
@@ -306,7 +328,7 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
       {/* Stopped Message */}
       {session.status === 'stopped' && (
-        <div className="mt-4 p-3 bg-warning/10 rounded-lg">
+        <div className="mt-4 p-3 bg-warning-subtle/20 border border-warning rounded-lg">
           <p className="text-sm text-warning">
             Bot was manually stopped by user.
           </p>
