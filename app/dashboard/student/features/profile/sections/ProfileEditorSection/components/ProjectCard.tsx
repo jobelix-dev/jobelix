@@ -7,6 +7,7 @@
 import React from 'react';
 import { AlertCircle, Trash2 } from 'lucide-react';
 import { ProjectEntry } from '@/lib/shared/types';
+import { confirmWithFocusRestore } from '@/lib/client/nativeDialog';
 
 interface ProjectCardProps {
   data: ProjectEntry;
@@ -37,7 +38,7 @@ export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} 
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    if (confirm(`Delete "${projectName}"?`)) {
+    if (confirmWithFocusRestore(`Delete "${projectName}"?`)) {
       onRemove();
     }
   };

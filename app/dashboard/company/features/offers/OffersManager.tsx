@@ -13,6 +13,7 @@ import { Plus } from 'lucide-react';
 import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
+import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
 
 type ViewState = 'list' | 'editor';
 
@@ -58,7 +59,7 @@ export default function OffersManager() {
       setPublishedOffers((prev) => prev.filter((o) => o.id !== offerId));
     } catch (err: any) {
       console.error('Failed to delete offer:', err);
-      alert(err.message || 'Failed to delete offer');
+      alertWithFocusRestore(err.message || 'Failed to delete offer');
     }
   }
 
@@ -74,7 +75,7 @@ export default function OffersManager() {
       setUnpublishedDrafts((prev) => prev.filter((d) => d.id !== draftId));
     } catch (err: any) {
       console.error('Failed to delete draft:', err);
-      alert(err.message || 'Failed to delete draft');
+      alertWithFocusRestore(err.message || 'Failed to delete draft');
     }
   }
 
@@ -94,7 +95,7 @@ export default function OffersManager() {
       setView('editor');
     } catch (err: any) {
       console.error('Failed to create new draft:', err);
-      alert(err.message || 'Failed to create new draft');
+      alertWithFocusRestore(err.message || 'Failed to create new draft');
     }
   }
 
@@ -113,7 +114,7 @@ export default function OffersManager() {
       setView('editor');
     } catch (err: any) {
       console.error('Failed to load draft for offer:', err);
-      alert(err.message || 'Failed to load draft for offer');
+      alertWithFocusRestore(err.message || 'Failed to load draft for offer');
     }
   }
 

@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client/api';
+import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
 
 export default function UpdatePasswordForm() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function UpdatePasswordForm() {
       await api.updatePassword(password);
       
       // Show success and redirect to dashboard
-      alert('Password updated successfully!');
+      alertWithFocusRestore('Password updated successfully!');
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to update password');

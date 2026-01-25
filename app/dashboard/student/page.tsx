@@ -16,6 +16,8 @@ import { MatchesTab } from './features/matches';
 import { JobPreferencesTab } from './features/job-preferences';
 import { AutoApplyTab } from './features/auto-apply';
 import { useProfileData, useResumeUpload, useGitHubImportDashboard } from './hooks';
+import { confirmWithFocusRestore } from '@/lib/client/nativeDialog';
+import { restoreFocusAfterDialog } from '@/lib/client/focusRestore';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
@@ -56,13 +58,21 @@ function StudentDashboardContent() {
       event.returnValue = '';
     };
 
+    const handleWindowFocus = () => {
+      restoreFocusAfterDialog();
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('focus', handleWindowFocus);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
   }, [jobPreferencesUnsaved]);
 
   const handleTabChange = (nextTab: DashboardTab) => {
     if (activeTab === 'job-preferences' && nextTab !== 'job-preferences' && jobPreferencesUnsaved) {
-      const shouldLeave = window.confirm('You have unsaved job preferences. Leave without saving?');
+      const shouldLeave = confirmWithFocusRestore('You have unsaved job preferences. Leave without saving?');
       if (!shouldLeave) {
         return;
       }

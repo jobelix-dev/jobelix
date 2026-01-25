@@ -23,6 +23,7 @@ import {
   Info,
   Eye
 } from 'lucide-react';
+import { confirmWithFocusRestore, alertWithFocusRestore } from '@/lib/client/nativeDialog';
 
 interface HistoricalTotals {
   jobs_found: number;
@@ -170,13 +171,13 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
   // Handle stop button click
   const handleStop = async () => {
-    if (!confirm('Are you sure you want to stop the bot? The current operation will complete before stopping.')) {
+    if (!confirmWithFocusRestore('Are you sure you want to stop the bot? The current operation will complete before stopping.')) {
       return;
     }
 
     const result = await onStop();
     if (!result.success && result.error) {
-      alert(`Failed to stop bot: ${result.error}`);
+      alertWithFocusRestore(`Failed to stop bot: ${result.error}`);
     }
   };
 

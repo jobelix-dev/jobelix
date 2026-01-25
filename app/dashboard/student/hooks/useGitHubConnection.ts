@@ -8,6 +8,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
 
 export interface GitHubConnectionStatus {
   connected: boolean;
@@ -74,7 +75,7 @@ export function useGitHubConnection() {
     );
 
     if (!popup) {
-      alert('Please allow popups for this site to connect GitHub');
+      alertWithFocusRestore('Please allow popups for this site to connect GitHub');
       return;
     }
 

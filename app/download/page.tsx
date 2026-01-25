@@ -13,16 +13,55 @@ import DownloadButton from '@/app/components/DownloadButton';
 import { CheckCircle2, Download, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import ElectronDetector from './ElectronDetector';
+import type { Metadata } from "next";
+import {
+  SITE_NAME,
+  canonicalUrl,
+  defaultOpenGraphImages,
+  defaultTwitterImages,
+  softwareApplicationJsonLd,
+} from "@/lib/seo";
 
-export const metadata = {
-  title: 'Download Jobelix Desktop App',
-  description: 'Download the Jobelix desktop application to automate your LinkedIn job applications with AI-powered tools.',
+const title = "Download Jobelix Desktop App";
+const description =
+  "Download the Jobelix desktop app to automate LinkedIn job applications with AI-powered matching and auto-apply tools.";
+const canonical = canonicalUrl("/download");
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: {
+    canonical,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title,
+    description,
+    url: canonical,
+    siteName: SITE_NAME,
+    type: "website",
+    images: defaultOpenGraphImages(),
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: defaultTwitterImages(),
+  },
 };
 
 export default async function DownloadPage() {
   // Fetch latest release data server-side with 1-hour cache
   let releaseInfo;
   let fetchError = false;
+
+  const softwareSchema = softwareApplicationJsonLd({
+    urlPath: "/download",
+    description,
+  });
 
   try {
     releaseInfo = await getLatestRelease();
@@ -33,6 +72,10 @@ export default async function DownloadPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-surface">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+      />
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="text-center mb-12">

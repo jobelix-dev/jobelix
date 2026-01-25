@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Home Page (Landing Page)
  * 
@@ -9,14 +7,74 @@
  * Links to: /download, /signup, /login
  */
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Sparkles, Target, Zap, Users, Building2, TrendingUp, CheckCircle, ArrowRight, Star } from "lucide-react";
 import "./globals.css";
+import {
+  SITE_NAME,
+  canonicalUrl,
+  defaultOpenGraphImages,
+  defaultTwitterImages,
+  organizationJsonLd,
+  softwareApplicationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
+
+const title = "AI Job Matching and Auto-Apply";
+const description =
+  "Jobelix connects top talent with employers using AI-powered matching and automated applications. Download the desktop app and land roles faster.";
+const canonical = canonicalUrl("/");
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: {
+    canonical,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title,
+    description,
+    url: canonical,
+    siteName: SITE_NAME,
+    type: "website",
+    images: defaultOpenGraphImages(),
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: defaultTwitterImages(),
+  },
+};
 
 export default function Home() {
+  const organizationSchema = organizationJsonLd();
+  const websiteSchema = websiteJsonLd();
+  const softwareSchema = softwareApplicationJsonLd({
+    urlPath: "/",
+    description,
+  });
+
   return (
     <div className="min-h-screen bg-background scroll-smooth">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+      />
       {/* Navigation */}
       <nav className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
