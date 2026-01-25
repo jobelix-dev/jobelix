@@ -8,7 +8,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, Search, FileText, ClipboardCheck, Zap, Shield, MousePointer2Off, Clock } from 'lucide-react';
+import { AlertCircle, Search, FileText, ClipboardCheck, Zap } from 'lucide-react';
 import CreditsSection from './components/CreditsSection';
 import LaunchButton from './components/LaunchButton';
 import BotStatusCard from './components/BotStatusCard';
@@ -204,27 +204,6 @@ export default function AutoApplyTab() {
             <div className="flex items-start gap-3">
               <Zap className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <p className="text-sm text-muted">Applies while you focus elsewhere</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Important Info */}
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-background rounded-xl p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-default mb-4">Important Information</h3>
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div className="flex items-start gap-3">
-              <Shield className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-muted">Linkedin credentials are not stored</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <MousePointer2Off className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-muted">Don't interact with Linkedin while bot is running</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-muted">Takes 1-3 min per application</p>
             </div>
           </div>
         </div>

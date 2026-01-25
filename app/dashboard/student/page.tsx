@@ -76,6 +76,7 @@ function StudentDashboardContent() {
               handleDownload={resumeState.handleDownload}
               handleFinalize={profileState.handleFinalize}
               importingGitHub={gitHubState.importingGitHub}
+              githubImportProgress={gitHubState.importProgress}
               onGitHubImport={gitHubState.importGitHubData}
             />
           )}

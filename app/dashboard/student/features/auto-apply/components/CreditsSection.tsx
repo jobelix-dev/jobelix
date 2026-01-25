@@ -76,7 +76,7 @@ export default function CreditsSection({
           <div>
             <p className="text-sm text-muted">Available Balance</p>
             <div className="flex items-center gap-2">
-              <p className="text-3xl font-bold bg-gradient-to-r from-primary to-info bg-clip-text text-transparent">
+              <p className="text-3xl font-bold text-success">
                 {balance.toLocaleString()}
               </p>
               <p className="text-3xl font-bold text-success">
