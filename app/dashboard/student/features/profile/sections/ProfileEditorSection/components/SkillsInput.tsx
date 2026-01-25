@@ -12,9 +12,18 @@ interface SkillsInputProps {
   onChange: (skills: SkillEntry[]) => void;
   fieldErrors?: Record<number, { skill_name?: string; skill_slug?: string }>;
   disabled?: boolean;
+  inputId?: string;
+  addButtonId?: string;
 }
 
-export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabled = false }: SkillsInputProps) {
+export default function SkillsInput({
+  skills,
+  onChange,
+  fieldErrors = {},
+  disabled = false,
+  inputId = 'profile-skills-input',
+  addButtonId = 'profile-skills-add'
+}: SkillsInputProps) {
   const [input, setInput] = useState('');
 
   const addSkill = () => {
@@ -87,6 +96,7 @@ export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabl
       {/* Input field with Add button - at the bottom */}
       <div className="flex gap-2">
         <input
+          id={inputId}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -100,6 +110,7 @@ export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabl
           } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
         />
         <button
+          id={addButtonId}
           onClick={addSkill}
           disabled={disabled || !input.trim()}
           className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"

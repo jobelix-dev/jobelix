@@ -7,12 +7,14 @@
 'use client';
 
 import React from 'react';
-import { Briefcase } from 'lucide-react';
+import { AlertCircle, Briefcase } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 
 interface ExperienceLevelsSectionProps {
   values: Record<string, boolean>;
   onChange: (key: string, value: boolean) => void;
+  hasError?: boolean;
+  tourId?: string;
 }
 
 const EXPERIENCE_OPTIONS = [
@@ -27,12 +29,15 @@ const EXPERIENCE_OPTIONS = [
 export default function ExperienceLevelsSection({
   values,
   onChange,
+  hasError = false,
+  tourId,
 }: ExperienceLevelsSectionProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" id={tourId}>
       <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <Briefcase className="w-4 h-4" />
         Expected experience level
+        {hasError && <AlertCircle className="w-4 h-4 text-warning" />}
       </h4>
 
       <CheckboxGroup
@@ -41,6 +46,7 @@ export default function ExperienceLevelsSection({
         values={values}
         onChange={onChange}
         columns={2}
+        hasError={hasError}
       />
     </div>
   );

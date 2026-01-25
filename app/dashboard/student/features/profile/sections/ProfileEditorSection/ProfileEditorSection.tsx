@@ -40,7 +40,12 @@ interface ProfileEditorSectionProps {
   loadingProgress?: number;
   loadingStepIndex?: number;
   saveSuccess?: boolean;
-  showValidationErrors?: boolean;
+  editingProjectIndex?: number | null;
+  onEditingProjectIndexChange?: (index: number | null) => void;
+  expandedEducationIndex?: number | null;
+  expandedExperienceIndex?: number | null;
+  expandedPublicationIndex?: number | null;
+  expandedCertificationIndex?: number | null;
 }
 
 export default function ProfileEditorSection({ 
@@ -58,14 +63,20 @@ export default function ProfileEditorSection({
   loadingProgress,
   loadingStepIndex,
   saveSuccess = false,
-  showValidationErrors = false
+  editingProjectIndex,
+  onEditingProjectIndexChange,
+  expandedEducationIndex,
+  expandedExperienceIndex,
+  expandedPublicationIndex,
+  expandedCertificationIndex
 }: ProfileEditorSectionProps) {
   
   // Use the custom hook for all data manipulation logic
   const handlers = useProfileEditor({ data, onChange });
   
-  // Modal state for project editing
-  const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
+  const [internalProjectIndex, setInternalProjectIndex] = useState<number | null>(null);
+  const activeProjectIndex = editingProjectIndex ?? internalProjectIndex;
+  const setActiveProjectIndex = onEditingProjectIndexChange ?? setInternalProjectIndex;
 
   return (
     <div className="max-w-2xl mx-auto relative">
@@ -89,7 +100,7 @@ export default function ProfileEditorSection({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium">Full Name</label>
+                <label htmlFor="profile-student-name" className="text-sm font-medium">Full Name</label>
                 {validation?.fieldErrors?.student_name && (
                   <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
@@ -98,6 +109,7 @@ export default function ProfileEditorSection({
                 )}
               </div>
               <input
+                id="profile-student-name"
                 type="text"
                 value={data.student_name || ''}
                 onChange={(e) => handlers.updateField('student_name', e.target.value)}
@@ -113,7 +125,7 @@ export default function ProfileEditorSection({
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium">Email</label>
+                <label htmlFor="profile-email" className="text-sm font-medium">Email</label>
                 {validation?.fieldErrors?.email && (
                   <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
@@ -122,6 +134,7 @@ export default function ProfileEditorSection({
                 )}
               </div>
               <input
+                id="profile-email"
                 type="email"
                 value={data.email || ''}
                 onChange={(e) => handlers.updateField('email', e.target.value)}
@@ -137,7 +150,7 @@ export default function ProfileEditorSection({
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium">Phone Number</label>
+                <label htmlFor="profile-phone-number" className="text-sm font-medium">Phone Number</label>
                 {validation?.fieldErrors?.phone_number && (
                   <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
@@ -146,6 +159,7 @@ export default function ProfileEditorSection({
                 )}
               </div>
               <input
+                id="profile-phone-number"
                 type="tel"
                 value={data.phone_number || ''}
                 onChange={(e) => handlers.updateField('phone_number', e.target.value)}
@@ -161,7 +175,7 @@ export default function ProfileEditorSection({
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium">Address</label>
+                <label htmlFor="profile-address" className="text-sm font-medium">Address</label>
                 {validation?.fieldErrors?.address && (
                   <span className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="w-3 h-3" />
@@ -170,6 +184,7 @@ export default function ProfileEditorSection({
                 )}
               </div>
               <input
+                id="profile-address"
                 type="text"
                 value={data.address || ''}
                 onChange={(e) => handlers.updateField('address', e.target.value)}
@@ -212,6 +227,8 @@ export default function ProfileEditorSection({
                   onRemove={() => handlers.removeEducation(index)}
                   fieldErrors={validation?.fieldErrors?.education?.[index]}
                   disabled={disabled}
+                  forceExpanded={expandedEducationIndex === index}
+                  idPrefix={`profile-education-${index}`}
                 />
               ))}
             </div>
@@ -245,6 +262,8 @@ export default function ProfileEditorSection({
                   onRemove={() => handlers.removeExperience(index)}
                   fieldErrors={validation?.fieldErrors?.experience?.[index]}
                   disabled={disabled}
+                  forceExpanded={expandedExperienceIndex === index}
+                  idPrefix={`profile-experience-${index}`}
                 />
               ))}
             </div>
@@ -280,7 +299,7 @@ export default function ProfileEditorSection({
                 <ProjectCard
                   key={index}
                   data={project}
-                  onClick={() => setEditingProjectIndex(index)}
+                  onClick={() => setActiveProjectIndex(index)}
                   onRemove={() => handlers.removeProject(index)}
                   fieldErrors={validation?.fieldErrors?.projects?.[index]}
                 />
@@ -290,13 +309,14 @@ export default function ProfileEditorSection({
         </div>
 
         {/* Project Edit Modal */}
-        {editingProjectIndex !== null && (
+        {activeProjectIndex !== null && (
           <ProjectModal
-            data={data.projects[editingProjectIndex]}
-            onChange={(field, value) => handlers.updateProject(editingProjectIndex, field, value)}
-            onClose={() => setEditingProjectIndex(null)}
-            fieldErrors={validation?.fieldErrors?.projects?.[editingProjectIndex]}
+            data={data.projects[activeProjectIndex]}
+            onChange={(field, value) => handlers.updateProject(activeProjectIndex, field, value)}
+            onClose={() => setActiveProjectIndex(null)}
+            fieldErrors={validation?.fieldErrors?.projects?.[activeProjectIndex]}
             disabled={disabled}
+            idPrefix={`profile-project-${activeProjectIndex}`}
           />
         )}
 
@@ -310,6 +330,8 @@ export default function ProfileEditorSection({
             onChange={handlers.updateSkills}
             fieldErrors={validation?.fieldErrors.skills}
             disabled={disabled}
+            inputId="profile-skills-input"
+            addButtonId="profile-skills-add"
           />
         </div>
 
@@ -336,6 +358,7 @@ export default function ProfileEditorSection({
               onChange={handlers.updateLanguages}
               fieldErrors={validation?.fieldErrors.languages}
               disabled={disabled}
+              idPrefix="profile-language"
             />
           )}
         </div>
@@ -367,6 +390,8 @@ export default function ProfileEditorSection({
                   onRemove={() => handlers.removePublication(index)}
                   fieldErrors={validation?.fieldErrors?.publications?.[index]}
                   disabled={disabled}
+                  forceExpanded={expandedPublicationIndex === index}
+                  idPrefix={`profile-publication-${index}`}
                 />
               ))}
             </div>
@@ -400,6 +425,8 @@ export default function ProfileEditorSection({
                   onRemove={() => handlers.removeCertification(index)}
                   fieldErrors={validation?.fieldErrors?.certifications?.[index]}
                   disabled={disabled}
+                  forceExpanded={expandedCertificationIndex === index}
+                  idPrefix={`profile-certification-${index}`}
                 />
               ))}
             </div>
@@ -416,6 +443,7 @@ export default function ProfileEditorSection({
             onChange={handlers.updateSocialLinks}
             fieldErrors={validation?.fieldErrors.social_links}
             disabled={disabled}
+            idPrefix="profile-social"
           />
         </div>
 
@@ -439,14 +467,6 @@ export default function ProfileEditorSection({
           )}
         </button>
 
-        {/* Validation Error Message */}
-        {showValidationErrors && validation && !validation.isValid && (
-          <div className="p-4 bg-error-subtle/30 border border-error rounded-lg">
-            <p className="text-sm text-error font-medium">
-              Please fix all required fields before saving
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

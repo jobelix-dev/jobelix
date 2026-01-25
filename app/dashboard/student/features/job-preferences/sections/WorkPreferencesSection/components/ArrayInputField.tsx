@@ -7,6 +7,7 @@
 'use client';
 
 import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 interface ArrayInputFieldProps {
   label: string;
@@ -15,6 +16,9 @@ interface ArrayInputFieldProps {
   onChange: (value: string[]) => void;
   icon?: React.ReactNode;
   tagColorClass?: string;
+  hasError?: boolean;
+  inputId?: string;
+  addButtonId?: string;
 }
 
 export interface ArrayInputFieldRef {
@@ -30,6 +34,9 @@ const ArrayInputField = forwardRef<ArrayInputFieldRef, ArrayInputFieldProps>((
     onChange,
     icon,
     tagColorClass = 'bg-primary-subtle/30 text-primary-hover',
+    hasError = false,
+    inputId,
+    addButtonId,
   },
   ref
 ) => {
@@ -67,17 +74,24 @@ const ArrayInputField = forwardRef<ArrayInputFieldRef, ArrayInputFieldProps>((
       <label className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         {icon}
         {label}
+        {hasError && <AlertCircle className="w-4 h-4 text-warning" />}
       </label>
       <div className="flex gap-2">
         <input
+          id={inputId}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="flex-1 px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+          className={`flex-1 px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+            hasError
+              ? 'border-warning focus:border-warning focus:ring-warning/30'
+              : 'border-border focus:border-primary focus:ring-primary/30'
+          }`}
         />
         <button
+          id={addButtonId}
           onClick={handleAdd}
           className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
           type="button"

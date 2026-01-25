@@ -3,7 +3,7 @@
  * Collapsible form for editing a single work experience entry
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExperienceEntry } from '@/lib/shared/types';
 import DatePicker from './DatePicker';
@@ -14,10 +14,26 @@ interface ExperienceFormProps {
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  forceExpanded?: boolean;
+  idPrefix?: string;
 }
 
-export default function ExperienceForm({ data, onChange, onRemove, fieldErrors = {}, disabled = false }: ExperienceFormProps) {
+export default function ExperienceForm({
+  data,
+  onChange,
+  onRemove,
+  fieldErrors = {},
+  disabled = false,
+  forceExpanded = false,
+  idPrefix = 'experience'
+}: ExperienceFormProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (forceExpanded) {
+      setIsExpanded(true);
+    }
+  }, [forceExpanded]);
   
   // Create display title
   const organization = data.organisation_name?.trim() || 'New Organization';
@@ -89,6 +105,7 @@ export default function ExperienceForm({ data, onChange, onRemove, fieldErrors =
                 )}
               </div>
               <input
+                id={`${idPrefix}-organisation_name`}
                 type="text"
                 value={data.organisation_name}
                 onChange={(e) => onChange('organisation_name', e.target.value)}
@@ -113,6 +130,7 @@ export default function ExperienceForm({ data, onChange, onRemove, fieldErrors =
                 )}
               </div>
               <input
+                id={`${idPrefix}-position_name`}
                 type="text"
                 value={data.position_name}
                 onChange={(e) => onChange('position_name', e.target.value)}
@@ -136,6 +154,8 @@ export default function ExperienceForm({ data, onChange, onRemove, fieldErrors =
                 yearError={fieldErrors.start_year}
                 monthError={fieldErrors.start_month}
                 disabled={disabled}
+                monthId={`${idPrefix}-start_month`}
+                yearId={`${idPrefix}-start_year`}
               />
             </div>
 
@@ -149,6 +169,8 @@ export default function ExperienceForm({ data, onChange, onRemove, fieldErrors =
                 yearError={fieldErrors.end_year}
                 monthError={fieldErrors.end_month}
                 disabled={disabled}
+                monthId={`${idPrefix}-end_month`}
+                yearId={`${idPrefix}-end_year`}
               />
             </div>
           </div>
