@@ -257,3 +257,23 @@ set it in .env
 - clean the resources folder, 
 - push the release (npm run release)
 - validate the release on github (from draft to latest)
+
+# Python bot runtime (Electron)
+The Electron app bundles a prebuilt Python runtime from GitHub Releases.
+
+Environment:
+- `PY_RUNTIME_TAG=py-runtime-v0.4.0` (release tag in `lukalafaye/LinkedinAutoApply`)
+- Optional auth: `GITHUB_TOKEN` or `GH_TOKEN`
+
+Commands:
+- `npm run fetch:bot` downloads the platform zip and installs it to:
+  - Windows: `resources/win/main/`
+  - macOS: `resources/mac/main/`
+  - Linux: `resources/linux/main/`
+- `npm run dist` and `npm run release` automatically run `fetch:bot` first.
+
+Packaged app path:
+- The runtime is bundled into `process.resourcesPath/<platform>/main/...` and used by `getBotPath()`.
+
+Updating the runtime:
+- Change `PY_RUNTIME_TAG`, run `npm run fetch:bot`, then package again.

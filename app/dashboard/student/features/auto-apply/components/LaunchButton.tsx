@@ -5,8 +5,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Rocket, AlertCircle, Info, Download, X, LogIn, MousePointer2Off, StopCircle, Shield, Clock } from 'lucide-react';
+import { Rocket, AlertCircle, Info, Download, X, LogIn, MousePointer2Off, StopCircle, Shield, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+
+type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
+
+interface BotLaunchStatus {
+  stage: BotLaunchStage;
+  message?: string;
+  progress?: number;
+  logs: string[];
+}
 
 interface LaunchButtonProps {
   canLaunch: boolean;
@@ -14,6 +23,7 @@ interface LaunchButtonProps {
   launchError: string | null;
   hasCredits: boolean;
   onLaunch: () => Promise<{ success: boolean; error?: string }>;
+  launchStatus?: BotLaunchStatus | null;
 }
 
 export default function LaunchButton({
@@ -22,6 +32,7 @@ export default function LaunchButton({
   launchError,
   hasCredits,
   onLaunch,
+  launchStatus,
 }: LaunchButtonProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -161,6 +172,34 @@ export default function LaunchButton({
         <Rocket className="w-6 h-6" />
         {launching ? 'Launching Bot...' : 'Launch Auto Apply Bot'}
       </button>
+
+      {launchStatus && (launching || launchStatus.stage !== 'running') && (
+        <div className="rounded-lg border border-border bg-background/80 p-3">
+          <div className="flex items-center gap-2 text-sm text-default">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="font-medium">
+              {launchStatus.message ||
+                (launchStatus.stage === 'checking'
+                  ? 'Checking browser...'
+                  : launchStatus.stage === 'installing'
+                  ? 'Installing browser (first run only)... may take a minute.'
+                  : launchStatus.stage === 'launching'
+                  ? 'Launching bot...'
+                  : 'Bot running.')}
+            </span>
+            {typeof launchStatus.progress === 'number' && (
+              <span className="text-xs text-muted">{launchStatus.progress}%</span>
+            )}
+          </div>
+          {launchStatus.logs.length > 0 && (
+            <div className="mt-2 max-h-28 overflow-y-auto rounded-md border border-border bg-muted/10 px-2 py-1 text-[11px] text-muted font-mono">
+              {launchStatus.logs.slice(-8).map((line, index) => (
+                <div key={index}>{line}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Desktop App Required */}
       {launchError === 'DESKTOP_REQUIRED' && (
