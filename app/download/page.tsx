@@ -9,10 +9,9 @@
  */
 
 import { getLatestRelease, getFallbackDownloadUrl } from '@/lib/client/github-api';
-import DownloadButton from '@/app/components/DownloadButton';
 import { CheckCircle2, Download, Sparkles } from 'lucide-react';
-import Link from 'next/link';
 import ElectronDetector from './ElectronDetector';
+import BackToDashboardLink from './BackToDashboardLink';
 import type { Metadata } from "next";
 import {
   SITE_NAME,
@@ -77,15 +76,12 @@ export default async function DownloadPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
       <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="flex items-center justify-start mb-8">
+          <BackToDashboardLink />
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12">
-          <Link 
-            href="/" 
-            className="inline-block mb-8 text-sm text-primary hover:underline"
-          >
-            ← Back to Home
-          </Link>
-          
           <h1 className="text-4xl md:text-5xl font-bold text-default mb-4">
             Download Jobelix Desktop App
           </h1>
