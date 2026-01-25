@@ -7,12 +7,14 @@
 'use client';
 
 import React from 'react';
-import { Calendar } from 'lucide-react';
+import { AlertCircle, Calendar } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 
 interface DateFiltersSectionProps {
   values: Record<string, boolean>;
   onChange: (key: string, value: boolean) => void;
+  hasError?: boolean;
+  tourId?: string;
 }
 
 const DATE_FILTER_OPTIONS = [
@@ -25,12 +27,15 @@ const DATE_FILTER_OPTIONS = [
 export default function DateFiltersSection({
   values,
   onChange,
+  hasError = false,
+  tourId,
 }: DateFiltersSectionProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" id={tourId}>
       <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <Calendar className="w-4 h-4" />
         Date Filters
+        {hasError && <AlertCircle className="w-4 h-4 text-warning" />}
       </h4>
 
       <CheckboxGroup
@@ -39,6 +44,7 @@ export default function DateFiltersSection({
         values={values}
         onChange={onChange}
         columns={1}
+        hasError={hasError}
       />
     </div>
   );

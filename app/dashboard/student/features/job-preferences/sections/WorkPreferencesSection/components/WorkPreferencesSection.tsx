@@ -7,7 +7,7 @@
 'use client';
 
 import React from 'react';
-import { Settings, Clock, DollarSign } from 'lucide-react';
+import { AlertCircle, Settings, Clock, DollarSign } from 'lucide-react';
 
 interface WorkPreferencesSectionProps {
   values: {
@@ -20,11 +20,20 @@ interface WorkPreferencesSectionProps {
     salary_expectation_usd: number;
   };
   onChange: (field: string, value: string | boolean | number) => void;
+  errors?: {
+    notice_period?: boolean;
+    salary_expectation_usd?: boolean;
+  };
+  noticePeriodId?: string;
+  salaryId?: string;
 }
 
 export default function WorkPreferencesSection({
   values,
   onChange,
+  errors,
+  noticePeriodId,
+  salaryId,
 }: WorkPreferencesSectionProps) {
   return (
     <div className="space-y-3">
@@ -100,13 +109,19 @@ export default function WorkPreferencesSection({
           <label className="flex items-center gap-2 text-sm font-medium text-muted">
             <Clock className="w-4 h-4" />
             Notice Period
+            {errors?.notice_period && <AlertCircle className="w-4 h-4 text-warning" />}
           </label>
           <input
+            id={noticePeriodId}
             type="text"
             value={values.notice_period || ''}
             onChange={(e) => onChange('notice_period', e.target.value)}
             placeholder="e.g., 2 weeks, Immediate"
-            className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+            className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+              errors?.notice_period
+                ? 'border-warning focus:border-warning focus:ring-warning/30'
+                : 'border-border focus:border-primary focus:ring-primary/30'
+            }`}
           />
         </div>
 
@@ -114,15 +129,21 @@ export default function WorkPreferencesSection({
           <label className="flex items-center gap-2 text-sm font-medium text-muted">
             <DollarSign className="w-4 h-4" />
             Salary Expectation (USD/year)
+            {errors?.salary_expectation_usd && <AlertCircle className="w-4 h-4 text-warning" />}
           </label>
           <input
+            id={salaryId}
             type="number"
             min="0"
             step="40000"
             value={values.salary_expectation_usd || ''}
             onChange={(e) => onChange('salary_expectation_usd', parseInt(e.target.value) || 0)}
             placeholder="e.g., 100000"
-            className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+            className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+              errors?.salary_expectation_usd
+                ? 'border-warning focus:border-warning focus:ring-warning/30'
+                : 'border-border focus:border-primary focus:ring-primary/30'
+            }`}
           />
         </div>
       </div>

@@ -3,7 +3,7 @@
  * Collapsible form for editing a single education entry
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { EducationEntry } from '@/lib/shared/types';
 import DatePicker from './DatePicker';
@@ -14,10 +14,26 @@ interface EducationFormProps {
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  forceExpanded?: boolean;
+  idPrefix?: string;
 }
 
-export default function EducationForm({ data, onChange, onRemove, fieldErrors = {}, disabled = false }: EducationFormProps) {
+export default function EducationForm({
+  data,
+  onChange,
+  onRemove,
+  fieldErrors = {},
+  disabled = false,
+  forceExpanded = false,
+  idPrefix = 'education'
+}: EducationFormProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (forceExpanded) {
+      setIsExpanded(true);
+    }
+  }, [forceExpanded]);
   
   // Create display title
   const institution = data.school_name?.trim() || 'New Institution';
@@ -89,6 +105,7 @@ export default function EducationForm({ data, onChange, onRemove, fieldErrors = 
                 )}
               </div>
               <input
+                id={`${idPrefix}-school_name`}
                 type="text"
                 value={data.school_name}
                 onChange={(e) => onChange('school_name', e.target.value)}
@@ -113,6 +130,7 @@ export default function EducationForm({ data, onChange, onRemove, fieldErrors = 
                 )}
               </div>
               <input
+                id={`${idPrefix}-degree`}
                 type="text"
                 value={data.degree}
                 onChange={(e) => onChange('degree', e.target.value)}
@@ -136,6 +154,8 @@ export default function EducationForm({ data, onChange, onRemove, fieldErrors = 
                 yearError={fieldErrors.start_year}
                 monthError={fieldErrors.start_month}
                 disabled={disabled}
+                monthId={`${idPrefix}-start_month`}
+                yearId={`${idPrefix}-start_year`}
               />
             </div>
 
@@ -149,6 +169,8 @@ export default function EducationForm({ data, onChange, onRemove, fieldErrors = 
                 yearError={fieldErrors.end_year}
                 monthError={fieldErrors.end_month}
                 disabled={disabled}
+                monthId={`${idPrefix}-end_month`}
+                yearId={`${idPrefix}-end_year`}
               />
             </div>
           </div>

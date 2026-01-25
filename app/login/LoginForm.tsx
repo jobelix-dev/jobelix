@@ -108,15 +108,6 @@ export default function LoginForm() {
         />
       </label>
 
-      <div className="flex justify-end">
-        <a 
-          href="/reset-password" 
-          className="text-xs text-primary hover:underline"
-        >
-          Forgot password?
-        </a>
-      </div>
-
       <div className="flex justify-center">
         <HCaptcha
           sitekey="9f186d2a-621c-4b40-b788-ba2e74fcd88a"
@@ -135,6 +126,15 @@ export default function LoginForm() {
           onLoad={() => console.log('HCaptcha loaded')}
           sentry={false}
         />
+      </div>
+
+      <div className="flex justify-end">
+        <a 
+          href="/reset-password" 
+          className="text-xs text-primary hover:underline"
+        >
+          Forgot password?
+        </a>
       </div>
 
       <button

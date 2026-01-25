@@ -3,7 +3,7 @@
  * Collapsible form for editing a single certification/award entry
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { CertificationEntry } from '@/lib/shared/types';
 
@@ -13,10 +13,26 @@ interface CertificationFormProps {
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  forceExpanded?: boolean;
+  idPrefix?: string;
 }
 
-export default function CertificationForm({ data, onChange, onRemove, fieldErrors = {}, disabled = false }: CertificationFormProps) {
+export default function CertificationForm({
+  data,
+  onChange,
+  onRemove,
+  fieldErrors = {},
+  disabled = false,
+  forceExpanded = false,
+  idPrefix = 'certification'
+}: CertificationFormProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (forceExpanded) {
+      setIsExpanded(true);
+    }
+  }, [forceExpanded]);
   
   // Create display title
   const certName = data.name?.trim() || 'New Certification/Award';
@@ -89,6 +105,7 @@ export default function CertificationForm({ data, onChange, onRemove, fieldError
                 )}
               </div>
               <input
+                id={`${idPrefix}-name`}
                 type="text"
                 value={data.name}
                 onChange={(e) => onChange('name', e.target.value)}

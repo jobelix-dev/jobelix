@@ -10,6 +10,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Save, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
+import ValidationTour, { ValidationTourStep } from '@/app/dashboard/student/components/ValidationTour';
 import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
 import ExperienceLevelsSection from './components/ExperienceLevelsSection';
 import JobTypesSection from './components/JobTypesSection';
@@ -107,7 +108,24 @@ const defaultPreferences: WorkPreferences = {
   willing_to_undergo_drug_tests: true,
   willing_to_undergo_background_checks: true,
   notice_period: '1 day',
-  salary_expectation_usd: 1000,
+  salary_expectation_usd: 100000,
+};
+
+const DRAFT_STORAGE_KEY = 'job-preferences-draft-v1';
+
+type ValidationErrors = {
+  positions?: boolean;
+  locations?: boolean;
+  experience?: boolean;
+  jobType?: boolean;
+  dateFilter?: boolean;
+  workAuthorization?: boolean;
+  date_of_birth?: boolean;
+  pronouns?: boolean;
+  gender?: boolean;
+  ethnicity?: boolean;
+  notice_period?: boolean;
+  salary_expectation_usd?: boolean;
 };
 
 export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { onSave?: () => void; onUnsavedChanges?: (hasChanges: boolean) => void }) {
@@ -117,9 +135,12 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [validationWarning, setValidationWarning] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourSteps, setTourSteps] = useState<ValidationTourStep[]>([]);
+  const [tourIndex, setTourIndex] = useState(0);
 
   // Refs to child components with array inputs
   const searchCriteriaRef = useRef<SearchCriteriaSectionRef>(null);
@@ -129,11 +150,32 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   useEffect(() => {
     const fetchPreferences = async () => {
       try {
+        // fetches saved preferences from the backend
         const response = await fetch('/api/student/work-preferences');
         const data = await response.json();
         
-        if (data.preferences) {
-          const loadedPrefs = { ...defaultPreferences, ...data.preferences };
+        // merges with defaults
+        const loadedPrefs = data.preferences
+          ? { ...defaultPreferences, ...data.preferences }
+          : { ...defaultPreferences };
+
+        let draftPrefs: WorkPreferences | null = null;
+        if (typeof window !== 'undefined') {
+          try {
+            const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+            if (rawDraft) {
+              draftPrefs = JSON.parse(rawDraft) as WorkPreferences;
+            }
+          } catch (error) {
+            console.error('Failed to load draft preferences:', error);
+          }
+        }
+
+        if (draftPrefs) {
+          const mergedDraft = { ...loadedPrefs, ...draftPrefs };
+          setPreferences(mergedDraft);
+          setInitialPreferences(loadedPrefs);
+        } else {
           setPreferences(loadedPrefs);
           setInitialPreferences(loadedPrefs);
         }
@@ -145,22 +187,37 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     };
 
     fetchPreferences();
-  }, []);
+  }, []); // only runs when component mounts
 
   // Track unsaved changes
   useEffect(() => {
+    // preferences is what we see in the form
+    // initial is what was loaded at first and is in db 
+    if (loading) return;
+
     const hasChanges = JSON.stringify(preferences) !== JSON.stringify(initialPreferences);
     setHasUnsavedChanges(hasChanges);
     if (onUnsavedChanges) {
       onUnsavedChanges(hasChanges);
     }
-  }, [preferences, initialPreferences, onUnsavedChanges]);
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (hasChanges) {
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(preferences));
+        } else {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        }
+      } catch (error) {
+        console.error('Failed to persist draft preferences:', error);
+      }
+    }
+  }, [preferences, initialPreferences, onUnsavedChanges, loading]);
 
   // Generic field updater
   const updateField = (field: string, value: any) => {
     setPreferences((prev) => ({ ...prev, [field]: value }));
     setSaveSuccess(false);
-    setValidationWarning(null);
   };
 
   // Checkbox group handler
@@ -179,48 +236,85 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   };
 
   // Validation: Check if all required fields are filled and return error message
-  const getValidationError = (): string | null => {
-    // At least one position is required
-    if (preferences.positions.length === 0) return 'At least 1 target position is required';
-    
-    // At least one location is required
-    if (preferences.locations.length === 0) return 'At least 1 location is required';
-    
-    // At least one experience level must be selected
-    const hasExperienceLevel = 
-      preferences.exp_internship ||
-      preferences.exp_entry ||
-      preferences.exp_associate ||
-      preferences.exp_mid_senior ||
-      preferences.exp_director ||
-      preferences.exp_executive;
-    if (!hasExperienceLevel) return 'Select at least 1 experience level';
-    
-    // At least one job type must be selected
+  const getValidationErrors = (prefs: WorkPreferences): ValidationErrors => {
+    const errors: ValidationErrors = {};
+
+    if (prefs.positions.length === 0) errors.positions = true;
+    if (prefs.locations.length === 0) errors.locations = true;
+
+    const hasExperienceLevel =
+      prefs.exp_internship ||
+      prefs.exp_entry ||
+      prefs.exp_associate ||
+      prefs.exp_mid_senior ||
+      prefs.exp_director ||
+      prefs.exp_executive;
+    if (!hasExperienceLevel) errors.experience = true;
+
     const hasJobType =
-      preferences.job_full_time ||
-      preferences.job_part_time ||
-      preferences.job_contract ||
-      preferences.job_temporary ||
-      preferences.job_internship ||
-      preferences.job_volunteer ||
-      preferences.job_other;
-    if (!hasJobType) return 'Select at least 1 job type';
-    
+      prefs.job_full_time ||
+      prefs.job_part_time ||
+      prefs.job_contract ||
+      prefs.job_temporary ||
+      prefs.job_internship ||
+      prefs.job_volunteer ||
+      prefs.job_other;
+    if (!hasJobType) errors.jobType = true;
+
+    const hasDateFilter =
+      prefs.date_24_hours ||
+      prefs.date_week ||
+      prefs.date_month ||
+      prefs.date_all_time;
+    if (!hasDateFilter) errors.dateFilter = true;
+
+    if (!prefs.eu_work_authorization && !prefs.us_work_authorization) {
+      errors.workAuthorization = true;
+    }
+
+    if (!prefs.date_of_birth?.trim()) errors.date_of_birth = true;
+    if (!prefs.pronouns?.trim()) errors.pronouns = true;
+    if (!prefs.gender?.trim()) errors.gender = true;
+    if (!prefs.ethnicity?.trim()) errors.ethnicity = true;
+
+    if (!prefs.notice_period?.trim()) errors.notice_period = true;
+    if (!prefs.salary_expectation_usd || prefs.salary_expectation_usd <= 0) {
+      errors.salary_expectation_usd = true;
+    }
+
+    return errors;
+  };
+
+  const getValidationErrorMessage = (errors: ValidationErrors): string | null => {
+    if (errors.positions) return 'At least 1 target position is required';
+    if (errors.locations) return 'At least 1 location is required';
+    if (errors.experience) return 'Select at least 1 experience level';
+    if (errors.jobType) return 'Select at least 1 job type';
+    if (errors.dateFilter) return 'Select at least 1 date filter';
+    if (errors.workAuthorization) return 'Select at least 1 work authorization';
+    if (errors.date_of_birth) return 'Date of birth is required';
+    if (errors.pronouns) return 'Pronouns are required';
+    if (errors.gender) return 'Gender is required';
+    if (errors.ethnicity) return 'Ethnicity is required';
+    if (errors.notice_period) return 'Notice period is required';
+    if (errors.salary_expectation_usd) {
+      return 'Salary expectation must be greater than 0';
+    }
     return null;
   };
 
-  const isFormComplete = () => {
-    return getValidationError() === null;
+  const getValidationError = (prefs: WorkPreferences): string | null => {
+    return getValidationErrorMessage(getValidationErrors(prefs));
   };
 
-  // Save preferences to database
-  const handleSave = async () => {
-    // Get pending inputs before flushing
+  const isFormComplete = () => {
+    return getValidationError(preferences) === null;
+  };
+
+  const getValidationPreferences = () => {
     const pendingSearch = searchCriteriaRef.current?.getPendingInputs();
     const pendingBlacklist = blacklistRef.current?.getPendingInputs();
 
-    // Create temporary preferences with pending inputs added
     const prefsToValidate = { ...preferences };
     if (pendingSearch?.positions.trim()) {
       prefsToValidate.positions = [...preferences.positions, pendingSearch.positions.trim()];
@@ -235,32 +329,149 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
       prefsToValidate.title_blacklist = [...preferences.title_blacklist, pendingBlacklist.title.trim()];
     }
 
-    // Validate with pending inputs included
-    const validationError = (() => {
-      if (prefsToValidate.positions.length === 0) return 'At least 1 target position is required';
-      if (prefsToValidate.locations.length === 0) return 'At least 1 location is required';
-      const hasExperienceLevel = 
-        preferences.exp_internship ||
-        preferences.exp_entry ||
-        preferences.exp_associate ||
-        preferences.exp_mid_senior ||
-        preferences.exp_director ||
-        preferences.exp_executive;
-      if (!hasExperienceLevel) return 'Select at least 1 experience level';
-      const hasJobType =
-        preferences.job_full_time ||
-        preferences.job_part_time ||
-        preferences.job_contract ||
-        preferences.job_temporary ||
-        preferences.job_internship ||
-        preferences.job_volunteer ||
-        preferences.job_other;
-      if (!hasJobType) return 'Select at least 1 job type';
-      return null;
-    })();
+    return prefsToValidate;
+  };
 
-    if (validationError) {
-      setValidationWarning(validationError);
+  const buildValidationTourSteps = (errors: ValidationErrors): ValidationTourStep[] => {
+    const steps: ValidationTourStep[] = [];
+
+    if (errors.positions) {
+      steps.push({
+        id: 'positions',
+        targetId: 'job-pref-positions',
+        targetIds: ['job-pref-positions', 'job-pref-positions-add'],
+        title: 'Add a position',
+        message: 'Enter at least one target position.',
+      });
+    }
+
+    if (errors.locations) {
+      steps.push({
+        id: 'locations',
+        targetId: 'job-pref-locations',
+        targetIds: ['job-pref-locations', 'job-pref-locations-add'],
+        title: 'Choose a location',
+        message: 'Enter at least one location.',
+      });
+    }
+
+    if (errors.experience) {
+      steps.push({
+        id: 'experience',
+        targetId: 'job-pref-experience',
+        title: 'Select experience level',
+        message: 'Choose at least one experience level.',
+      });
+    }
+
+    if (errors.jobType) {
+      steps.push({
+        id: 'jobType',
+        targetId: 'job-pref-job-types',
+        title: 'Select job type',
+        message: 'Choose at least one job type.',
+      });
+    }
+
+    if (errors.dateFilter) {
+      steps.push({
+        id: 'dateFilter',
+        targetId: 'job-pref-date-filters',
+        title: 'Choose a date range',
+        message: 'Select at least one date filter.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.workAuthorization) {
+      steps.push({
+        id: 'workAuthorization',
+        targetId: 'job-pref-work-authorization',
+        title: 'Select work authorization',
+        message: 'Choose where you can work.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.notice_period) {
+      steps.push({
+        id: 'notice_period',
+        targetId: 'job-pref-notice-period',
+        title: 'Enter notice period',
+        message: 'Tell us your notice period.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.salary_expectation_usd) {
+      steps.push({
+        id: 'salary_expectation_usd',
+        targetId: 'job-pref-salary',
+        title: 'Enter salary expectation',
+        message: 'Enter a salary greater than 0.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.date_of_birth) {
+      steps.push({
+        id: 'date_of_birth',
+        targetId: 'job-pref-date-of-birth',
+        title: 'Enter date of birth',
+        message: 'Select your date of birth.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.pronouns) {
+      steps.push({
+        id: 'pronouns',
+        targetId: 'job-pref-pronouns',
+        title: 'Enter pronouns',
+        message: 'Type your pronouns.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.gender) {
+      steps.push({
+        id: 'gender',
+        targetId: 'job-pref-gender',
+        title: 'Enter gender',
+        message: 'Type your gender.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    if (errors.ethnicity) {
+      steps.push({
+        id: 'ethnicity',
+        targetId: 'job-pref-ethnicity',
+        title: 'Enter ethnicity',
+        message: 'Type your ethnicity.',
+        onBefore: () => setShowAdvanced(true),
+      });
+    }
+
+    return steps;
+  };
+
+  useEffect(() => {
+    if (!tourOpen) return;
+    setValidationErrors(getValidationErrors(preferences));
+  }, [preferences, tourOpen]);
+
+  // Save preferences to database
+  const handleSave = async () => {
+    const prefsToValidate = getValidationPreferences();
+    const currentValidationErrors = getValidationErrors(prefsToValidate);
+    const steps = buildValidationTourSteps(currentValidationErrors);
+
+    if (steps.length > 0) {
+      setValidationErrors(currentValidationErrors);
+      setTourSteps(steps);
+      setTourIndex(0);
+      setTourOpen(true);
       return;
     }
 
@@ -286,10 +497,25 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
       // Update initial preferences to the saved state
       setInitialPreferences(prefsToValidate);
-      setHasUnsavedChanges(false);
+      setHasUnsavedChanges(false); // all changes now saved
+      if (onUnsavedChanges) {
+        console.log('Calling onUnsavedChanges(false) after save');
+        onUnsavedChanges(false);
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        } catch (error) {
+          console.error('Failed to clear draft preferences:', error);
+        }
+      }
       
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      setValidationErrors(null);
+      setTourOpen(false);
+      setTourSteps([]);
+      setTourIndex(0);
       
       // Export preferences to YAML file in repo root (Electron only)
       if (typeof window !== 'undefined' && window.electronAPI) {
@@ -315,6 +541,71 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     }
   };
 
+  const completionStep: ValidationTourStep = {
+    id: 'complete',
+    targetId: 'save-preferences-button',
+    title: 'Save now',
+    message: 'All set - you can save now.',
+  };
+
+  const getActiveSteps = () => {
+    const prefsToValidate = getValidationPreferences();
+    return buildValidationTourSteps(getValidationErrors(prefsToValidate));
+  };
+
+  const handleTourNext = () => {
+    const activeSteps = getActiveSteps();
+    const currentId = tourSteps[tourIndex]?.id;
+    const currentIndexInActive = currentId
+      ? activeSteps.findIndex((step) => step.id === currentId)
+      : -1;
+    const nextIndex = currentIndexInActive >= 0 ? currentIndexInActive + 1 : 0;
+
+    if (activeSteps.length === 0) {
+      setTourSteps([completionStep]);
+      setTourIndex(0);
+      return;
+    }
+
+    if (nextIndex >= activeSteps.length) {
+      setTourSteps([completionStep]);
+      setTourIndex(0);
+      return;
+    }
+
+    setTourSteps(activeSteps);
+    setTourIndex(nextIndex);
+  };
+
+  const handleTourBack = () => {
+    const activeSteps = getActiveSteps();
+    const isComplete = tourSteps[0]?.id === 'complete';
+
+    if (isComplete) {
+      if (activeSteps.length > 0) {
+        setTourSteps(activeSteps);
+        setTourIndex(activeSteps.length - 1);
+      }
+      return;
+    }
+
+    const currentId = tourSteps[tourIndex]?.id;
+    const currentIndexInActive = currentId
+      ? activeSteps.findIndex((step) => step.id === currentId)
+      : -1;
+    const prevIndex = currentIndexInActive > 0 ? currentIndexInActive - 1 : 0;
+
+    setTourSteps(activeSteps);
+    setTourIndex(prevIndex);
+  };
+
+  const handleTourExit = () => {
+    setTourOpen(false);
+    setTourSteps([]);
+    setTourIndex(0);
+    setValidationErrors(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -323,16 +614,13 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     );
   }
 
+  const showValidationErrors = tourOpen;
+  const fieldErrors = showValidationErrors ? validationErrors : null;
+  const currentTourStep = tourSteps[tourIndex] ?? null;
+  const isCompletionStep = tourSteps[0]?.id === 'complete';
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Validation warning */}
-      {validationWarning && (
-          <div className="flex items-center gap-2 p-3 bg-warning-subtle border border-warning rounded-lg text-sm shadow-sm">
-          <AlertCircle className="w-4 h-4 text-warning flex-shrink-0" />
-          <span className="text-warning">{validationWarning}</span>
-        </div>
-      )}
-
       {/* Save error feedback */}
       {saveError && (
         <div className="flex items-center gap-2 p-3 bg-primary-subtle/60/30 border border-border rounded-lg text-sm shadow-sm">
@@ -354,6 +642,14 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
               locations={preferences.locations}
               remoteWork={preferences.remote_work}
               onChange={updateSearchCriteria}
+              errors={{
+                positions: fieldErrors?.positions,
+                locations: fieldErrors?.locations,
+              }}
+              positionsInputId="job-pref-positions"
+              locationsInputId="job-pref-locations"
+              positionsAddButtonId="job-pref-positions-add"
+              locationsAddButtonId="job-pref-locations-add"
             />
           </div>
 
@@ -370,6 +666,8 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                   exp_executive: preferences.exp_executive,
                 }}
                 onChange={updateCheckbox}
+                hasError={fieldErrors?.experience}
+                tourId="job-pref-experience"
               />
             </div>
 
@@ -385,6 +683,8 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                   job_other: preferences.job_other,
                 }}
                 onChange={updateCheckbox}
+                hasError={fieldErrors?.jobType}
+                tourId="job-pref-job-types"
               />
             </div>
           </div>
@@ -437,6 +737,8 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                         date_all_time: preferences.date_all_time,
                       }}
                       onChange={updateCheckbox}
+                      hasError={fieldErrors?.dateFilter}
+                      tourId="job-pref-date-filters"
                     />
                   </div>
 
@@ -447,6 +749,8 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                         us_work_authorization: preferences.us_work_authorization,
                       }}
                       onChange={updateCheckbox}
+                      hasError={fieldErrors?.workAuthorization}
+                      tourId="job-pref-work-authorization"
                     />
                   </div>
                 </div>
@@ -465,6 +769,12 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                         salary_expectation_usd: preferences.salary_expectation_usd,
                       }}
                       onChange={updateField}
+                      errors={{
+                        notice_period: fieldErrors?.notice_period,
+                        salary_expectation_usd: fieldErrors?.salary_expectation_usd,
+                      }}
+                      noticePeriodId="job-pref-notice-period"
+                      salaryId="job-pref-salary"
                     />
                   </div>
 
@@ -479,6 +789,16 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                         has_disability: preferences.has_disability,
                       }}
                       onChange={updateField}
+                      errors={{
+                        date_of_birth: fieldErrors?.date_of_birth,
+                        pronouns: fieldErrors?.pronouns,
+                        gender: fieldErrors?.gender,
+                        ethnicity: fieldErrors?.ethnicity,
+                      }}
+                      dateOfBirthId="job-pref-date-of-birth"
+                      pronounsId="job-pref-pronouns"
+                      genderId="job-pref-gender"
+                      ethnicityId="job-pref-ethnicity"
                     />
                   </div>
                 </div>
@@ -507,6 +827,15 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
           </>
         )}
       </button>
+
+      <ValidationTour
+        isOpen={tourOpen}
+        step={currentTourStep}
+        onNext={isCompletionStep ? handleTourExit : handleTourNext}
+        onBack={handleTourBack}
+        onExit={handleTourExit}
+      />
+
     </div>
   );
 }

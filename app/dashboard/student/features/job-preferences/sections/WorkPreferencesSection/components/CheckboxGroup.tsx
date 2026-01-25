@@ -19,6 +19,7 @@ interface CheckboxGroupProps {
   values: Record<string, boolean>;
   onChange: (key: string, value: boolean) => void;
   columns?: number;
+  hasError?: boolean;
 }
 
 export default function CheckboxGroup({
@@ -27,6 +28,7 @@ export default function CheckboxGroup({
   values,
   onChange,
   columns = 2,
+  hasError = false,
 }: CheckboxGroupProps) {
   const gridClass = columns === 2 ? 'grid-cols-2' : `grid-cols-${columns}`;
 
@@ -47,7 +49,11 @@ export default function CheckboxGroup({
               type="checkbox"
               checked={values[key] || false}
               onChange={(e) => onChange(key, e.target.checked)}
-              className="w-4 h-4 text-primary bg-white border border-border rounded focus:ring-2 focus:ring-primary transition-colors cursor-pointer"
+              className={`w-4 h-4 text-primary bg-white border rounded focus:ring-2 transition-colors cursor-pointer ${
+                hasError
+                  ? 'border-warning focus:ring-warning/30'
+                  : 'border-border focus:ring-primary'
+              }`}
             />
             <span className="text-sm text-muted group-hover:text-primary-hover transition-colors">
               {label}

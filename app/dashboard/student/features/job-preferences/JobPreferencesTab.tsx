@@ -6,15 +6,25 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, ArrowDown } from 'lucide-react';
 import WorkPreferencesSection from './sections/WorkPreferencesSection';
 import { usePreferences } from './hooks';
 
-export default function JobPreferencesTab() {
+interface JobPreferencesTabProps {
+  onUnsavedChanges?: (hasChanges: boolean) => void;
+}
+
+export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTabProps) {
   // Custom hook for preferences
   const preferences = usePreferences();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    if (onUnsavedChanges) {
+      onUnsavedChanges(hasUnsavedChanges);
+    }
+  }, [hasUnsavedChanges, onUnsavedChanges]);
 
   return (
     <div className="space-y-6">
@@ -32,7 +42,7 @@ export default function JobPreferencesTab() {
           
           {/* Status Badge */}
           {!preferences.checking && (
-            hasUnsavedChanges ? (
+            hasUnsavedChanges ? ( // Changes exist, show Unsaved button
               <button
                 onClick={() => {
                   const saveButton = document.getElementById('save-preferences-button');
@@ -45,14 +55,14 @@ export default function JobPreferencesTab() {
                 </span>
                 <ArrowDown className="w-4 h-4 text-warning" />
               </button>
-            ) : preferences.preferencesComplete ? (
+            ) : preferences.preferencesComplete ? ( // no changes + complete preferences = show Saved badge
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0">
                 <CheckCircle className="w-4 h-4 text-success" />
                 <span className="text-sm font-medium text-success">
                   Saved
                 </span>
               </div>
-            ) : (
+            ) : ( // Incomplete preferences, show Unsaved button
               <button
                 onClick={() => {
                   const saveButton = document.getElementById('save-preferences-button');
@@ -73,7 +83,7 @@ export default function JobPreferencesTab() {
       {/* Work Preferences Section */}
       <WorkPreferencesSection 
         onSave={preferences.recheckPreferences}
-        onUnsavedChanges={setHasUnsavedChanges}
+        onUnsavedChanges={setHasUnsavedChanges} // when set to true Unsaved button shows up and when clicked scrolls to bottom save preferences button
       />
     </div>
   );

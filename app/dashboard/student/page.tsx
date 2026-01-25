@@ -25,6 +25,7 @@ function StudentDashboardContent() {
   
   // Active tab state - initialize from URL param if present
   const [activeTab, setActiveTab] = useState<DashboardTab>('profile');
+  const [jobPreferencesUnsaved, setJobPreferencesUnsaved] = useState(false);
   
   // Read tab from URL on mount (e.g., after Stripe redirect)
   useEffect(() => {
@@ -47,11 +48,34 @@ function StudentDashboardContent() {
   // GitHub import management (custom hook)
   const gitHubState = useGitHubImportDashboard();
 
+  useEffect(() => {
+    if (!jobPreferencesUnsaved) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [jobPreferencesUnsaved]);
+
+  const handleTabChange = (nextTab: DashboardTab) => {
+    if (activeTab === 'job-preferences' && nextTab !== 'job-preferences' && jobPreferencesUnsaved) {
+      const shouldLeave = window.confirm('You have unsaved job preferences. Leave without saving?');
+      if (!shouldLeave) {
+        return;
+      }
+    }
+
+    setActiveTab(nextTab);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Dashboard Navigation */}
-        <DashboardNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <DashboardNav activeTab={activeTab} onTabChange={handleTabChange} />
 
         {/* Tab Content */}
         <div className="space-y-8">
@@ -60,8 +84,6 @@ function StudentDashboardContent() {
               profileData={profileState.profileData}
               setProfileData={profileState.setProfileData}
               validation={profileState.validation}
-              showValidationErrors={profileState.showValidationErrors}
-              showValidationMessage={profileState.showValidationMessage}
               draftId={profileState.draftId}
               draftStatus={profileState.draftStatus}
               resumeInfo={resumeState.resumeInfo}
@@ -69,19 +91,23 @@ function StudentDashboardContent() {
               extracting={resumeState.extracting}
               uploadSuccess={resumeState.uploadSuccess}
               uploadError={resumeState.uploadError}
+              extractionProgress={resumeState.extractionProgress}
               finalizing={profileState.finalizing}
               saveSuccess={profileState.saveSuccess}
               handleFileChange={resumeState.handleFileChange}
               handleDownload={resumeState.handleDownload}
               handleFinalize={profileState.handleFinalize}
               importingGitHub={gitHubState.importingGitHub}
+              githubImportProgress={gitHubState.importProgress}
               onGitHubImport={gitHubState.importGitHubData}
             />
           )}
 
           {activeTab === 'matches' && <MatchesTab />}
 
-          {activeTab === 'job-preferences' && <JobPreferencesTab />}
+          {activeTab === 'job-preferences' && (
+            <JobPreferencesTab onUnsavedChanges={setJobPreferencesUnsaved} />
+          )}
 
           {activeTab === 'auto-apply' && <AutoApplyTab />}
         </div>
