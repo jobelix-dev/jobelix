@@ -5,11 +5,20 @@
  * Accessed via email link with recovery token.
  */
 
+import type { Metadata } from "next";
 import UpdatePasswordForm from './UpdatePasswordForm'
+import { canonicalUrl } from "@/lib/seo";
 
-export const metadata = {
-  title: 'Update Password',
-  description: 'Set your new password',
+export const metadata: Metadata = {
+  title: "Update Password",
+  description: "Set a new password for your Jobelix account.",
+  alternates: {
+    canonical: canonicalUrl("/update-password"),
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 }
 
 export default function UpdatePasswordPage() {

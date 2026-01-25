@@ -7,11 +7,28 @@
  * Redirects to /dashboard after successful login.
  */
 
+import type { Metadata } from "next";
 import LoginForm from "./LoginForm";
 import Header from "../components/Header";
 import "../globals.css";
 import Link from "next/link";
 import { Suspense } from "react";
+import { canonicalUrl } from "@/lib/seo";
+
+const title = "Log in";
+const description = "Log in to Jobelix to access your account and dashboard.";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: {
+    canonical: canonicalUrl("/login"),
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function LoginPage() {
   return (

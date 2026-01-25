@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CallbackLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;

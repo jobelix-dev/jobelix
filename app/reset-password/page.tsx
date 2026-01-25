@@ -5,11 +5,20 @@
  * User enters their email, receives a reset link via email.
  */
 
+import type { Metadata } from "next";
 import ResetPasswordForm from './ResetPasswordForm'
+import { canonicalUrl } from "@/lib/seo";
 
-export const metadata = {
-  title: 'Reset Password',
-  description: 'Reset your Jobelix account password',
+export const metadata: Metadata = {
+  title: "Reset Password",
+  description: "Reset your Jobelix account password.",
+  alternates: {
+    canonical: canonicalUrl("/reset-password"),
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 }
 
 export default function ResetPasswordPage() {

@@ -62,6 +62,16 @@ const nextConfig: NextConfig = {
           }
         ],
       },
+      {
+        // Cache immutable Next.js static assets aggressively
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ],
+      },
     ];
   },
 };

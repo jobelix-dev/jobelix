@@ -17,10 +17,28 @@
  * Redirects to /login after successful registration
  */
 
+import type { Metadata } from "next";
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
 import Link from "next/link";
 import "../globals.css";
+import { canonicalUrl } from "@/lib/seo";
+
+const title = "Create your Jobelix account";
+const description =
+  "Sign up for Jobelix to connect with employers or discover top talent using AI-powered matching.";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: {
+    canonical: canonicalUrl("/signup"),
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 type SearchParams = Promise<{ role?: string } | undefined>;
 
