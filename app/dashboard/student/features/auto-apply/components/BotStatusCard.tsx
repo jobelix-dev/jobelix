@@ -20,7 +20,8 @@ import {
   XSquare,
   Zap,
   Loader2,
-  Info
+  Info,
+  Eye
 } from 'lucide-react';
 
 interface HistoricalTotals {
@@ -262,7 +263,16 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
         <div className="rounded-lg p-3 bg-success-subtle/20">
           <div className="flex items-center gap-2 mb-1">
             <CheckSquare className="w-4 h-4 text-success" />
-            <span className="text-xs text-muted">Applied</span>
+            <a
+              href="https://www.linkedin.com/my-items/saved-jobs/?cardType=APPLIED"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle/20 px-2 py-0.5 text-[11px] font-medium text-success transition-colors hover:bg-success-subtle/30"
+              title="Open applied jobs on LinkedIn"
+            >
+              Applied jobs
+              <Eye className="h-3 w-3" />
+            </a>
           </div>
           <p className="text-2xl font-bold text-success">
             {displayStats.totals.jobs_applied}
