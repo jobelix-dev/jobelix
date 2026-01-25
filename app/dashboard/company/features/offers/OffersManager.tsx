@@ -13,11 +13,12 @@ import { Plus } from 'lucide-react';
 import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
-import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 
 type ViewState = 'list' | 'editor';
 
 export default function OffersManager() {
+  const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
   const [publishedOffers, setPublishedOffers] = useState<CompanyOffer[]>([]);
   const [unpublishedDrafts, setUnpublishedDrafts] = useState<CompanyOfferDraft[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +60,7 @@ export default function OffersManager() {
       setPublishedOffers((prev) => prev.filter((o) => o.id !== offerId));
     } catch (err: any) {
       console.error('Failed to delete offer:', err);
-      alertWithFocusRestore(err.message || 'Failed to delete offer');
+      await alert(err.message || 'Failed to delete offer', { title: 'Error' });
     }
   }
 
@@ -75,7 +76,7 @@ export default function OffersManager() {
       setUnpublishedDrafts((prev) => prev.filter((d) => d.id !== draftId));
     } catch (err: any) {
       console.error('Failed to delete draft:', err);
-      alertWithFocusRestore(err.message || 'Failed to delete draft');
+      await alert(err.message || 'Failed to delete draft', { title: 'Error' });
     }
   }
 
@@ -95,7 +96,7 @@ export default function OffersManager() {
       setView('editor');
     } catch (err: any) {
       console.error('Failed to create new draft:', err);
-      alertWithFocusRestore(err.message || 'Failed to create new draft');
+      await alert(err.message || 'Failed to create new draft', { title: 'Error' });
     }
   }
 
@@ -114,7 +115,7 @@ export default function OffersManager() {
       setView('editor');
     } catch (err: any) {
       console.error('Failed to load draft for offer:', err);
-      alertWithFocusRestore(err.message || 'Failed to load draft for offer');
+      await alert(err.message || 'Failed to load draft for offer', { title: 'Error' });
     }
   }
 
@@ -163,7 +164,10 @@ export default function OffersManager() {
         onEditDraft={handleEditDraft}
         onDeleteOffer={handleDeleteOffer}
         onDeleteDraft={handleDeleteDraft}
+        onConfirm={(message) => confirm(message, { title: 'Confirm Delete', variant: 'danger', confirmText: 'Delete', cancelText: 'Cancel' })}
       />
+      
+      {ConfirmDialogComponent}
     </div>
   );
 }

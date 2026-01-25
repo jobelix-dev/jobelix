@@ -8,7 +8,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client/api';
-import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
 
 export default function UpdatePasswordForm() {
   const router = useRouter();
@@ -16,6 +15,7 @@ export default function UpdatePasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,8 +38,10 @@ export default function UpdatePasswordForm() {
       await api.updatePassword(password);
       
       // Show success and redirect to dashboard
-      alertWithFocusRestore('Password updated successfully!');
-      router.push('/dashboard');
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to update password');
     } finally {
@@ -49,6 +51,12 @@ export default function UpdatePasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {success && (
+        <div className="rounded-lg bg-success-subtle/30 border border-success px-4 py-3 text-sm text-success">
+          ✓ Password updated successfully! Redirecting...
+        </div>
+      )}
+      
       {error && (
         <div className="rounded-lg bg-error-subtle/30 border border-error px-4 py-3 text-sm text-error">
           {error}
