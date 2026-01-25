@@ -26,11 +26,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info)),
   onUpdateError: (callback) => ipcRenderer.on('update-error', (event, error) => callback(error)),
   
+  // Bot status updates
+  onBotStatus: (callback) => ipcRenderer.on('bot-status', (event, data) => callback(data)),
+  
   // Remove listeners
   removeUpdateListeners: () => {
     ipcRenderer.removeAllListeners('update-available');
     ipcRenderer.removeAllListeners('update-download-progress');
     ipcRenderer.removeAllListeners('update-downloaded');
     ipcRenderer.removeAllListeners('update-error');
-  }
+  },
+  removeBotStatusListeners: () => {
+    ipcRenderer.removeAllListeners('bot-status');
+  },
 });

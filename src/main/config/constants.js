@@ -91,6 +91,7 @@ export const IPC_CHANNELS = {
   UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
   UPDATE_DOWNLOADED: 'update-downloaded',
   UPDATE_ERROR: 'update-error',
+  BOT_STATUS: 'bot-status',
   
   // Renderer → Main (handlers)
   READ_CONFIG: 'read-config',

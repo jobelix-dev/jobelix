@@ -237,6 +237,7 @@ export default function AutoApplyTab() {
                 launchError={botLauncher.error}
                 hasCredits={hasCredits}
                 onLaunch={handleLaunchBot}
+                launchStatus={botLauncher.launchStatus}
               />
             )}
           </>
