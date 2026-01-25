@@ -12,6 +12,7 @@ interface SocialLinksInputProps {
   onChange: (social_links: SocialLinkEntry) => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  idPrefix?: string;
 }
 
 const platforms = [
@@ -22,7 +23,13 @@ const platforms = [
   { key: 'leetcode' as const, label: 'LeetCode', icon: Code, placeholder: 'https://leetcode.com/username' },
 ];
 
-export default function SocialLinksInput({ social_links, onChange, fieldErrors = {}, disabled = false }: SocialLinksInputProps) {
+export default function SocialLinksInput({
+  social_links,
+  onChange,
+  fieldErrors = {},
+  disabled = false,
+  idPrefix = 'profile-social'
+}: SocialLinksInputProps) {
   const updatePlatform = (platform: keyof SocialLinkEntry, value: string) => {
     onChange({
       ...social_links,
@@ -50,6 +57,7 @@ export default function SocialLinksInput({ social_links, onChange, fieldErrors =
               } bg-white`}
             >
               <input
+                id={`${idPrefix}-${key}`}
                 type="url"
                 value={value}
                 onChange={(e) => updatePlatform(key, e.target.value)}

@@ -3,7 +3,7 @@
  * Collapsible form for editing a single publication entry
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { PublicationEntry } from '@/lib/shared/types';
 import DatePicker from './DatePicker';
@@ -14,10 +14,26 @@ interface PublicationFormProps {
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  forceExpanded?: boolean;
+  idPrefix?: string;
 }
 
-export default function PublicationForm({ data, onChange, onRemove, fieldErrors = {}, disabled = false }: PublicationFormProps) {
+export default function PublicationForm({
+  data,
+  onChange,
+  onRemove,
+  fieldErrors = {},
+  disabled = false,
+  forceExpanded = false,
+  idPrefix = 'publication'
+}: PublicationFormProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (forceExpanded) {
+      setIsExpanded(true);
+    }
+  }, [forceExpanded]);
   
   // Create display title
   const title = data.title?.trim() || 'New Publication';
@@ -91,6 +107,7 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
                 )}
               </div>
               <input
+                id={`${idPrefix}-title`}
                 type="text"
                 value={data.title}
                 onChange={(e) => onChange('title', e.target.value)}
@@ -126,6 +143,8 @@ export default function PublicationForm({ data, onChange, onRemove, fieldErrors 
                 yearError={fieldErrors.publication_year}
                 monthError={fieldErrors.publication_month}
                 disabled={disabled}
+                monthId={`${idPrefix}-publication_month`}
+                yearId={`${idPrefix}-publication_year`}
               />
             </div>
 

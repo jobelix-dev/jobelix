@@ -15,6 +15,14 @@ interface SearchCriteriaSectionProps {
   locations: string[];
   remoteWork: boolean;
   onChange: (field: string, value: string[] | boolean) => void;
+  errors?: {
+    positions?: boolean;
+    locations?: boolean;
+  };
+  positionsInputId?: string;
+  locationsInputId?: string;
+  positionsAddButtonId?: string;
+  locationsAddButtonId?: string;
 }
 
 export interface SearchCriteriaSectionRef {
@@ -28,6 +36,11 @@ const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteri
     locations,
     remoteWork,
     onChange,
+    errors,
+    positionsInputId,
+    locationsInputId,
+    positionsAddButtonId,
+    locationsAddButtonId,
   },
   ref
 ) => {
@@ -56,6 +69,9 @@ const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteri
         onChange={(val) => onChange('positions', val)}
         icon={<Target className="w-4 h-4" />}
         tagColorClass="bg-primary-subtle/30 text-primary-hover"
+        hasError={errors?.positions}
+        inputId={positionsInputId}
+        addButtonId={positionsAddButtonId}
       />
 
       <ArrayInputField
@@ -66,6 +82,9 @@ const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteri
         onChange={(val) => onChange('locations', val)}
         icon={<MapPin className="w-4 h-4" />}
         tagColorClass="bg-primary-subtle/30 text-primary-hover"
+        hasError={errors?.locations}
+        inputId={locationsInputId}
+        addButtonId={locationsAddButtonId}
       />
 
       <label className="flex items-center gap-2 cursor-pointer group">

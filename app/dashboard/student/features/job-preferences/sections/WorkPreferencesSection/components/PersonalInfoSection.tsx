@@ -7,7 +7,7 @@
 'use client';
 
 import React from 'react';
-import { User } from 'lucide-react';
+import { AlertCircle, User } from 'lucide-react';
 
 interface PersonalInfoSectionProps {
   values: {
@@ -19,11 +19,26 @@ interface PersonalInfoSectionProps {
     has_disability: boolean;
   };
   onChange: (field: string, value: string | boolean) => void;
+  errors?: {
+    date_of_birth?: boolean;
+    pronouns?: boolean;
+    gender?: boolean;
+    ethnicity?: boolean;
+  };
+  dateOfBirthId?: string;
+  pronounsId?: string;
+  genderId?: string;
+  ethnicityId?: string;
 }
 
 export default function PersonalInfoSection({
   values,
   onChange,
+  errors,
+  dateOfBirthId,
+  pronounsId,
+  genderId,
+  ethnicityId,
 }: PersonalInfoSectionProps) {
   return (
     <div className="space-y-3">
@@ -34,53 +49,77 @@ export default function PersonalInfoSection({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted">
             Date of Birth
+            {errors?.date_of_birth && <AlertCircle className="w-4 h-4 text-warning" />}
           </label>
           <input
+            id={dateOfBirthId}
             type="date"
             value={values.date_of_birth || ''}
             onChange={(e) => onChange('date_of_birth', e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+            className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+              errors?.date_of_birth
+                ? 'border-warning focus:border-warning focus:ring-warning/30'
+                : 'border-border focus:border-primary focus:ring-primary/30'
+            }`}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted">
             Pronouns
+            {errors?.pronouns && <AlertCircle className="w-4 h-4 text-warning" />}
           </label>
           <input
+            id={pronounsId}
             type="text"
             value={values.pronouns || ''}
             onChange={(e) => onChange('pronouns', e.target.value)}
             placeholder="e.g., he/him, she/her"
-            className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+            className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+              errors?.pronouns
+                ? 'border-warning focus:border-warning focus:ring-warning/30'
+                : 'border-border focus:border-primary focus:ring-primary/30'
+            }`}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted">
             Gender
+            {errors?.gender && <AlertCircle className="w-4 h-4 text-warning" />}
           </label>
           <input
+            id={genderId}
             type="text"
             value={values.gender || ''}
             onChange={(e) => onChange('gender', e.target.value)}
             placeholder="e.g., Male, Female"
-            className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+            className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+              errors?.gender
+                ? 'border-warning focus:border-warning focus:ring-warning/30'
+                : 'border-border focus:border-primary focus:ring-primary/30'
+            }`}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted">
             Ethnicity
+            {errors?.ethnicity && <AlertCircle className="w-4 h-4 text-warning" />}
           </label>
           <input
+            id={ethnicityId}
             type="text"
             value={values.ethnicity || ''}
             onChange={(e) => onChange('ethnicity', e.target.value)}
             placeholder="Optional"
-            className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-default focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none transition-colors"
+            className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+              errors?.ethnicity
+                ? 'border-warning focus:border-warning focus:ring-warning/30'
+                : 'border-border focus:border-primary focus:ring-primary/30'
+            }`}
           />
         </div>
       </div>

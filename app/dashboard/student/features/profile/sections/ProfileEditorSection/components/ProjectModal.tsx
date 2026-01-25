@@ -14,6 +14,7 @@ interface ProjectModalProps {
   onClose: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  idPrefix?: string;
 }
 
 export default function ProjectModal({ 
@@ -21,7 +22,8 @@ export default function ProjectModal({
   onChange, 
   onClose, 
   fieldErrors = {}, 
-  disabled = false 
+  disabled = false,
+  idPrefix = 'project'
 }: ProjectModalProps) {
   const projectName = data.project_name?.trim() || 'New Project';
 
@@ -63,6 +65,7 @@ export default function ProjectModal({
                 )}
               </div>
               <input
+                id={`${idPrefix}-project_name`}
                 type="text"
                 value={data.project_name}
                 onChange={(e) => onChange('project_name', e.target.value)}

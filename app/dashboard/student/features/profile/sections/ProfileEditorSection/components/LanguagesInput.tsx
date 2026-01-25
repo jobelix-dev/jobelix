@@ -12,6 +12,7 @@ interface LanguagesInputProps {
   onChange: (languages: LanguageEntry[]) => void;
   fieldErrors?: Record<number, { language_name?: string; proficiency_level?: string }>;
   disabled?: boolean;
+  idPrefix?: string;
 }
 
 const proficiencyLevels: LanguageEntry['proficiency_level'][] = ['Beginner', 'Intermediate', 'Advanced', 'Fluent', 'Native'];
@@ -78,7 +79,13 @@ function CustomDropdown({
   );
 }
 
-export default function LanguagesInput({ languages, onChange, fieldErrors = {}, disabled = false }: LanguagesInputProps) {
+export default function LanguagesInput({
+  languages,
+  onChange,
+  fieldErrors = {},
+  disabled = false,
+  idPrefix = 'profile-language'
+}: LanguagesInputProps) {
   const updateLanguage = (index: number, field: keyof LanguageEntry, value: string) => {
     const updated = [...languages];
     updated[index] = { ...updated[index], [field]: value };
@@ -114,6 +121,7 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
               } bg-white transition-colors`}
             >
               <input
+                id={`${idPrefix}-${index}-language_name`}
                 type="text"
                 value={language.language_name}
                 onChange={(e) => updateLanguage(index, 'language_name', e.target.value)}

@@ -6,15 +6,25 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, ArrowDown } from 'lucide-react';
 import WorkPreferencesSection from './sections/WorkPreferencesSection';
 import { usePreferences } from './hooks';
 
-export default function JobPreferencesTab() {
+interface JobPreferencesTabProps {
+  onUnsavedChanges?: (hasChanges: boolean) => void;
+}
+
+export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTabProps) {
   // Custom hook for preferences
   const preferences = usePreferences();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    if (onUnsavedChanges) {
+      onUnsavedChanges(hasUnsavedChanges);
+    }
+  }, [hasUnsavedChanges, onUnsavedChanges]);
 
   return (
     <div className="space-y-6">

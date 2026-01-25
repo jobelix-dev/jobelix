@@ -43,8 +43,6 @@ export function useProfileData() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [showValidationMessage, setShowValidationMessage] = useState(false);
   
   // Use a ref to track the last saved data - prevents auto-save on initial load
   const lastSavedDataRef = useRef<string | null>(null);
@@ -170,9 +168,6 @@ export function useProfileData() {
   // Finalize profile (publish to main tables)
   const handleFinalize = useCallback(async () => {
     if (!canSave) {
-      setShowValidationErrors(true);
-      setShowValidationMessage(true);
-      setTimeout(() => setShowValidationMessage(false), 3000);
       return;
     }
 
@@ -182,8 +177,6 @@ export function useProfileData() {
     }
 
     setFinalizing(true);
-    setShowValidationErrors(false);
-    setShowValidationMessage(false);
 
     try {
       // Finalize the draft - moves data from draft to permanent tables
@@ -222,7 +215,6 @@ export function useProfileData() {
       }
       
       setSaveSuccess(true);
-      setShowValidationErrors(false);
       setDraftStatus('published'); // Mark as published
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -246,9 +238,6 @@ export function useProfileData() {
     // Validation
     validation,
     canSave,
-    showValidationErrors,
-    showValidationMessage,
-    
     // Save state
     finalizing,
     saveSuccess,

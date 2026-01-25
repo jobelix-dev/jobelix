@@ -19,6 +19,8 @@ interface DatePickerProps {
   yearError?: string;
   monthError?: string;
   disabled?: boolean;
+  monthId?: string;
+  yearId?: string;
 }
 
 export default function DatePicker({ 
@@ -29,7 +31,9 @@ export default function DatePicker({
   label,
   yearError,
   monthError,
-  disabled = false
+  disabled = false,
+  monthId,
+  yearId
 }: DatePickerProps) {
   
   const handleYearChange = (value: string) => {
@@ -85,6 +89,7 @@ export default function DatePicker({
       )}
       <div className="grid grid-cols-2 gap-2">
         <select
+          id={monthId}
           value={month || ''}
           onChange={(e) => handleMonthChange(e.target.value)}
           disabled={disabled}
@@ -100,6 +105,7 @@ export default function DatePicker({
           ))}
         </select>
         <select
+          id={yearId}
           value={year || ''}
           onChange={(e) => handleYearChange(e.target.value)}
           disabled={disabled}
