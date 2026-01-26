@@ -277,3 +277,11 @@ Packaged app path:
 
 Updating the runtime:
 - Change `PY_RUNTIME_TAG`, run `npm run fetch:bot`, then package again.
+
+Arch Linux:
+- The runtime is compiled manually and placed in `resources/linux-arch/main/`.
+- `npm run fetch:bot` will skip download on Arch and use the existing runtime.
+- Packaged builds include both `linux` (Ubuntu-family) and `linux-arch` resources.
+
+Current version
+PY_RUNTIME_TAG=py-runtime-v0.0.1 npm run fetch:bot

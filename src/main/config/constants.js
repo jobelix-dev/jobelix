@@ -37,6 +37,7 @@ export const PLATFORM_FOLDERS = {
   WINDOWS: 'win',
   MAC: 'mac',
   LINUX: 'linux',
+  LINUX_ARCH: 'linux-arch',
 };
 
 // Executable names

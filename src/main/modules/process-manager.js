@@ -32,14 +32,45 @@ function getPlaywrightBrowsersPath() {
   return path.join(app.getPath('userData'), PLAYWRIGHT_BROWSER_DIR);
 }
 
-function getChromiumExecutableSubpath() {
+function getChromiumExecutableSubpaths() {
   if (process.platform === 'win32') {
-    return path.join('chrome-win', 'chrome.exe');
+    return [path.join('chrome-win', 'chrome.exe'), path.join('chrome-win64', 'chrome.exe')];
   }
   if (process.platform === 'darwin') {
-    return path.join('chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium');
+    return [
+      path.join('chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+      path.join('chrome-mac-arm64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+    ];
   }
-  return path.join('chrome-linux', 'chrome');
+  return [path.join('chrome-linux', 'chrome'), path.join('chrome-linux64', 'chrome')];
+}
+
+function findExecutableInDir(rootDir, filenames, maxDepth = 4) {
+  const queue = [{ dir: rootDir, depth: 0 }];
+
+  while (queue.length) {
+    const { dir, depth } = queue.shift();
+    if (depth > maxDepth) continue;
+
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (error) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isFile() && filenames.includes(entry.name)) {
+        return fullPath;
+      }
+      if (entry.isDirectory()) {
+        queue.push({ dir: fullPath, depth: depth + 1 });
+      }
+    }
+  }
+
+  return null;
 }
 
 function findChromiumExecutable(playwrightPath) {
@@ -50,10 +81,21 @@ function findChromiumExecutable(playwrightPath) {
       .filter((entry) => entry.isDirectory() && entry.name.startsWith('chromium-'))
       .map((entry) => entry.name);
 
+    const subpaths = getChromiumExecutableSubpaths();
     for (const dir of chromiumDirs) {
-      const candidate = path.join(playwrightPath, dir, getChromiumExecutableSubpath());
-      if (fs.existsSync(candidate)) {
-        return candidate;
+      for (const subpath of subpaths) {
+        const candidate = path.join(playwrightPath, dir, subpath);
+        if (fs.existsSync(candidate)) {
+          return candidate;
+        }
+      }
+      const fallback = findExecutableInDir(
+        path.join(playwrightPath, dir),
+        process.platform === 'win32' ? ['chrome.exe'] : ['chrome', 'Chromium'],
+        5
+      );
+      if (fallback) {
+        return fallback;
       }
     }
   } catch (error) {
@@ -62,6 +104,7 @@ function findChromiumExecutable(playwrightPath) {
 
   return null;
 }
+
 
 function resolvePlaywrightCliPath() {
   const require = createRequire(import.meta.url);
@@ -171,13 +214,40 @@ function runInstallCommand(command, args, env, emitStatus) {
   });
 }
 
-async function installPlaywrightChromium(playwrightPath, emitStatus) {
+async function installPlaywrightChromium(playwrightPath, emitStatus, bundledCliPath) {
   ensureDirectoryExists(playwrightPath);
 
   const env = {
     ...process.env,
     PLAYWRIGHT_BROWSERS_PATH: playwrightPath,
   };
+
+  if (bundledCliPath && fs.existsSync(bundledCliPath)) {
+    const nodeEnv = {
+      ...env,
+      ELECTRON_RUN_AS_NODE: '1',
+    };
+    const bundledResult = await runInstallCommand(
+      process.execPath,
+      [bundledCliPath, 'install', 'chromium'],
+      nodeEnv,
+      emitStatus
+    );
+
+    if (bundledResult.success) {
+      return { success: true };
+    }
+
+    if (!bundledResult.spawnFailed) {
+      return {
+        success: false,
+        error:
+          bundledResult.error instanceof Error
+            ? bundledResult.error.message
+            : 'Playwright install failed',
+      };
+    }
+  }
 
   const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const npxArgs = ['playwright', 'install', 'chromium'];
@@ -223,7 +293,7 @@ async function installPlaywrightChromium(playwrightPath, emitStatus) {
   };
 }
 
-async function ensureChromiumInstalled(emitStatus) {
+async function ensureChromiumInstalled(emitStatus, bundledCliPath) {
   const playwrightPath = getPlaywrightBrowsersPath();
 
   emitBotStatus(emitStatus, {
@@ -241,7 +311,7 @@ async function ensureChromiumInstalled(emitStatus) {
     message: 'Installing browser (first run only)... may take a minute.',
   });
 
-  const installResult = await installPlaywrightChromium(playwrightPath, emitStatus);
+  const installResult = await installPlaywrightChromium(playwrightPath, emitStatus, bundledCliPath);
   if (!installResult.success) {
     return { success: false, error: installResult.error || 'Playwright install failed', playwrightPath };
   }
@@ -274,6 +344,14 @@ export async function launchBot(token, emitStatus) {
 
     const botPath = getBotPath();
     const botCwd = getBotWorkingDirectory();
+    const bundledCliPath = path.join(
+      botCwd,
+      '_internal',
+      'playwright',
+      'driver',
+      'package',
+      'cli.js'
+    );
 
     logger.info('Bot Configuration:');
     logger.info(`  Path: ${botPath}`);
@@ -289,7 +367,7 @@ export async function launchBot(token, emitStatus) {
       };
     }
 
-    const browserCheck = await ensureChromiumInstalled(emitStatus);
+    const browserCheck = await ensureChromiumInstalled(emitStatus, bundledCliPath);
     if (!browserCheck.success) {
       const message = 'Browser install failed. Check network/proxy, then retry.';
       emitBotStatus(emitStatus, { stage: 'installing', message });
