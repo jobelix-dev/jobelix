@@ -46,6 +46,7 @@ interface ProfileEditorSectionProps {
   expandedExperienceIndex?: number | null;
   expandedPublicationIndex?: number | null;
   expandedCertificationIndex?: number | null;
+  onConfirmDelete?: (message: string) => Promise<boolean>;
 }
 
 export default function ProfileEditorSection({ 
@@ -68,7 +69,8 @@ export default function ProfileEditorSection({
   expandedEducationIndex,
   expandedExperienceIndex,
   expandedPublicationIndex,
-  expandedCertificationIndex
+  expandedCertificationIndex,
+  onConfirmDelete
 }: ProfileEditorSectionProps) {
   
   // Use the custom hook for all data manipulation logic
@@ -302,6 +304,7 @@ export default function ProfileEditorSection({
                   onClick={() => setActiveProjectIndex(index)}
                   onRemove={() => handlers.removeProject(index)}
                   fieldErrors={validation?.fieldErrors?.projects?.[index]}
+                  onConfirmDelete={onConfirmDelete}
                 />
               ))}
             </div>

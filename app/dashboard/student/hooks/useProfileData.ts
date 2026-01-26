@@ -10,7 +10,6 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { api } from '@/lib/client/api';
-import { alertWithFocusRestore } from '@/lib/client/nativeDialog';
 import { validateProfile } from '@/lib/client/profileValidation';
 import { generateResumeYaml } from '@/lib/client/resumeYamlGenerator';
 import type { ExtractedResumeData } from '@/lib/shared/types';
@@ -220,7 +219,8 @@ export function useProfileData() {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
       console.error('Failed to finalize profile:', err);
-      alertWithFocusRestore(err.message || 'Failed to save profile. Please try again.');
+      // Error will be handled by calling component
+      throw err;
     } finally {
       setFinalizing(false);
     }

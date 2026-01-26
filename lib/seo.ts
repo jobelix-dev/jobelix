@@ -88,7 +88,7 @@ export function softwareApplicationJsonLd(options?: {
     url: canonicalUrl(urlPath),
     description: options?.description ?? DEFAULT_DESCRIPTION,
     applicationCategory: "BusinessApplication",
-    operatingSystem: "Windows, macOS, Linux",
+    operatingSystem: "Windows 10+, macOS 14+, Linux (Ubuntu 22.04+, Arch)",
     publisher: {
       "@id": `${siteUrl}/#organization`,
     },

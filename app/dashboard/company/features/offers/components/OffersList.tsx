@@ -10,7 +10,6 @@
 
 import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import { Trash2, Edit3 } from 'lucide-react';
-import { confirmWithFocusRestore } from '@/lib/client/nativeDialog';
 
 interface OffersListProps {
   publishedOffers: CompanyOffer[];
@@ -20,6 +19,7 @@ interface OffersListProps {
   onEditDraft: (draftId: string) => void;
   onDeleteOffer: (offerId: string) => void;
   onDeleteDraft: (draftId: string) => void;
+  onConfirm?: (message: string) => Promise<boolean>;
 }
 
 export default function OffersList({ 
@@ -29,7 +29,8 @@ export default function OffersList({
   onEditOffer,
   onEditDraft,
   onDeleteOffer,
-  onDeleteDraft
+  onDeleteDraft,
+  onConfirm
 }: OffersListProps) {
   if (loading) {
     return (
@@ -99,8 +100,13 @@ export default function OffersList({
                       <Edit3 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirmWithFocusRestore('Are you sure you want to delete this draft?')) {
+                      onClick={async () => {
+                        if (onConfirm) {
+                          const confirmed = await onConfirm('Are you sure you want to delete this draft?');
+                          if (confirmed) {
+                            onDeleteDraft(draft.id);
+                          }
+                        } else {
                           onDeleteDraft(draft.id);
                         }
                       }}
@@ -197,8 +203,13 @@ export default function OffersList({
                       <Edit3 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirmWithFocusRestore('Are you sure you want to delete this offer?')) {
+                      onClick={async () => {
+                        if (onConfirm) {
+                          const confirmed = await onConfirm('Are you sure you want to delete this offer?');
+                          if (confirmed) {
+                            onDeleteOffer(offer.id);
+                          }
+                        } else {
                           onDeleteOffer(offer.id);
                         }
                       }}

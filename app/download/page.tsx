@@ -9,10 +9,9 @@
  */
 
 import { getLatestRelease, getFallbackDownloadUrl } from '@/lib/client/github-api';
-import DownloadButton from '@/app/components/DownloadButton';
 import { CheckCircle2, Download, Sparkles } from 'lucide-react';
-import Link from 'next/link';
 import ElectronDetector from './ElectronDetector';
+import BackToDashboardLink from './BackToDashboardLink';
 import type { Metadata } from "next";
 import {
   SITE_NAME,
@@ -77,15 +76,12 @@ export default async function DownloadPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
       <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="flex items-center justify-start mb-8">
+          <BackToDashboardLink />
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12">
-          <Link 
-            href="/" 
-            className="inline-block mb-8 text-sm text-primary hover:underline"
-          >
-            ← Back to Home
-          </Link>
-          
           <h1 className="text-4xl md:text-5xl font-bold text-default mb-4">
             Download Jobelix Desktop App
           </h1>
@@ -132,7 +128,7 @@ export default async function DownloadPage() {
               One-Click Installation
             </h3>
             <p className="text-sm text-muted">
-              Simple installation process. Download, install, and start applying within minutes. Works on Windows, macOS, and Linux.
+              Simple installation process. Download, install, and start applying within minutes. Works on Windows, macOS, Ubuntu, and Arch Linux.
             </p>
           </div>
         </div>
@@ -142,20 +138,22 @@ export default async function DownloadPage() {
           <h3 className="text-lg font-semibold text-default mb-3">
             System Requirements
           </h3>
-          <div className="grid md:grid-cols-3 gap-4 text-sm text-muted">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted">
             <div>
               <p className="font-medium text-default mb-1">Windows</p>
               <p>Windows 10 or later (64-bit)</p>
             </div>
             <div>
               <p className="font-medium text-default mb-1">macOS</p>
-              {/* <p>macOS 10.15 (Catalina) or later</p> */}
-              <p>Currently not distributed on macOS.</p>
-              <p>Coming soon...</p>
+              <p>macOS 14 (Sonoma) or later</p>
             </div>
             <div>
               <p className="font-medium text-default mb-1">Linux</p>
-              <p>Ubuntu 18.04 or later (or equivalent)</p>
+              <p>Ubuntu 22.04 or later (or equivalent)</p>
+            </div>
+            <div>
+              <p className="font-medium text-default mb-1">Arch Linux</p>
+              <p>Rolling release (x86_64)</p>
             </div>
           </div>
         </div>

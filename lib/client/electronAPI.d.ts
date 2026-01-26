@@ -43,6 +43,15 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => void;
   onUpdateError: (callback: (error: { message: string; error?: string }) => void) => void;
   removeUpdateListeners: () => void;
+
+  // Bot status updates
+  onBotStatus: (callback: (payload: { 
+    stage: 'checking' | 'installing' | 'launching' | 'running'; 
+    message?: string; 
+    progress?: number; 
+    log?: string; 
+  }) => void) => void;
+  removeBotStatusListeners: () => void;
 }
 
 declare global {

@@ -13,7 +13,7 @@ import { Download, Loader2 } from 'lucide-react';
 import type { ReleaseInfo } from '@/lib/client/github-api';
 import { formatFileSize, getFallbackDownloadUrl } from '@/lib/client/github-api';
 
-type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
+type Platform = 'windows' | 'mac' | 'linux' | 'linux-arch' | 'unknown' | 'unsupported';
 
 interface DownloadButtonProps {
   releaseInfo?: ReleaseInfo;
@@ -30,10 +30,29 @@ function detectPlatform(): Platform {
   if (typeof window === 'undefined') return 'unknown';
   
   const userAgent = navigator.userAgent.toLowerCase();
+  const uaData = (navigator as any).userAgentData;
+  const uaPlatform = (uaData?.platform || navigator.platform || '').toLowerCase();
+  const isMobile = /android|iphone|ipad|ipod|ios/.test(userAgent) || /android|ios/.test(uaPlatform);
+  const isChromeOs = /cros/.test(userAgent);
   
-  if (userAgent.includes('win')) return 'windows';
-  if (userAgent.includes('mac')) return 'mac';
-  if (userAgent.includes('linux')) return 'linux';
+  if (isMobile || isChromeOs) return 'unsupported';
+
+  if (uaPlatform.includes('win') || userAgent.includes('win')) return 'windows';
+  if (uaPlatform.includes('mac') || (userAgent.includes('mac') && !userAgent.includes('iphone') && !userAgent.includes('ipad'))) return 'mac';
+  if (uaPlatform.includes('linux') || userAgent.includes('linux')) {
+    const isArch =
+      userAgent.includes('arch') ||
+      userAgent.includes('manjaro') ||
+      userAgent.includes('endeavouros') ||
+      userAgent.includes('garuda') ||
+      userAgent.includes('arco') ||
+      userAgent.includes('artix') ||
+      userAgent.includes('cachyos') ||
+      userAgent.includes('parabola') ||
+      userAgent.includes('blackarch') ||
+      userAgent.includes('rebornos');
+    return isArch ? 'linux-arch' : 'linux';
+  }
   
   return 'unknown';
 }
@@ -53,8 +72,10 @@ function trackDownload(platform: Platform, version?: string) {
 function getPlatformName(platform: Platform): string {
   switch (platform) {
     case 'windows': return 'Windows';
-    case 'mac': return 'macOS';
-    case 'linux': return 'Linux';
+    case 'mac': return 'macOS 14+';
+    case 'linux': return 'Ubuntu 22.04+';
+    case 'linux-arch': return 'Arch Linux';
+    case 'unsupported': return 'Unsupported Device';
     default: return 'Your Platform';
   }
 }
@@ -65,8 +86,8 @@ function getPlatformName(platform: Platform): string {
 function getPlatformDownload(platform: Platform, releaseInfo?: ReleaseInfo) {
   if (!releaseInfo) return null;
   
-  // Filter out 'unknown' platform before accessing assets
-  if (platform === 'unknown') return null;
+  // Filter out non-downloadable platforms before accessing assets
+  if (platform === 'unknown' || platform === 'unsupported') return null;
   
   const asset = releaseInfo.assets[platform];
   if (!asset) return null;
@@ -122,6 +143,24 @@ export default function DownloadButton({
   const platformName = getPlatformName(platform);
   const download = getPlatformDownload(platform, releaseInfo);
 
+  if (platform === 'unsupported') {
+    return (
+      <div className="space-y-2 text-center">
+        <button
+          disabled
+          className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors bg-border text-muted cursor-not-allowed ${className}`}
+        >
+          <Download className="w-5 h-5" />
+          <span>Desktop app not available for this device yet</span>
+        </button>
+        <p className="text-xs text-muted">
+          Use Windows 10/11, macOS 14+, Ubuntu 22.04+, or Arch Linux.{' '}
+          <a href={getFallbackDownloadUrl()} className="underline hover:text-warning">View all releases</a>
+        </p>
+      </div>
+    );
+  }
+
   // Handle click - track and download
   const handleDownload = () => {
     const downloadUrl = download?.url || getFallbackDownloadUrl();
@@ -155,7 +194,7 @@ export default function DownloadButton({
       {/* Show fallback link if no platform-specific download available */}
       {!download && platform !== 'unknown' && (
         <p className="text-xs text-warning text-center">
-          No installer found for {platformName}. <a href={getFallbackDownloadUrl()} className="underline hover:text-warning">View all releases</a>
+          {platformName} build is coming soon. <a href={getFallbackDownloadUrl()} className="underline hover:text-warning">View all releases</a>
         </p>
       )}
       
@@ -188,7 +227,16 @@ export default function DownloadButton({
                 onClick={() => trackDownload('linux', releaseInfo.version)}
                 className="px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors"
               >
-                Linux
+                Ubuntu 22.04+
+              </a>
+            )}
+            {releaseInfo.assets['linux-arch'] && (
+              <a
+                href={releaseInfo.assets['linux-arch'].url}
+                onClick={() => trackDownload('linux-arch', releaseInfo.version)}
+                className="px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors"
+              >
+                Arch Linux
               </a>
             )}
           </div>

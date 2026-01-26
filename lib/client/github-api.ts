@@ -34,6 +34,11 @@ export interface ReleaseInfo {
       filename: string;
       size: number;
     };
+    'linux-arch'?: {
+      url: string;
+      filename: string;
+      size: number;
+    };
   };
   htmlUrl: string;
 }
@@ -80,6 +85,17 @@ export async function getLatestRelease(): Promise<ReleaseInfo> {
     // Find platform-specific assets
     const assets: ReleaseInfo['assets'] = {};
 
+    const isArchLinuxAsset = (name: string) => {
+      const lower = name.toLowerCase();
+      if (lower.includes('aarch64') || lower.includes('arm64')) return false;
+      return lower.includes('linux-arch') || lower.includes('archlinux') || /(^|[^a-z])arch([^.a-z]|$)/.test(lower);
+    };
+
+    const isUbuntuAsset = (name: string) => {
+      const lower = name.toLowerCase();
+      return lower.includes('ubuntu-22.04') || lower.includes('ubuntu');
+    };
+
     for (const asset of data.assets) {
       const name = asset.name.toLowerCase();
       
@@ -101,13 +117,21 @@ export async function getLatestRelease(): Promise<ReleaseInfo> {
         };
       }
       
-      // Linux: .AppImage
+      // Linux: .AppImage (split Arch vs other Linux when tagged)
       else if (name.endsWith('.appimage')) {
-        assets.linux = {
-          url: asset.browser_download_url,
-          filename: asset.name,
-          size: asset.size,
-        };
+        if (isArchLinuxAsset(name)) {
+          assets['linux-arch'] = {
+            url: asset.browser_download_url,
+            filename: asset.name,
+            size: asset.size,
+          };
+        } else if (!assets.linux || isUbuntuAsset(name)) {
+          assets.linux = {
+            url: asset.browser_download_url,
+            filename: asset.name,
+            size: asset.size,
+          };
+        }
       }
     }
 

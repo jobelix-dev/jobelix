@@ -37,6 +37,7 @@ export const PLATFORM_FOLDERS = {
   WINDOWS: 'win',
   MAC: 'mac',
   LINUX: 'linux',
+  LINUX_ARCH: 'linux-arch',
 };
 
 // Executable names
@@ -91,6 +92,7 @@ export const IPC_CHANNELS = {
   UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
   UPDATE_DOWNLOADED: 'update-downloaded',
   UPDATE_ERROR: 'update-error',
+  BOT_STATUS: 'bot-status',
   
   // Renderer → Main (handlers)
   READ_CONFIG: 'read-config',

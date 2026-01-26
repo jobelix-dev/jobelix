@@ -5,13 +5,25 @@
 import { useState, useCallback } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 
+type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
+
+interface BotLaunchStatus {
+  stage: BotLaunchStage;
+  message?: string;
+  progress?: number;
+  logs: string[];
+}
+
 export function useBotLauncher() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [launchStatus, setLaunchStatus] = useState<BotLaunchStatus | null>(null);
 
   const launchBot = useCallback(async () => {
     setLaunching(true);
     setError(null);
+    setLaunchStatus(null);
+    let statusListenerAttached = false;
 
     try {
       // Check if running in Electron app
@@ -86,6 +98,39 @@ export function useBotLauncher() {
       const { session_id } = await sessionResponse.json();
       console.log('Bot session created:', session_id);
 
+      setLaunchStatus({
+        stage: 'checking',
+        message: 'Checking browser...',
+        logs: [],
+      });
+
+      const handleBotStatus = (payload: {
+        stage: BotLaunchStage;
+        message?: string;
+        progress?: number;
+        log?: string;
+      }) => {
+        setLaunchStatus((prev) => {
+          const nextStage = payload.stage ?? prev?.stage ?? 'checking';
+          const stageChanged = prev?.stage && nextStage !== prev.stage;
+          const nextLogs = payload.log
+            ? [...(prev?.logs ?? []), payload.log].slice(-200)
+            : prev?.logs ?? [];
+
+          return {
+            stage: nextStage,
+            message: payload.message ?? (stageChanged ? undefined : prev?.message),
+            progress: payload.progress ?? (stageChanged ? undefined : prev?.progress),
+            logs: nextLogs,
+          };
+        });
+      };
+
+      if (window.electronAPI?.onBotStatus) {
+        window.electronAPI.onBotStatus(handleBotStatus);
+        statusListenerAttached = true;
+      }
+
       // Launch the bot via Electron IPC
       const result = await window.electronAPI.launchBot(token);
       
@@ -102,10 +147,18 @@ export function useBotLauncher() {
       console.error('Launch error:', err);
       const message = err instanceof Error ? err.message : 'Failed to launch bot';
       setError(message);
+      setLaunchStatus((prev) =>
+        prev
+          ? { ...prev, message, stage: prev.stage === 'running' ? prev.stage : 'launching' }
+          : null
+      );
       setTimeout(() => setError(null), 5000);
       return { success: false, error: message };
     } finally {
       setLaunching(false);
+      if (statusListenerAttached && window.electronAPI?.removeBotStatusListeners) {
+        window.electronAPI.removeBotStatusListeners();
+      }
     }
   }, []);
 
@@ -117,6 +170,7 @@ export function useBotLauncher() {
     launching,
     error,
     launchBot,
+    launchStatus,
     clearError,
   };
 }

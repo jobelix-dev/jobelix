@@ -62,7 +62,16 @@ export function setupIpcHandlers() {
   // Handler: Launch bot automation
   ipcMain.handle(IPC_CHANNELS.LAUNCH_BOT, async (event, token) => {
     logger.ipc(IPC_CHANNELS.LAUNCH_BOT, 'Launching bot');
-    const result = await launchBot(token);
+    const sendBotStatus = (payload) => {
+      try {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.BOT_STATUS, payload);
+        }
+      } catch (error) {
+        logger.warn('Failed to send bot status update:', error);
+      }
+    };
+    const result = await launchBot(token, sendBotStatus);
     
     if (result.success) {
       logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launched with PID: ${result.pid}`);
