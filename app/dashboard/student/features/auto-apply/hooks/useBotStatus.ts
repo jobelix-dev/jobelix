@@ -14,17 +14,12 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
-import { BotSession } from '@/lib/shared/types';
+import { BotSession, HistoricalTotals } from '@/lib/shared/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-
-interface HistoricalTotals {
-  jobs_found: number;
-  jobs_applied: number;
-  jobs_failed: number;
-  credits_used: number;
-}
+import { POLLING_INTERVAL_MS } from '@/lib/bot-status/constants';
+import { debugLog } from '@/lib/bot-status/debug';
 
 interface UseBotStatusReturn {
   session: BotSession | null;
@@ -46,7 +41,10 @@ export function useBotStatus(): UseBotStatusReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const supabase = createClient();
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Create supabase client once and reuse it
+  const supabase = useMemo(() => createClient(), []);
 
   // Fetch current session from API
   const fetchSession = useCallback(async () => {
@@ -67,7 +65,7 @@ export function useBotStatus(): UseBotStatusReturn {
       }
       
     } catch (err: any) {
-      console.error('[useBotStatus] Fetch error:', err);
+      debugLog.error('[useBotStatus] Fetch error:', err);
       setError(err.message || 'Failed to load bot status');
     } finally {
       setLoading(false);
@@ -99,7 +97,7 @@ export function useBotStatus(): UseBotStatusReturn {
       return { success: true };
       
     } catch (err: any) {
-      console.error('[useBotStatus] Stop error:', err);
+      debugLog.error('[useBotStatus] Stop error:', err);
       return { success: false, error: err.message || 'Failed to stop bot' };
     }
   }, [session, fetchSession]);
@@ -126,7 +124,7 @@ export function useBotStatus(): UseBotStatusReturn {
           // Filter handled by RLS - only user's own sessions visible
         },
         (payload) => {
-          console.log('[useBotStatus] Realtime update:', payload);
+          debugLog.botStatus('Realtime update:', payload);
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             setSession(payload.new as BotSession);
@@ -136,24 +134,22 @@ export function useBotStatus(): UseBotStatusReturn {
         }
       )
       .subscribe((status, err) => {
-        console.log('[useBotStatus] Subscription status:', status);
+        debugLog.botStatus('Subscription status:', status);
         if (err) {
-          console.error('[useBotStatus] Subscription error:', err);
+          debugLog.error('[useBotStatus] Subscription error:', err);
         }
         
         if (status === 'SUBSCRIBED') {
-          console.log('[useBotStatus] Real-time subscription active');
+          debugLog.botStatus('Real-time subscription active');
           setError(null); // Clear any previous errors
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[useBotStatus] Subscription failed, falling back to polling');
+          debugLog.warn('[useBotStatus] Subscription failed, falling back to polling');
           // Don't set error - polling will handle updates
           
           // Set up polling as fallback
-          const pollInterval = setInterval(() => {
+          pollIntervalRef.current = setInterval(() => {
             fetchSession();
-          }, 2000); // Poll every 2 seconds
-          
-          return () => clearInterval(pollInterval);
+          }, POLLING_INTERVAL_MS);
         }
       });
 
@@ -161,10 +157,14 @@ export function useBotStatus(): UseBotStatusReturn {
 
     // Cleanup on unmount
     return () => {
-      console.log('[useBotStatus] Cleaning up subscription');
+      debugLog.botStatus('Cleaning up subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
+      }
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
   }, [fetchSession, supabase]);
