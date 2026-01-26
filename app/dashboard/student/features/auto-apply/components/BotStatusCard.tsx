@@ -32,12 +32,22 @@ interface HistoricalTotals {
   credits_used: number;
 }
 
+type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
+
+interface BotLaunchStatus {
+  stage: BotLaunchStage;
+  message?: string;
+  progress?: number;
+  logs: string[];
+}
+
 interface BotStatusCardProps {
   session: BotSession;
   historicalTotals: HistoricalTotals;
   onStop: () => Promise<{ success: boolean; error?: string }>;
   onLaunch?: () => Promise<{ success: boolean; error?: string }>;
   onShowInstructions?: () => void;
+  launchStatus?: BotLaunchStatus | null;
 }
 
 // Activity messages for user-friendly display
@@ -93,11 +103,17 @@ function getStatusDisplay(status: BotSession['status']) {
   }
 }
 
-export default function BotStatusCard({ session, historicalTotals, onStop, onLaunch, onShowInstructions }: BotStatusCardProps) {
+export default function BotStatusCard({ session, historicalTotals, onStop, onLaunch, onShowInstructions, launchStatus }: BotStatusCardProps) {
   const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
   const statusDisplay = getStatusDisplay(session.status);
   const isActive = session.status === 'starting' || session.status === 'running';
   const isCompleted = session.status === 'completed' || session.status === 'failed' || session.status === 'stopped';
+  const installProgress =
+    typeof launchStatus?.progress === 'number'
+      ? Math.max(0, Math.min(100, launchStatus.progress))
+      : null;
+  const showLaunchSetup =
+    launchStatus && ['checking', 'installing', 'launching'].includes(launchStatus.stage);
   const [elapsedSeconds, setElapsedSeconds] = useState(() => {
     if (!session.started_at) return 0;
     const start = new Date(session.started_at).getTime();
@@ -230,6 +246,43 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
           </div>
         ) : null}
       </div>
+
+      {showLaunchSetup && (
+        <div className="rounded-lg border border-primary/20 bg-primary-subtle/20 p-3">
+          <div className="flex items-center gap-2 text-sm text-default">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="font-medium">
+              {launchStatus.message ||
+                (launchStatus.stage === 'checking'
+                  ? 'Checking browser...'
+                  : launchStatus.stage === 'installing'
+                  ? 'Downloading Chromium (first run only)...'
+                  : 'Launching bot...')}
+            </span>
+            {launchStatus.stage === 'installing' && (
+              <span className="text-[10px] uppercase tracking-wide text-primary bg-primary-subtle/30 border border-primary/30 rounded-full px-2 py-0.5">
+                First run
+              </span>
+            )}
+            {typeof installProgress === 'number' && (
+              <span className="text-xs text-muted">{installProgress}%</span>
+            )}
+          </div>
+          {typeof installProgress === 'number' && (
+            <div className="mt-2">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${installProgress}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted">
+                One-time setup: Chromium is downloaded on first launch only.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Current Activity */}
       {isActive && activityMessage && (

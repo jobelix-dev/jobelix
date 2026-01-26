@@ -295,6 +295,7 @@ async function installPlaywrightChromium(playwrightPath, emitStatus, bundledCliP
 
 async function ensureChromiumInstalled(emitStatus, bundledCliPath) {
   const playwrightPath = getPlaywrightBrowsersPath();
+  logger.info(`Playwright browsers path: ${playwrightPath}`);
 
   emitBotStatus(emitStatus, {
     stage: 'checking',

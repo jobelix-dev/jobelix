@@ -36,6 +36,11 @@ export default function LaunchButton({
 }: LaunchButtonProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const installProgress =
+    typeof launchStatus?.progress === 'number'
+      ? Math.max(0, Math.min(100, launchStatus.progress))
+      : null;
+  const isInstalling = launchStatus?.stage === 'installing';
 
   const handleClick = () => {
     if (!canLaunch) {
@@ -182,15 +187,33 @@ export default function LaunchButton({
                 (launchStatus.stage === 'checking'
                   ? 'Checking browser...'
                   : launchStatus.stage === 'installing'
-                  ? 'Installing browser (first run only)... may take a minute.'
+                  ? 'Downloading Chromium (first run only)...'
                   : launchStatus.stage === 'launching'
                   ? 'Launching bot...'
                   : 'Bot running.')}
             </span>
-            {typeof launchStatus.progress === 'number' && (
-              <span className="text-xs text-muted">{launchStatus.progress}%</span>
+            {isInstalling && (
+              <span className="text-[10px] uppercase tracking-wide text-primary bg-primary-subtle/30 border border-primary/30 rounded-full px-2 py-0.5">
+                First run
+              </span>
+            )}
+            {typeof installProgress === 'number' && (
+              <span className="text-xs text-muted">{installProgress}%</span>
             )}
           </div>
+          {typeof installProgress === 'number' && (
+            <div className="mt-2">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${installProgress}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted">
+                Downloading browser on first launch. This is a one-time setup.
+              </p>
+            </div>
+          )}
           {launchStatus.logs.length > 0 && (
             <div className="mt-2 max-h-28 overflow-y-auto rounded-md border border-border bg-muted/10 px-2 py-1 text-[11px] text-muted font-mono">
               {launchStatus.logs.slice(-8).map((line, index) => (
