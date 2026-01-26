@@ -91,6 +91,11 @@ export async function getLatestRelease(): Promise<ReleaseInfo> {
       return lower.includes('linux-arch') || lower.includes('archlinux') || /(^|[^a-z])arch([^.a-z]|$)/.test(lower);
     };
 
+    const isUbuntuAsset = (name: string) => {
+      const lower = name.toLowerCase();
+      return lower.includes('ubuntu-22.04') || lower.includes('ubuntu');
+    };
+
     for (const asset of data.assets) {
       const name = asset.name.toLowerCase();
       
@@ -114,14 +119,20 @@ export async function getLatestRelease(): Promise<ReleaseInfo> {
       
       // Linux: .AppImage (split Arch vs other Linux when tagged)
       else if (name.endsWith('.appimage')) {
-        const isArch = isArchLinuxAsset(name);
-        const key = isArch ? 'linux-arch' : 'linux';
-        assets[key] = {
-          url: asset.browser_download_url,
-          filename: asset.name,
-          size: asset.size,
-        };
-      }      
+        if (isArchLinuxAsset(name)) {
+          assets['linux-arch'] = {
+            url: asset.browser_download_url,
+            filename: asset.name,
+            size: asset.size,
+          };
+        } else if (!assets.linux || isUbuntuAsset(name)) {
+          assets.linux = {
+            url: asset.browser_download_url,
+            filename: asset.name,
+            size: asset.size,
+          };
+        }
+      }
     }
 
     return {

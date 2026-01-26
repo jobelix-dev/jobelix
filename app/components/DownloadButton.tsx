@@ -72,8 +72,8 @@ function trackDownload(platform: Platform, version?: string) {
 function getPlatformName(platform: Platform): string {
   switch (platform) {
     case 'windows': return 'Windows';
-    case 'mac': return 'macOS';
-    case 'linux': return 'Linux';
+    case 'mac': return 'macOS 14+';
+    case 'linux': return 'Ubuntu 22.04+';
     case 'linux-arch': return 'Arch Linux';
     case 'unsupported': return 'Unsupported Device';
     default: return 'Your Platform';
@@ -227,7 +227,7 @@ export default function DownloadButton({
                 onClick={() => trackDownload('linux', releaseInfo.version)}
                 className="px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors"
               >
-                Linux
+                Ubuntu 22.04+
               </a>
             )}
             {releaseInfo.assets['linux-arch'] && (
