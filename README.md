@@ -283,5 +283,10 @@ Arch Linux:
 - `npm run fetch:bot` will skip download on Arch and use the existing runtime.
 - Packaged builds include both `linux` (Ubuntu-family) and `linux-arch` resources.
 
-Current version
+mac setup
+install latest node version with nvm and gh
+npm i
+gh auth login ====== log in to jobelix-dev acc to fetch releases...
+export GITHUB_TOKEN=$(gh auth token)
 PY_RUNTIME_TAG=py-runtime-v0.0.1 npm run fetch:bot
+brew install supabase/tap/supabase
