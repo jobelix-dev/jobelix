@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.2.5",
+  "version": "1.0.0",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
@@ -11,9 +11,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build-installer": "npm run fetch:bot && electron-builder",
-    "dist": "npm run fetch:bot && electron-builder",
-    "release": "npm run fetch:bot && electron-builder --publish always"
+    "build-installer": "npm run fetch:bot && node scripts/release.mjs",
+    "dist": "npm run fetch:bot && node scripts/release.mjs",
+    "release": "npm run fetch:bot && node scripts/release.mjs --publish always",
+    "postinstall": "patch-package"
   },
   "build": {
     "appId": "com.jobelix.app",
@@ -64,7 +65,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-windows-setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -75,7 +77,8 @@
       "target": "dmg",
       "icon": "build/icon.icns",
       "category": "public.app-category.utilities",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "artifactName": "${productName}-${version}-macos-14.${ext}"
     },
     "dmg": {
       "contents": [
@@ -94,7 +97,8 @@
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png",
-      "category": "Utility"
+      "category": "Utility",
+      "artifactName": "${productName}-${version}-${env.JOBELIX_LINUX_LABEL}.${ext}"
     }
   },
   "dependencies": {
@@ -126,7 +130,6 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -136,6 +139,7 @@
     "electron-builder": "^26.4.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.0",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
