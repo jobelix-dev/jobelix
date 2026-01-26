@@ -108,7 +108,12 @@ export function useBotStatus(): UseBotStatusReturn {
 
     // Subscribe to bot_sessions changes for current user
     const channel = supabase
-      .channel('bot-status')
+      .channel('bot-status', {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' },
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -127,14 +132,25 @@ export function useBotStatus(): UseBotStatusReturn {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('[useBotStatus] Subscription status:', status);
+        if (err) {
+          console.error('[useBotStatus] Subscription error:', err);
+        }
         
         if (status === 'SUBSCRIBED') {
           console.log('[useBotStatus] Real-time subscription active');
+          setError(null); // Clear any previous errors
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[useBotStatus] Subscription failed, falling back to polling');
-          setError('Real-time updates unavailable');
+          console.warn('[useBotStatus] Subscription failed, falling back to polling');
+          // Don't set error - polling will handle updates
+          
+          // Set up polling as fallback
+          const pollInterval = setInterval(() => {
+            fetchSession();
+          }, 2000); // Poll every 2 seconds
+          
+          return () => clearInterval(pollInterval);
         }
       });
 
