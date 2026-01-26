@@ -77,7 +77,7 @@ export default function CreditsPanel({
             disabled={claiming}
             className="px-3 py-1.5 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {claiming ? 'Claiming...' : '🎁 Claim 25'}
+            {claiming ? 'Claiming...' : '🎁 Claim 50'}
           </button>
           <button 
             onClick={handleBuy}
