@@ -229,6 +229,7 @@ export default function AutoApplyTab() {
                 onStop={botStatus.stopBot}
                 onLaunch={canLaunch ? handleLaunchBot : undefined}
                 onShowInstructions={() => setShowInstructions(true)}
+                launchStatus={botLauncher.launchStatus}
               />
             ) : (
               <LaunchButton
