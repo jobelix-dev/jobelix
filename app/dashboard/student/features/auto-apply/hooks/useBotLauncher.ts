@@ -2,27 +2,38 @@
  * Custom hook for bot launch logic
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-
-type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
-
-interface BotLaunchStatus {
-  stage: BotLaunchStage;
-  message?: string;
-  progress?: number;
-  logs: string[];
-}
+import { BotLaunchStage, BotLaunchStatus } from '@/lib/shared/types';
+import { ERROR_DISPLAY_DURATION_MS, MAX_LOGS_IN_MEMORY } from '@/lib/bot-status/constants';
+import { debugLog } from '@/lib/bot-status/debug';
 
 export function useBotLauncher() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [launchStatus, setLaunchStatus] = useState<BotLaunchStatus | null>(null);
+  const listenerAttachedRef = useRef(false);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const launchBot = useCallback(async () => {
     setLaunching(true);
     setError(null);
     setLaunchStatus(null);
+    listenerAttachedRef.current = false;
+
+    // Clear any existing error timeout
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+
+    const setErrorWithTimeout = (message: string) => {
+      setError(message);
+      errorTimeoutRef.current = setTimeout(() => {
+        setError(null);
+        errorTimeoutRef.current = null;
+      }, ERROR_DISPLAY_DURATION_MS);
+    };
 
     try {
       // Check if running in Electron app
@@ -36,9 +47,8 @@ export function useBotLauncher() {
       const profileCheckResponse = await fetch('/api/student/profile/published');
       if (!profileCheckResponse.ok) {
         const message = 'Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.';
-        setError(message);
+        setErrorWithTimeout(message);
         setLaunching(false);
-        setTimeout(() => setError(null), 5000);
         return { success: false, error: message };
       }
       
@@ -47,15 +57,14 @@ export function useBotLauncher() {
       // Verify essential profile data exists
       if (!profileData.student || !profileData.student.first_name || !profileData.student.last_name) {
         const message = 'Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.';
-        setError(message);
+        setErrorWithTimeout(message);
         setLaunching(false);
-        setTimeout(() => setError(null), 5000);
         return { success: false, error: message };
       }
 
       // Ensure YAML config exists locally (important for users who filled data online first)
       try {
-        console.log('Ensuring YAML config exists locally...');
+        debugLog.general('Ensuring YAML config exists locally...');
         const prefsResponse = await fetch('/api/student/work-preferences');
         if (!prefsResponse.ok) {
           throw new Error('Failed to fetch work preferences');
@@ -63,10 +72,10 @@ export function useBotLauncher() {
         const prefsData = await prefsResponse.json();
         if (prefsData.preferences) {
           await exportPreferencesToYAML(prefsData.preferences);
-          console.log('YAML config ensured locally');
+          debugLog.general('YAML config ensured locally');
         }
       } catch (yamlError) {
-        console.error('Failed to ensure YAML config:', yamlError);
+        debugLog.error('Failed to ensure YAML config:', yamlError);
         throw new Error('Failed to create local config file. Please save your job preferences again.');
       }
 
@@ -78,7 +87,7 @@ export function useBotLauncher() {
       const { token } = await tokenResponse.json();
 
       // Create initial bot session on backend
-      console.log('Creating bot session...');
+      debugLog.general('Creating bot session...');
       const sessionResponse = await fetch('/api/autoapply/bot/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -95,7 +104,7 @@ export function useBotLauncher() {
       }
 
       const { session_id } = await sessionResponse.json();
-      console.log('Bot session created:', session_id);
+      debugLog.general('Bot session created:', session_id);
 
       setLaunchStatus({
         stage: 'checking',
@@ -109,12 +118,12 @@ export function useBotLauncher() {
         progress?: number;
         log?: string;
       }) => {
-        console.log('[useBotLauncher] Received bot status:', payload);
+        debugLog.botLauncher('Received bot status:', payload);
         setLaunchStatus((prev) => {
           const nextStage = payload.stage ?? prev?.stage ?? 'checking';
           const stageChanged = prev?.stage && nextStage !== prev.stage;
           const nextLogs = payload.log
-            ? [...(prev?.logs ?? []), payload.log].slice(-200)
+            ? [...(prev?.logs ?? []), payload.log].slice(-MAX_LOGS_IN_MEMORY)
             : prev?.logs ?? [];
 
           const nextState = {
@@ -123,56 +132,70 @@ export function useBotLauncher() {
             progress: payload.progress ?? (stageChanged ? undefined : prev?.progress),
             logs: nextLogs,
           };
-          console.log('[useBotLauncher] Updated launchStatus:', nextState);
+          debugLog.botLauncher('Updated launchStatus:', nextState);
           return nextState;
         });
       };
 
       if (window.electronAPI?.onBotStatus) {
-        console.log('[useBotLauncher] Registering bot status listener');
+        debugLog.botLauncher('Registering bot status listener');
         window.electronAPI.onBotStatus(handleBotStatus);
+        listenerAttachedRef.current = true;
       } else {
-        console.warn('[useBotLauncher] electronAPI.onBotStatus not available!');
+        debugLog.warn('[useBotLauncher] electronAPI.onBotStatus not available!');
       }
 
       // Launch the bot via Electron IPC
-      console.log('[useBotLauncher] Calling electronAPI.launchBot...');
+      debugLog.botLauncher('Calling electronAPI.launchBot...');
       const result = await window.electronAPI.launchBot(token);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to launch bot');
       }
       
-      console.log('Bot launched:', result);
-      console.log('Platform:', result.platform, 'PID:', result.pid);
-      console.log('Session ID:', session_id);
+      debugLog.general('Bot launched:', result);
+      debugLog.general('Platform:', result.platform, 'PID:', result.pid);
+      debugLog.general('Session ID:', session_id);
       
       return { success: true };
     } catch (err) {
-      console.error('Launch error:', err);
+      debugLog.error('Launch error:', err);
       const message = err instanceof Error ? err.message : 'Failed to launch bot';
-      setError(message);
+      setErrorWithTimeout(message);
       setLaunchStatus((prev) =>
         prev
           ? { ...prev, message, stage: prev.stage === 'running' ? prev.stage : 'launching' }
           : null
       );
-      setTimeout(() => setError(null), 5000);
       return { success: false, error: message };
     } finally {
       setLaunching(false);
+      // Clean up listener if it was attached
+      if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
+        window.electronAPI.removeBotStatusListeners();
+        listenerAttachedRef.current = false;
+      }
     }
   }, []);
 
   const clearError = useCallback(() => {
     setError(null);
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
   }, []);
 
-  // Cleanup bot status listeners on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (window.electronAPI?.removeBotStatusListeners) {
+      if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
         window.electronAPI.removeBotStatusListeners();
+        listenerAttachedRef.current = false;
+      }
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+        errorTimeoutRef.current = null;
       }
     };
   }, []);

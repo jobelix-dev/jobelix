@@ -7,15 +7,8 @@
 import { useEffect, useState } from 'react';
 import { Rocket, AlertCircle, Info, Download, X, LogIn, MousePointer2Off, StopCircle, Shield, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-
-type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
-
-interface BotLaunchStatus {
-  stage: BotLaunchStage;
-  message?: string;
-  progress?: number;
-  logs: string[];
-}
+import { BotLaunchStatus } from '@/lib/shared/types';
+import { PROGRESS_SIMULATION_INTERVAL_MS, SIMULATED_INSTALL_DURATION_MS, MAX_LOGS_TO_DISPLAY } from '@/lib/bot-status/constants';
 
 interface LaunchButtonProps {
   canLaunch: boolean;
@@ -55,9 +48,7 @@ export default function LaunchButton({
       return;
     }
 
-    const intervalMs = 150;
-    const totalMs = 15000;
-    const increment = 99 / (totalMs / intervalMs);
+    const increment = 99 / (SIMULATED_INSTALL_DURATION_MS / PROGRESS_SIMULATION_INTERVAL_MS);
     setSimulatedProgress(0);
 
     const intervalId = window.setInterval(() => {
@@ -65,7 +56,7 @@ export default function LaunchButton({
         if (prev === null) return 0;
         return Math.min(99, prev + increment);
       });
-    }, intervalMs);
+    }, PROGRESS_SIMULATION_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
   }, [isInstalling, installProgress]);
@@ -238,8 +229,8 @@ export default function LaunchButton({
               </div>
               {launchStatus.logs.length > 0 && (
                 <div className="max-h-28 overflow-y-auto rounded-md border border-border bg-muted/10 px-2 py-1 text-[11px] text-muted font-mono">
-                  {launchStatus.logs.slice(-8).map((line, index) => (
-                    <div key={index}>{line}</div>
+                  {launchStatus.logs.slice(-MAX_LOGS_TO_DISPLAY).map((line, index) => (
+                    <div key={`${index}-${line.slice(0, 20)}`}>{line}</div>
                   ))}
                 </div>
               )}

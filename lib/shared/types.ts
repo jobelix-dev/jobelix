@@ -411,3 +411,20 @@ export interface BotSession {
   created_at: string;
   updated_at: string;
 }
+
+// Bot Launch Types
+export type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
+
+export interface BotLaunchStatus {
+  stage: BotLaunchStage;
+  message?: string;
+  progress?: number;
+  logs: string[];
+}
+
+export interface HistoricalTotals {
+  jobs_found: number;
+  jobs_applied: number;
+  jobs_failed: number;
+  credits_used: number;
+}
