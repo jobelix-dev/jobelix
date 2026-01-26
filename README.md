@@ -1,6 +1,6 @@
 # Jobelix - Job Application Platform 
 
-Jobelix is a modern job application platform built with Next.js that connects students with companies. It features AI-powered resume parsing, real-time chat validation, and a comprehensive application tracking system.
+Jobelix is a modern job application platform built with Next.js that connects students with companies. It features AI-powered resume parsing, real-time chat validation, and a comprehensive application tracking system!
 
 ## 🎯 What is Jobelix?
 
