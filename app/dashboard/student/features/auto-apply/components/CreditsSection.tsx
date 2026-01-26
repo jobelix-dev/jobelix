@@ -101,7 +101,7 @@ export default function CreditsSection({
           <Gift className="w-5 h-5 text-success" />
           <div>
             <p className="text-sm font-medium text-default">Daily Free Credits</p>
-            <p className="text-xs text-muted">Claim 25 credits every day</p>
+            <p className="text-xs text-muted">Claim 50 credits every day</p>
           </div>
         </div>
         <button
@@ -109,7 +109,7 @@ export default function CreditsSection({
           disabled={claiming}
           className="px-4 py-2 text-sm font-medium bg-success hover:bg-success/90 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {claiming ? 'Claiming...' : 'Claim 25'}
+          {claiming ? 'Claiming...' : 'Claim 50'}
         </button>
       </div>
 
