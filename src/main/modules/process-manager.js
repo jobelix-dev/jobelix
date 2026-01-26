@@ -309,7 +309,7 @@ async function ensureChromiumInstalled(emitStatus, bundledCliPath) {
 
   emitBotStatus(emitStatus, {
     stage: 'installing',
-    message: 'Installing browser (first run only)... may take a minute.',
+    message: 'Preparing browser for first-time setup.',
   });
 
   const installResult = await installPlaywrightChromium(playwrightPath, emitStatus, bundledCliPath);

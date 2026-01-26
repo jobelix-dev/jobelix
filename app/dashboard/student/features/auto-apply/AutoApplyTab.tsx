@@ -12,8 +12,8 @@ import { AlertCircle, Search, FileText, ClipboardCheck, Zap, Info, LogIn, MouseP
 import CreditsSection from './components/CreditsSection';
 import LaunchButton from './components/LaunchButton';
 import BotStatusCard from './components/BotStatusCard';
-import { useCredits, usePreferences, useBotLauncher } from '../job-preferences/hooks';
-import { useBotStatus } from './hooks/useBotStatus';
+import { usePreferences } from '../job-preferences/hooks';
+import { useBotLauncher, useCredits, useBotStatus } from './hooks';
 
 export default function AutoApplyTab() {
   const [profilePublished, setProfilePublished] = useState(false);
@@ -221,8 +221,8 @@ export default function AutoApplyTab() {
           </div>
         ) : (
           <>
-            {/* Show status card if session exists (with launch button when completed), otherwise show launch button */}
-            {botStatus.session ? (
+            {/* Show status card only for active sessions or recently completed sessions */}
+            {botStatus.session && (botStatus.session.status === 'starting' || botStatus.session.status === 'running') ? (
               <BotStatusCard 
                 session={botStatus.session}
                 historicalTotals={botStatus.historicalTotals}
@@ -231,6 +231,18 @@ export default function AutoApplyTab() {
                 onShowInstructions={() => setShowInstructions(true)}
                 launchStatus={botLauncher.launchStatus}
               />
+            ) : botStatus.session && (botStatus.session.status === 'completed' || botStatus.session.status === 'failed' || botStatus.session.status === 'stopped') ? (
+              /* Show recent session summary, then launch button below */
+              <div className="space-y-4">
+                <BotStatusCard 
+                  session={botStatus.session}
+                  historicalTotals={botStatus.historicalTotals}
+                  onStop={botStatus.stopBot}
+                  onLaunch={canLaunch ? handleLaunchBot : undefined}
+                  onShowInstructions={() => setShowInstructions(true)}
+                  launchStatus={botLauncher.launchStatus}
+                />
+              </div>
             ) : (
               <LaunchButton
                 canLaunch={canLaunch}
