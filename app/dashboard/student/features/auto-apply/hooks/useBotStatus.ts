@@ -93,13 +93,16 @@ export function useBotStatus(): UseBotStatusReturn {
         return { success: false, error: data.error || 'Failed to stop bot' };
       }
 
+      // Force refresh to get updated status
+      await fetchSession();
+
       return { success: true };
       
     } catch (err: any) {
       console.error('[useBotStatus] Stop error:', err);
       return { success: false, error: err.message || 'Failed to stop bot' };
     }
-  }, [session]);
+  }, [session, fetchSession]);
 
   // Set up Realtime subscription
   useEffect(() => {

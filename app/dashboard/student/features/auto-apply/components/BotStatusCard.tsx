@@ -112,8 +112,10 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
     typeof launchStatus?.progress === 'number'
       ? Math.max(0, Math.min(100, launchStatus.progress))
       : null;
-  const showLaunchSetup =
-    launchStatus && ['checking', 'installing', 'launching'].includes(launchStatus.stage);
+  const isInstalling = launchStatus?.stage === 'installing';
+  const showSetupMessage =
+    launchStatus && ['checking', 'launching'].includes(launchStatus.stage);
+  const [simulatedProgress, setSimulatedProgress] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(() => {
     if (!session.started_at) return 0;
     const start = new Date(session.started_at).getTime();
@@ -122,6 +124,37 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
       : Date.now();
     return Math.max(0, Math.floor((end - start) / 1000));
   });
+
+  useEffect(() => {
+    if (!isInstalling) {
+      setSimulatedProgress(null);
+      return;
+    }
+    if (typeof installProgress === 'number') {
+      setSimulatedProgress(null);
+      return;
+    }
+
+    const intervalMs = 150;
+    const totalMs = 15000;
+    const increment = 99 / (totalMs / intervalMs);
+    setSimulatedProgress(0);
+
+    const intervalId = window.setInterval(() => {
+      setSimulatedProgress((prev) => {
+        if (prev === null) return 0;
+        return Math.min(99, prev + increment);
+      });
+    }, intervalMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [isInstalling, installProgress]);
+
+  const displayProgress =
+    typeof installProgress === 'number'
+      ? Math.max(installProgress, simulatedProgress ?? 0)
+      : simulatedProgress ?? 0;
+  const progressValue = Math.max(0, Math.min(100, Math.round(displayProgress)));
 
   // Calculate display values (combined totals + session delta)
   const displayStats = useMemo(() => {
@@ -185,9 +218,19 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
   const activityMessage = session.current_activity 
     ? ACTIVITY_MESSAGES[session.current_activity] || session.current_activity
     : null;
+  const showActivityCard = isActive && activityMessage && !isInstalling;
 
   // Handle stop button click
   const handleStop = async () => {
+    // Double-check status before showing confirmation
+    if (session.status !== 'starting' && session.status !== 'running') {
+      await alert(
+        `Cannot stop bot: session is already ${session.status}. Try refreshing the page.`,
+        { title: 'Bot Status Changed' }
+      );
+      return;
+    }
+
     const confirmed = await confirm(
       'Are you sure you want to stop the bot? The current operation will complete before stopping.',
       { title: 'Stop Bot', variant: 'danger', confirmText: 'Stop', cancelText: 'Cancel' }
@@ -206,14 +249,12 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
     <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {statusDisplay.icon}
-          <div>
-            <h3 className="font-semibold text-default">Bot Status</h3>
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusDisplay.pill}`}>
-              {statusDisplay.text}
-            </span>
-          </div>
+        <div>
+          <h3 className="font-semibold text-default mb-1">Bot Status</h3>
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusDisplay.pill}`}>
+            {statusDisplay.icon}
+            <span className="ml-1.5">{statusDisplay.text}</span>
+          </span>
         </div>
         
         {/* Action Button */}
@@ -247,45 +288,56 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
         ) : null}
       </div>
 
-      {showLaunchSetup && (
-        <div className="rounded-lg border border-primary/20 bg-primary-subtle/20 p-3">
+      {isInstalling && launchStatus && (
+        <div className="rounded-xl border border-primary/20 bg-primary-subtle/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <div>
+                <p className="text-sm font-semibold text-default">Preparing browser</p>
+                <p className="text-xs text-muted">
+                  {launchStatus.message || 'Downloading Chromium for first-time setup.'}
+                </p>
+              </div>
+              <div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-150"
+                    style={{ width: `${progressValue}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[11px] text-muted">
+                  <span>{progressValue}%</span>
+                </div>
+              </div>
+              {launchStatus.logs.length > 0 && (
+                <div className="max-h-28 overflow-y-auto rounded-md border border-border bg-muted/10 px-2 py-1 text-[11px] text-muted font-mono">
+                  {launchStatus.logs.slice(-8).map((line, index) => (
+                    <div key={index}>{line}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isInstalling && showSetupMessage && !showActivityCard && launchStatus && (
+        <div className="rounded-lg border border-primary/20 bg-primary-subtle/10 p-3">
           <div className="flex items-center gap-2 text-sm text-default">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span className="font-medium">
               {launchStatus.message ||
-                (launchStatus.stage === 'checking'
-                  ? 'Checking browser...'
-                  : launchStatus.stage === 'installing'
-                  ? 'Downloading Chromium (first run only)...'
-                  : 'Launching bot...')}
+                (launchStatus.stage === 'checking' ? 'Checking browser...' : 'Launching bot...')}
             </span>
-            {launchStatus.stage === 'installing' && (
-              <span className="text-[10px] uppercase tracking-wide text-primary bg-primary-subtle/30 border border-primary/30 rounded-full px-2 py-0.5">
-                First run
-              </span>
-            )}
-            {typeof installProgress === 'number' && (
-              <span className="text-xs text-muted">{installProgress}%</span>
-            )}
           </div>
-          {typeof installProgress === 'number' && (
-            <div className="mt-2">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${installProgress}%` }}
-                />
-              </div>
-              <p className="mt-1 text-[11px] text-muted">
-                One-time setup: Chromium is downloaded on first launch only.
-              </p>
-            </div>
-          )}
         </div>
       )}
 
       {/* Current Activity */}
-      {isActive && activityMessage && (
+      {showActivityCard && (
         <div className="p-3 bg-primary-subtle/20 border border-primary/20 rounded-lg">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
@@ -304,22 +356,22 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-lg p-3 bg-primary-subtle/20">
+        <div className="rounded-lg p-3 bg-success-subtle/10 border border-success/20">
           <div className="flex items-center gap-2 mb-1">
-            <Briefcase className="w-4 h-4 text-info" />
+            <Briefcase className="w-4 h-4 text-success" />
             <span className="text-xs text-muted">Jobs Found</span>
           </div>
-          <p className="text-2xl font-bold text-info">
+          <p className="text-2xl font-bold text-success">
             {displayStats.totals.jobs_found}
           </p>
           {isActive && displayStats.current.jobs_found > 0 && (
-            <p className="text-xs text-info mt-1">
-              Session {displayStats.current.jobs_found}
+            <p className="text-xs text-success mt-1">
+              +{displayStats.current.jobs_found} this session
             </p>
           )}
         </div>
         
-        <div className="rounded-lg p-3 bg-success-subtle/20">
+        <div className="rounded-lg p-3 bg-success-subtle/10 border border-success/20">
           <div className="flex items-center gap-2 mb-1">
             <CheckSquare className="w-4 h-4 text-success" />
             <a
@@ -338,37 +390,37 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
           </p>
           {isActive && displayStats.current.jobs_applied > 0 && (
             <p className="text-xs text-success mt-1">
-              Session {displayStats.current.jobs_applied}
+              +{displayStats.current.jobs_applied} this session
             </p>
           )}
         </div>
         
-        <div className="rounded-lg p-3 bg-error-subtle/20">
+        <div className="rounded-lg p-3 bg-success-subtle/10 border border-success/20">
           <div className="flex items-center gap-2 mb-1">
-            <XSquare className="w-4 h-4 text-error" />
+            <XSquare className="w-4 h-4 text-success" />
             <span className="text-xs text-muted">Failed</span>
           </div>
-          <p className="text-2xl font-bold text-error">
+          <p className="text-2xl font-bold text-success">
             {displayStats.totals.jobs_failed}
           </p>
           {isActive && displayStats.current.jobs_failed > 0 && (
-            <p className="text-xs text-error mt-1">
-              Session {displayStats.current.jobs_failed}
+            <p className="text-xs text-success mt-1">
+              +{displayStats.current.jobs_failed} this session
             </p>
           )}
         </div>
         
-        <div className="rounded-lg p-3 bg-warning-subtle/20">
+        <div className="rounded-lg p-3 bg-success-subtle/10 border border-success/20">
           <div className="flex items-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-warning" />
+            <Zap className="w-4 h-4 text-success" />
             <span className="text-xs text-muted">Credits Used</span>
           </div>
-          <p className="text-2xl font-bold text-warning">
+          <p className="text-2xl font-bold text-success">
             {displayStats.totals.credits_used}
           </p>
           {isActive && displayStats.current.credits_used > 0 && (
-            <p className="text-xs text-warning mt-1">
-              Session {displayStats.current.credits_used}
+            <p className="text-xs text-success mt-1">
+              +{displayStats.current.credits_used} this session
             </p>
           )}
         </div>
@@ -386,20 +438,20 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
         )}
       </div>
 
-      {/* Error Display */}
-      {session.status === 'failed' && session.error_message && (
-        <div className="mt-4 p-3 bg-error-subtle/20 border border-error rounded-lg">
-          <p className="text-sm text-error">
-            <strong>Error:</strong> {session.error_message}
+      {/* Stopped Message - Simple and clean */}
+      {session.status === 'stopped' && (
+        <div className="p-3 bg-muted/10 border border-muted/20 rounded-lg">
+          <p className="text-sm text-muted">
+            Session stopped. Ready to launch again when needed.
           </p>
         </div>
       )}
 
-      {/* Stopped Message */}
-      {session.status === 'stopped' && (
-        <div className="mt-4 p-3 bg-warning-subtle/20 border border-warning rounded-lg">
-          <p className="text-sm text-warning">
-            Bot was manually stopped by user.
+      {/* Failed Message - User-friendly, no technical details */}
+      {session.status === 'failed' && (
+        <div className="p-3 bg-muted/10 border border-muted/20 rounded-lg">
+          <p className="text-sm text-muted">
+            Session ended. The bot will retry automatically on next launch.
           </p>
         </div>
       )}

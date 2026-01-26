@@ -53,9 +53,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (session.status === 'completed' || session.status === 'failed') {
+    if (session.status === 'completed') {
       return NextResponse.json(
-        { error: 'Cannot stop completed session' },
+        { success: true, message: 'Session already completed' }
+      );
+    }
+
+    if (session.status === 'failed') {
+      return NextResponse.json(
+        { error: 'Session already failed' },
+        { status: 409 }
+      );
+    }
+
+    // Only starting/running sessions can be stopped
+    if (session.status !== 'starting' && session.status !== 'running') {
+      return NextResponse.json(
+        { error: `Cannot stop session with status: ${session.status}` },
         { status: 409 }
       );
     }

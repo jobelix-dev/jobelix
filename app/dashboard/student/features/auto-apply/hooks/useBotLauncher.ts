@@ -2,7 +2,7 @@
  * Custom hook for bot launch logic
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 
 type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
@@ -23,7 +23,6 @@ export function useBotLauncher() {
     setLaunching(true);
     setError(null);
     setLaunchStatus(null);
-    let statusListenerAttached = false;
 
     try {
       // Check if running in Electron app
@@ -110,6 +109,7 @@ export function useBotLauncher() {
         progress?: number;
         log?: string;
       }) => {
+        console.log('[useBotLauncher] Received bot status:', payload);
         setLaunchStatus((prev) => {
           const nextStage = payload.stage ?? prev?.stage ?? 'checking';
           const stageChanged = prev?.stage && nextStage !== prev.stage;
@@ -117,21 +117,26 @@ export function useBotLauncher() {
             ? [...(prev?.logs ?? []), payload.log].slice(-200)
             : prev?.logs ?? [];
 
-          return {
+          const nextState = {
             stage: nextStage,
             message: payload.message ?? (stageChanged ? undefined : prev?.message),
             progress: payload.progress ?? (stageChanged ? undefined : prev?.progress),
             logs: nextLogs,
           };
+          console.log('[useBotLauncher] Updated launchStatus:', nextState);
+          return nextState;
         });
       };
 
       if (window.electronAPI?.onBotStatus) {
+        console.log('[useBotLauncher] Registering bot status listener');
         window.electronAPI.onBotStatus(handleBotStatus);
-        statusListenerAttached = true;
+      } else {
+        console.warn('[useBotLauncher] electronAPI.onBotStatus not available!');
       }
 
       // Launch the bot via Electron IPC
+      console.log('[useBotLauncher] Calling electronAPI.launchBot...');
       const result = await window.electronAPI.launchBot(token);
       
       if (!result.success) {
@@ -156,14 +161,20 @@ export function useBotLauncher() {
       return { success: false, error: message };
     } finally {
       setLaunching(false);
-      if (statusListenerAttached && window.electronAPI?.removeBotStatusListeners) {
-        window.electronAPI.removeBotStatusListeners();
-      }
     }
   }, []);
 
   const clearError = useCallback(() => {
     setError(null);
+  }, []);
+
+  // Cleanup bot status listeners on unmount
+  useEffect(() => {
+    return () => {
+      if (window.electronAPI?.removeBotStatusListeners) {
+        window.electronAPI.removeBotStatusListeners();
+      }
+    };
   }, []);
 
   return {

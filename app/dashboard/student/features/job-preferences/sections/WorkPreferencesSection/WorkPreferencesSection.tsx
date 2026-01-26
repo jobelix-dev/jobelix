@@ -10,7 +10,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Save, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-import ValidationTour, { ValidationTourStep } from '@/app/dashboard/student/components/ValidationTour';
+import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
 import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
 import ExperienceLevelsSection from './components/ExperienceLevelsSection';
 import JobTypesSection from './components/JobTypesSection';
@@ -19,297 +19,35 @@ import PersonalInfoSection from './components/PersonalInfoSection';
 import WorkAuthorizationSection from './components/WorkAuthorizationSection';
 import WorkPreferencesSubSection from './components/WorkPreferencesSection';
 import BlacklistSection, { BlacklistSectionRef } from './components/BlacklistSection';
-
-interface WorkPreferences {
-  // Work location
-  remote_work: boolean;
-
-  // Experience levels
-  exp_internship: boolean;
-  exp_entry: boolean;
-  exp_associate: boolean;
-  exp_mid_senior: boolean;
-  exp_director: boolean;
-  exp_executive: boolean;
-
-  // Job types
-  job_full_time: boolean;
-  job_part_time: boolean;
-  job_contract: boolean;
-  job_temporary: boolean;
-  job_internship: boolean;
-  job_volunteer: boolean;
-  job_other: boolean;
-
-  // Date filters
-  date_24_hours: boolean;
-  date_week: boolean;
-  date_month: boolean;
-  date_all_time: boolean;
-
-  // Search arrays
-  positions: string[];
-  locations: string[];
-  company_blacklist: string[];
-  title_blacklist: string[];
-
-  // Personal/legal (Complete set)
-  date_of_birth: string;
-  pronouns: string;
-  gender: string;
-  is_veteran: boolean;
-  has_disability: boolean;
-  ethnicity: string;
-  eu_work_authorization: boolean;
-  us_work_authorization: boolean;
-  in_person_work: boolean;
-  open_to_relocation: boolean;
-  willing_to_complete_assessments: boolean;
-  willing_to_undergo_drug_tests: boolean;
-  willing_to_undergo_background_checks: boolean;
-  notice_period: string;
-  salary_expectation_usd: number;
-}
-
-const defaultPreferences: WorkPreferences = {
-  remote_work: true,
-  exp_internship: false,
-  exp_entry: true,
-  exp_associate: true,
-  exp_mid_senior: false,
-  exp_director: false,
-  exp_executive: false,
-  job_full_time: true,
-  job_part_time: false,
-  job_contract: false,
-  job_temporary: false,
-  job_internship: false,
-  job_volunteer: false,
-  job_other: false,
-  date_24_hours: false,
-  date_week: true,
-  date_month: false,
-  date_all_time: false,
-  positions: [],
-  locations: ['France'],
-  company_blacklist: [],
-  title_blacklist: [],
-  date_of_birth: '2000-01-01',
-  pronouns: 'he/him',
-  gender: 'Male',
-  is_veteran: false,
-  has_disability: false,
-  ethnicity: 'European',
-  eu_work_authorization: true,
-  us_work_authorization: false,
-  in_person_work: true,
-  open_to_relocation: true,
-  willing_to_complete_assessments: true,
-  willing_to_undergo_drug_tests: true,
-  willing_to_undergo_background_checks: true,
-  notice_period: '1 day',
-  salary_expectation_usd: 100000,
-};
-
-const DRAFT_STORAGE_KEY = 'job-preferences-draft-v1';
-
-type ValidationErrors = {
-  positions?: boolean;
-  locations?: boolean;
-  experience?: boolean;
-  jobType?: boolean;
-  dateFilter?: boolean;
-  workAuthorization?: boolean;
-  date_of_birth?: boolean;
-  pronouns?: boolean;
-  gender?: boolean;
-  ethnicity?: boolean;
-  notice_period?: boolean;
-  salary_expectation_usd?: boolean;
-};
+import { useWorkPreferences, useWorkPreferencesTour } from './hooks';
+import { getValidationErrors } from './validation';
+import type { WorkPreferences } from './types';
 
 export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { onSave?: () => void; onUnsavedChanges?: (hasChanges: boolean) => void }) {
-  const [preferences, setPreferences] = useState<WorkPreferences>(defaultPreferences);
-  const [initialPreferences, setInitialPreferences] = useState<WorkPreferences>(defaultPreferences);
+  const {
+    preferences,
+    setPreferences,
+    initialPreferences,
+    setInitialPreferences,
+    loading,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    updateField,
+    updateCheckbox,
+    updateArray,
+    updateSearchCriteria,
+    clearDraft,
+  } = useWorkPreferences(onUnsavedChanges);
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors | null>(null);
+  const [validationErrors, setValidationErrors] = useState<any | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [tourOpen, setTourOpen] = useState(false);
-  const [tourSteps, setTourSteps] = useState<ValidationTourStep[]>([]);
-  const [tourIndex, setTourIndex] = useState(0);
 
   // Refs to child components with array inputs
   const searchCriteriaRef = useRef<SearchCriteriaSectionRef>(null);
   const blacklistRef = useRef<BlacklistSectionRef>(null);
-
-  // Fetch existing preferences on mount
-  useEffect(() => {
-    const fetchPreferences = async () => {
-      try {
-        // fetches saved preferences from the backend
-        const response = await fetch('/api/student/work-preferences');
-        const data = await response.json();
-        
-        // merges with defaults
-        const loadedPrefs = data.preferences
-          ? { ...defaultPreferences, ...data.preferences }
-          : { ...defaultPreferences };
-
-        let draftPrefs: WorkPreferences | null = null;
-        if (typeof window !== 'undefined') {
-          try {
-            const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-            if (rawDraft) {
-              draftPrefs = JSON.parse(rawDraft) as WorkPreferences;
-            }
-          } catch (error) {
-            console.error('Failed to load draft preferences:', error);
-          }
-        }
-
-        if (draftPrefs) {
-          const mergedDraft = { ...loadedPrefs, ...draftPrefs };
-          setPreferences(mergedDraft);
-          setInitialPreferences(loadedPrefs);
-        } else {
-          setPreferences(loadedPrefs);
-          setInitialPreferences(loadedPrefs);
-        }
-      } catch (error) {
-        console.error('Failed to fetch preferences:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPreferences();
-  }, []); // only runs when component mounts
-
-  // Track unsaved changes
-  useEffect(() => {
-    // preferences is what we see in the form
-    // initial is what was loaded at first and is in db 
-    if (loading) return;
-
-    const hasChanges = JSON.stringify(preferences) !== JSON.stringify(initialPreferences);
-    setHasUnsavedChanges(hasChanges);
-    if (onUnsavedChanges) {
-      onUnsavedChanges(hasChanges);
-    }
-
-    if (typeof window !== 'undefined') {
-      try {
-        if (hasChanges) {
-          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(preferences));
-        } else {
-          localStorage.removeItem(DRAFT_STORAGE_KEY);
-        }
-      } catch (error) {
-        console.error('Failed to persist draft preferences:', error);
-      }
-    }
-  }, [preferences, initialPreferences, onUnsavedChanges, loading]);
-
-  // Generic field updater
-  const updateField = (field: string, value: any) => {
-    setPreferences((prev) => ({ ...prev, [field]: value }));
-    setSaveSuccess(false);
-  };
-
-  // Checkbox group handler
-  const updateCheckbox = (key: string, value: boolean) => {
-    updateField(key, value);
-  };
-
-  // Array field updater
-  const updateArray = (field: string, value: string[]) => {
-    updateField(field, value);
-  };
-
-  // Mixed field updater for SearchCriteriaSection (arrays and booleans)
-  const updateSearchCriteria = (field: string, value: string[] | boolean) => {
-    updateField(field, value);
-  };
-
-  // Validation: Check if all required fields are filled and return error message
-  const getValidationErrors = (prefs: WorkPreferences): ValidationErrors => {
-    const errors: ValidationErrors = {};
-
-    if (prefs.positions.length === 0) errors.positions = true;
-    if (prefs.locations.length === 0) errors.locations = true;
-
-    const hasExperienceLevel =
-      prefs.exp_internship ||
-      prefs.exp_entry ||
-      prefs.exp_associate ||
-      prefs.exp_mid_senior ||
-      prefs.exp_director ||
-      prefs.exp_executive;
-    if (!hasExperienceLevel) errors.experience = true;
-
-    const hasJobType =
-      prefs.job_full_time ||
-      prefs.job_part_time ||
-      prefs.job_contract ||
-      prefs.job_temporary ||
-      prefs.job_internship ||
-      prefs.job_volunteer ||
-      prefs.job_other;
-    if (!hasJobType) errors.jobType = true;
-
-    const hasDateFilter =
-      prefs.date_24_hours ||
-      prefs.date_week ||
-      prefs.date_month ||
-      prefs.date_all_time;
-    if (!hasDateFilter) errors.dateFilter = true;
-
-    if (!prefs.eu_work_authorization && !prefs.us_work_authorization) {
-      errors.workAuthorization = true;
-    }
-
-    if (!prefs.date_of_birth?.trim()) errors.date_of_birth = true;
-    if (!prefs.pronouns?.trim()) errors.pronouns = true;
-    if (!prefs.gender?.trim()) errors.gender = true;
-    if (!prefs.ethnicity?.trim()) errors.ethnicity = true;
-
-    if (!prefs.notice_period?.trim()) errors.notice_period = true;
-    if (!prefs.salary_expectation_usd || prefs.salary_expectation_usd <= 0) {
-      errors.salary_expectation_usd = true;
-    }
-
-    return errors;
-  };
-
-  const getValidationErrorMessage = (errors: ValidationErrors): string | null => {
-    if (errors.positions) return 'At least 1 target position is required';
-    if (errors.locations) return 'At least 1 location is required';
-    if (errors.experience) return 'Select at least 1 experience level';
-    if (errors.jobType) return 'Select at least 1 job type';
-    if (errors.dateFilter) return 'Select at least 1 date filter';
-    if (errors.workAuthorization) return 'Select at least 1 work authorization';
-    if (errors.date_of_birth) return 'Date of birth is required';
-    if (errors.pronouns) return 'Pronouns are required';
-    if (errors.gender) return 'Gender is required';
-    if (errors.ethnicity) return 'Ethnicity is required';
-    if (errors.notice_period) return 'Notice period is required';
-    if (errors.salary_expectation_usd) {
-      return 'Salary expectation must be greater than 0';
-    }
-    return null;
-  };
-
-  const getValidationError = (prefs: WorkPreferences): string | null => {
-    return getValidationErrorMessage(getValidationErrors(prefs));
-  };
-
-  const isFormComplete = () => {
-    return getValidationError(preferences) === null;
-  };
 
   const getValidationPreferences = () => {
     const pendingSearch = searchCriteriaRef.current?.getPendingInputs();
@@ -332,129 +70,18 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     return prefsToValidate;
   };
 
-  const buildValidationTourSteps = (errors: ValidationErrors): ValidationTourStep[] => {
-    const steps: ValidationTourStep[] = [];
-
-    if (errors.positions) {
-      steps.push({
-        id: 'positions',
-        targetId: 'job-pref-positions',
-        targetIds: ['job-pref-positions', 'job-pref-positions-add'],
-        title: 'Add a position',
-        message: 'Enter at least one target position.',
-      });
-    }
-
-    if (errors.locations) {
-      steps.push({
-        id: 'locations',
-        targetId: 'job-pref-locations',
-        targetIds: ['job-pref-locations', 'job-pref-locations-add'],
-        title: 'Choose a location',
-        message: 'Enter at least one location.',
-      });
-    }
-
-    if (errors.experience) {
-      steps.push({
-        id: 'experience',
-        targetId: 'job-pref-experience',
-        title: 'Select experience level',
-        message: 'Choose at least one experience level.',
-      });
-    }
-
-    if (errors.jobType) {
-      steps.push({
-        id: 'jobType',
-        targetId: 'job-pref-job-types',
-        title: 'Select job type',
-        message: 'Choose at least one job type.',
-      });
-    }
-
-    if (errors.dateFilter) {
-      steps.push({
-        id: 'dateFilter',
-        targetId: 'job-pref-date-filters',
-        title: 'Choose a date range',
-        message: 'Select at least one date filter.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.workAuthorization) {
-      steps.push({
-        id: 'workAuthorization',
-        targetId: 'job-pref-work-authorization',
-        title: 'Select work authorization',
-        message: 'Choose where you can work.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.notice_period) {
-      steps.push({
-        id: 'notice_period',
-        targetId: 'job-pref-notice-period',
-        title: 'Enter notice period',
-        message: 'Tell us your notice period.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.salary_expectation_usd) {
-      steps.push({
-        id: 'salary_expectation_usd',
-        targetId: 'job-pref-salary',
-        title: 'Enter salary expectation',
-        message: 'Enter a salary greater than 0.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.date_of_birth) {
-      steps.push({
-        id: 'date_of_birth',
-        targetId: 'job-pref-date-of-birth',
-        title: 'Enter date of birth',
-        message: 'Select your date of birth.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.pronouns) {
-      steps.push({
-        id: 'pronouns',
-        targetId: 'job-pref-pronouns',
-        title: 'Enter pronouns',
-        message: 'Type your pronouns.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.gender) {
-      steps.push({
-        id: 'gender',
-        targetId: 'job-pref-gender',
-        title: 'Enter gender',
-        message: 'Type your gender.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    if (errors.ethnicity) {
-      steps.push({
-        id: 'ethnicity',
-        targetId: 'job-pref-ethnicity',
-        title: 'Enter ethnicity',
-        message: 'Type your ethnicity.',
-        onBefore: () => setShowAdvanced(true),
-      });
-    }
-
-    return steps;
-  };
+  const {
+    tourOpen,
+    tourSteps,
+    tourIndex,
+    setTourOpen,
+    setTourSteps,
+    setTourIndex,
+    handleTourNext,
+    handleTourBack,
+    handleTourExit,
+    startTour,
+  } = useWorkPreferencesTour(getValidationPreferences, getValidationErrors, setShowAdvanced);
 
   useEffect(() => {
     if (!tourOpen) return;
@@ -465,13 +92,10 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const handleSave = async () => {
     const prefsToValidate = getValidationPreferences();
     const currentValidationErrors = getValidationErrors(prefsToValidate);
-    const steps = buildValidationTourSteps(currentValidationErrors);
 
-    if (steps.length > 0) {
+    if (Object.keys(currentValidationErrors).length > 0) {
       setValidationErrors(currentValidationErrors);
-      setTourSteps(steps);
-      setTourIndex(0);
-      setTourOpen(true);
+      startTour(currentValidationErrors);
       return;
     }
 
@@ -502,20 +126,12 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         console.log('Calling onUnsavedChanges(false) after save');
         onUnsavedChanges(false);
       }
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem(DRAFT_STORAGE_KEY);
-        } catch (error) {
-          console.error('Failed to clear draft preferences:', error);
-        }
-      }
+      clearDraft();
       
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       setValidationErrors(null);
-      setTourOpen(false);
-      setTourSteps([]);
-      setTourIndex(0);
+      handleTourExit();
       
       // Export preferences to YAML file in repo root (Electron only)
       if (typeof window !== 'undefined' && window.electronAPI) {
@@ -539,71 +155,6 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     } finally {
       setSaving(false);
     }
-  };
-
-  const completionStep: ValidationTourStep = {
-    id: 'complete',
-    targetId: 'save-preferences-button',
-    title: 'Save now',
-    message: 'All set - you can save now.',
-  };
-
-  const getActiveSteps = () => {
-    const prefsToValidate = getValidationPreferences();
-    return buildValidationTourSteps(getValidationErrors(prefsToValidate));
-  };
-
-  const handleTourNext = () => {
-    const activeSteps = getActiveSteps();
-    const currentId = tourSteps[tourIndex]?.id;
-    const currentIndexInActive = currentId
-      ? activeSteps.findIndex((step) => step.id === currentId)
-      : -1;
-    const nextIndex = currentIndexInActive >= 0 ? currentIndexInActive + 1 : 0;
-
-    if (activeSteps.length === 0) {
-      setTourSteps([completionStep]);
-      setTourIndex(0);
-      return;
-    }
-
-    if (nextIndex >= activeSteps.length) {
-      setTourSteps([completionStep]);
-      setTourIndex(0);
-      return;
-    }
-
-    setTourSteps(activeSteps);
-    setTourIndex(nextIndex);
-  };
-
-  const handleTourBack = () => {
-    const activeSteps = getActiveSteps();
-    const isComplete = tourSteps[0]?.id === 'complete';
-
-    if (isComplete) {
-      if (activeSteps.length > 0) {
-        setTourSteps(activeSteps);
-        setTourIndex(activeSteps.length - 1);
-      }
-      return;
-    }
-
-    const currentId = tourSteps[tourIndex]?.id;
-    const currentIndexInActive = currentId
-      ? activeSteps.findIndex((step) => step.id === currentId)
-      : -1;
-    const prevIndex = currentIndexInActive > 0 ? currentIndexInActive - 1 : 0;
-
-    setTourSteps(activeSteps);
-    setTourIndex(prevIndex);
-  };
-
-  const handleTourExit = () => {
-    setTourOpen(false);
-    setTourSteps([]);
-    setTourIndex(0);
-    setValidationErrors(null);
   };
 
   if (loading) {
