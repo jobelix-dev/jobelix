@@ -6,7 +6,7 @@
   "author": "Jobelix",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --webpack\" \"electron .\"",
+    "dev": "concurrently \"next dev\" \"electron .\"",
     "fetch:bot": "node scripts/fetch-python-runtime.mjs",
     "build": "next build",
     "start": "next start",
