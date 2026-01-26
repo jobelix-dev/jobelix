@@ -4,6 +4,7 @@
  */
 
 import { app } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import { PLATFORM_FOLDERS, EXECUTABLES, DIRECTORIES } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -22,11 +23,30 @@ export function getPlatformFolder() {
     case 'darwin':
       return PLATFORM_FOLDERS.MAC;
     case 'linux':
-      return PLATFORM_FOLDERS.LINUX;
+      return isArchLinux() ? PLATFORM_FOLDERS.LINUX_ARCH : PLATFORM_FOLDERS.LINUX;
     default:
       const error = `Unsupported operating system: ${platform}`;
       logger.error(error);
       throw new Error(error);
+  }
+}
+
+/**
+ * Detect Arch-based Linux distributions via /etc/os-release
+ * @returns {boolean}
+ */
+export function isArchLinux() {
+  try {
+    if (!fs.existsSync('/etc/os-release')) return false;
+    const content = fs.readFileSync('/etc/os-release', 'utf-8');
+    const idMatch = content.match(/^ID=(.+)$/m);
+    const likeMatch = content.match(/^ID_LIKE=(.+)$/m);
+    const id = idMatch ? idMatch[1].replace(/\"/g, '').toLowerCase() : '';
+    const like = likeMatch ? likeMatch[1].replace(/\"/g, '').toLowerCase() : '';
+    return id === 'arch' || like.includes('arch');
+  } catch (error) {
+    logger.warn('Failed to detect Linux distribution via /etc/os-release:', error);
+    return false;
   }
 }
 

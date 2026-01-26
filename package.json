@@ -6,7 +6,7 @@
   "author": "Jobelix",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"electron .\"",
+    "dev": "concurrently \"next dev --webpack\" \"electron .\"",
     "fetch:bot": "node scripts/fetch-python-runtime.mjs",
     "build": "next build",
     "start": "next start",
@@ -48,6 +48,14 @@
       {
         "from": "resources/${os}/",
         "to": "./${os}/",
+        "filter": [
+          "main/**",
+          "version.txt"
+        ]
+      },
+      {
+        "from": "resources/linux-arch/",
+        "to": "./linux-arch/",
         "filter": [
           "main/**",
           "version.txt"

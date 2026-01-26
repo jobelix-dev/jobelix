@@ -42,9 +42,26 @@ if (typeof fetch !== 'function') {
   process.exit(1);
 }
 
+function isArchLinux() {
+  try {
+    if (!fs.existsSync('/etc/os-release')) return false;
+    const content = fs.readFileSync('/etc/os-release', 'utf-8');
+    const idMatch = content.match(/^ID=(.+)$/m);
+    const likeMatch = content.match(/^ID_LIKE=(.+)$/m);
+    const id = idMatch ? idMatch[1].replace(/\"/g, '').toLowerCase() : '';
+    const like = likeMatch ? likeMatch[1].replace(/\"/g, '').toLowerCase() : '';
+    return id === 'arch' || like.includes('arch');
+  } catch {
+    return false;
+  }
+}
+
+const isArch = process.platform === 'linux' && isArchLinux();
+const resourceFolder = isArch ? 'linux-arch' : platformConfig.resourceFolder;
+
 const repoRoot = path.resolve(process.cwd());
 const resourcesRoot = path.join(repoRoot, 'resources');
-const targetDir = path.join(resourcesRoot, platformConfig.resourceFolder, 'main');
+const targetDir = path.join(resourcesRoot, resourceFolder, 'main');
 
 const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 const headers = {
@@ -56,9 +73,39 @@ if (token) {
   headers.Authorization = `Bearer ${token}`;
 }
 
+async function fetchReleaseList() {
+  const url = `https://api.github.com/repos/${REPO}/releases?per_page=20`;
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Failed to fetch releases list: ${response.status} ${body}`);
+  }
+  return response.json();
+}
+
 async function fetchRelease() {
+  if (TAG === 'latest') {
+    const url = `https://api.github.com/repos/${REPO}/releases/latest`;
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Failed to fetch latest release: ${response.status} ${body}`);
+    }
+    return response.json();
+  }
+
   const url = `https://api.github.com/repos/${REPO}/releases/tags/${TAG}`;
   const response = await fetch(url, { headers });
+  if (response.status === 404) {
+    const releases = await fetchReleaseList();
+    const tags = releases
+      .map((release) => release.tag_name)
+      .filter(Boolean)
+      .join(', ');
+    throw new Error(
+      `Release tag not found: ${TAG}. Available tags: ${tags || 'none'}.`
+    );
+  }
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Failed to fetch release ${TAG}: ${response.status} ${body}`);
@@ -66,8 +113,13 @@ async function fetchRelease() {
   return response.json();
 }
 
-async function downloadAsset(url, destination) {
-  const response = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+async function downloadAsset(asset, destination) {
+  const response = await fetch(asset.url, {
+    headers: {
+      ...headers,
+      Accept: 'application/octet-stream',
+    },
+  });
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Failed to download asset: ${response.status} ${body}`);
@@ -119,8 +171,17 @@ async function extractZip(zipPath, destination) {
 }
 
 async function findExtractedMainFolder(extractDir) {
+  const directMainDir = path.join(extractDir, 'main');
+  const directStat = await fsPromises.stat(directMainDir).catch(() => null);
+  if (directStat?.isDirectory()) {
+    return directMainDir;
+  }
+
   const entries = await fsPromises.readdir(extractDir, { withFileTypes: true });
-  const rootFolder = entries.find((entry) => entry.isDirectory() && entry.name.startsWith('main-'));
+  const candidateDirs = entries.filter((entry) => entry.isDirectory());
+  const rootFolder =
+    candidateDirs.find((entry) => entry.name.startsWith('main-')) ||
+    (candidateDirs.length === 1 ? candidateDirs[0] : null);
 
   if (!rootFolder) {
     throw new Error('Unexpected archive structure: could not locate main-<platform> folder.');
@@ -128,15 +189,36 @@ async function findExtractedMainFolder(extractDir) {
 
   const mainDir = path.join(extractDir, rootFolder.name, 'main');
   const stat = await fsPromises.stat(mainDir).catch(() => null);
-  if (!stat || !stat.isDirectory()) {
-    throw new Error('Unexpected archive structure: missing inner main/ directory.');
+  if (stat?.isDirectory()) {
+    return mainDir;
   }
 
-  return mainDir;
+  for (const entry of candidateDirs) {
+    const candidate = path.join(extractDir, entry.name, 'main');
+    const candidateStat = await fsPromises.stat(candidate).catch(() => null);
+    if (candidateStat?.isDirectory()) {
+      return candidate;
+    }
+  }
+
+  throw new Error('Unexpected archive structure: missing inner main/ directory.');
 }
 
 async function installRuntime() {
   console.log(`Fetching Python runtime ${TAG} for ${process.platform}...`);
+  await fsPromises.mkdir(path.join(resourcesRoot, 'linux-arch'), { recursive: true });
+
+  if (isArch) {
+    const executablePath = path.join(targetDir, platformConfig.executableName);
+    if (!fs.existsSync(executablePath)) {
+      throw new Error(
+        `Arch Linux detected. Expected runtime at ${executablePath}. ` +
+          'Please compile manually and place the runtime in resources/linux-arch/main/.'
+      );
+    }
+    console.log(`Arch Linux detected. Using existing runtime at ${targetDir}`);
+    return;
+  }
 
   const release = await fetchRelease();
   const asset = release.assets?.find((item) => item.name === platformConfig.assetName);
@@ -153,7 +235,7 @@ async function installRuntime() {
   await fsPromises.mkdir(extractDir, { recursive: true });
 
   console.log(`Downloading ${asset.name}...`);
-  await downloadAsset(asset.browser_download_url, zipPath);
+  await downloadAsset(asset, zipPath);
 
   console.log('Extracting runtime...');
   await extractZip(zipPath, extractDir);
