@@ -397,6 +397,27 @@ export async function launchBot(token, emitStatus) {
       },
     });
 
+    // Capture stdout/stderr for debugging
+    if (botProcess.stdout) {
+      botProcess.stdout.on('data', (data) => {
+        logger.info(`[Bot stdout] ${data.toString().trim()}`);
+      });
+    }
+    
+    if (botProcess.stderr) {
+      botProcess.stderr.on('data', (data) => {
+        logger.error(`[Bot stderr] ${data.toString().trim()}`);
+      });
+    }
+
+    botProcess.on('error', (error) => {
+      logger.error('[Bot process error]', error);
+    });
+
+    botProcess.on('exit', (code, signal) => {
+      logger.warn(`[Bot process exited] Code: ${code}, Signal: ${signal}`);
+    });
+
     // Detach the process so it continues running independently
     botProcess.unref();
 

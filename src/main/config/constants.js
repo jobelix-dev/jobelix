@@ -122,6 +122,6 @@ export const VERSION = {
 export const SPAWN_CONFIG = {
   BOT: {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'], // stdin ignored, stdout/stderr piped for logging
   },
 };
