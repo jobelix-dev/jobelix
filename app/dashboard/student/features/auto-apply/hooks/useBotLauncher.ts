@@ -13,9 +13,17 @@ export function useBotLauncher() {
   const [error, setError] = useState<string | null>(null);
   const [launchStatus, setLaunchStatus] = useState<BotLaunchStatus | null>(null);
   const listenerAttachedRef = useRef(false);
+  const launchingRef = useRef(false);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const launchBot = useCallback(async () => {
+    // Prevent multiple simultaneous launches
+    if (launchingRef.current) {
+      debugLog.warn('[useBotLauncher] Already launching, ignoring duplicate request');
+      return { success: false, error: 'Launch already in progress' };
+    }
+
+    launchingRef.current = true;
     setLaunching(true);
     setError(null);
     setLaunchStatus(null);
@@ -100,7 +108,17 @@ export function useBotLauncher() {
 
       if (!sessionResponse.ok) {
         const sessionError = await sessionResponse.json();
-        throw new Error(sessionError.error || 'Failed to create bot session');
+        const errorMessage = sessionError.error || 'Failed to create bot session';
+        
+        // Handle "already running" error gracefully (race condition from fast clicking)
+        if (errorMessage.includes('already running') || errorMessage.includes('already active')) {
+          debugLog.warn('[useBotLauncher] Bot session already exists, returning success');
+          setLaunching(false);
+          launchingRef.current = false;
+          return { success: true }; // Treat as success since bot is already running
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const { session_id } = await sessionResponse.json();
@@ -170,6 +188,7 @@ export function useBotLauncher() {
       return { success: false, error: message };
     } finally {
       setLaunching(false);
+      launchingRef.current = false;
       // Clean up listener if it was attached
       if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
         window.electronAPI.removeBotStatusListeners();
@@ -183,6 +202,17 @@ export function useBotLauncher() {
     if (errorTimeoutRef.current) {
       clearTimeout(errorTimeoutRef.current);
       errorTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearLaunchStatus = useCallback(() => {
+    console.log('🧹 [BOT LAUNCHER] Clearing launch status');
+    setLaunchStatus(null);
+    setLaunching(false);
+    // Clean up listener if attached
+    if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
+      window.electronAPI.removeBotStatusListeners();
+      listenerAttachedRef.current = false;
     }
   }, []);
 
@@ -206,5 +236,6 @@ export function useBotLauncher() {
     launchBot,
     launchStatus,
     clearError,
+    clearLaunchStatus,
   };
 }

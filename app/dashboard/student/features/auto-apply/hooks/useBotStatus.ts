@@ -30,7 +30,10 @@ interface UseBotStatusReturn {
   stopBot: () => Promise<{ success: boolean; error?: string }>;
 }
 
-export function useBotStatus(): UseBotStatusReturn {
+/**
+ * Custom hook for managing bot status with real-time updates
+ */
+export function useBotStatus(options?: { onBotStopped?: () => void }): UseBotStatusReturn {
   const [session, setSession] = useState<BotSession | null>(null);
   const [historicalTotals, setHistoricalTotals] = useState<HistoricalTotals>({
     jobs_found: 0,
@@ -42,6 +45,14 @@ export function useBotStatus(): UseBotStatusReturn {
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Use ref to always get latest session without recreating callback
+  const sessionRef = useRef<BotSession | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
   
   // Create supabase client once and reuse it
   const supabase = useMemo(() => createClient(), []);
@@ -74,15 +85,71 @@ export function useBotStatus(): UseBotStatusReturn {
 
   // Stop bot session
   const stopBot = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    if (!session) {
+    console.log('🛑 [STOP BOT] Function called - START');
+    console.log('🛑 [STOP BOT] window:', typeof window);
+    console.log('🛑 [STOP BOT] window.electronAPI:', window.electronAPI);
+    console.log('🛑 [STOP BOT] window.electronAPI?.stopBot:', window.electronAPI?.stopBot);
+    
+    // Use ref to get latest session value (avoid stale closure)
+    const currentSession = sessionRef.current;
+    
+    console.log('🛑 [STOP BOT] Current session:', currentSession);
+    
+    debugLog.botStatus('[stopBot] Called');
+    debugLog.botStatus('[stopBot] Current session:', currentSession);
+    debugLog.botStatus('[stopBot] window.electronAPI exists:', !!window.electronAPI);
+    debugLog.botStatus('[stopBot] window.electronAPI.stopBot exists:', !!window.electronAPI?.stopBot);
+    
+    if (!currentSession) {
+      console.log('🛑 [STOP BOT] No session, returning early');
+      debugLog.warn('[stopBot] No active session, returning early');
       return { success: false, error: 'No active session' };
     }
 
+    // Clear launch status UI immediately at the start
+    if (options?.onBotStopped) {
+      console.log('🛑 [STOP BOT] Calling onBotStopped callback (clearing launch UI)...');
+      options.onBotStopped();
+    }
+
     try {
+      let processKilled = false;
+
+      // First, kill the process via Electron IPC (if running in Electron)
+      if (window.electronAPI?.stopBot) {
+        console.log('🛑 [STOP BOT] Calling window.electronAPI.stopBot()...');
+        debugLog.botStatus('[stopBot] Calling Electron IPC stopBot...');
+        const electronResult = await window.electronAPI.stopBot();
+        console.log('🛑 [STOP BOT] Electron result:', electronResult);
+        debugLog.botStatus('[stopBot] Electron result:', electronResult);
+        
+        if (!electronResult.success) {
+          console.log('🛑 [STOP BOT] Electron stop failed:', electronResult.error);
+          debugLog.warn('[useBotStatus] Electron stop failed:', electronResult.error);
+          // If no active process, it might have already stopped - continue to update DB
+          if (electronResult.error && !electronResult.error.includes('No active bot process')) {
+            console.log('🛑 [STOP BOT] Returning error immediately');
+            debugLog.error('[stopBot] Returning error from Electron stop');
+            return { success: false, error: electronResult.error };
+          }
+          console.log('🛑 [STOP BOT] No active process error, continuing to DB update');
+        } else {
+          console.log('🛑 [STOP BOT] Process killed successfully via Electron');
+          debugLog.botStatus('[stopBot] Bot process stopped successfully via Electron');
+          processKilled = true;
+        }
+      } else {
+        console.log('🛑 [STOP BOT] window.electronAPI.stopBot NOT available - skipping Electron kill');
+        debugLog.warn('[stopBot] Electron API not available, skipping process kill');
+      }
+
+      // Then update the session status in the database
+      console.log('🛑 [STOP BOT] Calling API to update DB with session_id:', currentSession.id);
+      debugLog.botStatus('[stopBot] Calling API to update DB...');
       const response = await fetch('/api/autoapply/bot/stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: session.id })
+        body: JSON.stringify({ session_id: currentSession.id })
       });
 
       const data = await response.json();
@@ -94,13 +161,16 @@ export function useBotStatus(): UseBotStatusReturn {
       // Force refresh to get updated status
       await fetchSession();
 
-      return { success: true };
+      return { 
+        success: true,
+        message: processKilled ? 'Bot stopped successfully' : 'Bot session stopped (process may have already ended)'
+      };
       
     } catch (err: any) {
       debugLog.error('[useBotStatus] Stop error:', err);
       return { success: false, error: err.message || 'Failed to stop bot' };
     }
-  }, [session, fetchSession]);
+  }, [fetchSession]); // Removed 'session' dependency - using ref instead
 
   // Set up Realtime subscription
   useEffect(() => {

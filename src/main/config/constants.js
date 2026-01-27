@@ -99,6 +99,7 @@ export const IPC_CHANNELS = {
   WRITE_CONFIG: 'write-config',
   WRITE_RESUME: 'write-resume',
   LAUNCH_BOT: 'launch-bot',
+  STOP_BOT: 'stop-bot',
   
   // Auth cache
   SAVE_AUTH_CACHE: 'save-auth-cache',

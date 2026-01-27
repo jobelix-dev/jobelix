@@ -17,6 +17,9 @@ import { ensureDirectoryExists, fileExists } from '../utils/file-system.js';
 import { SPAWN_CONFIG } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
+// Track active bot process
+let activeBotProcess = null;
+
 const PLAYWRIGHT_BROWSER_DIR = 'playwright-browsers';
 
 function emitBotStatus(emitStatus, payload) {
@@ -397,6 +400,9 @@ export async function launchBot(token, emitStatus) {
       },
     });
 
+    // Track the active bot process
+    activeBotProcess = botProcess;
+
     // Capture stdout/stderr for debugging
     if (botProcess.stdout) {
       botProcess.stdout.on('data', (data) => {
@@ -416,6 +422,10 @@ export async function launchBot(token, emitStatus) {
 
     botProcess.on('exit', (code, signal) => {
       logger.warn(`[Bot process exited] Code: ${code}, Signal: ${signal}`);
+      // Clear active process reference when it exits
+      if (activeBotProcess && activeBotProcess.pid === botProcess.pid) {
+        activeBotProcess = null;
+      }
     });
 
     // Detach the process so it continues running independently
@@ -438,6 +448,58 @@ export async function launchBot(token, emitStatus) {
     return { 
       success: false, 
       error: error.message || 'Unknown error launching bot' 
+    };
+  }
+}
+
+/**
+ * Stop the currently running bot process
+ * @returns {Promise<{success: boolean, message?: string, error?: string}>}
+ */
+export async function stopBot() {
+  try {
+    if (!activeBotProcess || !activeBotProcess.pid) {
+      logger.warn('No active bot process to stop');
+      logger.info('Debug: activeBotProcess state:', activeBotProcess ? 'exists but no PID' : 'null');
+      return { success: false, error: 'No active bot process' };
+    }
+
+    const pid = activeBotProcess.pid;
+    logger.info(`Stopping bot process with PID: ${pid}`);
+
+    // Kill the process
+    try {
+      // Check if process exists first
+      try {
+        process.kill(pid, 0); // Signal 0 checks if process exists without killing
+        logger.info(`Process ${pid} is running, sending SIGTERM`);
+      } catch (checkError) {
+        if (checkError.code === 'ESRCH') {
+          logger.warn(`Process ${pid} not found (already stopped)`);
+          activeBotProcess = null;
+          return { success: true, message: 'Bot process already stopped' };
+        }
+        // Other errors (like EPERM) mean process exists but we can't check - try to kill anyway
+      }
+
+      process.kill(pid, 'SIGTERM');
+      logger.success(`Bot process ${pid} stopped successfully`);
+      activeBotProcess = null;
+      return { success: true, message: 'Bot stopped successfully' };
+    } catch (killError) {
+      // Process might already be dead
+      if (killError.code === 'ESRCH') {
+        logger.warn(`Bot process ${pid} not found (already stopped)`);
+        activeBotProcess = null;
+        return { success: true, message: 'Bot process already stopped' };
+      }
+      throw killError;
+    }
+  } catch (error) {
+    logger.error('Error stopping bot:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to stop bot process'
     };
   }
 }

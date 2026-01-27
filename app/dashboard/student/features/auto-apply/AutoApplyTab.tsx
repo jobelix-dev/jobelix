@@ -24,7 +24,7 @@ export default function AutoApplyTab() {
   const credits = useCredits();
   const preferences = usePreferences();
   const botLauncher = useBotLauncher();
-  const botStatus = useBotStatus();
+  const botStatus = useBotStatus({ onBotStopped: botLauncher.clearLaunchStatus });
 
   // Wrapper for bot launch that refreshes status after launch
   const handleLaunchBot = async () => {
@@ -35,6 +35,14 @@ export default function AutoApplyTab() {
     }
     return result;
   };
+
+  // Clear launch status when bot session becomes active
+  useEffect(() => {
+    if (botStatus.session && (botStatus.session.status === 'starting' || botStatus.session.status === 'running')) {
+      // Bot is now active, clear any lingering launch status
+      botLauncher.clearLaunchStatus();
+    }
+  }, [botStatus.session, botLauncher.clearLaunchStatus]);
 
   // Check if profile is published
   useEffect(() => {
