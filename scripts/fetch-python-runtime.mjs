@@ -15,14 +15,21 @@ if (!TAG) {
 
 const PLATFORM_CONFIG = {
   win32: {
-    assetName: 'main-windows-latest.zip',
+    assetName: 'main-windows-2022.zip',
     resourceFolder: 'win',
     executableName: 'main.exe',
   },
   darwin: {
-    assetName: 'main-macos-14.zip',
-    resourceFolder: 'mac',
-    executableName: 'main',
+    arm64: {
+      assetName: 'main-macos-latest.zip',
+      resourceFolder: 'mac',
+      executableName: 'main',
+    },
+    x64: {
+      assetName: 'main-macos-15-intel.zip',
+      resourceFolder: 'mac',
+      executableName: 'main',
+    },
   },
   linux: {
     assetName: 'main-ubuntu-22.04.zip',
@@ -31,11 +38,29 @@ const PLATFORM_CONFIG = {
   },
 };
 
-const platformConfig = PLATFORM_CONFIG[process.platform];
-if (!platformConfig) {
-  console.error(`Unsupported platform: ${process.platform}`);
-  process.exit(1);
+function getPlatformConfig() {
+  const platform = process.platform;
+  
+  if (platform === 'darwin') {
+    const arch = os.arch();
+    const config = PLATFORM_CONFIG.darwin[arch];
+    if (!config) {
+      console.error(`Unsupported macOS architecture: ${arch}. Expected 'arm64' or 'x64'.`);
+      process.exit(1);
+    }
+    return config;
+  }
+  
+  const config = PLATFORM_CONFIG[platform];
+  if (!config) {
+    console.error(`Unsupported platform: ${platform}`);
+    process.exit(1);
+  }
+  
+  return config;
 }
+
+const platformConfig = getPlatformConfig();
 
 if (typeof fetch !== 'function') {
   console.error('Global fetch is not available. Use Node 18+ to run this script.');
