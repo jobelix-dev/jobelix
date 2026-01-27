@@ -19,41 +19,29 @@
 import "server-only";
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/server/supabaseServer'
+import { authenticateRequest } from '@/lib/server/auth'
 
 export async function GET() {
   try {
     console.log('[Profile API] Starting profile fetch')
     
     /**
-     * Create a Supabase client for SERVER use.
-     * This client reads the user's login cookies automatically.
-     * (So we can know who is logged in.)
+     * Authenticate using cached helper - reduces duplicate auth.getUser() calls
      */
-    const supabase = await createClient()
-
-    /**
-     * SECURITY: Identify the user by asking Supabase Auth.
-     * We do NOT trust the frontend to tell us the user id.
-     *
-     * If the user is logged in, `user` contains their id (UUID).
-     */    
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    console.log('[Profile API] Auth check result:', {
-      userId: user?.id,
-      authError: authError?.message,
-      hasUser: !!user
-    })
+    const auth = await authenticateRequest()
     
-    /**
-     * If there is no logged-in user, we return profile: null.
-     * The frontend can then redirect to login.
-     */
-    if (authError || !user) {
+    // If not authenticated, return null profile (not an error - just not logged in)
+    if (auth.error) {
       console.log('[Profile API] No authenticated user, returning null profile')
       return NextResponse.json({ profile: null })
     }
+
+    const { user, supabase } = auth
+
+    console.log('[Profile API] Auth check result:', {
+      userId: user.id,
+      hasUser: true
+    })
 
     /**
      * Now we look in the "student" table to see if this user has a student profile.

@@ -213,13 +213,10 @@ export function useBotStatus(options?: { onBotStopped?: () => void }): UseBotSta
           debugLog.botStatus('Real-time subscription active');
           setError(null); // Clear any previous errors
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          debugLog.warn('[useBotStatus] Subscription failed, falling back to polling');
-          // Don't set error - polling will handle updates
-          
-          // Set up polling as fallback
-          pollIntervalRef.current = setInterval(() => {
-            fetchSession();
-          }, POLLING_INTERVAL_MS);
+          debugLog.warn('[useBotStatus] Subscription failed - user can manually refresh');
+          setError('Real-time updates unavailable. Refresh page to see latest status.');
+          // Don't fall back to aggressive polling - it causes 30+ auth requests/min
+          // User can manually refresh if needed
         }
       });
 
