@@ -76,7 +76,8 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
   const isStopped = session.status === 'stopped';
   const isFailed = session.status === 'failed';
   const isInstalling = launchStatus?.stage === 'installing';
-  const showSetupMessage = launchStatus && ['checking', 'launching'].includes(launchStatus.stage);
+  // Only show launch status during initial launch, not when bot is already active
+  const showSetupMessage = !isActive && !isCompleted && launchStatus && ['checking', 'launching'].includes(launchStatus.stage);
   
   const [simulatedProgress, setSimulatedProgress] = useState<number | null>(null);
 
@@ -143,8 +144,11 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
   // Handle stop button click
   const handleStop = async () => {
+    console.log('🔴 [HANDLE STOP] Button clicked, session:', session);
+    
     // Double-check status before showing confirmation
     if (session.status !== 'starting' && session.status !== 'running') {
+      console.log('🔴 [HANDLE STOP] Invalid status, showing alert');
       await alert(
         `Cannot stop bot: session is already ${session.status}. Try refreshing the page.`,
         { title: 'Bot Status Changed' }
@@ -152,18 +156,24 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
       return;
     }
 
+    console.log('🔴 [HANDLE STOP] Showing confirmation dialog');
     const confirmed = await confirm(
       'Are you sure you want to stop the bot? The current operation will complete before stopping.',
       { title: 'Stop Bot', variant: 'danger', confirmText: 'Stop', cancelText: 'Cancel' }
     );
     if (!confirmed) {
+      console.log('🔴 [HANDLE STOP] User cancelled');
       return;
     }
 
+    console.log('🔴 [HANDLE STOP] User confirmed, calling onStop()...');
     const result = await onStop();
+    console.log('🔴 [HANDLE STOP] onStop() returned:', result);
     if (!result.success && result.error) {
+      console.log('🔴 [HANDLE STOP] Showing error alert');
       await alert(`Failed to stop bot: ${result.error}`, { title: 'Error' });
     }
+    console.log('🔴 [HANDLE STOP] Complete');
   };
 
   return (
@@ -239,13 +249,13 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
         </div>
       )}
 
-      {!isInstalling && showSetupMessage && !showActivityCard && launchStatus && (
+      {!isInstalling && showSetupMessage && (
         <div className="rounded-lg border border-primary/30 bg-primary-subtle/10 p-3">
           <div className="flex items-center gap-2 text-sm text-default">
             <Icons.Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span className="font-medium">
-              {launchStatus.message ||
-                (launchStatus.stage === 'checking' ? 'Checking browser...' : 'Launching bot...')}
+              {launchStatus?.message ||
+                (launchStatus?.stage === 'checking' ? 'Checking browser...' : 'Launching bot...')}
             </span>
           </div>
         </div>

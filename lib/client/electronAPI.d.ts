@@ -9,13 +9,11 @@ export interface ElectronAPI {
     pid?: number;
     platform?: string;
   }>;
-  
-  // Auth cache
-  saveAuthCache: (tokens: { 
-    access_token: string; 
-    refresh_token: string; 
-    expires_at?: number; 
-    user_id: string 
+  stopBot: () => Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+  }>;
   }) => Promise<{ success: boolean; error?: string }>;
   loadAuthCache: () => Promise<{ 
     access_token: string; 

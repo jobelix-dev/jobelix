@@ -68,6 +68,11 @@ export default function LaunchButton({
   const progressValue = Math.max(0, Math.min(100, Math.round(displayProgress)));
 
   const handleClick = () => {
+    // Prevent opening modal if already launching
+    if (launching) {
+      return;
+    }
+    
     if (!canLaunch) {
       setShowWarning(true);
       setTimeout(() => setShowWarning(false), 3000);
