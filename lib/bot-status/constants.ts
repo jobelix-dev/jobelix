@@ -6,7 +6,7 @@
 // Timing constants (in milliseconds)
 export const PROGRESS_SIMULATION_INTERVAL_MS = 150;
 export const SIMULATED_INSTALL_DURATION_MS = 15_000;
-export const POLLING_INTERVAL_MS = 2_000;
+export const POLLING_INTERVAL_MS = 5_000; // Reduced from 2s to 5s to minimize auth requests
 export const ERROR_DISPLAY_DURATION_MS = 5_000;
 
 // Log limits
