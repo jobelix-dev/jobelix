@@ -221,9 +221,9 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
             </div>
             <div className="flex-1 space-y-2">
               <div>
-                <p className="text-sm font-semibold text-default">Preparing browser</p>
+                <p className="text-sm font-semibold text-default">Setting up browser</p>
                 <p className="text-xs text-muted">
-                  {launchStatus.message || 'Downloading Chromium for first-time setup.'}
+                  First-time setup: installing Chromium browser. This may take a few moments.
                 </p>
               </div>
               <div>
@@ -235,15 +235,9 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[11px] text-muted">
                   <span>{progressValue}%</span>
+                  <span className="text-[10px]">Please wait...</span>
                 </div>
               </div>
-              {launchStatus.logs.length > 0 && (
-                <div className="max-h-28 overflow-y-auto rounded-md border border-border bg-muted/10 px-2 py-1 text-[11px] text-muted font-mono">
-                  {launchStatus.logs.slice(-MAX_LOGS_TO_DISPLAY).map((line, index) => (
-                    <div key={`${index}-${line.slice(0, 20)}`}>{line}</div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
