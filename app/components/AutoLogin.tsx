@@ -32,43 +32,71 @@ export default function AutoLogin() {
         const cachedTokens = await window.electronAPI.loadAuthCache();
 
         if (!cachedTokens) {
-          console.log('No cached auth tokens found');
+          console.log('[AutoLogin] No cached auth tokens found');
           return;
         }
 
-        console.log('Found cached auth tokens, attempting auto-login...');
+        console.log('[AutoLogin] Found cached auth tokens, checking expiration...');
+
+        // Check if tokens are expired (with 5 minute buffer)
+        const now = Math.floor(Date.now() / 1000);
+        const expiresAt = cachedTokens.expires_at || 0;
+        const isExpired = expiresAt > 0 && (expiresAt - 300) < now; // 5 min buffer
+
+        if (isExpired) {
+          console.log('[AutoLogin] Tokens expired, will attempt refresh');
+        }
 
         // Create Supabase client and set the session
         const supabase = createClient();
 
         // Set the session with cached tokens
+        // Supabase will automatically refresh if needed
         const { data, error } = await supabase.auth.setSession({
           access_token: cachedTokens.access_token,
           refresh_token: cachedTokens.refresh_token,
         });
 
         if (error) {
-          console.warn('Failed to restore session from cache:', error);
+          console.warn('[AutoLogin] Failed to restore session from cache:', error.message);
+          console.warn('[AutoLogin] Error details:', error);
           // Clear invalid cache
           await window.electronAPI.clearAuthCache();
           return;
         }
 
         if (data.session) {
-          console.log('Auto-login successful, redirecting to dashboard');
+          console.log('[AutoLogin] Auto-login successful');
+          
+          // If tokens were refreshed, update the cache with new tokens
+          if (data.session.access_token !== cachedTokens.access_token) {
+            console.log('[AutoLogin] Tokens were refreshed, updating cache');
+            try {
+              await window.electronAPI.saveAuthCache({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+                expires_at: data.session.expires_at,
+                user_id: data.session.user.id
+              });
+            } catch (saveError) {
+              console.warn('[AutoLogin] Failed to update cache with refreshed tokens:', saveError);
+            }
+          }
+          
+          console.log('[AutoLogin] Redirecting to dashboard');
           router.push('/dashboard');
         } else {
-          console.warn('No valid session after auto-login attempt');
+          console.warn('[AutoLogin] No valid session after auto-login attempt');
           // Clear invalid cache
           await window.electronAPI.clearAuthCache();
         }
       } catch (error) {
-        console.error('Auto-login check failed:', error);
+        console.error('[AutoLogin] Auto-login check failed:', error);
         // Clear potentially corrupted cache
         try {
           await window.electronAPI.clearAuthCache();
         } catch (clearError) {
-          console.error('Failed to clear cache:', clearError);
+          console.error('[AutoLogin] Failed to clear cache:', clearError);
         }
       }
     }
