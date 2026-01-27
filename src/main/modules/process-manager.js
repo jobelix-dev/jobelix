@@ -8,6 +8,7 @@ import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
+import kill from 'tree-kill';
 import { 
   getBotPath, 
   getBotWorkingDirectory,
@@ -140,30 +141,14 @@ function parseInstallProgress(line) {
 function runInstallCommand(command, args, env, emitStatus) {
   return new Promise((resolve) => {
     let resolved = false;
-    let stdoutBuffer = '';
-    let stderrBuffer = '';
 
-    const flushBuffer = (buffer, setter) => {
-      const lines = buffer.split(/\\r?\\n/);
-      setter(lines.pop() || '');
-      return lines;
-    };
-
-    const handleLines = (lines) => {
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        emitBotStatus(emitStatus, { stage: 'installing', log: trimmed });
-        const progress = parseInstallProgress(trimmed);
-        if (progress !== null) {
-          emitBotStatus(emitStatus, { stage: 'installing', progress });
-        }
-      }
-    };
-
+    // Spawn with completely silent output - detached and ignored stdio
     const child = spawn(command, args, {
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: 'ignore', // Completely ignore all stdio (stdin, stdout, stderr)
+      shell: false,
+      windowsHide: true,
+      detached: false, // Keep attached but ignore output
     });
 
     child.on('error', (error) => {
@@ -176,32 +161,9 @@ function runInstallCommand(command, args, env, emitStatus) {
       });
     });
 
-    child.stdout.on('data', (chunk) => {
-      stdoutBuffer += chunk.toString();
-      const lines = flushBuffer(stdoutBuffer, (rest) => {
-        stdoutBuffer = rest;
-      });
-      handleLines(lines);
-    });
-
-    child.stderr.on('data', (chunk) => {
-      stderrBuffer += chunk.toString();
-      const lines = flushBuffer(stderrBuffer, (rest) => {
-        stderrBuffer = rest;
-      });
-      handleLines(lines);
-    });
-
     child.on('close', (code) => {
       if (resolved) return;
       resolved = true;
-
-      if (stdoutBuffer.trim()) {
-        handleLines([stdoutBuffer.trim()]);
-      }
-      if (stderrBuffer.trim()) {
-        handleLines([stderrBuffer.trim()]);
-      }
 
       if (code === 0) {
         resolve({ success: true });
@@ -223,32 +185,53 @@ async function installPlaywrightChromium(playwrightPath, emitStatus, bundledCliP
   const env = {
     ...process.env,
     PLAYWRIGHT_BROWSERS_PATH: playwrightPath,
+    // Suppress Playwright progress bars and verbose output
+    CI: '1',
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '0',
+    // Force non-TTY mode to disable progress bars
+    FORCE_COLOR: '0',
+    NO_COLOR: '1',
   };
 
   if (bundledCliPath && fs.existsSync(bundledCliPath)) {
-    const nodeEnv = {
-      ...env,
-      ELECTRON_RUN_AS_NODE: '1',
-    };
-    const bundledResult = await runInstallCommand(
-      process.execPath,
-      [bundledCliPath, 'install', 'chromium'],
-      nodeEnv,
-      emitStatus
+    // Use the bundled Node.js that comes with Playwright (no system Node.js required!)
+    // The bundled Playwright includes its own Node.js runtime in the driver directory
+    const bundledNodePath = path.join(
+      path.dirname(bundledCliPath),
+      '..',
+      process.platform === 'win32' ? 'node.exe' : 'node'
     );
+    
+    logger.info(`Attempting Playwright install with bundled CLI: ${bundledCliPath}`);
+    logger.info(`Using bundled Node.js: ${bundledNodePath}`);
+    
+    // Verify bundled Node exists
+    if (!fs.existsSync(bundledNodePath)) {
+      logger.warn(`Bundled Node.js not found at: ${bundledNodePath}`);
+    } else {
+      const bundledResult = await runInstallCommand(
+        bundledNodePath,
+        [bundledCliPath, 'install', 'chromium'],
+        env,
+        emitStatus
+      );
 
-    if (bundledResult.success) {
-      return { success: true };
-    }
+      if (bundledResult.success) {
+        logger.info('Playwright install succeeded with bundled Node.js');
+        return { success: true };
+      }
 
-    if (!bundledResult.spawnFailed) {
-      return {
-        success: false,
-        error:
-          bundledResult.error instanceof Error
-            ? bundledResult.error.message
-            : 'Playwright install failed',
-      };
+      logger.warn(`Bundled CLI failed: ${bundledResult.error?.message || 'unknown error'}`);
+      
+      if (!bundledResult.spawnFailed) {
+        return {
+          success: false,
+          error:
+            bundledResult.error instanceof Error
+              ? bundledResult.error.message
+              : 'Playwright install failed',
+        };
+      }
     }
   }
 
@@ -390,14 +373,26 @@ export async function launchBot(token, emitStatus) {
 
     emitBotStatus(emitStatus, { stage: 'launching', message: 'Launching bot...' });
 
+    // Prepare environment with library search paths
+    const internalLibsPath = path.join(botCwd, '_internal');
+    const botEnv = {
+      ...process.env,
+      PLAYWRIGHT_BROWSERS_PATH: browserCheck.playwrightPath,
+    };
+
+    // Add library search path for bundled dependencies (macOS/Linux)
+    if (process.platform === 'darwin') {
+      botEnv.DYLD_LIBRARY_PATH = internalLibsPath + (process.env.DYLD_LIBRARY_PATH ? ':' + process.env.DYLD_LIBRARY_PATH : '');
+      botEnv.DYLD_FALLBACK_LIBRARY_PATH = internalLibsPath;
+    } else if (process.platform === 'linux') {
+      botEnv.LD_LIBRARY_PATH = internalLibsPath + (process.env.LD_LIBRARY_PATH ? ':' + process.env.LD_LIBRARY_PATH : '');
+    }
+
     // Spawn the bot process with --playwright flag, token, and backend API URL
     const botProcess = spawn(botPath, ['--playwright', token, '--public_app_url', public_app_url], {
       ...SPAWN_CONFIG.BOT,
       cwd: botCwd,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_BROWSERS_PATH: browserCheck.playwrightPath,
-      },
+      env: botEnv,
     });
 
     // Track the active bot process
@@ -457,49 +452,92 @@ export async function launchBot(token, emitStatus) {
  * @returns {Promise<{success: boolean, message?: string, error?: string}>}
  */
 export async function stopBot() {
-  try {
-    if (!activeBotProcess || !activeBotProcess.pid) {
-      logger.warn('No active bot process to stop');
-      logger.info('Debug: activeBotProcess state:', activeBotProcess ? 'exists but no PID' : 'null');
-      return { success: false, error: 'No active bot process' };
-    }
-
-    const pid = activeBotProcess.pid;
-    logger.info(`Stopping bot process with PID: ${pid}`);
-
-    // Kill the process
+  return new Promise((resolve) => {
     try {
-      // Check if process exists first
-      try {
-        process.kill(pid, 0); // Signal 0 checks if process exists without killing
-        logger.info(`Process ${pid} is running, sending SIGTERM`);
-      } catch (checkError) {
-        if (checkError.code === 'ESRCH') {
-          logger.warn(`Process ${pid} not found (already stopped)`);
-          activeBotProcess = null;
-          return { success: true, message: 'Bot process already stopped' };
-        }
-        // Other errors (like EPERM) mean process exists but we can't check - try to kill anyway
+      if (!activeBotProcess || !activeBotProcess.pid) {
+        logger.warn('No active bot process to stop');
+        logger.info('Debug: activeBotProcess state:', activeBotProcess ? 'exists but no PID' : 'null');
+        resolve({ success: false, error: 'No active bot process' });
+        return;
       }
 
-      process.kill(pid, 'SIGTERM');
-      logger.success(`Bot process ${pid} stopped successfully`);
-      activeBotProcess = null;
-      return { success: true, message: 'Bot stopped successfully' };
-    } catch (killError) {
-      // Process might already be dead
-      if (killError.code === 'ESRCH') {
-        logger.warn(`Bot process ${pid} not found (already stopped)`);
-        activeBotProcess = null;
-        return { success: true, message: 'Bot process already stopped' };
-      }
-      throw killError;
+      const pid = activeBotProcess.pid;
+      logger.info(`Stopping bot process tree with PID: ${pid}`);
+
+      // First try graceful shutdown with SIGTERM
+      kill(pid, 'SIGTERM', (error) => {
+        if (error) {
+          if (error.code === 'ESRCH') {
+            logger.warn(`Process ${pid} not found (already stopped)`);
+            activeBotProcess = null;
+            resolve({ success: true, message: 'Bot process already stopped' });
+            return;
+          }
+          
+          logger.warn(`SIGTERM failed for PID ${pid}, trying SIGKILL immediately: ${error.message}`);
+          
+          // Force kill with SIGKILL immediately if SIGTERM fails
+          kill(pid, 'SIGKILL', (killError) => {
+            if (killError && killError.code !== 'ESRCH') {
+              logger.error(`Failed to kill process tree ${pid}:`, killError);
+              resolve({
+                success: false,
+                error: killError.message || 'Failed to stop bot process'
+              });
+            } else {
+              logger.success(`Bot process tree ${pid} force-killed successfully`);
+              activeBotProcess = null;
+              resolve({ success: true, message: 'Bot stopped successfully (force killed)' });
+            }
+          });
+          return;
+        }
+
+        // SIGTERM was sent successfully - wait 2 seconds then force kill if still alive
+        logger.info(`SIGTERM sent to process tree ${pid}, waiting 2 seconds for graceful shutdown...`);
+        
+        setTimeout(() => {
+          try {
+            // Check if process is still alive
+            process.kill(pid, 0);
+            
+            // Process is still alive after 2 seconds, force kill it
+            logger.warn(`Process ${pid} still alive after SIGTERM, sending SIGKILL`);
+            
+            kill(pid, 'SIGKILL', (killError) => {
+              if (killError && killError.code !== 'ESRCH') {
+                logger.error(`Failed to force kill process tree ${pid}:`, killError);
+                resolve({
+                  success: false,
+                  error: killError.message || 'Failed to stop bot process'
+                });
+              } else {
+                logger.success(`Bot process tree ${pid} force-killed after timeout`);
+                activeBotProcess = null;
+                resolve({ success: true, message: 'Bot stopped successfully (force killed after timeout)' });
+              }
+            });
+          } catch (checkError) {
+            // Process already died from SIGTERM
+            if (checkError.code === 'ESRCH') {
+              logger.success(`Bot process tree ${pid} stopped gracefully with SIGTERM`);
+              activeBotProcess = null;
+              resolve({ success: true, message: 'Bot stopped successfully' });
+            } else {
+              // Unknown error checking process status
+              logger.warn(`Could not check process status: ${checkError.message}, assuming stopped`);
+              activeBotProcess = null;
+              resolve({ success: true, message: 'Bot stopped (status uncertain)' });
+            }
+          }
+        }, 2000); // Wait 2 seconds before force killing
+      });
+    } catch (error) {
+      logger.error('Error stopping bot:', error);
+      resolve({
+        success: false,
+        error: error.message || 'Failed to stop bot process'
+      });
     }
-  } catch (error) {
-    logger.error('Error stopping bot:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to stop bot process'
-    };
-  }
+  });
 }
