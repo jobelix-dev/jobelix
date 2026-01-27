@@ -50,29 +50,29 @@ CREATE POLICY "oauth_connections_select_own"
 ON public.oauth_connections
 FOR SELECT
 TO authenticated
-USING (user_id = auth.uid());
+USING (user_id = (SELECT auth.uid()));
 
 -- Users can insert their own OAuth connections
 CREATE POLICY "oauth_connections_insert_own"
 ON public.oauth_connections
 FOR INSERT
 TO authenticated
-WITH CHECK (user_id = auth.uid());
+WITH CHECK (user_id = (SELECT auth.uid()));
 
 -- Users can update their own OAuth connections
 CREATE POLICY "oauth_connections_update_own"
 ON public.oauth_connections
 FOR UPDATE
 TO authenticated
-USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
+USING (user_id = (SELECT auth.uid()))
+WITH CHECK (user_id = (SELECT auth.uid()));
 
 -- Users can delete their own OAuth connections
 CREATE POLICY "oauth_connections_delete_own"
 ON public.oauth_connections
 FOR DELETE
 TO authenticated
-USING (user_id = auth.uid());
+USING (user_id = (SELECT auth.uid()));
 
 -- =============================================================================
 -- TRIGGERS
