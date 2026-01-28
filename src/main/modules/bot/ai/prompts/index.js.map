@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["index.ts"],
+  "sourcesContent": ["/**\n * Prompts Module - Barrel Export\n */\n\nexport * from './templates';\n"],
+  "mappings": "AAIA,cAAc;",
+  "names": []
+}
