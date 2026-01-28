@@ -19,6 +19,9 @@
   "build": {
     "appId": "com.jobelix.app",
     "productName": "Jobelix",
+    "buildDependenciesFromSource": false,
+    "nodeGypRebuild": false,
+    "npmRebuild": false,
     "publish": [
       {
         "provider": "github",
