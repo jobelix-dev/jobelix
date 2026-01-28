@@ -290,3 +290,11 @@ gh auth login ====== log in to jobelix-dev acc to fetch releases...
 export GITHUB_TOKEN=$(gh auth token)
 PY_RUNTIME_TAG=py-runtime-v0.0.1 npm run fetch:bot
 brew install supabase/tap/supabase
+
+turbopack error
+killall node electron 2>/dev/null || true
+
+rm -rf .next node_modules package-lock.json
+npm cache clean --force
+npm install
+npm run dev

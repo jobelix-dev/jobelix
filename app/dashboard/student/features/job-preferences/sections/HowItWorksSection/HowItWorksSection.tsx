@@ -23,7 +23,7 @@ export default function HowItWorksSection() {
         </div>
         <div className="flex gap-3">
           <span className="font-semibold text-primary min-w-[60px]">Step 2</span>
-          <span>Claim your 25 daily credits</span>
+          <span>Claim your 50 daily credits</span>
         </div>
         <div className="flex gap-3">
           <span className="font-semibold text-primary min-w-[60px]">Step 3</span>

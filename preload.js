@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeConfigFile: (content) => ipcRenderer.invoke('write-config', content),
   writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
   launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
+  stopBot: () => ipcRenderer.invoke('stop-bot'),
   
   // Auth cache
   saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),

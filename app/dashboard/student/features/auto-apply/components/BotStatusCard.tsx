@@ -3,34 +3,22 @@
  * 
  * Displays real-time bot session status with live updates.
  * Shows activity, stats, elapsed time, and provides stop control.
+ * Updated: 2026-01-27
  */
 
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BotSession } from '@/lib/shared/types';
+import { BotSession, BotLaunchStatus, HistoricalTotals } from '@/lib/shared/types';
 import { 
-  Play, 
-  CheckCircle, 
-  XCircle, 
-  OctagonX,
-  Clock,
-  Briefcase,
-  CheckSquare,
-  XSquare,
-  Zap,
-  Loader2,
-  Info,
-  Eye
-} from 'lucide-react';
-import { useConfirmDialog } from '@/app/components/useConfirmDialog';
+  ACTIVITY_MESSAGES, 
+  PROGRESS_SIMULATION_INTERVAL_MS, 
+  SIMULATED_INSTALL_DURATION_MS,
+  MAX_LOGS_TO_DISPLAY 
+} from '@/lib/bot-status/constants';
 
-interface HistoricalTotals {
-  jobs_found: number;
-  jobs_applied: number;
-  jobs_failed: number;
-  credits_used: number;
-}
+import * as Icons from 'lucide-react';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 
 interface BotStatusCardProps {
   session: BotSession;
@@ -38,74 +26,83 @@ interface BotStatusCardProps {
   onStop: () => Promise<{ success: boolean; error?: string }>;
   onLaunch?: () => Promise<{ success: boolean; error?: string }>;
   onShowInstructions?: () => void;
+  launchStatus?: BotLaunchStatus | null;
 }
 
-// Activity messages for user-friendly display
-const ACTIVITY_MESSAGES: Record<string, string> = {
-  'browser_opening': '🌐 Opening Chrome browser...',
-  'browser_opened': '✅ Browser ready',
-  'linkedin_login': '🔐 Logging into LinkedIn...',
-  'linkedin_login_done': '✅ Logged into LinkedIn',
-  'searching_jobs': '🔍 Searching for matching jobs...',
-  'jobs_found': '📋 Jobs retrieved',
-  'creating_resume': '📄 Generating tailored resume...',
-  'answering_questions': '💬 Answering screening questions...',
-  'submitting_application': '📤 Submitting application...',
-  'application_submitted': '🎉 Application submitted!',
-  'application_failed': '⚠️ Application encountered error',
-  'applying_jobs': '⚡ Applying to jobs...',
-  'finalizing': '🏁 Finishing up...',
-};
-
-// Status color and icon mapping
-function getStatusDisplay(status: BotSession['status']) {
-  switch (status) {
-    case 'starting':
-      return {
-        icon: <Loader2 className="w-5 h-5 text-primary animate-spin" />,
-        text: 'Starting...',
-        pill: 'bg-primary-subtle/20 text-primary border-primary/40'
-      };
-    case 'running':
-      return {
-        icon: <Play className="w-5 h-5 text-primary" />,
-        text: 'Running',
-        pill: 'bg-primary-subtle/20 text-primary border-primary/40'
-      };
-    case 'completed':
-      return {
-        icon: <CheckCircle className="w-5 h-5 text-success" />,
-        text: 'Completed',
-        pill: 'bg-success-subtle/20 text-success border-success/40'
-      };
-    case 'failed':
-      return {
-        icon: <XCircle className="w-5 h-5 text-error" />,
-        text: 'Failed',
-        pill: 'bg-error-subtle/20 text-error border-error/40'
-      };
-    case 'stopped':
-      return {
-        icon: <OctagonX className="w-5 h-5 text-warning" />,
-        text: 'Stopped',
-        pill: 'bg-warning-subtle/20 text-warning border-warning/40'
-      };
-  }
+// Reusable stat card component
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  currentValue?: number;
+  href?: string;
+  isActive?: boolean;
 }
 
-export default function BotStatusCard({ session, historicalTotals, onStop, onLaunch, onShowInstructions }: BotStatusCardProps) {
+function StatCard({ icon, label, value, currentValue = 0, href, isActive }: StatCardProps) {
+  const labelContent = href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1 text-xs font-medium text-success hover:text-success/80 transition-colors"
+      title={`View ${label.toLowerCase()} on LinkedIn`}
+    >
+      {label}
+      <Icons.Eye className="h-3 w-3" />
+    </a>
+  ) : (
+    <span className="text-xs font-medium text-muted">{label}</span>
+  );
+
+  return (
+    <div className="rounded-lg p-4 bg-gradient-to-br from-success-subtle/10 to-success-subtle/5 border border-success/15 hover:border-success/25 transition-colors">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="p-1.5 rounded-md bg-success/10">{icon}</div>
+        {labelContent}
+      </div>
+      <p className="text-2xl font-bold text-success">{value}</p>
+      {isActive && currentValue > 0 && (
+        <p className="text-xs text-success/80 mt-1.5">+{currentValue} this session</p>
+      )}
+    </div>
+  );
+}
+
+export default function BotStatusCard({ session, historicalTotals, onStop, onLaunch, onShowInstructions, launchStatus }: BotStatusCardProps) {
   const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
-  const statusDisplay = getStatusDisplay(session.status);
   const isActive = session.status === 'starting' || session.status === 'running';
   const isCompleted = session.status === 'completed' || session.status === 'failed' || session.status === 'stopped';
-  const [elapsedSeconds, setElapsedSeconds] = useState(() => {
-    if (!session.started_at) return 0;
-    const start = new Date(session.started_at).getTime();
-    const end = session.completed_at
-      ? new Date(session.completed_at).getTime()
-      : Date.now();
-    return Math.max(0, Math.floor((end - start) / 1000));
-  });
+  const isStopped = session.status === 'stopped';
+  const isFailed = session.status === 'failed';
+  const isInstalling = launchStatus?.stage === 'installing';
+  // Only show launch status during initial launch, not when bot is already active
+  const showSetupMessage = !isActive && !isCompleted && launchStatus && ['checking', 'launching'].includes(launchStatus.stage);
+  
+  const [simulatedProgress, setSimulatedProgress] = useState<number | null>(null);
+
+  // Simulated progress for browser installation
+  useEffect(() => {
+    if (!isInstalling || typeof launchStatus?.progress === 'number') {
+      setSimulatedProgress(null);
+      return;
+    }
+
+    const increment = 99 / (SIMULATED_INSTALL_DURATION_MS / PROGRESS_SIMULATION_INTERVAL_MS);
+    setSimulatedProgress(0);
+
+    const intervalId = window.setInterval(() => {
+      setSimulatedProgress((prev) => (prev === null ? 0 : Math.min(99, prev + increment)));
+    }, PROGRESS_SIMULATION_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [isInstalling, launchStatus?.progress]);
+
+  const progressValue = Math.max(0, Math.min(100, Math.round(
+    typeof launchStatus?.progress === 'number'
+      ? Math.max(launchStatus.progress, simulatedProgress ?? 0)
+      : simulatedProgress ?? 0
+  )));
 
   // Calculate display values (combined totals + session delta)
   const displayStats = useMemo(() => {
@@ -127,95 +124,80 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
       },
       current
     };
-  }, [session, historicalTotals, isActive]);
-
-  useEffect(() => {
-    const getElapsedSeconds = () => {
-      if (!session.started_at) return 0;
-      const start = new Date(session.started_at).getTime();
-      const end = session.completed_at
-        ? new Date(session.completed_at).getTime()
-        : Date.now();
-      return Math.max(0, Math.floor((end - start) / 1000));
-    };
-
-    setElapsedSeconds(getElapsedSeconds());
-
-    if (!isActive || session.completed_at) return;
-
-    const interval = setInterval(() => {
-      setElapsedSeconds(getElapsedSeconds());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [session.started_at, session.completed_at, isActive]);
-
-  // Calculate elapsed time
-  const elapsedTime = useMemo(() => {
-    const hours = Math.floor(elapsedSeconds / 3600);
-    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-    const seconds = elapsedSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s`;
-    }
-    return `${seconds}s`;
-  }, [elapsedSeconds]);
+  }, [
+    session.jobs_found,
+    session.jobs_applied,
+    session.jobs_failed,
+    session.credits_used,
+    historicalTotals.jobs_found,
+    historicalTotals.jobs_applied,
+    historicalTotals.jobs_failed,
+    historicalTotals.credits_used,
+    isActive
+  ]);
 
   // Get current activity message
   const activityMessage = session.current_activity 
     ? ACTIVITY_MESSAGES[session.current_activity] || session.current_activity
     : null;
+  const showActivityCard = isActive && activityMessage && !isInstalling;
 
   // Handle stop button click
   const handleStop = async () => {
+    console.log('🔴 [HANDLE STOP] Button clicked, session:', session);
+    
+    // Double-check status before showing confirmation
+    if (session.status !== 'starting' && session.status !== 'running') {
+      console.log('🔴 [HANDLE STOP] Invalid status, showing alert');
+      await alert(
+        `Cannot stop bot: session is already ${session.status}. Try refreshing the page.`,
+        { title: 'Bot Status Changed' }
+      );
+      return;
+    }
+
+    console.log('🔴 [HANDLE STOP] Showing confirmation dialog');
     const confirmed = await confirm(
       'Are you sure you want to stop the bot? The current operation will complete before stopping.',
       { title: 'Stop Bot', variant: 'danger', confirmText: 'Stop', cancelText: 'Cancel' }
     );
     if (!confirmed) {
+      console.log('🔴 [HANDLE STOP] User cancelled');
       return;
     }
 
+    console.log('🔴 [HANDLE STOP] User confirmed, calling onStop()...');
     const result = await onStop();
+    console.log('🔴 [HANDLE STOP] onStop() returned:', result);
     if (!result.success && result.error) {
+      console.log('🔴 [HANDLE STOP] Showing error alert');
       await alert(`Failed to stop bot: ${result.error}`, { title: 'Error' });
     }
+    console.log('🔴 [HANDLE STOP] Complete');
   };
 
   return (
     <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {statusDisplay.icon}
-          <div>
-            <h3 className="font-semibold text-default">Bot Status</h3>
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusDisplay.pill}`}>
-              {statusDisplay.text}
-            </span>
-          </div>
-        </div>
+        <h3 className="text-lg font-semibold text-default">Bot Session</h3>
         
         {/* Action Button */}
         {isActive ? (
           <button
             onClick={handleStop}
-            className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-colors text-sm font-semibold shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow"
           >
-            <OctagonX className="w-4 h-4" />
+            <Icons.OctagonX className="w-4 h-4" />
             Stop Bot
           </button>
         ) : isCompleted && onLaunch ? (
           <div className="flex items-center gap-2">
             <button
               onClick={onLaunch}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow"
             >
-              <Play className="w-4 h-4" />
+              <Icons.Play className="w-4 h-4" />
               Launch Again
             </button>
             {onShowInstructions && (
@@ -224,18 +206,60 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
                 className="p-2 bg-muted/20 hover:bg-muted/30 text-muted hover:text-default rounded-lg transition-colors"
                 title="View instructions"
               >
-                <Info className="w-4 h-4" />
+                <Icons.Info className="w-4 h-4" />
               </button>
             )}
           </div>
         ) : null}
       </div>
 
+      {isInstalling && launchStatus && (
+        <div className="rounded-lg border border-primary/30 bg-primary-subtle/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15">
+              <Icons.Loader2 className="h-4 w-4 animate-spin text-primary" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <div>
+                <p className="text-sm font-semibold text-default">Setting up browser</p>
+                <p className="text-xs text-muted">
+                  First-time setup: installing Chromium browser. This may take a few moments.
+                </p>
+              </div>
+              <div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-150"
+                    style={{ width: `${progressValue}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[11px] text-muted">
+                  <span>{progressValue}%</span>
+                  <span className="text-[10px]">Please wait...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isInstalling && showSetupMessage && (
+        <div className="rounded-lg border border-primary/30 bg-primary-subtle/10 p-3">
+          <div className="flex items-center gap-2 text-sm text-default">
+            <Icons.Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="font-medium">
+              {launchStatus?.message ||
+                (launchStatus?.stage === 'checking' ? 'Checking browser...' : 'Launching bot...')}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Current Activity */}
-      {isActive && activityMessage && (
-        <div className="p-3 bg-primary-subtle/20 border border-primary/20 rounded-lg">
+      {showActivityCard && (
+        <div className="p-3 bg-primary-subtle/15 border border-primary/20 rounded-lg">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            <div className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0" />
             <span className="text-sm text-default">
               {activityMessage}
               {session.activity_details?.company && (
@@ -250,103 +274,53 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-lg p-3 bg-primary-subtle/20">
-          <div className="flex items-center gap-2 mb-1">
-            <Briefcase className="w-4 h-4 text-info" />
-            <span className="text-xs text-muted">Jobs Found</span>
-          </div>
-          <p className="text-2xl font-bold text-info">
-            {displayStats.totals.jobs_found}
-          </p>
-          {isActive && displayStats.current.jobs_found > 0 && (
-            <p className="text-xs text-info mt-1">
-              Session {displayStats.current.jobs_found}
-            </p>
-          )}
-        </div>
-        
-        <div className="rounded-lg p-3 bg-success-subtle/20">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckSquare className="w-4 h-4 text-success" />
-            <a
-              href="https://www.linkedin.com/my-items/saved-jobs/?cardType=APPLIED"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle/20 px-2 py-0.5 text-[11px] font-medium text-success transition-colors hover:bg-success-subtle/30"
-              title="Open applied jobs on LinkedIn"
-            >
-              Applied jobs
-              <Eye className="h-3 w-3" />
-            </a>
-          </div>
-          <p className="text-2xl font-bold text-success">
-            {displayStats.totals.jobs_applied}
-          </p>
-          {isActive && displayStats.current.jobs_applied > 0 && (
-            <p className="text-xs text-success mt-1">
-              Session {displayStats.current.jobs_applied}
-            </p>
-          )}
-        </div>
-        
-        <div className="rounded-lg p-3 bg-error-subtle/20">
-          <div className="flex items-center gap-2 mb-1">
-            <XSquare className="w-4 h-4 text-error" />
-            <span className="text-xs text-muted">Failed</span>
-          </div>
-          <p className="text-2xl font-bold text-error">
-            {displayStats.totals.jobs_failed}
-          </p>
-          {isActive && displayStats.current.jobs_failed > 0 && (
-            <p className="text-xs text-error mt-1">
-              Session {displayStats.current.jobs_failed}
-            </p>
-          )}
-        </div>
-        
-        <div className="rounded-lg p-3 bg-warning-subtle/20">
-          <div className="flex items-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-warning" />
-            <span className="text-xs text-muted">Credits Used</span>
-          </div>
-          <p className="text-2xl font-bold text-warning">
-            {displayStats.totals.credits_used}
-          </p>
-          {isActive && displayStats.current.credits_used > 0 && (
-            <p className="text-xs text-warning mt-1">
-              Session {displayStats.current.credits_used}
-            </p>
-          )}
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard
+          icon={<Icons.Briefcase className="w-3.5 h-3.5 text-success" />}
+          label="Jobs Found"
+          value={displayStats.totals.jobs_found}
+          currentValue={displayStats.current.jobs_found}
+          isActive={isActive}
+        />
+        <StatCard
+          icon={<Icons.CheckSquare className="w-3.5 h-3.5 text-success" />}
+          label="Applied"
+          value={displayStats.totals.jobs_applied}
+          currentValue={displayStats.current.jobs_applied}
+          href="https://www.linkedin.com/my-items/saved-jobs/?cardType=APPLIED"
+          isActive={isActive}
+        />
+        <StatCard
+          icon={<Icons.XSquare className="w-3.5 h-3.5 text-success" />}
+          label="Failed"
+          value={displayStats.totals.jobs_failed}
+          currentValue={displayStats.current.jobs_failed}
+          isActive={isActive}
+        />
+        <StatCard
+          icon={<Icons.Zap className="w-3.5 h-3.5 text-success" />}
+          label="Credits used"
+          value={displayStats.totals.credits_used}
+          currentValue={displayStats.current.credits_used}
+          isActive={isActive}
+        />
       </div>
 
-      {/* Footer Info */}
-      <div className="flex items-center justify-between text-xs text-muted">
-        <div className="flex items-center gap-2">
-          <Clock className="w-3 h-3" />
-          <span>Elapsed: {elapsedTime}</span>
-        </div>
-        
-        {session.bot_version && (
-          <span>Bot v{session.bot_version}</span>
-        )}
-      </div>
-
-      {/* Error Display */}
-      {session.status === 'failed' && session.error_message && (
-        <div className="mt-4 p-3 bg-error-subtle/20 border border-error rounded-lg">
-          <p className="text-sm text-error">
-            <strong>Error:</strong> {session.error_message}
+      {/* Status Messages - Clean card layout without icons */}
+      {isStopped && (
+        <div className="p-4 bg-warning-subtle/10 rounded-lg">
+          <p className="text-sm font-medium text-default mb-1">Session Stopped</p>
+          <p className="text-sm text-muted">
+            The bot was manually stopped and will not restart automatically. Click "Launch Again" to start a new session.
           </p>
         </div>
       )}
 
-      {/* Stopped Message */}
-      {session.status === 'stopped' && (
-        <div className="mt-4 p-3 bg-warning-subtle/20 border border-warning rounded-lg">
-          <p className="text-sm text-warning">
-            Bot was manually stopped by user.
+      {isFailed && (
+        <div className="p-4 bg-error-subtle/10 rounded-lg">
+          <p className="text-sm font-medium text-default mb-1">Session Failed</p>
+          <p className="text-sm text-muted">
+            The bot encountered an error and stopped. You can launch a new session when ready.
           </p>
         </div>
       )}

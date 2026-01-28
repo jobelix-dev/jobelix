@@ -46,16 +46,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if session is already stopped/completed
+    // Check if session is already stopped/completed/failed
     if (session.status === 'stopped') {
       return NextResponse.json(
         { success: true, message: 'Session already stopped' }
       );
     }
 
-    if (session.status === 'completed' || session.status === 'failed') {
+    if (session.status === 'completed') {
       return NextResponse.json(
-        { error: 'Cannot stop completed session' },
+        { success: true, message: 'Session already completed' }
+      );
+    }
+
+    if (session.status === 'failed') {
+      // Allow stopping failed sessions (process might still be running)
+      const { error: updateError } = await supabase
+        .from('bot_sessions')
+        .update({
+          status: 'stopped',
+          completed_at: new Date().toISOString(),
+          error_message: 'Stopped by user after failure'
+        })
+        .eq('id', session_id)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('[Bot Stop] Failed session update error:', updateError);
+      }
+
+      return NextResponse.json(
+        { success: true, message: 'Failed session marked as stopped' }
+      );
+    }
+
+    // Only starting/running sessions can be stopped
+    if (session.status !== 'starting' && session.status !== 'running') {
+      return NextResponse.json(
+        { error: `Cannot stop session with status: ${session.status}` },
         { status: 409 }
       );
     }

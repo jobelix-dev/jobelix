@@ -49,15 +49,15 @@ ALTER TABLE bot_sessions ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 -- Users can only view their own sessions
 CREATE POLICY "Users view own sessions" ON bot_sessions
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 -- Users can insert their own sessions (via API with service role)
 CREATE POLICY "Users insert own sessions" ON bot_sessions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Users can update their own sessions (for stop functionality)
 CREATE POLICY "Users update own sessions" ON bot_sessions
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 -- Trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_bot_session_timestamp()
@@ -66,7 +66,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 CREATE TRIGGER set_bot_session_updated_at
   BEFORE UPDATE ON bot_sessions
@@ -92,7 +93,8 @@ BEGIN
   GET DIAGNOSTICS stale_count = ROW_COUNT;
   RETURN stale_count;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 -- Enable Realtime for instant updates (critical for live status)
 ALTER PUBLICATION supabase_realtime ADD TABLE bot_sessions;

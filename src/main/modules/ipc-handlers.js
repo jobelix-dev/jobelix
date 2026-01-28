@@ -5,7 +5,7 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
-import { launchBot } from './process-manager.js';
+import { launchBot, stopBot } from './process-manager.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -77,6 +77,20 @@ export function setupIpcHandlers() {
       logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launched with PID: ${result.pid}`);
     } else {
       logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launch failed: ${result.error}`);
+    }
+    
+    return result;
+  });
+
+  // Handler: Stop bot automation
+  ipcMain.handle(IPC_CHANNELS.STOP_BOT, async () => {
+    logger.ipc(IPC_CHANNELS.STOP_BOT, 'Stopping bot');
+    const result = await stopBot();
+    
+    if (result.success) {
+      logger.ipc(IPC_CHANNELS.STOP_BOT, 'Bot stopped successfully');
+    } else {
+      logger.ipc(IPC_CHANNELS.STOP_BOT, `Bot stop failed: ${result.error}`);
     }
     
     return result;

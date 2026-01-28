@@ -2,28 +2,46 @@
  * Custom hook for bot launch logic
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-
-type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
-
-interface BotLaunchStatus {
-  stage: BotLaunchStage;
-  message?: string;
-  progress?: number;
-  logs: string[];
-}
+import { BotLaunchStage, BotLaunchStatus } from '@/lib/shared/types';
+import { ERROR_DISPLAY_DURATION_MS, MAX_LOGS_IN_MEMORY } from '@/lib/bot-status/constants';
+import { debugLog } from '@/lib/bot-status/debug';
 
 export function useBotLauncher() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [launchStatus, setLaunchStatus] = useState<BotLaunchStatus | null>(null);
+  const listenerAttachedRef = useRef(false);
+  const launchingRef = useRef(false);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const launchBot = useCallback(async () => {
+    // Prevent multiple simultaneous launches
+    if (launchingRef.current) {
+      debugLog.warn('[useBotLauncher] Already launching, ignoring duplicate request');
+      return { success: false, error: 'Launch already in progress' };
+    }
+
+    launchingRef.current = true;
     setLaunching(true);
     setError(null);
     setLaunchStatus(null);
-    let statusListenerAttached = false;
+    listenerAttachedRef.current = false;
+
+    // Clear any existing error timeout
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+
+    const setErrorWithTimeout = (message: string) => {
+      setError(message);
+      errorTimeoutRef.current = setTimeout(() => {
+        setError(null);
+        errorTimeoutRef.current = null;
+      }, ERROR_DISPLAY_DURATION_MS);
+    };
 
     try {
       // Check if running in Electron app
@@ -37,9 +55,8 @@ export function useBotLauncher() {
       const profileCheckResponse = await fetch('/api/student/profile/published');
       if (!profileCheckResponse.ok) {
         const message = 'Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.';
-        setError(message);
+        setErrorWithTimeout(message);
         setLaunching(false);
-        setTimeout(() => setError(null), 5000);
         return { success: false, error: message };
       }
       
@@ -48,15 +65,14 @@ export function useBotLauncher() {
       // Verify essential profile data exists
       if (!profileData.student || !profileData.student.first_name || !profileData.student.last_name) {
         const message = 'Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.';
-        setError(message);
+        setErrorWithTimeout(message);
         setLaunching(false);
-        setTimeout(() => setError(null), 5000);
         return { success: false, error: message };
       }
 
       // Ensure YAML config exists locally (important for users who filled data online first)
       try {
-        console.log('Ensuring YAML config exists locally...');
+        debugLog.general('Ensuring YAML config exists locally...');
         const prefsResponse = await fetch('/api/student/work-preferences');
         if (!prefsResponse.ok) {
           throw new Error('Failed to fetch work preferences');
@@ -64,10 +80,10 @@ export function useBotLauncher() {
         const prefsData = await prefsResponse.json();
         if (prefsData.preferences) {
           await exportPreferencesToYAML(prefsData.preferences);
-          console.log('YAML config ensured locally');
+          debugLog.general('YAML config ensured locally');
         }
       } catch (yamlError) {
-        console.error('Failed to ensure YAML config:', yamlError);
+        debugLog.error('Failed to ensure YAML config:', yamlError);
         throw new Error('Failed to create local config file. Please save your job preferences again.');
       }
 
@@ -79,7 +95,7 @@ export function useBotLauncher() {
       const { token } = await tokenResponse.json();
 
       // Create initial bot session on backend
-      console.log('Creating bot session...');
+      debugLog.general('Creating bot session...');
       const sessionResponse = await fetch('/api/autoapply/bot/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,11 +108,21 @@ export function useBotLauncher() {
 
       if (!sessionResponse.ok) {
         const sessionError = await sessionResponse.json();
-        throw new Error(sessionError.error || 'Failed to create bot session');
+        const errorMessage = sessionError.error || 'Failed to create bot session';
+        
+        // Handle "already running" error gracefully (race condition from fast clicking)
+        if (errorMessage.includes('already running') || errorMessage.includes('already active')) {
+          debugLog.warn('[useBotLauncher] Bot session already exists, returning success');
+          setLaunching(false);
+          launchingRef.current = false;
+          return { success: true }; // Treat as success since bot is already running
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const { session_id } = await sessionResponse.json();
-      console.log('Bot session created:', session_id);
+      debugLog.general('Bot session created:', session_id);
 
       setLaunchStatus({
         stage: 'checking',
@@ -110,60 +136,98 @@ export function useBotLauncher() {
         progress?: number;
         log?: string;
       }) => {
+        debugLog.botLauncher('Received bot status:', payload);
         setLaunchStatus((prev) => {
           const nextStage = payload.stage ?? prev?.stage ?? 'checking';
           const stageChanged = prev?.stage && nextStage !== prev.stage;
           const nextLogs = payload.log
-            ? [...(prev?.logs ?? []), payload.log].slice(-200)
+            ? [...(prev?.logs ?? []), payload.log].slice(-MAX_LOGS_IN_MEMORY)
             : prev?.logs ?? [];
 
-          return {
+          const nextState = {
             stage: nextStage,
             message: payload.message ?? (stageChanged ? undefined : prev?.message),
             progress: payload.progress ?? (stageChanged ? undefined : prev?.progress),
             logs: nextLogs,
           };
+          debugLog.botLauncher('Updated launchStatus:', nextState);
+          return nextState;
         });
       };
 
       if (window.electronAPI?.onBotStatus) {
+        debugLog.botLauncher('Registering bot status listener');
         window.electronAPI.onBotStatus(handleBotStatus);
-        statusListenerAttached = true;
+        listenerAttachedRef.current = true;
+      } else {
+        debugLog.warn('[useBotLauncher] electronAPI.onBotStatus not available!');
       }
 
       // Launch the bot via Electron IPC
+      debugLog.botLauncher('Calling electronAPI.launchBot...');
       const result = await window.electronAPI.launchBot(token);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to launch bot');
       }
       
-      console.log('Bot launched:', result);
-      console.log('Platform:', result.platform, 'PID:', result.pid);
-      console.log('Session ID:', session_id);
+      debugLog.general('Bot launched:', result);
+      debugLog.general('Platform:', result.platform, 'PID:', result.pid);
+      debugLog.general('Session ID:', session_id);
       
       return { success: true };
     } catch (err) {
-      console.error('Launch error:', err);
+      debugLog.error('Launch error:', err);
       const message = err instanceof Error ? err.message : 'Failed to launch bot';
-      setError(message);
+      setErrorWithTimeout(message);
       setLaunchStatus((prev) =>
         prev
           ? { ...prev, message, stage: prev.stage === 'running' ? prev.stage : 'launching' }
           : null
       );
-      setTimeout(() => setError(null), 5000);
       return { success: false, error: message };
     } finally {
       setLaunching(false);
-      if (statusListenerAttached && window.electronAPI?.removeBotStatusListeners) {
+      launchingRef.current = false;
+      // Clean up listener if it was attached
+      if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
         window.electronAPI.removeBotStatusListeners();
+        listenerAttachedRef.current = false;
       }
     }
   }, []);
 
   const clearError = useCallback(() => {
     setError(null);
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearLaunchStatus = useCallback(() => {
+    console.log('🧹 [BOT LAUNCHER] Clearing launch status');
+    setLaunchStatus(null);
+    setLaunching(false);
+    // Clean up listener if attached
+    if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
+      window.electronAPI.removeBotStatusListeners();
+      listenerAttachedRef.current = false;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
+        window.electronAPI.removeBotStatusListeners();
+        listenerAttachedRef.current = false;
+      }
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+        errorTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   return {
@@ -172,5 +236,6 @@ export function useBotLauncher() {
     launchBot,
     launchStatus,
     clearError,
+    clearLaunchStatus,
   };
 }

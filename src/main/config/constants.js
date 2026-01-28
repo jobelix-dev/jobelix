@@ -99,6 +99,7 @@ export const IPC_CHANNELS = {
   WRITE_CONFIG: 'write-config',
   WRITE_RESUME: 'write-resume',
   LAUNCH_BOT: 'launch-bot',
+  STOP_BOT: 'stop-bot',
   
   // Auth cache
   SAVE_AUTH_CACHE: 'save-auth-cache',
@@ -122,6 +123,6 @@ export const VERSION = {
 export const SPAWN_CONFIG = {
   BOT: {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'], // stdin ignored, stdout/stderr piped for logging
   },
 };

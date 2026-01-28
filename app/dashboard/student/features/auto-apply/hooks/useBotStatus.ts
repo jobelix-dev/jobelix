@@ -14,17 +14,12 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
-import { BotSession } from '@/lib/shared/types';
+import { BotSession, HistoricalTotals } from '@/lib/shared/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-
-interface HistoricalTotals {
-  jobs_found: number;
-  jobs_applied: number;
-  jobs_failed: number;
-  credits_used: number;
-}
+import { POLLING_INTERVAL_MS } from '@/lib/bot-status/constants';
+import { debugLog } from '@/lib/bot-status/debug';
 
 interface UseBotStatusReturn {
   session: BotSession | null;
@@ -35,7 +30,10 @@ interface UseBotStatusReturn {
   stopBot: () => Promise<{ success: boolean; error?: string }>;
 }
 
-export function useBotStatus(): UseBotStatusReturn {
+/**
+ * Custom hook for managing bot status with real-time updates
+ */
+export function useBotStatus(options?: { onBotStopped?: () => void }): UseBotStatusReturn {
   const [session, setSession] = useState<BotSession | null>(null);
   const [historicalTotals, setHistoricalTotals] = useState<HistoricalTotals>({
     jobs_found: 0,
@@ -46,7 +44,18 @@ export function useBotStatus(): UseBotStatusReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const supabase = createClient();
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Use ref to always get latest session without recreating callback
+  const sessionRef = useRef<BotSession | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  
+  // Create supabase client once and reuse it
+  const supabase = useMemo(() => createClient(), []);
 
   // Fetch current session from API
   const fetchSession = useCallback(async () => {
@@ -67,7 +76,7 @@ export function useBotStatus(): UseBotStatusReturn {
       }
       
     } catch (err: any) {
-      console.error('[useBotStatus] Fetch error:', err);
+      debugLog.error('[useBotStatus] Fetch error:', err);
       setError(err.message || 'Failed to load bot status');
     } finally {
       setLoading(false);
@@ -76,15 +85,71 @@ export function useBotStatus(): UseBotStatusReturn {
 
   // Stop bot session
   const stopBot = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    if (!session) {
+    console.log('🛑 [STOP BOT] Function called - START');
+    console.log('🛑 [STOP BOT] window:', typeof window);
+    console.log('🛑 [STOP BOT] window.electronAPI:', window.electronAPI);
+    console.log('🛑 [STOP BOT] window.electronAPI?.stopBot:', window.electronAPI?.stopBot);
+    
+    // Use ref to get latest session value (avoid stale closure)
+    const currentSession = sessionRef.current;
+    
+    console.log('🛑 [STOP BOT] Current session:', currentSession);
+    
+    debugLog.botStatus('[stopBot] Called');
+    debugLog.botStatus('[stopBot] Current session:', currentSession);
+    debugLog.botStatus('[stopBot] window.electronAPI exists:', !!window.electronAPI);
+    debugLog.botStatus('[stopBot] window.electronAPI.stopBot exists:', !!window.electronAPI?.stopBot);
+    
+    if (!currentSession) {
+      console.log('🛑 [STOP BOT] No session, returning early');
+      debugLog.warn('[stopBot] No active session, returning early');
       return { success: false, error: 'No active session' };
     }
 
+    // Clear launch status UI immediately at the start
+    if (options?.onBotStopped) {
+      console.log('🛑 [STOP BOT] Calling onBotStopped callback (clearing launch UI)...');
+      options.onBotStopped();
+    }
+
     try {
+      let processKilled = false;
+
+      // First, kill the process via Electron IPC (if running in Electron)
+      if (window.electronAPI?.stopBot) {
+        console.log('🛑 [STOP BOT] Calling window.electronAPI.stopBot()...');
+        debugLog.botStatus('[stopBot] Calling Electron IPC stopBot...');
+        const electronResult = await window.electronAPI.stopBot();
+        console.log('🛑 [STOP BOT] Electron result:', electronResult);
+        debugLog.botStatus('[stopBot] Electron result:', electronResult);
+        
+        if (!electronResult.success) {
+          console.log('🛑 [STOP BOT] Electron stop failed:', electronResult.error);
+          debugLog.warn('[useBotStatus] Electron stop failed:', electronResult.error);
+          // If no active process, it might have already stopped - continue to update DB
+          if (electronResult.error && !electronResult.error.includes('No active bot process')) {
+            console.log('🛑 [STOP BOT] Returning error immediately');
+            debugLog.error('[stopBot] Returning error from Electron stop');
+            return { success: false, error: electronResult.error };
+          }
+          console.log('🛑 [STOP BOT] No active process error, continuing to DB update');
+        } else {
+          console.log('🛑 [STOP BOT] Process killed successfully via Electron');
+          debugLog.botStatus('[stopBot] Bot process stopped successfully via Electron');
+          processKilled = true;
+        }
+      } else {
+        console.log('🛑 [STOP BOT] window.electronAPI.stopBot NOT available - skipping Electron kill');
+        debugLog.warn('[stopBot] Electron API not available, skipping process kill');
+      }
+
+      // Then update the session status in the database
+      console.log('🛑 [STOP BOT] Calling API to update DB with session_id:', currentSession.id);
+      debugLog.botStatus('[stopBot] Calling API to update DB...');
       const response = await fetch('/api/autoapply/bot/stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: session.id })
+        body: JSON.stringify({ session_id: currentSession.id })
       });
 
       const data = await response.json();
@@ -93,13 +158,19 @@ export function useBotStatus(): UseBotStatusReturn {
         return { success: false, error: data.error || 'Failed to stop bot' };
       }
 
-      return { success: true };
+      // Force refresh to get updated status
+      await fetchSession();
+
+      return { 
+        success: true,
+        message: processKilled ? 'Bot stopped successfully' : 'Bot session stopped (process may have already ended)'
+      };
       
     } catch (err: any) {
-      console.error('[useBotStatus] Stop error:', err);
+      debugLog.error('[useBotStatus] Stop error:', err);
       return { success: false, error: err.message || 'Failed to stop bot' };
     }
-  }, [session]);
+  }, [fetchSession]); // Removed 'session' dependency - using ref instead
 
   // Set up Realtime subscription
   useEffect(() => {
@@ -108,7 +179,12 @@ export function useBotStatus(): UseBotStatusReturn {
 
     // Subscribe to bot_sessions changes for current user
     const channel = supabase
-      .channel('bot-status')
+      .channel('bot-status', {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' },
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -118,7 +194,7 @@ export function useBotStatus(): UseBotStatusReturn {
           // Filter handled by RLS - only user's own sessions visible
         },
         (payload) => {
-          console.log('[useBotStatus] Realtime update:', payload);
+          debugLog.botStatus('Realtime update:', payload);
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             setSession(payload.new as BotSession);
@@ -127,14 +203,20 @@ export function useBotStatus(): UseBotStatusReturn {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[useBotStatus] Subscription status:', status);
+      .subscribe((status, err) => {
+        debugLog.botStatus('Subscription status:', status);
+        if (err) {
+          debugLog.error('[useBotStatus] Subscription error:', err);
+        }
         
         if (status === 'SUBSCRIBED') {
-          console.log('[useBotStatus] Real-time subscription active');
+          debugLog.botStatus('Real-time subscription active');
+          setError(null); // Clear any previous errors
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[useBotStatus] Subscription failed, falling back to polling');
-          setError('Real-time updates unavailable');
+          debugLog.warn('[useBotStatus] Subscription failed - user can manually refresh');
+          setError('Real-time updates unavailable. Refresh page to see latest status.');
+          // Don't fall back to aggressive polling - it causes 30+ auth requests/min
+          // User can manually refresh if needed
         }
       });
 
@@ -142,10 +224,14 @@ export function useBotStatus(): UseBotStatusReturn {
 
     // Cleanup on unmount
     return () => {
-      console.log('[useBotStatus] Cleaning up subscription');
+      debugLog.botStatus('Cleaning up subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
+      }
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
   }, [fetchSession, supabase]);

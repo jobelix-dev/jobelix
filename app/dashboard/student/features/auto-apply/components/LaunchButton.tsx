@@ -4,18 +4,11 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Rocket, AlertCircle, Info, Download, X, LogIn, MousePointer2Off, StopCircle, Shield, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-
-type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
-
-interface BotLaunchStatus {
-  stage: BotLaunchStage;
-  message?: string;
-  progress?: number;
-  logs: string[];
-}
+import { BotLaunchStatus } from '@/lib/shared/types';
+import { PROGRESS_SIMULATION_INTERVAL_MS, SIMULATED_INSTALL_DURATION_MS, MAX_LOGS_TO_DISPLAY } from '@/lib/bot-status/constants';
 
 interface LaunchButtonProps {
   canLaunch: boolean;
@@ -36,8 +29,50 @@ export default function LaunchButton({
 }: LaunchButtonProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const installProgress =
+    typeof launchStatus?.progress === 'number'
+      ? Math.max(0, Math.min(100, launchStatus.progress))
+      : null;
+  const isInstalling = launchStatus?.stage === 'installing';
+  const showSetupMessage = launchStatus && ['checking', 'launching'].includes(launchStatus.stage);
+  const showStatusCard = launchStatus && (launching || launchStatus.stage !== 'running');
+  const [simulatedProgress, setSimulatedProgress] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isInstalling) {
+      setSimulatedProgress(null);
+      return;
+    }
+    if (typeof installProgress === 'number') {
+      setSimulatedProgress(null);
+      return;
+    }
+
+    const increment = 99 / (SIMULATED_INSTALL_DURATION_MS / PROGRESS_SIMULATION_INTERVAL_MS);
+    setSimulatedProgress(0);
+
+    const intervalId = window.setInterval(() => {
+      setSimulatedProgress((prev) => {
+        if (prev === null) return 0;
+        return Math.min(99, prev + increment);
+      });
+    }, PROGRESS_SIMULATION_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [isInstalling, installProgress]);
+
+  const displayProgress =
+    typeof installProgress === 'number'
+      ? Math.max(installProgress, simulatedProgress ?? 0)
+      : simulatedProgress ?? 0;
+  const progressValue = Math.max(0, Math.min(100, Math.round(displayProgress)));
 
   const handleClick = () => {
+    // Prevent opening modal if already launching
+    if (launching) {
+      return;
+    }
+    
     if (!canLaunch) {
       setShowWarning(true);
       setTimeout(() => setShowWarning(false), 3000);
@@ -173,31 +208,45 @@ export default function LaunchButton({
         {launching ? 'Launching Bot...' : 'Launch Auto Apply Bot'}
       </button>
 
-      {launchStatus && (launching || launchStatus.stage !== 'running') && (
-        <div className="rounded-lg border border-border bg-background/80 p-3">
+      {showStatusCard && isInstalling && launchStatus && (
+        <div className="rounded-xl border border-primary/20 bg-primary-subtle/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <div>
+                <p className="text-sm font-semibold text-default">Setting up browser</p>
+                <p className="text-xs text-muted">
+                  First-time setup: installing Chromium browser. This may take a few moments.
+                </p>
+              </div>
+              <div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-150"
+                    style={{ width: `${progressValue}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[11px] text-muted">
+                  <span>{progressValue}%</span>
+                  <span className="text-[10px]">Please wait...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStatusCard && !isInstalling && showSetupMessage && launchStatus && (
+        <div className="rounded-lg border border-primary/20 bg-primary-subtle/10 p-3">
           <div className="flex items-center gap-2 text-sm text-default">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span className="font-medium">
               {launchStatus.message ||
-                (launchStatus.stage === 'checking'
-                  ? 'Checking browser...'
-                  : launchStatus.stage === 'installing'
-                  ? 'Installing browser (first run only)... may take a minute.'
-                  : launchStatus.stage === 'launching'
-                  ? 'Launching bot...'
-                  : 'Bot running.')}
+                (launchStatus.stage === 'checking' ? 'Checking browser...' : 'Launching bot...')}
             </span>
-            {typeof launchStatus.progress === 'number' && (
-              <span className="text-xs text-muted">{launchStatus.progress}%</span>
-            )}
           </div>
-          {launchStatus.logs.length > 0 && (
-            <div className="mt-2 max-h-28 overflow-y-auto rounded-md border border-border bg-muted/10 px-2 py-1 text-[11px] text-muted font-mono">
-              {launchStatus.logs.slice(-8).map((line, index) => (
-                <div key={index}>{line}</div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
