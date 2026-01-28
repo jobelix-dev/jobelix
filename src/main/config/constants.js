@@ -119,6 +119,13 @@ export const VERSION = {
   DEFAULT: '0.0.0',
 };
 
+// Bot configuration
+export const BOT_CONFIG = {
+  // Set to true to use the new Node.js/TypeScript bot instead of Python
+  // This eliminates PyInstaller bundling issues and native library problems
+  USE_NODE_BOT: true,
+};
+
 // Spawn process configurations
 export const SPAWN_CONFIG = {
   BOT: {

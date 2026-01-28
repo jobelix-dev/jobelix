@@ -7,8 +7,18 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { launchBot, stopBot } from './process-manager.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
-import { IPC_CHANNELS } from '../config/constants.js';
+import { IPC_CHANNELS, BOT_CONFIG } from '../config/constants.js';
 import logger from '../utils/logger.js';
+
+// Dynamic import for TypeScript bot launcher (only loaded when needed)
+let nodeBotLauncher = null;
+async function getNodeBotLauncher() {
+  if (!nodeBotLauncher) {
+    // Dynamic import of the TypeScript module
+    nodeBotLauncher = await import('./node-bot-launcher.js');
+  }
+  return nodeBotLauncher;
+}
 
 /**
  * Setup all IPC handlers
@@ -71,10 +81,25 @@ export function setupIpcHandlers() {
         logger.warn('Failed to send bot status update:', error);
       }
     };
-    const result = await launchBot(token, sendBotStatus);
+
+    // Choose between Node.js bot and Python bot based on config
+    let result;
+    if (BOT_CONFIG.USE_NODE_BOT) {
+      logger.info('🚀 Using Node.js bot (TypeScript/Playwright)');
+      try {
+        const launcher = await getNodeBotLauncher();
+        result = await launcher.launchNodeBot(token, sendBotStatus);
+      } catch (error) {
+        logger.error('Failed to load Node.js bot launcher:', error);
+        result = { success: false, error: error.message || 'Failed to load bot launcher' };
+      }
+    } else {
+      logger.info('🐍 Using Python bot (PyInstaller)');
+      result = await launchBot(token, sendBotStatus);
+    }
     
     if (result.success) {
-      logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launched with PID: ${result.pid}`);
+      logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launched successfully`);
     } else {
       logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launch failed: ${result.error}`);
     }
@@ -84,13 +109,29 @@ export function setupIpcHandlers() {
 
   // Handler: Stop bot automation
   ipcMain.handle(IPC_CHANNELS.STOP_BOT, async () => {
-    logger.ipc(IPC_CHANNELS.STOP_BOT, 'Stopping bot');
-    const result = await stopBot();
+    logger.ipc(IPC_CHANNELS.STOP_BOT, '🛑 STOP_BOT IPC handler called');
+    logger.info('[IPC] 🛑 Stop bot requested from frontend');
+    
+    // Stop both bots (whichever is running)
+    let result;
+    if (BOT_CONFIG.USE_NODE_BOT) {
+      try {
+        const launcher = await getNodeBotLauncher();
+        result = await launcher.stopNodeBot();
+      } catch (error) {
+        logger.error('Failed to stop Node.js bot:', error);
+        result = { success: false, error: error.message };
+      }
+    } else {
+      result = await stopBot();
+    }
     
     if (result.success) {
-      logger.ipc(IPC_CHANNELS.STOP_BOT, 'Bot stopped successfully');
+      logger.ipc(IPC_CHANNELS.STOP_BOT, '✅ Bot stopped successfully');
+      logger.success('[IPC] ✅ Bot process stopped');
     } else {
-      logger.ipc(IPC_CHANNELS.STOP_BOT, `Bot stop failed: ${result.error}`);
+      logger.ipc(IPC_CHANNELS.STOP_BOT, `❌ Bot stop failed: ${result.error}`);
+      logger.error(`[IPC] ❌ Bot stop failed: ${result.error}`);
     }
     
     return result;

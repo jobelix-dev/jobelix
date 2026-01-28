@@ -14,6 +14,11 @@ export interface ElectronAPI {
     error?: string;
     message?: string;
   }>;
+  saveAuthCache: (tokens: {
+    access_token: string;
+    refresh_token: string;
+    expires_at?: number;
+    user_id: string;
   }) => Promise<{ success: boolean; error?: string }>;
   loadAuthCache: () => Promise<{ 
     access_token: string; 
@@ -42,12 +47,19 @@ export interface ElectronAPI {
   onUpdateError: (callback: (error: { message: string; error?: string }) => void) => void;
   removeUpdateListeners: () => void;
 
-  // Bot status updates
+  // Bot status updates (from stdout IPC)
   onBotStatus: (callback: (payload: { 
-    stage: 'checking' | 'installing' | 'launching' | 'running'; 
+    stage: 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped'; 
     message?: string; 
     progress?: number; 
-    log?: string; 
+    activity?: string;
+    details?: Record<string, any>;
+    stats?: {
+      jobs_found: number;
+      jobs_applied: number;
+      jobs_failed: number;
+      credits_used: number;
+    };
   }) => void) => void;
   removeBotStatusListeners: () => void;
 }

@@ -3,19 +3,28 @@
  * 
  * Displays real-time bot session status with live updates.
  * Shows activity, stats, elapsed time, and provides stop control.
- * Updated: 2026-01-27
+ * Updated: 2026-01-28
  */
 
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { BotSession, BotLaunchStatus, HistoricalTotals } from '@/lib/shared/types';
-import { 
-  ACTIVITY_MESSAGES, 
-  PROGRESS_SIMULATION_INTERVAL_MS, 
-  SIMULATED_INSTALL_DURATION_MS,
-  MAX_LOGS_TO_DISPLAY 
-} from '@/lib/bot-status/constants';
+
+// Constants (inlined)
+const ACTIVITY_MESSAGES: Record<string, string> = {
+  'starting': 'Starting up...',
+  'authenticating': 'Logging into LinkedIn...',
+  'searching_jobs': 'Searching for jobs...',
+  'applying_jobs': 'Applying to jobs...',
+  'answering_questions': 'Answering application questions...',
+  'submitting_application': 'Submitting application...',
+  'waiting': 'Waiting...',
+  'finalizing': 'Finalizing...',
+};
+const PROGRESS_SIMULATION_INTERVAL_MS = 200;
+const SIMULATED_INSTALL_DURATION_MS = 30000;
+const MAX_LOGS_TO_DISPLAY = 10;
 
 import * as Icons from 'lucide-react';
 import { useConfirmDialog } from '@/app/components/useConfirmDialog';

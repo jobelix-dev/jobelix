@@ -1,12 +1,18 @@
 /**
  * Custom hook for bot launch logic
+ * Uses local Electron IPC - no backend API calls for session management
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-import { BotLaunchStage, BotLaunchStatus } from '@/lib/shared/types';
-import { ERROR_DISPLAY_DURATION_MS, MAX_LOGS_IN_MEMORY } from '@/lib/bot-status/constants';
-import { debugLog } from '@/lib/bot-status/debug';
+import { BotLaunchStatus } from '@/lib/shared/types';
+
+// Constants
+const ERROR_DISPLAY_DURATION_MS = 5000;
+const MAX_LOGS_IN_MEMORY = 100;
+
+// Simplified stage type that matches IPC
+type BotStage = 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped';
 
 export function useBotLauncher() {
   const [launching, setLaunching] = useState(false);
@@ -19,7 +25,7 @@ export function useBotLauncher() {
   const launchBot = useCallback(async () => {
     // Prevent multiple simultaneous launches
     if (launchingRef.current) {
-      debugLog.warn('[useBotLauncher] Already launching, ignoring duplicate request');
+      console.warn('[useBotLauncher] Already launching, ignoring duplicate request');
       return { success: false, error: 'Launch already in progress' };
     }
 
@@ -48,6 +54,7 @@ export function useBotLauncher() {
       if (!window.electronAPI) {
         setError('DESKTOP_REQUIRED');
         setLaunching(false);
+        launchingRef.current = false;
         return { success: false, error: 'DESKTOP_REQUIRED' };
       }
 
@@ -57,6 +64,7 @@ export function useBotLauncher() {
         const message = 'Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.';
         setErrorWithTimeout(message);
         setLaunching(false);
+        launchingRef.current = false;
         return { success: false, error: message };
       }
       
@@ -67,23 +75,23 @@ export function useBotLauncher() {
         const message = 'Profile not published. Go to Profile tab and click "Publish Profile" to generate your resume.';
         setErrorWithTimeout(message);
         setLaunching(false);
+        launchingRef.current = false;
         return { success: false, error: message };
       }
 
-      // Ensure YAML config exists locally (important for users who filled data online first)
+      // Ensure YAML config exists locally
       try {
-        debugLog.general('Ensuring YAML config exists locally...');
+        console.log('[useBotLauncher] Ensuring YAML config exists locally...');
         const prefsResponse = await fetch('/api/student/work-preferences');
-        if (!prefsResponse.ok) {
-          throw new Error('Failed to fetch work preferences');
-        }
-        const prefsData = await prefsResponse.json();
-        if (prefsData.preferences) {
-          await exportPreferencesToYAML(prefsData.preferences);
-          debugLog.general('YAML config ensured locally');
+        if (prefsResponse.ok) {
+          const prefsData = await prefsResponse.json();
+          if (prefsData.preferences) {
+            await exportPreferencesToYAML(prefsData.preferences);
+            console.log('[useBotLauncher] YAML config ensured locally');
+          }
         }
       } catch (yamlError) {
-        debugLog.error('Failed to ensure YAML config:', yamlError);
+        console.error('[useBotLauncher] Failed to ensure YAML config:', yamlError);
         throw new Error('Failed to create local config file. Please save your job preferences again.');
       }
 
@@ -94,90 +102,61 @@ export function useBotLauncher() {
       }
       const { token } = await tokenResponse.json();
 
-      // Create initial bot session on backend
-      debugLog.general('Creating bot session...');
-      const sessionResponse = await fetch('/api/autoapply/bot/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          bot_version: '1.0.0', // TODO: Get from package.json or config
-          platform: navigator.platform
-        })
-      });
-
-      if (!sessionResponse.ok) {
-        const sessionError = await sessionResponse.json();
-        const errorMessage = sessionError.error || 'Failed to create bot session';
-        
-        // Handle "already running" error gracefully (race condition from fast clicking)
-        if (errorMessage.includes('already running') || errorMessage.includes('already active')) {
-          debugLog.warn('[useBotLauncher] Bot session already exists, returning success');
-          setLaunching(false);
-          launchingRef.current = false;
-          return { success: true }; // Treat as success since bot is already running
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      const { session_id } = await sessionResponse.json();
-      debugLog.general('Bot session created:', session_id);
-
       setLaunchStatus({
         stage: 'checking',
         message: 'Checking browser...',
         logs: [],
       });
 
+      // Handle bot status updates from IPC
       const handleBotStatus = (payload: {
-        stage: BotLaunchStage;
+        stage: BotStage;
         message?: string;
         progress?: number;
-        log?: string;
+        activity?: string;
+        stats?: any;
       }) => {
-        debugLog.botLauncher('Received bot status:', payload);
+        console.log('[useBotLauncher] Received bot status:', payload);
+        
+        // Map IPC stage to BotLaunchStatus
+        const mappedStage = ['completed', 'failed', 'stopped'].includes(payload.stage) 
+          ? 'running' as const 
+          : payload.stage as BotLaunchStatus['stage'];
+        
         setLaunchStatus((prev) => {
-          const nextStage = payload.stage ?? prev?.stage ?? 'checking';
-          const stageChanged = prev?.stage && nextStage !== prev.stage;
-          const nextLogs = payload.log
-            ? [...(prev?.logs ?? []), payload.log].slice(-MAX_LOGS_IN_MEMORY)
-            : prev?.logs ?? [];
-
-          const nextState = {
-            stage: nextStage,
-            message: payload.message ?? (stageChanged ? undefined : prev?.message),
+          const stageChanged = prev?.stage && mappedStage !== prev.stage;
+          
+          return {
+            stage: mappedStage,
+            message: payload.message ?? payload.activity ?? (stageChanged ? undefined : prev?.message),
             progress: payload.progress ?? (stageChanged ? undefined : prev?.progress),
-            logs: nextLogs,
+            logs: prev?.logs ?? [],
           };
-          debugLog.botLauncher('Updated launchStatus:', nextState);
-          return nextState;
         });
       };
 
+      // Register IPC listener
       if (window.electronAPI?.onBotStatus) {
-        debugLog.botLauncher('Registering bot status listener');
+        console.log('[useBotLauncher] Registering bot status listener');
         window.electronAPI.onBotStatus(handleBotStatus);
         listenerAttachedRef.current = true;
       } else {
-        debugLog.warn('[useBotLauncher] electronAPI.onBotStatus not available!');
+        console.warn('[useBotLauncher] electronAPI.onBotStatus not available!');
       }
 
       // Launch the bot via Electron IPC
-      debugLog.botLauncher('Calling electronAPI.launchBot...');
+      console.log('[useBotLauncher] Calling electronAPI.launchBot...');
       const result = await window.electronAPI.launchBot(token);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to launch bot');
       }
       
-      debugLog.general('Bot launched:', result);
-      debugLog.general('Platform:', result.platform, 'PID:', result.pid);
-      debugLog.general('Session ID:', session_id);
+      console.log('[useBotLauncher] Bot launched:', result);
       
       return { success: true };
     } catch (err) {
-      debugLog.error('Launch error:', err);
+      console.error('[useBotLauncher] Launch error:', err);
       const message = err instanceof Error ? err.message : 'Failed to launch bot';
       setErrorWithTimeout(message);
       setLaunchStatus((prev) =>
@@ -189,11 +168,6 @@ export function useBotLauncher() {
     } finally {
       setLaunching(false);
       launchingRef.current = false;
-      // Clean up listener if it was attached
-      if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
-        window.electronAPI.removeBotStatusListeners();
-        listenerAttachedRef.current = false;
-      }
     }
   }, []);
 
@@ -206,7 +180,7 @@ export function useBotLauncher() {
   }, []);
 
   const clearLaunchStatus = useCallback(() => {
-    console.log('🧹 [BOT LAUNCHER] Clearing launch status');
+    console.log('[useBotLauncher] Clearing launch status');
     setLaunchStatus(null);
     setLaunching(false);
     // Clean up listener if attached
