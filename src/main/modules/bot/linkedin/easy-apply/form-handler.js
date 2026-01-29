@@ -227,6 +227,17 @@ class FormHandler {
     this.fileUploadHandler.setResumePath(path);
   }
   /**
+   * Set a pending tailored resume Promise for parallel processing
+   * 
+   * This allows resume tailoring to run in the background while the
+   * Easy Apply modal opens and early form fields are filled.
+   * 
+   * @param promise - Promise that resolves to tailored resume path
+   */
+  setPendingTailoredResume(promise) {
+    this.fileUploadHandler.setPendingTailoredResume(promise);
+  }
+  /**
    * Update cover letter path for file uploads
    */
   setCoverLetterPath(path) {

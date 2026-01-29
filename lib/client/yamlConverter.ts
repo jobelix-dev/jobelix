@@ -50,8 +50,9 @@ interface WorkPreferences {
 export function preferencesToYAML(prefs: WorkPreferences): string {
   const yaml: string[] = [];
 
-  // Remote work
-  yaml.push(`remote: ${prefs.remote_work}`);
+  // Remote work filter is disabled - it limits job results too much
+  // Bot now searches all jobs (on-site, hybrid, remote) by default
+  yaml.push(`remote: false`);
   yaml.push('');
 
   // Experience levels

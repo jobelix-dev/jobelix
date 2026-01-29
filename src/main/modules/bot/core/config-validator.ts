@@ -189,13 +189,22 @@ function validateDistance(data: unknown): number {
 
 /**
  * Build the base search URL query string from config
+ * 
+ * LinkedIn URL parameters:
+ * - f_AL=true: Easy Apply filter (new format, more reliable)
+ * - f_E: Experience level (1=internship, 2=entry, 3=associate, etc.)
+ * - f_JT: Job type (F=full-time, C=contract, P=part-time, etc.)
+ * - f_TPR: Time posted (r86400=24h, r604800=week, r2592000=month)
+ * - f_WT: Workplace type (1=on-site, 2=remote, 3=hybrid)
+ * - distance: Distance in miles (omit for broader search)
+ * - sortBy: Sort order (R=relevance, DD=date)
  */
 export function buildSearchUrl(config: JobSearchConfig): string {
   const parts: string[] = [];
 
-  // Remote filter
+  // Remote filter (workplace type)
   if (config.remote) {
-    parts.push('f_CF=f_WRA');
+    parts.push('f_WT=2');  // 2 = Remote
   }
 
   // Experience level filter
@@ -216,8 +225,12 @@ export function buildSearchUrl(config: JobSearchConfig): string {
     parts.push(`f_E=${selectedLevels.join(',')}`);
   }
 
-  // Distance filter
-  parts.push(`distance=${config.distance}`);
+  // Distance filter - only add if > 0 (0 is too restrictive)
+  // Note: When location is a country like "France", distance should be omitted
+  // to search the entire country rather than exact location match
+  if (config.distance > 0) {
+    parts.push(`distance=${config.distance}`);
+  }
 
   // Job type filter
   const jobTypeMap: Record<string, string> = {
@@ -249,8 +262,11 @@ export function buildSearchUrl(config: JobSearchConfig): string {
   const selectedDate = Object.entries(config.date).find(([_, enabled]) => enabled);
   const dateParam = selectedDate ? dateMap[selectedDate[0]] : '';
 
-  // Easy Apply filter
-  parts.push('f_LF=f_AL');
+  // Easy Apply filter (new format - more reliable than f_LF=f_AL)
+  parts.push('f_AL=true');
+
+  // Sort by relevance for better results
+  parts.push('sortBy=R');
 
   return `?${parts.join('&')}${dateParam}`;
 }

@@ -248,16 +248,35 @@ export class NavigationHandler {
 
   /**
    * Unfollow company checkbox (like Python's unfollow_company)
+   * 
+   * The checkbox is visually-hidden, so we must click the label instead.
+   * LinkedIn uses specific IDs for this element.
    */
   private async unfollowCompany(): Promise<void> {
     try {
-      const followCheckbox = this.page.locator('input[type="checkbox"][id*="follow"]').first();
-      if (await followCheckbox.count() > 0 && await followCheckbox.isChecked()) {
-        log.debug('Unchecking follow company checkbox');
-        await followCheckbox.uncheck();
+      // The checkbox is visually-hidden; we need to click the label
+      const label = this.page.locator("footer label[for='follow-company-checkbox']").first();
+      if (await label.count() === 0) {
+        log.debug('Follow company label not found - may not be present for this job');
+        return;
       }
-    } catch {
-      // Ignore - checkbox might not exist
+      
+      // Scroll so the label is free of the sticky footer
+      await label.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await this.page.waitForTimeout(200);
+      
+      // Only click if it is actually checked
+      const checkbox = this.page.locator('#follow-company-checkbox').first();
+      if (await checkbox.count() > 0 && await checkbox.isChecked()) {
+        log.debug('Unchecking follow company checkbox (clicking label)');
+        // Use JS click to avoid interception issues
+        await label.evaluate((el: HTMLElement) => el.click());
+        log.info('✅ Unchecked follow company checkbox');
+      } else {
+        log.debug('Follow company checkbox already unchecked or not found');
+      }
+    } catch (error) {
+      log.debug(`Follow company uncheck failed (ok if not present): ${error}`);
     }
   }
 

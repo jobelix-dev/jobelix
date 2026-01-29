@@ -10,7 +10,6 @@
  */
 
 import type { Page, Locator } from 'playwright';
-import * as fs from 'fs';
 import * as path from 'path';
 import type { Job, JobSearchConfig, SavedAnswer } from '../types';
 import { createJob, isBlacklisted, setJobDescription } from '../models/job';
@@ -21,6 +20,7 @@ import { saveDebugHtml } from '../utils/debug-html';
 import { waitRandom, DELAYS } from '../utils/delays';
 import { buildSearchUrl } from '../core/config-validator';
 import { LinkedInEasyApplier } from './easy-apply/easy-applier';
+import { loadSavedAnswers, saveAnswer, appendJobResult } from '../utils/csv-utils';
 import type { GPTAnswerer } from '../ai/gpt-answerer';
 
 const log = createLogger('JobManager');
@@ -91,6 +91,8 @@ export class LinkedInJobManager {
     const searches = this.generateSearchCombinations();
     log.info(`Generated ${searches.length} search combinations`);
 
+    let totalJobsFound = 0;
+
     for (const { position, location } of searches) {
       log.info(`Starting search for ${position} in ${location}`);
 
@@ -136,6 +138,7 @@ export class LinkedInJobManager {
           }
 
           const jobsFound = await this.applyToJobs();
+          totalJobsFound += jobsFound;
 
           if (jobsFound === 0) {
             emptyPages++;
@@ -162,6 +165,17 @@ export class LinkedInJobManager {
         }
         log.error(`Error on page ${page}: ${error}`);
         break;
+      }
+    }
+
+    // Complete session based on results
+    if (this.reporter) {
+      if (totalJobsFound === 0) {
+        log.info('No matching jobs found - completing session');
+        this.reporter.completeSession(true, 'No matching jobs found');
+      } else {
+        log.info(`Session complete - processed ${totalJobsFound} jobs`);
+        this.reporter.completeSession(true, `Processed ${totalJobsFound} jobs`);
       }
     }
   }
@@ -407,35 +421,7 @@ export class LinkedInJobManager {
    */
   private loadOldAnswers(): void {
     const filePath = getOldQuestionsPath();
-    
-    if (!fs.existsSync(filePath)) {
-      return;
-    }
-
-    try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n').filter(line => line.trim());
-
-      for (const line of lines) {
-        // Simple CSV parsing (handles basic cases)
-        const parts = this.parseCSVLine(line);
-        if (parts.length >= 3) {
-          const [questionType, questionText, answer] = parts;
-          
-          // Skip invalid placeholder answers
-          if (!answer || answer.length <= 2) continue;
-          const answerLower = answer.toLowerCase();
-          if (answerLower.startsWith('select') || answerLower.startsWith('choose')) continue;
-          if (['option', 'n/a', 'none', 'null'].includes(answerLower)) continue;
-
-          this.oldAnswers.push({ questionType, questionText, answer });
-        }
-      }
-
-      log.info(`Loaded ${this.oldAnswers.length} saved answers`);
-    } catch (error) {
-      log.error(`Failed to load old answers: ${error}`);
-    }
+    this.oldAnswers = loadSavedAnswers(filePath);
   }
 
   /**
@@ -443,20 +429,10 @@ export class LinkedInJobManager {
    */
   private recordAnswer(questionType: string, questionText: string, answer: string): void {
     const filePath = getOldQuestionsPath();
-
-    // Check for duplicates
-    const exists = this.oldAnswers.some(
-      a => a.questionType.toLowerCase() === questionType.toLowerCase() &&
-           a.questionText.toLowerCase() === questionText.toLowerCase()
-    );
-
-    if (exists) return;
-
-    // Append to CSV
-    const line = `"${questionType}","${questionText}","${answer}"\n`;
-    fs.appendFileSync(filePath, line, 'utf-8');
-
-    this.oldAnswers.push({ questionType, questionText, answer });
+    
+    if (saveAnswer(filePath, this.oldAnswers, questionType, questionText, answer)) {
+      this.oldAnswers.push({ questionType, questionText, answer });
+    }
   }
 
   /**
@@ -464,33 +440,9 @@ export class LinkedInJobManager {
    */
   private writeToFile(job: Job, status: string): void {
     const filePath = path.join(this.outputDir, `${status}.csv`);
-    const line = `"${job.company}","${job.title}","${job.link}","${job.location}"\n`;
-    fs.appendFileSync(filePath, line, 'utf-8');
+    appendJobResult(filePath, job.company, job.title, job.link, job.location);
   }
 
-
-  /**
-   * Parse a CSV line into parts
-   */
-  private parseCSVLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (const char of line) {
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current);
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    result.push(current);
-
-    return result.map(s => s.trim());
-  }
 
   /**
    * Check if error indicates browser was closed

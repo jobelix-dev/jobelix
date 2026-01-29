@@ -7,7 +7,7 @@ class BackendAPIClient {
   constructor(options) {
     this.token = options.token;
     this.apiUrl = options.apiUrl;
-    this.timeout = options.timeout || 6e4;
+    this.timeout = options.timeout || 12e4;
     this.logRequests = options.logRequests ?? true;
     log.info(`Initialized with endpoint: ${this.apiUrl}`);
     log.debug(`Token: ${this.token.substring(0, 8)}...${this.token.substring(this.token.length - 8)}`);

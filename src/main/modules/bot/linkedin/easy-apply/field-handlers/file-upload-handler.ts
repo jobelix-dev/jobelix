@@ -6,6 +6,10 @@
  * - Cover letter upload (AI-generated on-the-fly if not provided)
  * - Portfolio documents
  * - Previously uploaded file selection
+ * 
+ * Supports parallel resume tailoring:
+ * - Resume generation can start in background while form filling begins
+ * - Handler will await the pending resume Promise when upload is needed
  */
 
 import type { Locator } from 'playwright';
@@ -22,6 +26,9 @@ export class FileUploadHandler extends BaseFieldHandler {
   private resumePath: string | null;
   private coverLetterPath: string | null;
   private generatedCoverLetterPath: string | null = null;
+  
+  /** Pending tailored resume generation (for parallel processing) */
+  private pendingTailoredResume: Promise<string | null> | null = null;
 
   constructor(
     page: Page,
@@ -94,6 +101,12 @@ export class FileUploadHandler extends BaseFieldHandler {
       }
       
       log.debug(`Upload type: resume=${isResumeUpload}, coverLetter=${isCoverLetterUpload}`);
+
+      // If this is a resume upload, await any pending tailored resume first
+      // This is where parallel resume generation syncs back
+      if (isResumeUpload) {
+        await this.getResumePath(); // This awaits pending tailored resume if any
+      }
 
       // Check if file is already uploaded (LinkedIn shows a green checkmark or filename)
       const hasUploadedFile = await this.checkExistingUpload(element);
@@ -481,11 +494,58 @@ export class FileUploadHandler extends BaseFieldHandler {
   }
 
   /**
-   * Set the resume path for uploads
+   * Set the resume path for uploads (immediate, synchronous)
    */
   setResumePath(newPath: string): void {
     this.resumePath = newPath;
+    this.pendingTailoredResume = null; // Clear any pending promise
     log.debug(`Resume path updated: ${newPath}`);
+  }
+
+  /**
+   * Set a pending tailored resume Promise (for parallel processing)
+   * 
+   * This allows resume tailoring to run in the background while
+   * the Easy Apply modal opens and early form fields are filled.
+   * The handler will await this Promise when it encounters a resume upload field.
+   * 
+   * @param promise - Promise that resolves to tailored resume path, or null on failure
+   */
+  setPendingTailoredResume(promise: Promise<string | null>): void {
+    this.pendingTailoredResume = promise;
+    log.debug('Pending tailored resume Promise set (will await when needed)');
+  }
+
+  /**
+   * Get the resume path, awaiting any pending tailored resume first
+   * 
+   * If a tailored resume is being generated in the background,
+   * this will wait for it to complete before returning.
+   * 
+   * @returns The resume path (tailored if available, original otherwise)
+   */
+  private async getResumePath(): Promise<string | null> {
+    // If there's a pending tailored resume, await it
+    if (this.pendingTailoredResume) {
+      log.info('⏳ Waiting for tailored resume to complete...');
+      try {
+        const tailoredPath = await this.pendingTailoredResume;
+        this.pendingTailoredResume = null; // Clear the promise after awaiting
+        
+        if (tailoredPath) {
+          this.resumePath = tailoredPath;
+          log.info(`✅ Tailored resume ready: ${tailoredPath}`);
+        } else {
+          log.warn('Tailored resume generation failed, using original resume');
+        }
+      } catch (error) {
+        log.error(`Error awaiting tailored resume: ${error}`);
+        this.pendingTailoredResume = null;
+        // Fall back to original resume
+      }
+    }
+    
+    return this.resumePath;
   }
 
   /**

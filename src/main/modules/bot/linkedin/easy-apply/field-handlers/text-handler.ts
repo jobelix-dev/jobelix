@@ -73,12 +73,37 @@ export class TextInputHandler extends BaseFieldHandler {
       
       // Get answer
       let answer: string | undefined;
+      
+      const questionLower = questionText.toLowerCase();
+      const isUrlField = questionLower.includes('website') || questionLower.includes('url') || 
+                         questionLower.includes('portfolio') || questionLower.includes('github') || 
+                         questionLower.includes('linkedin');
 
-      // Check saved answers
-      answer = this.formUtils.getSavedAnswer('text', questionText);
+      // For URL fields, try smart matching FIRST (saved answers may contain bad text descriptions)
+      if (isUrlField) {
+        answer = await this.smartMatch(element, questionText);
+        if (answer) {
+          log.debug(`[URL FIELD] Smart match found URL: ${answer}`);
+        }
+      }
 
-      // Try smart matching
+      // Check saved answers (but skip for URL fields if we already have a smart match)
       if (!answer) {
+        const savedAnswer = this.formUtils.getSavedAnswer('text', questionText);
+        // For URL fields, only use saved answer if it looks like a URL
+        if (isUrlField) {
+          if (savedAnswer && (savedAnswer.startsWith('http') || savedAnswer.includes('.com') || savedAnswer.includes('.io'))) {
+            answer = savedAnswer;
+          } else if (savedAnswer) {
+            log.debug(`[URL FIELD] Ignoring non-URL saved answer: "${savedAnswer.substring(0, 50)}..."`); 
+          }
+        } else {
+          answer = savedAnswer;
+        }
+      }
+
+      // Try smart matching for non-URL fields
+      if (!answer && !isUrlField) {
         answer = await this.smartMatch(element, questionText);
       }
 
@@ -221,6 +246,65 @@ export class TextInputHandler extends BaseFieldHandler {
       
       // Also check question text for common patterns as fallback
       const questionLower = questionText.toLowerCase();
+      
+      // Website/URL detection - CRITICAL: These often get routed to wrong GPT section
+      // Pattern: "website", "url", "portfolio", "linkedin profile", "github"
+      if (questionLower.includes('website') || questionLower.includes('url') || 
+          questionLower.includes('portfolio') || questionLower.includes('personal site') ||
+          questionLower.includes('github') || questionLower.includes('linkedin')) {
+        log.debug('[SMART TEXT] Detected URL/Website field (by question text)');
+        
+        // Check resume profiles for URLs
+        const profiles = (resume as any)?.profiles || personalInfo?.profiles || [];
+        
+        // Try to match specific platform if mentioned
+        if (questionLower.includes('github')) {
+          const github = profiles.find((p: any) => 
+            p.network?.toLowerCase() === 'github' || p.url?.includes('github'));
+          if (github?.url) {
+            log.info(`[SMART TEXT] ✅ Using GitHub from resume: ${github.url}`);
+            return github.url;
+          }
+        }
+        
+        if (questionLower.includes('linkedin')) {
+          const linkedin = profiles.find((p: any) => 
+            p.network?.toLowerCase() === 'linkedin' || p.url?.includes('linkedin'));
+          if (linkedin?.url) {
+            log.info(`[SMART TEXT] ✅ Using LinkedIn from resume: ${linkedin.url}`);
+            return linkedin.url;
+          }
+        }
+        
+        // For generic "website" - try portfolio, personal site, or GitHub
+        if (questionLower.includes('website') || questionLower.includes('portfolio') || 
+            questionLower.includes('personal site') || questionLower.includes('url')) {
+          // Priority: portfolio > personal website > github
+          const portfolio = profiles.find((p: any) => 
+            p.network?.toLowerCase() === 'portfolio' || 
+            (p.url && !p.url.includes('linkedin') && !p.url.includes('github')));
+          if (portfolio?.url) {
+            log.info(`[SMART TEXT] ✅ Using portfolio from resume: ${portfolio.url}`);
+            return portfolio.url;
+          }
+          
+          const github = profiles.find((p: any) => 
+            p.network?.toLowerCase() === 'github' || p.url?.includes('github'));
+          if (github?.url) {
+            log.info(`[SMART TEXT] ✅ Using GitHub for website: ${github.url}`);
+            return github.url;
+          }
+          
+          // Check if there's a website in personal info
+          const personalWebsite = (personalInfo as any)?.website || (personalInfo as any)?.url;
+          if (personalWebsite) {
+            log.info(`[SMART TEXT] ✅ Using website from personal info: ${personalWebsite}`);
+            return personalWebsite;
+          }
+          
+          log.debug('[SMART TEXT] No URL/website found in resume profiles');
+        }
+      }
       
       // Phone number by question text
       if (questionLower.includes('phone') && !questionLower.includes('prefix')) {
