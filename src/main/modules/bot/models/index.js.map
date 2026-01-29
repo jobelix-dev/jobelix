@@ -1,7 +1,7 @@
 {
   "version": 3,
   "sources": ["index.ts"],
-  "sourcesContent": ["export * from './resume';\nexport * from './job';\n"],
-  "mappings": "AAAA,cAAc;AACd,cAAc;",
+  "sourcesContent": ["export * from './resume';\nexport * from './job';\nexport * from './resume-scorer';\nexport * from './resume-generator';\n"],
+  "mappings": "AAAA,cAAc;AACd,cAAc;AACd,cAAc;AACd,cAAc;",
   "names": []
 }

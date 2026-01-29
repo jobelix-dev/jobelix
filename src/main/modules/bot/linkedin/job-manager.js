@@ -190,7 +190,21 @@ class LinkedInJobManager {
         }
         try {
           if (!["Continue", "Applied", "Apply"].includes(job.applyMethod)) {
-            await this.easyApplier.apply(job);
+            const result = await this.easyApplier.apply(job);
+            if (result.alreadyApplied) {
+              log.info(`Already applied to ${job.title} at ${job.company}, skipping`);
+              this.writeToFile(job, "skipped");
+              this.seenJobs.add(job.link);
+              continue;
+            }
+            if (!result.success && result.error?.includes("Could not open Easy Apply modal")) {
+              log.warn(`No Easy Apply available for ${job.title} at ${job.company}, skipping`);
+              this.writeToFile(job, "skipped");
+              continue;
+            }
+            if (!result.success) {
+              throw new Error(result.error || "Application failed");
+            }
           }
           this.writeToFile(job, "success");
           this.seenJobs.add(job.link);
@@ -198,6 +212,7 @@ class LinkedInJobManager {
           await this.saveDebugHtml(`job_apply_error_${job.company.replace(/\s+/g, "_")}`);
           this.writeToFile(job, "failed");
           log.error(`apply_jobs failed for ${job.title} at ${job.company}: ${error}`);
+          await this.page.waitForTimeout(3e3 + Math.random() * 2e3);
         }
       }
       return jobs.length;

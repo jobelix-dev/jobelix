@@ -55,11 +55,15 @@ class FormHandler {
   /**
    * Fill all form fields on the current Easy Apply page
    * 
+   * MATCHES PYTHON _answer_visible_form:
+   * Uses multi-pass approach with scrolling to handle virtualized lists.
+   * 
    * This method:
    * 1. Finds all form groups/sections
    * 2. For each, determines the appropriate handler
    * 3. Fills the field using that handler
-   * 4. Tracks success/failure
+   * 4. Scrolls and repeats until no new elements found
+   * 5. Tracks success/failure
    */
   async fillCurrentPage() {
     const result = {
@@ -70,29 +74,53 @@ class FormHandler {
     };
     try {
       await this.page.waitForTimeout(500);
-      const formSections = await this.findFormSections();
-      log.info(`Found ${formSections.length} form section(s) on this page`);
-      for (const section of formSections) {
-        try {
-          if (!await section.isVisible()) {
-            continue;
-          }
-          const handler = await this.findHandler(section);
-          if (handler) {
-            const success = await handler.handle(section);
-            result.fieldsProcessed++;
-            if (!success) {
-              result.fieldsFailed++;
-              log.warn("Failed to handle a form field");
+      const processedKeys = /* @__PURE__ */ new Set();
+      let passIndex = 0;
+      while (true) {
+        passIndex++;
+        let newlyHandled = 0;
+        const formSections = await this.findFormSections();
+        if (passIndex === 1) {
+          log.info(`Found ${formSections.length} form section(s) on this page`);
+        }
+        for (const section of formSections) {
+          try {
+            const key = await this.formUtils.stableKey(section);
+            if (processedKeys.has(key)) {
+              continue;
             }
-          } else {
-            log.debug("No handler found for section (might be non-input)");
+            if (!await section.isVisible()) {
+              continue;
+            }
+            const handler = await this.findHandler(section);
+            if (handler) {
+              const success = await handler.handle(section);
+              result.fieldsProcessed++;
+              processedKeys.add(key);
+              newlyHandled++;
+              if (!success) {
+                result.fieldsFailed++;
+                log.warn("Failed to handle a form field");
+              }
+            } else {
+              log.debug("No handler found for section (might be non-input)");
+            }
+          } catch (error) {
+            result.fieldsProcessed++;
+            result.fieldsFailed++;
+            result.errors.push(String(error));
+            log.error(`Error processing section: ${error}`);
           }
-        } catch (error) {
-          result.fieldsProcessed++;
-          result.fieldsFailed++;
-          result.errors.push(String(error));
-          log.error(`Error processing section: ${error}`);
+        }
+        log.debug(`Pass ${passIndex}: handled ${newlyHandled} new elements`);
+        if (newlyHandled === 0) {
+          break;
+        }
+        try {
+          const form = this.page.locator("form").first();
+          await form.evaluate((el) => el.scrollBy(0, 300));
+          await this.page.waitForTimeout(300);
+        } catch {
         }
       }
       result.success = result.fieldsFailed < result.fieldsProcessed / 2;

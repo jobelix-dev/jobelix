@@ -90,8 +90,11 @@ function getChromiumSubpaths(): string[] {
  * Get the backend API URL
  */
 function getApiUrl(): string {
-  // Try environment variable first, then default
-  return process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.jobelix.com';
+  // Use NEXT_PUBLIC_APP_URL (the Next.js backend base URL) and append the API endpoint
+  // Priority: 1. Environment variable, 2. Localhost default
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  // Match Python bot: backend_api_url = public_app_url.rstrip('/') + '/api/autoapply/gpt4'
+  return baseUrl.replace(/\/$/, '') + '/api/autoapply/gpt4';
 }
 
 /**

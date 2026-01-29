@@ -95,8 +95,10 @@ function getChromiumSubpaths() {
  * Get the backend API URL
  */
 function getApiUrl() {
-  // Try environment variable first, then default
-  return process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.jobelix.com';
+  // Try environment variables first (check multiple possible names), then default
+  return process.env.BACKEND_API_URL 
+    || process.env.NEXT_PUBLIC_BACKEND_URL 
+    || 'https://api.jobelix.com';
 }
 
 /**
