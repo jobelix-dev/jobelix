@@ -145,11 +145,11 @@ export default async function DownloadPage() {
             </div>
             <div>
               <p className="font-medium text-default mb-1">macOS</p>
-              <p>macOS 14 (Sonoma) or later</p>
+              <p>macOS 14+ (Intel &amp; Apple Silicon)</p>
             </div>
             <div>
               <p className="font-medium text-default mb-1">Linux</p>
-              <p>Ubuntu 22.04 or later (or equivalent)</p>
+              <p>Ubuntu 22.04+ (x64 &amp; ARM64)</p>
             </div>
             <div>
               <p className="font-medium text-default mb-1">Arch Linux</p>

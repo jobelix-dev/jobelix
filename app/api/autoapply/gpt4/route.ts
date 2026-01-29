@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
      */
     const safeTemperature = Math.max(0, Math.min(2, Number(temperature) || 0.8)) // 🔐
 
-    // Service role client (bypasses RLS) — ONLY on server routes
+    // Service role client (bypasses RLS)  -  ONLY on server routes
     const serviceSupabase = getServiceSupabase()
 
     // Validate token and get user_id

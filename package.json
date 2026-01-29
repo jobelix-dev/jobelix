@@ -55,7 +55,7 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "artifactName": "${productName}-${version}-windows-setup.${ext}"
+      "artifactName": "${productName}-${version}-windows-${arch}-setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -67,7 +67,7 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.utilities",
       "hardenedRuntime": true,
-      "artifactName": "${productName}-${version}-macos-14.${ext}"
+      "artifactName": "${productName}-${version}-macos-${arch}.${ext}"
     },
     "dmg": {
       "contents": [
