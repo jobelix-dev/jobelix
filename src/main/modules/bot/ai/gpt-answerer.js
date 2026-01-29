@@ -1,5 +1,7 @@
 import { getResumeSection, resumeToNarrative } from "../models/resume.js";
 import { createLogger } from "../utils/logger.js";
+import { BackendAPIClient } from "./backend-client.js";
+import { llmLogger } from "../utils/llm-logger.js";
 import * as prompts from "./prompts/templates.js";
 const log = createLogger("GPTAnswerer");
 class GPTAnswerer {
@@ -9,7 +11,12 @@ class GPTAnswerer {
     this.reporter = reporter;
     this.resume = null;
     this.job = null;
-    log.info("GPTAnswerer initialized with backend API");
+    this.client = new BackendAPIClient({
+      token: apiToken,
+      apiUrl,
+      logRequests: true
+    });
+    log.info("GPTAnswerer initialized with backend API client");
   }
   /**
    * Set the resume for context
@@ -35,41 +42,20 @@ class GPTAnswerer {
    * Make a chat completion request to the backend API
    */
   async chatCompletion(messages, temperature = 0.8) {
-    const fetchFn = globalThis.fetch;
-    if (!fetchFn) {
-      const msg = "Global fetch is not available in this runtime. Run on Node 18+ or install & polyfill undici.";
-      log.error(msg);
-      throw new Error(msg);
-    }
-    const isNextJsApi = this.apiUrl.includes("/api/autoapply/gpt4") || this.apiUrl.endsWith("/gpt4");
     const maxRetries = 2;
     let lastErr = null;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const headers = { "Content-Type": "application/json" };
-        let body;
-        if (isNextJsApi) {
-          body = { token: this.apiToken, messages, temperature };
-        } else {
-          body = { messages, model: "gpt-4o-mini", temperature };
-          headers["Authorization"] = `Bearer ${this.apiToken}`;
-        }
-        const resp = await fetchFn(this.apiUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body)
-          // keep a longer timeout controlled by environment if needed
-        });
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "<failed to read body>");
-          const errMsg = `API request failed: ${resp.status} - ${text}`;
-          throw new Error(errMsg);
-        }
-        const data = await resp.json();
+        const response = await this.client.chatCompletion(messages, "gpt-4o-mini", temperature);
+        llmLogger.logRequest(
+          messages,
+          response.content,
+          response.usage,
+          response.model,
+          response.finish_reason
+        );
         if (this.reporter) this.reporter.incrementCreditsUsed();
-        if (typeof data.content === "string") return data.content;
-        if (typeof data === "string") return data;
-        return JSON.stringify(data);
+        return response.content;
       } catch (err) {
         lastErr = err;
         log.error(`Chat completion attempt ${attempt + 1} failed: ${String(err)}`);

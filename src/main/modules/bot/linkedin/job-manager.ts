@@ -251,7 +251,27 @@ export class LinkedInJobManager {
 
         try {
           if (!['Continue', 'Applied', 'Apply'].includes(job.applyMethod)) {
-            await this.easyApplier!.apply(job);
+            const result = await this.easyApplier!.apply(job);
+            
+            // If already applied, skip gracefully
+            if (result.alreadyApplied) {
+              log.info(`Already applied to ${job.title} at ${job.company}, skipping`);
+              this.writeToFile(job, 'skipped');
+              this.seenJobs.add(job.link);
+              continue;
+            }
+            
+            // If modal didn't open (no Easy Apply button), skip and don't count as failure
+            if (!result.success && result.error?.includes('Could not open Easy Apply modal')) {
+              log.warn(`No Easy Apply available for ${job.title} at ${job.company}, skipping`);
+              this.writeToFile(job, 'skipped');
+              continue;
+            }
+            
+            // If application failed for other reasons
+            if (!result.success) {
+              throw new Error(result.error || 'Application failed');
+            }
           }
           this.writeToFile(job, 'success');
           this.seenJobs.add(job.link);
@@ -259,6 +279,9 @@ export class LinkedInJobManager {
           await this.saveDebugHtml(`job_apply_error_${job.company.replace(/\s+/g, '_')}`);
           this.writeToFile(job, 'failed');
           log.error(`apply_jobs failed for ${job.title} at ${job.company}: ${error}`);
+          
+          // Wait before continuing to next job (like Python: random.uniform(3, 5))
+          await this.page.waitForTimeout(3000 + Math.random() * 2000);
         }
       }
 

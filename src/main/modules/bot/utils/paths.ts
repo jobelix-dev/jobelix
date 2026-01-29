@@ -27,12 +27,42 @@ export function getResourcesPath(): string {
 }
 
 /**
+ * Detect Arch-based Linux distributions via /etc/os-release
+ * Matches the logic in platform-utils.js
+ */
+function isArchLinux(): boolean {
+  try {
+    if (!fs.existsSync('/etc/os-release')) return false;
+    const content = fs.readFileSync('/etc/os-release', 'utf-8');
+    const idMatch = content.match(/^ID=(.+)$/m);
+    const likeMatch = content.match(/^ID_LIKE=(.+)$/m);
+    const id = idMatch ? idMatch[1].replace(/"/g, '').toLowerCase() : '';
+    const like = likeMatch ? likeMatch[1].replace(/"/g, '').toLowerCase() : '';
+    return id === 'arch' || like.includes('arch');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get the platform-specific bot resources directory
+ * 
+ * Supports: mac, win, linux (Ubuntu), linux-arch (Arch/Manjaro)
  */
 export function getBotResourcesPath(): string {
-  const platform = process.platform === 'darwin' ? 'mac' 
-    : process.platform === 'win32' ? 'win' 
-    : 'linux';
+  let platform: string;
+  
+  if (process.platform === 'darwin') {
+    platform = 'mac';
+  } else if (process.platform === 'win32') {
+    platform = 'win';
+  } else if (process.platform === 'linux') {
+    // Check for Arch Linux vs other distros
+    platform = isArchLinux() ? 'linux-arch' : 'linux';
+  } else {
+    platform = 'linux'; // Fallback
+  }
+  
   return path.join(getResourcesPath(), platform);
 }
 

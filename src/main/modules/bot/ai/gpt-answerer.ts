@@ -17,6 +17,8 @@ import type {
 import { getResumeSection, resumeToNarrative } from '../models/resume';
 import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
+import { BackendAPIClient } from './backend-client';
+import { llmLogger } from '../utils/llm-logger';
 import * as prompts from './prompts/templates';
 
 const log = createLogger('GPTAnswerer');
@@ -24,13 +26,19 @@ const log = createLogger('GPTAnswerer');
 export class GPTAnswerer {
   private resume: Resume | null = null;
   private job: Job | null = null;
+  private client: BackendAPIClient;
 
   constructor(
     private apiToken: string,
     private apiUrl: string,
     private reporter?: StatusReporter
   ) {
-    log.info('GPTAnswerer initialized with backend API');
+    this.client = new BackendAPIClient({
+      token: apiToken,
+      apiUrl: apiUrl,
+      logRequests: true,
+    });
+    log.info('GPTAnswerer initialized with backend API client');
   }
 
   /**
@@ -60,63 +68,27 @@ export class GPTAnswerer {
    * Make a chat completion request to the backend API
    */
   private async chatCompletion(messages: ChatMessage[], temperature = 0.8): Promise<string> {
-     // Build two possible request shapes depending on backend endpoint
-     // - Next.js route (/api/autoapply/gpt4) expects { token, messages, temperature }
-     // - Generic backend proxy expects { messages, model, temperature } and Authorization header
- 
-     // Use global fetch if available. Runtime (Electron main) must provide a fetch implementation
-     // (Node 18+ includes fetch, or install 'undici' and polyfill). If not present, fail early with clear error.
-     const fetchFn: any = (globalThis as any).fetch;
-     if (!fetchFn) {
-      const msg = 'Global fetch is not available in this runtime. Run on Node 18+ or install & polyfill undici.';
-      log.error(msg);
-      throw new Error(msg);
-     }
- 
-     const isNextJsApi = this.apiUrl.includes('/api/autoapply/gpt4') || this.apiUrl.endsWith('/gpt4');
- 
      const maxRetries = 2;
      let lastErr: any = null;
  
      for (let attempt = 0; attempt <= maxRetries; attempt++) {
        try {
-         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-         let body: any;
- 
-         if (isNextJsApi) {
-           // Server route expects token in body
-           body = { token: this.apiToken, messages, temperature };
-         } else {
-           body = { messages, model: 'gpt-4o-mini', temperature };
-           headers['Authorization'] = `Bearer ${this.apiToken}`;
-         }
- 
-        const resp = await fetchFn(this.apiUrl, {
-           method: 'POST',
-           headers,
-           body: JSON.stringify(body),
-           // keep a longer timeout controlled by environment if needed
-         } as any);
- 
-         if (!resp.ok) {
-           const text = await resp.text().catch(() => '<failed to read body>');
-           const errMsg = `API request failed: ${resp.status} - ${text}`;
-           throw new Error(errMsg);
-         }
- 
-         const data = await resp.json() as ChatCompletionResponse;
- 
+         // Use the BackendAPIClient
+         const response = await this.client.chatCompletion(messages, 'gpt-4o-mini', temperature);
+         
+         // Log to LLM logger
+         llmLogger.logRequest(
+           messages,
+           response.content,
+           response.usage,
+           response.model,
+           response.finish_reason
+         );
+
          // Track credit usage
          if (this.reporter) this.reporter.incrementCreditsUsed();
- 
-         // Expect response shape: { content: '...' } from our backend route
-         if (typeof data.content === 'string') return data.content;
- 
-         // Fallback: if backend returns raw string
-         if (typeof (data as any) === 'string') return (data as any);
- 
-         // If unexpected shape, stringify for debugging
-         return JSON.stringify(data);
+
+         return response.content;
        } catch (err) {
          lastErr = err;
         log.error(`Chat completion attempt ${attempt + 1} failed: ${String(err)}`);

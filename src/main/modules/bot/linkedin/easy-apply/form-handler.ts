@@ -96,11 +96,15 @@ export class FormHandler {
   /**
    * Fill all form fields on the current Easy Apply page
    * 
+   * MATCHES PYTHON _answer_visible_form:
+   * Uses multi-pass approach with scrolling to handle virtualized lists.
+   * 
    * This method:
    * 1. Finds all form groups/sections
    * 2. For each, determines the appropriate handler
    * 3. Fills the field using that handler
-   * 4. Tracks success/failure
+   * 4. Scrolls and repeats until no new elements found
+   * 5. Tracks success/failure
    */
   async fillCurrentPage(): Promise<FormPageResult> {
     const result: FormPageResult = {
@@ -114,38 +118,75 @@ export class FormHandler {
       // Wait for form to be ready
       await this.page.waitForTimeout(500);
 
-      // Find all form field sections
-      const formSections = await this.findFormSections();
-      log.info(`Found ${formSections.length} form section(s) on this page`);
+      // Track processed elements to avoid re-processing (like Python's processed set)
+      const processedKeys = new Set<string>();
+      let passIndex = 0;
 
-      // Process each section
-      for (const section of formSections) {
-        try {
-          // Check if section is visible
-          if (!(await section.isVisible())) {
-            continue;
-          }
+      // Multi-pass loop (matches Python's while True loop)
+      while (true) {
+        passIndex++;
+        let newlyHandled = 0;
 
-          // Find appropriate handler
-          const handler = await this.findHandler(section);
-          
-          if (handler) {
-            const success = await handler.handle(section);
-            result.fieldsProcessed++;
-            
-            if (!success) {
-              result.fieldsFailed++;
-              log.warn('Failed to handle a form field');
+        // Find all form field sections
+        const formSections = await this.findFormSections();
+        
+        if (passIndex === 1) {
+          log.info(`Found ${formSections.length} form section(s) on this page`);
+        }
+
+        // Process each section
+        for (const section of formSections) {
+          try {
+            // Generate stable key to track processed elements
+            const key = await this.formUtils.stableKey(section);
+            if (processedKeys.has(key)) {
+              continue; // Already processed
             }
-          } else {
-            // No handler found - might be a label-only section
-            log.debug('No handler found for section (might be non-input)');
+
+            // Check if section is visible
+            if (!(await section.isVisible())) {
+              continue;
+            }
+
+            // Find appropriate handler
+            const handler = await this.findHandler(section);
+            
+            if (handler) {
+              const success = await handler.handle(section);
+              result.fieldsProcessed++;
+              processedKeys.add(key);
+              newlyHandled++;
+              
+              if (!success) {
+                result.fieldsFailed++;
+                log.warn('Failed to handle a form field');
+              }
+            } else {
+              // No handler found - might be a label-only section
+              log.debug('No handler found for section (might be non-input)');
+            }
+          } catch (error) {
+            result.fieldsProcessed++;
+            result.fieldsFailed++;
+            result.errors.push(String(error));
+            log.error(`Error processing section: ${error}`);
           }
-        } catch (error) {
-          result.fieldsProcessed++;
-          result.fieldsFailed++;
-          result.errors.push(String(error));
-          log.error(`Error processing section: ${error}`);
+        }
+
+        log.debug(`Pass ${passIndex}: handled ${newlyHandled} new elements`);
+
+        // Exit if no new elements were handled (matches Python's if newly_handled == 0: break)
+        if (newlyHandled === 0) {
+          break;
+        }
+
+        // Scroll to load more elements (virtualized lists) - matches Python's form_el.evaluate scroll
+        try {
+          const form = this.page.locator('form').first();
+          await form.evaluate((el) => el.scrollBy(0, 300));
+          await this.page.waitForTimeout(300);
+        } catch {
+          // Scroll failed - form might not exist or be scrollable
         }
       }
 
