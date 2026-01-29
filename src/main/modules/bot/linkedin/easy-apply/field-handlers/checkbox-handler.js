@@ -56,20 +56,50 @@ class CheckboxHandler extends BaseFieldHandler {
         "privacy",
         "policy",
         "understand",
-        "certify"
+        "certify",
+        // French
+        "accepte",
+        "accepter",
+        "j'accepte",
+        "consentement",
+        "confirme",
+        "conditions",
+        "confidentialit\xE9",
+        "politique",
+        "comprends",
+        // German
+        "akzeptiere",
+        "zustimme",
+        "einverstanden",
+        "best\xE4tige",
+        // Spanish
+        "acepto",
+        "aceptar",
+        "consiento",
+        "confirmo"
       ];
       const shouldAutoCheck = autoCheckKeywords.some(
         (keyword) => lowerLabel.includes(keyword) || questionText.toLowerCase().includes(keyword)
       );
       if (shouldAutoCheck) {
-        await checkbox.check();
+        const label = await this.getCheckboxLabelElement(element, checkbox);
+        if (label) {
+          await label.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
         log.info(`\u2705 Auto-checked consent: "${labelText.substring(0, 50)}..."`);
         return true;
       }
       const prompt = `Should I check this checkbox? "${labelText}" (Answer: yes or no)`;
       const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
       if (answer?.toLowerCase().includes("yes")) {
-        await checkbox.check();
+        const label = await this.getCheckboxLabelElement(element, checkbox);
+        if (label) {
+          await label.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
         log.info(`\u2705 Checked: "${labelText.substring(0, 50)}..."`);
       } else {
         log.debug(`Left unchecked: "${labelText.substring(0, 50)}..."`);
@@ -119,15 +149,41 @@ Which options should I select? List the numbers separated by commas, or say "non
       for (const num of selectedNumbers) {
         const option = options[num - 1];
         if (option && !await option.checkbox.isChecked()) {
-          await option.checkbox.check();
+          const label = await this.getCheckboxLabelElement(element, option.checkbox);
+          if (label) {
+            await label.click();
+          } else {
+            await option.checkbox.click({ force: true });
+          }
           log.info(`\u2705 Checked: "${option.label}"`);
-          await this.page.waitForTimeout(200);
+          await this.page.waitForTimeout(100);
         }
       }
       return true;
     } catch (error) {
       log.debug(`Error with multiple checkboxes: ${error}`);
       return false;
+    }
+  }
+  /**
+   * Get the label element for a checkbox (for clicking)
+   */
+  async getCheckboxLabelElement(container, checkbox) {
+    try {
+      const checkboxId = await checkbox.getAttribute("id");
+      if (checkboxId) {
+        const label = container.locator(`label[for="${checkboxId}"]`);
+        if (await label.count() > 0) {
+          return label.first();
+        }
+      }
+      const parentLabel = checkbox.locator("xpath=ancestor::label");
+      if (await parentLabel.count() > 0) {
+        return parentLabel.first();
+      }
+      return null;
+    } catch {
+      return null;
     }
   }
   /**

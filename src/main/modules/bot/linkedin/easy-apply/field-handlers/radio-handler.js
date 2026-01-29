@@ -57,7 +57,7 @@ class RadioButtonHandler extends BaseFieldHandler {
       if (fromGPT) {
         this.formUtils.rememberAnswer("radio", questionText, answer);
       }
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(250);
       const errorMsg = await this.formUtils.extractFieldErrors(element);
       if (errorMsg) {
         log.warn(`Validation error after clicking "${answer}": ${errorMsg}`);
@@ -72,7 +72,7 @@ class RadioButtonHandler extends BaseFieldHandler {
           const retryClicked = await this.selectOption(element, radios, retryAnswer);
           if (retryClicked) {
             this.formUtils.rememberAnswer("radio", questionText, retryAnswer);
-            await this.page.waitForTimeout(500);
+            await this.page.waitForTimeout(250);
             const retryError = await this.formUtils.extractFieldErrors(element);
             if (retryError) {
               log.error(`Retry failed, error persists: ${retryError}`);
@@ -125,7 +125,7 @@ class RadioButtonHandler extends BaseFieldHandler {
         const normalizedLabel = normalizeText(labelText);
         if (normalizedLabel === normalizedAnswer) {
           await this.formUtils.safeClick(label);
-          await this.page.waitForTimeout(500);
+          await this.page.waitForTimeout(250);
           return true;
         }
       } catch {

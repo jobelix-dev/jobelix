@@ -88,7 +88,7 @@ export class RadioButtonHandler extends BaseFieldHandler {
       }
 
       // Check for validation errors
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(250);
       const errorMsg = await this.formUtils.extractFieldErrors(element);
       
       if (errorMsg) {
@@ -107,7 +107,7 @@ export class RadioButtonHandler extends BaseFieldHandler {
             this.formUtils.rememberAnswer('radio', questionText, retryAnswer);
             
             // Check if error cleared
-            await this.page.waitForTimeout(500);
+            await this.page.waitForTimeout(250);
             const retryError = await this.formUtils.extractFieldErrors(element);
             if (retryError) {
               log.error(`Retry failed, error persists: ${retryError}`);
@@ -175,7 +175,7 @@ export class RadioButtonHandler extends BaseFieldHandler {
         if (normalizedLabel === normalizedAnswer) {
           // Click the label (more reliable than clicking the radio input)
           await this.formUtils.safeClick(label);
-          await this.page.waitForTimeout(500); // Let LinkedIn process
+          await this.page.waitForTimeout(250); // Let LinkedIn process
           return true;
         }
       } catch {

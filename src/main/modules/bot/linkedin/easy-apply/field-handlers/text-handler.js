@@ -84,7 +84,7 @@ class TextInputHandler extends BaseFieldHandler {
       await input.click();
       await input.fill("");
       await input.fill(answer);
-      await this.page.waitForTimeout(300);
+      await this.page.waitForTimeout(150);
       this.formUtils.rememberAnswer("text", questionText, answer);
       const errorMsg = await this.formUtils.extractFieldErrors(element);
       if (errorMsg) {

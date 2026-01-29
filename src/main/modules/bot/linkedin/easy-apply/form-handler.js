@@ -73,7 +73,7 @@ class FormHandler {
       errors: []
     };
     try {
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(250);
       const processedKeys = /* @__PURE__ */ new Set();
       let passIndex = 0;
       while (true) {
@@ -151,7 +151,7 @@ class FormHandler {
               el.scrollTop += 300;
             }
           });
-          await this.page.waitForTimeout(300);
+          await this.page.waitForTimeout(150);
         } catch {
         }
       }
