@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error: any) {
     // 🔐 SECURITY:
-    // Don't expose raw error.message — it can leak internal info.
+    // Don't expose raw error.message  -  it can leak internal info.
     return NextResponse.json(
       { error: 'Signup failed' }, // 🔐
       { status: 500 }
