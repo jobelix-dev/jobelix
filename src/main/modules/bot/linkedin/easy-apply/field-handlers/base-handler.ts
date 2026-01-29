@@ -15,6 +15,14 @@ import type { Page, Locator } from 'playwright';
 import type { GPTAnswerer } from '../../../ai/gpt-answerer';
 import type { FormUtils } from '../form-utils';
 import { normalizeText } from '../form-utils';
+import { SmartFieldMatcher } from '../utils/smart-field-matcher';
+import { TIMEOUTS } from '../selectors';
+import { createLogger } from '../../../utils/logger';
+
+const log = createLogger('BaseHandler');
+
+/** Validation retry callback signature */
+type RetryCallback = (answer: string) => Promise<void>;
 
 /**
  * Abstract base class for all field handlers
@@ -189,5 +197,50 @@ export abstract class BaseFieldHandler {
    */
   protected normalizeText(text: string): string {
     return normalizeText(text);
+  }
+
+  /**
+   * Create a SmartFieldMatcher instance for resume-based field matching
+   */
+  protected createSmartMatcher(): SmartFieldMatcher {
+    return new SmartFieldMatcher(this.gptAnswerer.resume ?? undefined);
+  }
+
+  /**
+   * Handle validation errors with GPT retry
+   * 
+   * Consolidates the common pattern of:
+   * 1. Check for validation error message
+   * 2. If error, ask GPT for alternative answer
+   * 3. Fill with retry answer and save it
+   * 
+   * @param element - Form element to check for errors
+   * @param fieldType - Type of field for answer caching
+   * @param questionText - The question being asked
+   * @param originalAnswer - The answer that failed validation
+   * @param retryFn - GPT retry function to call
+   * @param fillCallback - Callback to fill in the new answer
+   */
+  protected async handleValidationError(
+    element: Locator,
+    fieldType: string,
+    questionText: string,
+    originalAnswer: string,
+    retryFn: (question: string, answer: string, error: string) => Promise<string | undefined>,
+    fillCallback: RetryCallback
+  ): Promise<void> {
+    await this.page.waitForTimeout(TIMEOUTS.medium);
+    
+    const errorMsg = await this.formUtils.extractFieldErrors(element);
+    if (!errorMsg) return;
+
+    log.warn(`Validation error for "${fieldType}": ${errorMsg}`);
+
+    const retryAnswer = await retryFn(questionText, originalAnswer, errorMsg);
+    if (retryAnswer) {
+      await fillCallback(retryAnswer);
+      this.formUtils.rememberAnswer(fieldType, questionText, retryAnswer);
+      log.info(`✅ Retry answer applied: "${retryAnswer.substring(0, 50)}..."`);
+    }
   }
 }

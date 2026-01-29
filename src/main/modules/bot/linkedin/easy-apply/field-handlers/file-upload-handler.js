@@ -41,17 +41,54 @@ class FileUploadHandler extends BaseFieldHandler {
         try {
           const inputId = (await fileInput.getAttribute("id") || "").toLowerCase();
           log.debug(`File input id: "${inputId}"`);
-          isCoverLetterUpload = ["cover", "motivation"].some((k) => inputId.includes(k));
+          const coverLetterKeywords = [
+            "cover",
+            "coverletter",
+            // English
+            "lettre",
+            "motivation",
+            // French (lettre de motivation)
+            "anschreiben",
+            "bewerbung",
+            // German
+            "carta",
+            "presentacion",
+            // Spanish (carta de presentación)
+            "lettera",
+            "presentazione",
+            // Italian (lettera di presentazione)
+            "carta-apresentacao"
+            // Portuguese
+          ];
+          isCoverLetterUpload = coverLetterKeywords.some((k) => inputId.includes(k));
           isResumeUpload = !isCoverLetterUpload;
         } catch {
         }
       }
       const questionText = await this.extractQuestionText(element);
       const lowerQuestion = questionText.toLowerCase();
-      if (lowerQuestion.includes("cover letter") || lowerQuestion.includes("coverletter") || lowerQuestion.includes("motivation")) {
+      const coverLetterTextKeywords = [
+        "cover letter",
+        "coverletter",
+        // English
+        "lettre de motivation",
+        "lettre motivation",
+        // French
+        "anschreiben",
+        "motivationsschreiben",
+        // German
+        "carta de presentaci\xF3n",
+        "carta presentaci\xF3n",
+        // Spanish
+        "lettera di presentazione",
+        // Italian
+        "carta de apresenta\xE7\xE3o"
+        // Portuguese
+      ];
+      if (coverLetterTextKeywords.some((k) => lowerQuestion.includes(k))) {
         isCoverLetterUpload = true;
         isResumeUpload = false;
-      } else if (lowerQuestion.includes("resume") || lowerQuestion.includes("cv")) {
+      } else if (lowerQuestion.includes("resume") || lowerQuestion.includes("cv") || lowerQuestion.includes("lebenslauf") || lowerQuestion.includes("curriculum")) {
         isResumeUpload = true;
         isCoverLetterUpload = false;
       }
@@ -140,13 +177,13 @@ class FileUploadHandler extends BaseFieldHandler {
       const previousUploadOption = element.locator("[data-test-document-upload-file-card]").first();
       if (await previousUploadOption.count() > 0) {
         await previousUploadOption.click();
-        await this.page.waitForTimeout(500);
+        await this.page.waitForTimeout(250);
         return true;
       }
       const existingFileRadio = element.locator('input[type="radio"][data-test-resume-radio]').first();
       if (await existingFileRadio.count() > 0) {
         await existingFileRadio.click();
-        await this.page.waitForTimeout(500);
+        await this.page.waitForTimeout(250);
         return true;
       }
       return false;
@@ -177,7 +214,7 @@ class FileUploadHandler extends BaseFieldHandler {
         } catch {
           log.debug("Could not dispatch events on file input");
         }
-        await this.page.waitForTimeout(2e3);
+        await this.page.waitForTimeout(1e3);
         return true;
       }
       const uploadButton = element.locator('button:has-text("Upload"), label:has-text("Upload")').first();
@@ -187,7 +224,7 @@ class FileUploadHandler extends BaseFieldHandler {
           uploadButton.click()
         ]);
         await fileChooser.setFiles(filePath);
-        await this.page.waitForTimeout(2e3);
+        await this.page.waitForTimeout(1e3);
         return true;
       }
       log.warn("Could not find file input or upload button");
@@ -213,7 +250,7 @@ class FileUploadHandler extends BaseFieldHandler {
     try {
       const expectedFilename = path.basename(this.resumePath);
       log.debug(`Ensuring resume is selected: ${expectedFilename}`);
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(250);
       const resumeCards = await element.locator("div.jobs-document-upload-redesign-card__container").all();
       if (resumeCards.length === 0) {
         log.debug("No resume selection cards found, upload likely direct");
@@ -255,15 +292,15 @@ class FileUploadHandler extends BaseFieldHandler {
         if (await radioLabel.count() > 0) {
           await this.page.evaluate((el) => el.click(), await radioLabel.elementHandle());
           log.info(`\u2705 Selected resume: ${expectedFilename}`);
-          await this.page.waitForTimeout(300);
+          await this.page.waitForTimeout(150);
         } else if (await radioInput.count() > 0) {
           await radioInput.click();
           log.info(`\u2705 Selected resume: ${expectedFilename}`);
-          await this.page.waitForTimeout(300);
+          await this.page.waitForTimeout(150);
         } else {
           await this.page.evaluate((el) => el.click(), await targetCard.elementHandle());
           log.info(`\u2705 Clicked resume card: ${expectedFilename}`);
-          await this.page.waitForTimeout(300);
+          await this.page.waitForTimeout(150);
         }
       } catch (e) {
         log.warn(`Failed to select resume: ${e}`);

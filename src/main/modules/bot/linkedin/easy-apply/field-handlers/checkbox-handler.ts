@@ -6,6 +6,9 @@
  * - Data sharing consent
  * - Job preferences (remote, willing to relocate, etc.)
  * - Multiple choice questions
+ * 
+ * Retry Behavior:
+ * - On retries (isRetry=true), force-checks ALL unchecked checkboxes to ensure submission
  */
 
 import type { Locator } from 'playwright';
@@ -16,6 +19,21 @@ import { normalizeText } from '../form-utils';
 const log = createLogger('CheckboxHandler');
 
 export class CheckboxHandler extends BaseFieldHandler {
+  /**
+   * Whether this is a retry attempt (force-check all unchecked checkboxes)
+   */
+  private isRetry: boolean = false;
+  
+  /**
+   * Set retry mode - when true, force-checks all unchecked checkboxes
+   */
+  setRetryMode(isRetry: boolean): void {
+    this.isRetry = isRetry;
+    if (isRetry) {
+      log.debug('Retry mode enabled - will force-check all unchecked checkboxes');
+    }
+  }
+  
   /**
    * Check if this element is a checkbox field
    */
@@ -76,10 +94,17 @@ export class CheckboxHandler extends BaseFieldHandler {
       const labelText = await this.getCheckboxLabel(element, checkbox);
       const lowerLabel = labelText.toLowerCase();
 
-      // Auto-check consent/agreement checkboxes
+      // Auto-check consent/agreement checkboxes (multi-language support)
       const autoCheckKeywords = [
         'agree', 'accept', 'consent', 'acknowledge', 'confirm',
-        'terms', 'privacy', 'policy', 'understand', 'certify'
+        'terms', 'privacy', 'policy', 'understand', 'certify',
+        // French
+        'accepte', 'accepter', 'j\'accepte', 'consentement', 'confirme',
+        'conditions', 'confidentialité', 'politique', 'comprends',
+        // German
+        'akzeptiere', 'zustimme', 'einverstanden', 'bestätige',
+        // Spanish
+        'acepto', 'aceptar', 'consiento', 'confirmo'
       ];
 
       const shouldAutoCheck = autoCheckKeywords.some(keyword => 
@@ -87,8 +112,29 @@ export class CheckboxHandler extends BaseFieldHandler {
       );
 
       if (shouldAutoCheck) {
-        await checkbox.check();
-        log.info(`✅ Auto-checked consent: "${labelText.substring(0, 50)}..."`);
+        // Click the label instead of the checkbox to avoid "label intercepts pointer events" error
+        const label = await this.getCheckboxLabelElement(element, checkbox);
+        if (label) {
+          await label.click();
+        } else {
+          // Fallback: force click on checkbox
+          await checkbox.click({ force: true });
+        }
+        log.info(`✅ Auto-checked consent: "${labelText.substring(0, 50)}..."`)
+        return true;
+      }
+
+      // RETRY FALLBACK: If this is a retry attempt, force-check all unchecked checkboxes
+      // This ensures form submission succeeds when validation errors occur
+      if (this.isRetry) {
+        // Click the label instead of the checkbox to avoid "label intercepts pointer events" error
+        const label = await this.getCheckboxLabelElement(element, checkbox);
+        if (label) {
+          await label.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
+        log.info(`✅ Force-checked on retry: "${labelText.substring(0, 50)}..."`);
         return true;
       }
 
@@ -97,7 +143,13 @@ export class CheckboxHandler extends BaseFieldHandler {
       const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
       
       if (answer?.toLowerCase().includes('yes')) {
-        await checkbox.check();
+        // Click the label instead of the checkbox to avoid "label intercepts pointer events" error
+        const label = await this.getCheckboxLabelElement(element, checkbox);
+        if (label) {
+          await label.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
         log.info(`✅ Checked: "${labelText.substring(0, 50)}..."`);
       } else {
         log.debug(`Left unchecked: "${labelText.substring(0, 50)}..."`);
@@ -126,6 +178,29 @@ export class CheckboxHandler extends BaseFieldHandler {
       for (const checkbox of checkboxes) {
         const label = await this.getCheckboxLabel(element, checkbox);
         options.push({ checkbox, label });
+      }
+
+      // RETRY FALLBACK: If this is a retry attempt, force-check all unchecked checkboxes
+      // This ensures form submission succeeds when validation errors occur
+      if (this.isRetry) {
+        let checkedCount = 0;
+        for (const option of options) {
+          if (!(await option.checkbox.isChecked())) {
+            const label = await this.getCheckboxLabelElement(element, option.checkbox);
+            if (label) {
+              await label.click();
+            } else {
+              await option.checkbox.click({ force: true });
+            }
+            log.info(`✅ Force-checked on retry: "${option.label}"`);
+            await this.page.waitForTimeout(100);
+            checkedCount++;
+          }
+        }
+        if (checkedCount > 0) {
+          log.info(`Force-checked ${checkedCount} checkbox(es) on retry`);
+        }
+        return true;
       }
 
       // Format options for GPT (MATCHES PYTHON APPROACH)
@@ -165,9 +240,15 @@ export class CheckboxHandler extends BaseFieldHandler {
       for (const num of selectedNumbers) {
         const option = options[num - 1];
         if (option && !(await option.checkbox.isChecked())) {
-          await option.checkbox.check();
+          // Click the label instead of the checkbox to avoid "label intercepts pointer events" error
+          const label = await this.getCheckboxLabelElement(element, option.checkbox);
+          if (label) {
+            await label.click();
+          } else {
+            await option.checkbox.click({ force: true });
+          }
           log.info(`✅ Checked: "${option.label}"`);
-          await this.page.waitForTimeout(200);
+          await this.page.waitForTimeout(100);
         }
       }
 
@@ -176,6 +257,32 @@ export class CheckboxHandler extends BaseFieldHandler {
     } catch (error) {
       log.debug(`Error with multiple checkboxes: ${error}`);
       return false;
+    }
+  }
+
+  /**
+   * Get the label element for a checkbox (for clicking)
+   */
+  private async getCheckboxLabelElement(container: Locator, checkbox: Locator): Promise<Locator | null> {
+    try {
+      // Try to get associated label by 'for' attribute
+      const checkboxId = await checkbox.getAttribute('id');
+      if (checkboxId) {
+        const label = container.locator(`label[for="${checkboxId}"]`);
+        if (await label.count() > 0) {
+          return label.first();
+        }
+      }
+
+      // Try parent label
+      const parentLabel = checkbox.locator('xpath=ancestor::label');
+      if (await parentLabel.count() > 0) {
+        return parentLabel.first();
+      }
+
+      return null;
+    } catch {
+      return null;
     }
   }
 

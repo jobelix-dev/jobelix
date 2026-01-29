@@ -47,6 +47,7 @@ export class FormHandler {
   private formUtils: FormUtils;
   private handlers: BaseFieldHandler[];
   private fileUploadHandler: FileUploadHandler;
+  private checkboxHandler: CheckboxHandler;
 
   /**
    * Create a new form handler
@@ -78,6 +79,9 @@ export class FormHandler {
       resumePath || null,
       coverLetterPath || null
     );
+    
+    // Create checkbox handler separately (needs retry mode access)
+    this.checkboxHandler = new CheckboxHandler(page, gptAnswerer, this.formUtils);
 
     // Initialize handlers in priority order
     // More specific handlers should come before generic ones
@@ -85,12 +89,20 @@ export class FormHandler {
       this.fileUploadHandler,                                    // File uploads first (most specific)
       new RadioButtonHandler(page, gptAnswerer, this.formUtils), // Radio buttons
       new DropdownHandler(page, gptAnswerer, this.formUtils),    // Dropdowns/selects
-      new CheckboxHandler(page, gptAnswerer, this.formUtils),    // Checkboxes
+      this.checkboxHandler,                                      // Checkboxes
       new TypeaheadHandler(page, gptAnswerer, this.formUtils),   // Autocomplete fields
       new DateHandler(page, gptAnswerer, this.formUtils),        // Date fields
       new TextareaHandler(page, gptAnswerer, this.formUtils),    // Textareas
       new TextInputHandler(page, gptAnswerer, this.formUtils),   // Text inputs (most generic)
     ];
+  }
+  
+  /**
+   * Set retry mode for handlers that support it
+   * When true, checkbox handler will force-check all unchecked checkboxes
+   */
+  setRetryMode(isRetry: boolean): void {
+    this.checkboxHandler.setRetryMode(isRetry);
   }
 
   /**
@@ -116,7 +128,7 @@ export class FormHandler {
 
     try {
       // Wait for form to be ready
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(250);
 
       // Track processed elements to avoid re-processing (like Python's processed set)
       const processedKeys = new Set<string>();
@@ -228,7 +240,7 @@ export class FormHandler {
               (el as { scrollTop: number }).scrollTop += 300;
             }
           });
-          await this.page.waitForTimeout(300);
+          await this.page.waitForTimeout(150);
         } catch {
           // Scroll failed - form might not exist or be scrollable
         }
