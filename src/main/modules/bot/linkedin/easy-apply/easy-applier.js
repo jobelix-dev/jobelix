@@ -90,18 +90,16 @@ class EasyApplier {
         job.description = jobDescription;
         log.debug(`Job description extracted: ${jobDescription.length} chars`);
       }
+      let tailoringPromise = null;
       if (this.config.useConstantResume) {
         log.info(`\u{1F4C4} Using constant resume (tailoring disabled)`);
       } else if (jobDescription && this.gptAnswerer) {
-        try {
-          const tailoredResumePath = await this.generateTailoredResume(job, jobDescription);
-          if (tailoredResumePath) {
-            this.formHandler.setResumePath(tailoredResumePath);
-            log.info(`\u{1F3AF} Using tailored resume: ${tailoredResumePath}`);
-          }
-        } catch (error) {
-          log.warn(`Failed to tailor resume, using original: ${error}`);
-        }
+        log.info("\u{1F680} Starting resume tailoring in background...");
+        tailoringPromise = this.generateTailoredResume(job, jobDescription).catch((error) => {
+          log.warn(`Background resume tailoring failed: ${error}`);
+          return null;
+        });
+        this.formHandler.setPendingTailoredResume(tailoringPromise);
       }
       const modalResult = await this.openEasyApplyModal();
       if (modalResult === "already_applied") {

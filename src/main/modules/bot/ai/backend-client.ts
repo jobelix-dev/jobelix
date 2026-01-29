@@ -62,7 +62,7 @@ export class BackendAPIClient {
   constructor(options: BackendClientOptions) {
     this.token = options.token;
     this.apiUrl = options.apiUrl;
-    this.timeout = options.timeout || 60000; // 60 seconds
+    this.timeout = options.timeout || 120000; // 120 seconds (resume scoring can take 60-90s)
     this.logRequests = options.logRequests ?? true;
 
     log.info(`Initialized with endpoint: ${this.apiUrl}`);

@@ -3,24 +3,9 @@ import { tailorResumePipeline } from "./resume-tailoring.js";
 import { createLogger } from "../utils/logger.js";
 import { BackendAPIClient } from "./backend-client.js";
 import { llmLogger } from "../utils/llm-logger.js";
-import * as prompts from "./prompts/templates.js";
+import { stripMarkdownCodeBlock, findBestMatch, extractNumber } from "../utils/string-utils.js";
+import * as prompts from "./prompts/index.js";
 const log = createLogger("GPTAnswerer");
-function stripMarkdownCodeBlock(text) {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith("```")) return text;
-  const lines = trimmed.split("\n");
-  let startIdx = 0, endIdx = lines.length;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith("```")) {
-      if (startIdx === 0) startIdx = i + 1;
-      else {
-        endIdx = i;
-        break;
-      }
-    }
-  }
-  return lines.slice(startIdx, endIdx).join("\n");
-}
 class GPTAnswerer {
   constructor(apiToken, apiUrl, reporter) {
     this.apiToken = apiToken;
@@ -97,7 +82,7 @@ class GPTAnswerer {
     const prompt = prompts.optionsTemplate.replace("{resume}", resumeToNarrative(this.resume)).replace("{question}", question).replace("{options}", options.join("\n"));
     const response = await this.chatCompletion([{ role: "user", content: prompt }]);
     const answer = response.trim();
-    const bestMatch = this.findBestMatch(answer, options);
+    const bestMatch = findBestMatch(answer, options);
     log.info(`Answer: ${bestMatch}`);
     return bestMatch;
   }
@@ -122,7 +107,7 @@ ${resumeToNarrative(this.resume)}
 Please select a DIFFERENT option that addresses the error. Respond with ONLY the exact text of the chosen option.`;
     const response = await this.chatCompletion([{ role: "user", content: prompt }]);
     const answer = response.trim();
-    return this.findBestMatch(answer, options);
+    return findBestMatch(answer, options);
   }
   /**
    * Answer a checkbox/multiple-choice question directly (no section routing)
@@ -182,8 +167,7 @@ Respond with only the answer (no explanation, just the text).`;
     log.debug(`Answering numeric: ${question}`);
     const prompt = prompts.numericQuestionTemplate.replace("{resume}", resumeToNarrative(this.resume)).replace("{question}", question).replace("{default_experience}", String(defaultValue));
     const response = await this.chatCompletion([{ role: "user", content: prompt }], 0.3);
-    const match = response.match(/\d+/);
-    const result = match ? parseInt(match[0], 10) : defaultValue;
+    const result = extractNumber(response) ?? defaultValue;
     log.info(`Numeric answer: ${result}`);
     return result;
   }
@@ -349,52 +333,6 @@ Respond with ONLY the section name.`;
     if (!this.resume?.experienceDetails?.length) return "";
     const recent = this.resume.experienceDetails[0];
     return `${recent.position} at ${recent.company}`;
-  }
-  /** Find best matching option using string similarity */
-  findBestMatch(text, options) {
-    const textLower = text.toLowerCase().trim();
-    const exact = options.find((o) => o.toLowerCase() === textLower);
-    if (exact) return exact;
-    const contains = options.find(
-      (o) => textLower.includes(o.toLowerCase()) || o.toLowerCase().includes(textLower)
-    );
-    if (contains) return contains;
-    let bestOption = options[0];
-    let bestDistance = Infinity;
-    for (const option of options) {
-      const distance = this.levenshteinDistance(textLower, option.toLowerCase());
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestOption = option;
-      }
-    }
-    return bestOption;
-  }
-  /**
-   * Calculate Levenshtein distance between two strings
-   */
-  levenshteinDistance(a, b) {
-    const matrix = [];
-    for (let i = 0; i <= b.length; i++) {
-      matrix[i] = [i];
-    }
-    for (let j = 0; j <= a.length; j++) {
-      matrix[0][j] = j;
-    }
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-    return matrix[b.length][a.length];
   }
 }
 export {

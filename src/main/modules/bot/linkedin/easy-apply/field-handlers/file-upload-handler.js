@@ -8,6 +8,8 @@ class FileUploadHandler extends BaseFieldHandler {
   constructor(page, gptAnswerer, formUtils, resumePath = null, coverLetterPath = null) {
     super(page, gptAnswerer, formUtils);
     this.generatedCoverLetterPath = null;
+    /** Pending tailored resume generation (for parallel processing) */
+    this.pendingTailoredResume = null;
     this.resumePath = resumePath;
     this.coverLetterPath = coverLetterPath;
   }
@@ -54,6 +56,9 @@ class FileUploadHandler extends BaseFieldHandler {
         isCoverLetterUpload = false;
       }
       log.debug(`Upload type: resume=${isResumeUpload}, coverLetter=${isCoverLetterUpload}`);
+      if (isResumeUpload) {
+        await this.getResumePath();
+      }
       const hasUploadedFile = await this.checkExistingUpload(element);
       if (hasUploadedFile) {
         log.debug("File already uploaded");
@@ -346,11 +351,52 @@ class FileUploadHandler extends BaseFieldHandler {
     }
   }
   /**
-   * Set the resume path for uploads
+   * Set the resume path for uploads (immediate, synchronous)
    */
   setResumePath(newPath) {
     this.resumePath = newPath;
+    this.pendingTailoredResume = null;
     log.debug(`Resume path updated: ${newPath}`);
+  }
+  /**
+   * Set a pending tailored resume Promise (for parallel processing)
+   * 
+   * This allows resume tailoring to run in the background while
+   * the Easy Apply modal opens and early form fields are filled.
+   * The handler will await this Promise when it encounters a resume upload field.
+   * 
+   * @param promise - Promise that resolves to tailored resume path, or null on failure
+   */
+  setPendingTailoredResume(promise) {
+    this.pendingTailoredResume = promise;
+    log.debug("Pending tailored resume Promise set (will await when needed)");
+  }
+  /**
+   * Get the resume path, awaiting any pending tailored resume first
+   * 
+   * If a tailored resume is being generated in the background,
+   * this will wait for it to complete before returning.
+   * 
+   * @returns The resume path (tailored if available, original otherwise)
+   */
+  async getResumePath() {
+    if (this.pendingTailoredResume) {
+      log.info("\u23F3 Waiting for tailored resume to complete...");
+      try {
+        const tailoredPath = await this.pendingTailoredResume;
+        this.pendingTailoredResume = null;
+        if (tailoredPath) {
+          this.resumePath = tailoredPath;
+          log.info(`\u2705 Tailored resume ready: ${tailoredPath}`);
+        } else {
+          log.warn("Tailored resume generation failed, using original resume");
+        }
+      } catch (error) {
+        log.error(`Error awaiting tailored resume: ${error}`);
+        this.pendingTailoredResume = null;
+      }
+    }
+    return this.resumePath;
   }
   /**
    * Set the cover letter path for uploads

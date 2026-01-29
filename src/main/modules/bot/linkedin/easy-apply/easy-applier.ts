@@ -158,23 +158,27 @@ export class EasyApplier {
         log.debug(`Job description extracted: ${jobDescription.length} chars`);
       }
 
-      // Step 0.6: Resume tailoring (MATCHES PYTHON BOT - this is the critical step!)
+      // Step 0.6: Start resume tailoring in BACKGROUND (parallel processing optimization)
+      // Instead of blocking here, we start the tailoring and continue with the modal.
+      // The FileUploadHandler will await the Promise when it needs the resume.
+      let tailoringPromise: Promise<string | null> | null = null;
+      
       if (this.config.useConstantResume) {
         log.info(`📄 Using constant resume (tailoring disabled)`);
       } else if (jobDescription && this.gptAnswerer) {
-        try {
-          const tailoredResumePath = await this.generateTailoredResume(job, jobDescription);
-          if (tailoredResumePath) {
-            // Update the form handler with the tailored resume path (critical!)
-            this.formHandler.setResumePath(tailoredResumePath);
-            log.info(`🎯 Using tailored resume: ${tailoredResumePath}`);
-          }
-        } catch (error) {
-          log.warn(`Failed to tailor resume, using original: ${error}`);
-        }
+        log.info('🚀 Starting resume tailoring in background...');
+        // Start tailoring but DON'T await - let it run in parallel
+        tailoringPromise = this.generateTailoredResume(job, jobDescription)
+          .catch(error => {
+            log.warn(`Background resume tailoring failed: ${error}`);
+            return null;
+          });
+        
+        // Pass the Promise to FormHandler - it will await when needed
+        this.formHandler.setPendingTailoredResume(tailoringPromise);
       }
 
-      // Step 1: Open the Easy Apply modal
+      // Step 1: Open the Easy Apply modal (now runs in PARALLEL with resume tailoring!)
       const modalResult = await this.openEasyApplyModal();
       
       if (modalResult === 'already_applied') {

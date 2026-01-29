@@ -20,30 +20,10 @@ import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
 import { BackendAPIClient } from './backend-client';
 import { llmLogger } from '../utils/llm-logger';
-import * as prompts from './prompts/templates';
+import { stripMarkdownCodeBlock, findBestMatch, extractNumber } from '../utils/string-utils';
+import * as prompts from './prompts';
 
 const log = createLogger('GPTAnswerer');
-
-/**
- * Strip markdown code block wrappers from GPT response
- * Handles both ```yaml and generic ``` blocks
- */
-function stripMarkdownCodeBlock(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith('```')) return text;
-  
-  const lines = trimmed.split('\n');
-  let startIdx = 0, endIdx = lines.length;
-  
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith('```')) {
-      if (startIdx === 0) startIdx = i + 1;
-      else { endIdx = i; break; }
-    }
-  }
-  
-  return lines.slice(startIdx, endIdx).join('\n');
-}
 
 export class GPTAnswerer {
   // Public resume field - accessed by field handlers for smart matching
@@ -147,7 +127,7 @@ export class GPTAnswerer {
     const answer = response.trim();
 
     // Find best match from options (handles slight variations)
-    const bestMatch = this.findBestMatch(answer, options);
+    const bestMatch = findBestMatch(answer, options);
     log.info(`Answer: ${bestMatch}`);
     return bestMatch;
   }
@@ -182,7 +162,7 @@ Please select a DIFFERENT option that addresses the error. Respond with ONLY the
     const response = await this.chatCompletion([{ role: 'user', content: prompt }]);
     const answer = response.trim();
 
-    return this.findBestMatch(answer, options);
+    return findBestMatch(answer, options);
   }
 
   /**
@@ -272,10 +252,7 @@ Respond with only the answer (no explanation, just the text).`;
 
     const response = await this.chatCompletion([{ role: 'user', content: prompt }], 0.3);
     
-    // Extract number from response
-    const match = response.match(/\d+/);
-    const result = match ? parseInt(match[0], 10) : defaultValue;
-    
+    const result = extractNumber(response) ?? defaultValue;
     log.info(`Numeric answer: ${result}`);
     return result;
   }
@@ -484,64 +461,5 @@ Respond with ONLY the section name.`;
     if (!this.resume?.experienceDetails?.length) return '';
     const recent = this.resume.experienceDetails[0];
     return `${recent.position} at ${recent.company}`;
-  }
-
-  /** Find best matching option using string similarity */
-  private findBestMatch(text: string, options: string[]): string {
-    const textLower = text.toLowerCase().trim();
-    
-    // Exact match
-    const exact = options.find(o => o.toLowerCase() === textLower);
-    if (exact) return exact;
-
-    // Contains match
-    const contains = options.find(o => 
-      textLower.includes(o.toLowerCase()) || o.toLowerCase().includes(textLower)
-    );
-    if (contains) return contains;
-
-    // Levenshtein distance (simple implementation)
-    let bestOption = options[0];
-    let bestDistance = Infinity;
-
-    for (const option of options) {
-      const distance = this.levenshteinDistance(textLower, option.toLowerCase());
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestOption = option;
-      }
-    }
-
-    return bestOption;
-  }
-
-  /**
-   * Calculate Levenshtein distance between two strings
-   */
-  private levenshteinDistance(a: string, b: string): number {
-    const matrix: number[][] = [];
-
-    for (let i = 0; i <= b.length; i++) {
-      matrix[i] = [i];
-    }
-    for (let j = 0; j <= a.length; j++) {
-      matrix[0][j] = j;
-    }
-
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-
-    return matrix[b.length][a.length];
   }
 }

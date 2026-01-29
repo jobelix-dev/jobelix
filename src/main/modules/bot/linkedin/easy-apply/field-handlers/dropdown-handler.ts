@@ -67,10 +67,27 @@ export class DropdownHandler extends BaseFieldHandler {
         answer = await this.smartMatch(element, questionText, options);
       }
 
-      // 3. Ask GPT
+      // 3. Ask GPT (with option truncation for large lists)
       if (!answer) {
         log.debug(`Asking GPT: "${questionText}"`);
-        answer = await this.gptAnswerer.answerFromOptions(questionText, options);
+        
+        // For very large option lists (e.g., thousands of schools), truncate to avoid "message too long"
+        const MAX_OPTIONS_FOR_GPT = 100;
+        let optionsForGPT = options;
+        
+        if (options.length > MAX_OPTIONS_FOR_GPT) {
+          log.warn(`Large dropdown (${options.length} options) - truncating to ${MAX_OPTIONS_FOR_GPT} for GPT`);
+          // Keep first 100 options (they're usually sorted alphabetically)
+          optionsForGPT = options.slice(0, MAX_OPTIONS_FOR_GPT);
+          
+          // If this is a school field and we couldn't match from resume, log a warning
+          const questionLower = questionText.toLowerCase();
+          if (questionLower.includes('school') || questionLower.includes('university')) {
+            log.error(`[SCHOOL] Could not find resume school in ${options.length} options - GPT will only see first ${MAX_OPTIONS_FOR_GPT}`);
+          }
+        }
+        
+        answer = await this.gptAnswerer.answerFromOptions(questionText, optionsForGPT);
         fromGPT = true;
       }
 
@@ -154,6 +171,7 @@ export class DropdownHandler extends BaseFieldHandler {
    * Handles special cases where we can infer the answer from context:
    * - Phone prefix → match user's phone number
    * - Country → use resume country
+   * - School/University → use resume education
    */
   private async smartMatch(
     element: Locator,
@@ -161,6 +179,90 @@ export class DropdownHandler extends BaseFieldHandler {
     options: string[]
   ): Promise<string | undefined> {
     const questionLower = questionText.toLowerCase();
+    const resume = this.gptAnswerer.resume;
+
+    // School/University detection - CRITICAL for large dropdowns
+    if (questionLower.includes('school') || questionLower.includes('university') || 
+        questionLower.includes('college') || questionLower.includes('institution')) {
+      log.debug('[SMART MATCH] Detected school/university field');
+      
+      // Alternative names mapping for common schools
+      // LinkedIn often uses different naming conventions
+      const alternativeNames: Record<string, string[]> = {
+        'université psl': ['Paris Sciences et Lettres', 'PSL University', 'PSL Research University'],
+        'psl': ['Paris Sciences et Lettres', 'PSL University'],
+        'institut polytechnique de paris': ['IP Paris', 'Polytechnique Paris', 'Institut Polytechnique'],
+        'telecom sudparis': ['Télécom SudParis', 'Telecom SudParis', 'TSP'],
+        'telecom paris': ['Télécom Paris', 'ENST'],
+        'ecole polytechnique': ['Polytechnique', 'X'],
+        'hec paris': ['HEC', 'HEC School of Management'],
+        'sciences po': ['Sciences Po Paris', 'Institut d\'Études Politiques'],
+        'ens': ['École Normale Supérieure', 'ENS Paris', 'Normale Sup'],
+        'centrale': ['CentraleSupélec', 'École Centrale'],
+        'mines': ['MINES ParisTech', 'École des Mines'],
+        'sainte-geneviève': ['Ginette', 'Sainte Geneviève'],
+      };
+      
+      // Get schools from resume education
+      if (resume?.education && resume.education.length > 0) {
+        // Try each education institution from resume
+        for (const edu of resume.education) {
+          const institution = edu.institution || edu.school;
+          if (!institution) continue;
+          
+          const instLower = institution.toLowerCase();
+          log.debug(`[SMART MATCH] Checking resume institution: "${institution}"`);
+          
+          // Try exact match first
+          const exactMatch = options.find(o => 
+            o.toLowerCase() === instLower
+          );
+          if (exactMatch) {
+            log.info(`[SMART MATCH] ✅ Found exact school match: "${exactMatch}"`);
+            return exactMatch;
+          }
+          
+          // Try alternative names
+          for (const [key, alts] of Object.entries(alternativeNames)) {
+            if (instLower.includes(key)) {
+              for (const alt of alts) {
+                const altMatch = options.find(o => 
+                  o.toLowerCase().includes(alt.toLowerCase()) ||
+                  alt.toLowerCase().includes(o.toLowerCase())
+                );
+                if (altMatch) {
+                  log.info(`[SMART MATCH] ✅ Found alternative name match: "${altMatch}" (via "${alt}")`);
+                  return altMatch;
+                }
+              }
+            }
+          }
+          
+          // Try partial match (institution name contained in option)
+          const partialMatch = options.find(o => 
+            o.toLowerCase().includes(instLower) ||
+            instLower.includes(o.toLowerCase())
+          );
+          if (partialMatch) {
+            log.info(`[SMART MATCH] ✅ Found partial school match: "${partialMatch}"`);
+            return partialMatch;
+          }
+          
+          // Try word-by-word matching for significant words (>4 chars)
+          const institutionWords = instLower.split(/[\s\-()]+/).filter(w => w.length > 4);
+          for (const word of institutionWords) {
+            // Skip common words that would match too broadly
+            if (['university', 'institut', 'école', 'ecole', 'paris', 'france'].includes(word)) continue;
+            const wordMatch = options.find(o => o.toLowerCase().includes(word));
+            if (wordMatch) {
+              log.info(`[SMART MATCH] ✅ Found word-based school match: "${wordMatch}" (word: "${word}")`);
+              return wordMatch;
+            }
+          }
+        }
+        log.warn('[SMART MATCH] No school match found in options - resume schools may not be in dropdown');
+      }
+    }
 
     // Phone prefix detection
     if (questionLower.includes('phone') || questionLower.includes('prefix') || questionLower.includes('code')) {

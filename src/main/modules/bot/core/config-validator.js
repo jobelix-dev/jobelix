@@ -131,7 +131,7 @@ function validateDistance(data) {
 function buildSearchUrl(config) {
   const parts = [];
   if (config.remote) {
-    parts.push("f_CF=f_WRA");
+    parts.push("f_WT=2");
   }
   const expLevelMap = {
     internship: 1,
@@ -145,7 +145,9 @@ function buildSearchUrl(config) {
   if (selectedLevels.length > 0) {
     parts.push(`f_E=${selectedLevels.join(",")}`);
   }
-  parts.push(`distance=${config.distance}`);
+  if (config.distance > 0) {
+    parts.push(`distance=${config.distance}`);
+  }
   const jobTypeMap = {
     "full-time": "F",
     contract: "C",
@@ -167,7 +169,8 @@ function buildSearchUrl(config) {
   };
   const selectedDate = Object.entries(config.date).find(([_, enabled]) => enabled);
   const dateParam = selectedDate ? dateMap[selectedDate[0]] : "";
-  parts.push("f_LF=f_AL");
+  parts.push("f_AL=true");
+  parts.push("sortBy=R");
   return `?${parts.join("&")}${dateParam}`;
 }
 export {

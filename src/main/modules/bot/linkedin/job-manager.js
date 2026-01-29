@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import * as path from "path";
 import { createJob, isBlacklisted } from "../models/job.js";
 import { createLogger } from "../utils/logger.js";
@@ -7,6 +6,7 @@ import { saveDebugHtml } from "../utils/debug-html.js";
 import { waitRandom, DELAYS } from "../utils/delays.js";
 import { buildSearchUrl } from "../core/config-validator.js";
 import { LinkedInEasyApplier } from "./easy-apply/easy-applier.js";
+import { loadSavedAnswers, saveAnswer, appendJobResult } from "../utils/csv-utils.js";
 const log = createLogger("JobManager");
 class LinkedInJobManager {
   constructor(page, reporter) {
@@ -62,6 +62,7 @@ class LinkedInJobManager {
     );
     const searches = this.generateSearchCombinations();
     log.info(`Generated ${searches.length} search combinations`);
+    let totalJobsFound = 0;
     for (const { position, location } of searches) {
       log.info(`Starting search for ${position} in ${location}`);
       if (this.reporter) {
@@ -98,6 +99,7 @@ class LinkedInJobManager {
             }
           }
           const jobsFound = await this.applyToJobs();
+          totalJobsFound += jobsFound;
           if (jobsFound === 0) {
             emptyPages++;
             log.warn(`No jobs found on page ${page} (${emptyPages}/${maxEmptyPages} empty pages)`);
@@ -119,6 +121,15 @@ class LinkedInJobManager {
         }
         log.error(`Error on page ${page}: ${error}`);
         break;
+      }
+    }
+    if (this.reporter) {
+      if (totalJobsFound === 0) {
+        log.info("No matching jobs found - completing session");
+        this.reporter.completeSession(true, "No matching jobs found");
+      } else {
+        log.info(`Session complete - processed ${totalJobsFound} jobs`);
+        this.reporter.completeSession(true, `Processed ${totalJobsFound} jobs`);
       }
     }
   }
@@ -308,70 +319,23 @@ class LinkedInJobManager {
    */
   loadOldAnswers() {
     const filePath = getOldQuestionsPath();
-    if (!fs.existsSync(filePath)) {
-      return;
-    }
-    try {
-      const content = fs.readFileSync(filePath, "utf-8");
-      const lines = content.split("\n").filter((line) => line.trim());
-      for (const line of lines) {
-        const parts = this.parseCSVLine(line);
-        if (parts.length >= 3) {
-          const [questionType, questionText, answer] = parts;
-          if (!answer || answer.length <= 2) continue;
-          const answerLower = answer.toLowerCase();
-          if (answerLower.startsWith("select") || answerLower.startsWith("choose")) continue;
-          if (["option", "n/a", "none", "null"].includes(answerLower)) continue;
-          this.oldAnswers.push({ questionType, questionText, answer });
-        }
-      }
-      log.info(`Loaded ${this.oldAnswers.length} saved answers`);
-    } catch (error) {
-      log.error(`Failed to load old answers: ${error}`);
-    }
+    this.oldAnswers = loadSavedAnswers(filePath);
   }
   /**
    * Record a new GPT answer to CSV
    */
   recordAnswer(questionType, questionText, answer) {
     const filePath = getOldQuestionsPath();
-    const exists = this.oldAnswers.some(
-      (a) => a.questionType.toLowerCase() === questionType.toLowerCase() && a.questionText.toLowerCase() === questionText.toLowerCase()
-    );
-    if (exists) return;
-    const line = `"${questionType}","${questionText}","${answer}"
-`;
-    fs.appendFileSync(filePath, line, "utf-8");
-    this.oldAnswers.push({ questionType, questionText, answer });
+    if (saveAnswer(filePath, this.oldAnswers, questionType, questionText, answer)) {
+      this.oldAnswers.push({ questionType, questionText, answer });
+    }
   }
   /**
    * Write job result to CSV file
    */
   writeToFile(job, status) {
     const filePath = path.join(this.outputDir, `${status}.csv`);
-    const line = `"${job.company}","${job.title}","${job.link}","${job.location}"
-`;
-    fs.appendFileSync(filePath, line, "utf-8");
-  }
-  /**
-   * Parse a CSV line into parts
-   */
-  parseCSVLine(line) {
-    const result = [];
-    let current = "";
-    let inQuotes = false;
-    for (const char of line) {
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === "," && !inQuotes) {
-        result.push(current);
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    result.push(current);
-    return result.map((s) => s.trim());
+    appendJobResult(filePath, job.company, job.title, job.link, job.location);
   }
   /**
    * Check if error indicates browser was closed
