@@ -1,2 +1,0 @@
-rajouter le fichier "engine.exe" associé à l'exectubale sur l'OS windows
-rajouter la versions de l'engine dans version.txt

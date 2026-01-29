@@ -62,8 +62,8 @@ export class ResumeSectionScorer {
   private resumeYaml: string;
   private jobDescription: string;
   private resumeData: Record<string, any>;
-  private scoredItems: ScoredItem[] = [];
-  private scoresDict: RawScores | null = null;
+  public scoredItems: ScoredItem[] = [];
+  public scoresDict: RawScores | null = null;
 
   constructor(resumeYaml: string, jobDescription: string) {
     this.resumeYaml = resumeYaml;

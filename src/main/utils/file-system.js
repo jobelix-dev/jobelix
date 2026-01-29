@@ -39,27 +39,19 @@ export function getVersionFilePath() {
 }
 
 /**
- * Get the path to the config.yaml file (using dynamic platform detection)
+ * Get the path to the config.yaml file
  * @returns {string} Absolute path to config.yaml
  */
 export function getConfigPath() {
-  return getPlatformResourcePath(
-    DIRECTORIES.MAIN, 
-    DIRECTORIES.DATA_FOLDER, 
-    FILES.CONFIG_YAML
-  );
+  return getPlatformResourcePath('data', FILES.CONFIG_YAML);
 }
 
 /**
- * Get the path to the resume.yaml file (using dynamic platform detection)
+ * Get the path to the resume.yaml file
  * @returns {string} Absolute path to resume.yaml
  */
 export function getResumePath() {
-  return getPlatformResourcePath(
-    DIRECTORIES.MAIN, 
-    DIRECTORIES.DATA_FOLDER, 
-    FILES.RESUME_YAML
-  );
+  return getPlatformResourcePath('data', FILES.RESUME_YAML);
 }
 
 /**

@@ -15,6 +15,7 @@ import type {
   ChatCompletionResponse 
 } from '../types';
 import { getResumeSection, resumeToNarrative } from '../models/resume';
+import { tailorResumePipeline } from './resume-tailoring';
 import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
 import { BackendAPIClient } from './backend-client';
@@ -23,10 +24,33 @@ import * as prompts from './prompts/templates';
 
 const log = createLogger('GPTAnswerer');
 
+/**
+ * Strip markdown code block wrappers from GPT response
+ * Handles both ```yaml and generic ``` blocks
+ */
+function stripMarkdownCodeBlock(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('```')) return text;
+  
+  const lines = trimmed.split('\n');
+  let startIdx = 0, endIdx = lines.length;
+  
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().startsWith('```')) {
+      if (startIdx === 0) startIdx = i + 1;
+      else { endIdx = i; break; }
+    }
+  }
+  
+  return lines.slice(startIdx, endIdx).join('\n');
+}
+
 export class GPTAnswerer {
-  private resume: Resume | null = null;
+  // Public resume field - accessed by field handlers for smart matching
+  public resume: Resume | null = null;
   private job: Job | null = null;
   private client: BackendAPIClient;
+
 
   constructor(
     private apiToken: string,
@@ -64,51 +88,56 @@ export class GPTAnswerer {
     return this.job?.description || '';
   }
 
-  /**
-   * Make a chat completion request to the backend API
-   */
+  /** Make a chat completion request with automatic retry */
   private async chatCompletion(messages: ChatMessage[], temperature = 0.8): Promise<string> {
-     const maxRetries = 2;
-     let lastErr: any = null;
- 
-     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-       try {
-         // Use the BackendAPIClient
-         const response = await this.client.chatCompletion(messages, 'gpt-4o-mini', temperature);
-         
-         // Log to LLM logger
-         llmLogger.logRequest(
-           messages,
-           response.content,
-           response.usage,
-           response.model,
-           response.finish_reason
-         );
+    const maxRetries = 2;
+    let lastErr: unknown = null;
 
-         // Track credit usage
-         if (this.reporter) this.reporter.incrementCreditsUsed();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.client.chatCompletion(messages, 'gpt-4o-mini', temperature);
+        
+        llmLogger.logRequest(messages, response.content, response.usage, response.model, response.finish_reason);
+        if (this.reporter) this.reporter.incrementCreditsUsed();
 
-         return response.content;
-       } catch (err) {
-         lastErr = err;
+        return response.content;
+      } catch (err) {
+        lastErr = err;
         log.error(`Chat completion attempt ${attempt + 1} failed: ${String(err)}`);
-         // small backoff before retry
-         if (attempt < maxRetries) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-       }
-     }
- 
-     log.error('All chat completion attempts failed');
-     throw lastErr;
-   }
+        if (attempt === 0) log.error(`Backend URL: ${this.apiUrl}`);
+        if (attempt < maxRetries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+      }
+    }
 
-  /**
-   * Answer a question by selecting from multiple choice options (MATCHES PYTHON)
-   */
+    log.error(`All chat completion attempts failed. Verify backend at: ${this.apiUrl}`);
+    throw lastErr;
+  }
+
+  /** Generic JSON retry helper for GPT responses */
+  private async chatCompletionWithJsonValidation<T>(
+    prompt: string,
+    validator: (json: T) => boolean,
+    temperature = 0.3,
+    maxRetries = 2
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.chatCompletion([{ role: 'user', content: prompt }], temperature);
+        const parsed = JSON.parse(response) as T;
+        if (validator(parsed)) return parsed;
+        throw new Error('Validation failed');
+      } catch (e) {
+        log.warn(`JSON attempt ${attempt + 1}/${maxRetries + 1} failed: ${e}`);
+        if (attempt >= maxRetries) throw new Error(`Failed after ${maxRetries + 1} attempts: ${e}`);
+      }
+    }
+    throw new Error('Unexpected failure');
+  }
+
+  /** Answer from multiple choice options */
   async answerFromOptions(question: string, options: string[]): Promise<string> {
     log.debug(`Answering from options: ${question}`);
-    log.debug(`Options: ${options.join(', ')}`);
 
-    // Use the proper options template that matches Python
     const prompt = prompts.optionsTemplate
       .replace('{resume}', resumeToNarrative(this.resume!))
       .replace('{question}', question)
@@ -154,6 +183,22 @@ Please select a DIFFERENT option that addresses the error. Respond with ONLY the
     const answer = response.trim();
 
     return this.findBestMatch(answer, options);
+  }
+
+  /**
+   * Answer a checkbox/multiple-choice question directly (no section routing)
+   * 
+   * Used for questions like "How did you hear about us?" where the answer
+   * is NOT based on resume content but rather a simple selection.
+   * 
+   * MATCHES PYTHON: answer_question_textual_wide_range with direct prompt
+   */
+  async answerCheckboxQuestion(prompt: string): Promise<string> {
+    log.debug(`Answering checkbox question: ${prompt.substring(0, 50)}...`);
+    
+    const response = await this.chatCompletion([{ role: 'user', content: prompt }]);
+    log.info(`Checkbox answer: ${response.trim()}`);
+    return response.trim();
   }
 
   /**
@@ -280,66 +325,15 @@ Respond with ONLY a number (no explanation, no text, just the number).`;
    * Falls back to old single-prompt method if any stage fails.
    */
   async tailorResumeToJob(jobDescription: string, baseResumeYaml: string): Promise<string> {
-    log.info('=== Starting 4-Stage Resume Tailoring Pipeline ===');
-    log.debug(`Job description length: ${jobDescription.length} chars`);
-    log.debug(`Base resume YAML size: ${baseResumeYaml.length} bytes`);
-
-    try {
-      const stage1Start = Date.now();
-      
-      // === STAGE 1: Extract keywords from job description ===
-      log.info('🔍 Stage 1: Extracting keywords from job description');
-      const keywordsJson = await this.extractJobKeywords(jobDescription);
-      const keywordsDict = JSON.parse(keywordsJson);
-      
-      const stage1Duration = (Date.now() - stage1Start) / 1000;
-      log.info(`✓ Stage 1 completed in ${stage1Duration.toFixed(2)}s`);
-      
-      const totalKeywords = Object.values(keywordsDict).reduce(
-        (sum: number, arr: any) => sum + (Array.isArray(arr) ? arr.length : 0), 0
-      );
-      log.info(`Extracted ${totalKeywords} keywords: ${keywordsDict.technical_skills?.length || 0} technical, ${keywordsDict.soft_skills?.length || 0} soft skills`);
-
-      const stage2Start = Date.now();
-      
-      // === STAGE 2: Score all resume items ===
-      log.info('🎯 Stage 2: Scoring resume items by relevance');
-      const scoresJson = await this.scoreResumeForJob(jobDescription, baseResumeYaml);
-      
-      const stage2Duration = (Date.now() - stage2Start) / 1000;
-      log.info(`✓ Stage 2 completed in ${stage2Duration.toFixed(2)}s`);
-
-      const stage4Start = Date.now();
-      
-      // === STAGE 4: Optimize keywords using extracted terms ===
-      // (Stage 3 filtering is simplified in Node.js version - we optimize the full resume)
-      log.info('✍️  Stage 4: Optimizing keywords and descriptions with target terms');
-      
-      const keywordsFormatted = `Technical Skills: ${keywordsDict.technical_skills?.join(', ') || ''}
-Soft Skills: ${keywordsDict.soft_skills?.join(', ') || ''}
-Domain Terms: ${keywordsDict.domain_terms?.join(', ') || ''}
-Action Verbs: ${keywordsDict.action_verbs?.join(', ') || ''}`;
-
-      const optimizedConfig = await this.optimizeResumeKeywords(
-        jobDescription,
-        baseResumeYaml,
-        keywordsFormatted
-      );
-      
-      const stage4Duration = (Date.now() - stage4Start) / 1000;
-      log.info(`✓ Stage 4 completed in ${stage4Duration.toFixed(2)}s`);
-      
-      const totalDuration = stage1Duration + stage2Duration + stage4Duration;
-      log.info(`=== Pipeline completed in ${totalDuration.toFixed(2)}s ===`);
-      
-      return optimizedConfig;
-      
-    } catch (e) {
-      log.warn(`New pipeline failed: ${e}`);
-      log.info('⚠️  Falling back to old single-prompt tailoring method');
-      
-      return this.tailorResumeOldMethod(jobDescription, baseResumeYaml);
+    const result = await tailorResumePipeline(this, jobDescription, baseResumeYaml);
+    
+    if (result.success) {
+      return result.tailoredYaml;
     }
+    
+    // Pipeline failed - use fallback
+    log.info('⚠️  Falling back to old single-prompt tailoring method');
+    return this.tailorResumeOldMethod(jobDescription, baseResumeYaml);
   }
 
   /**
@@ -353,40 +347,8 @@ Action Verbs: ${keywordsDict.action_verbs?.join(', ') || ''}`;
       .replace('{base_config}', baseConfig);
 
     try {
-      let tailoredConfig = await this.chatCompletion([{ role: 'user', content: prompt }], 0.5);
-      
-      // Clean up markdown code blocks if present
-      if (tailoredConfig.trim().startsWith('```yaml')) {
-        const lines = tailoredConfig.split('\n');
-        let startIdx = 0;
-        let endIdx = lines.length;
-        
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].trim().startsWith('```yaml')) {
-            startIdx = i + 1;
-          } else if (lines[i].trim() === '```' && i > startIdx) {
-            endIdx = i;
-            break;
-          }
-        }
-        tailoredConfig = lines.slice(startIdx, endIdx).join('\n');
-      } else if (tailoredConfig.trim().startsWith('```')) {
-        const lines = tailoredConfig.split('\n');
-        let startIdx = 0;
-        let endIdx = lines.length;
-        
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].trim().startsWith('```')) {
-            if (startIdx === 0) {
-              startIdx = i + 1;
-            } else {
-              endIdx = i;
-              break;
-            }
-          }
-        }
-        tailoredConfig = lines.slice(startIdx, endIdx).join('\n');
-      }
+      const response = await this.chatCompletion([{ role: 'user', content: prompt }], 0.5);
+      const tailoredConfig = stripMarkdownCodeBlock(response);
       
       log.info('Resume tailoring completed successfully');
       return tailoredConfig;
@@ -398,225 +360,85 @@ Action Verbs: ${keywordsDict.action_verbs?.join(', ') || ''}`;
     }
   }
 
-  /**
-   * Extract key terms from job description for resume optimization (Stage 1)
-   * 
-   * Identifies technical skills, soft skills, domain terms, and action verbs
-   * for ATS optimization.
-   */
-  async extractJobKeywords(jobDescription: string, maxRetries = 2): Promise<string> {
+  /** Extract key terms from job description (Stage 1) */
+  async extractJobKeywords(jobDescription: string): Promise<string> {
     log.info('Extracting keywords from job description');
-    log.debug(`Job description length: ${jobDescription.length} chars`);
 
-    const prompt = prompts.jobKeywordExtractionTemplate
-      .replace('{job_description}', jobDescription);
+    const prompt = prompts.jobKeywordExtractionTemplate.replace('{job_description}', jobDescription);
+    const requiredKeys = ['technical_skills', 'soft_skills', 'domain_terms', 'action_verbs'];
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          log.info(`Keyword extraction attempt ${attempt + 1}/${maxRetries + 1}`);
-        }
+    const result = await this.chatCompletionWithJsonValidation<Record<string, string[]>>(
+      prompt,
+      (dict) => requiredKeys.every(key => key in dict),
+      0.3
+    );
 
-        const keywordsJson = await this.chatCompletion([{ role: 'user', content: prompt }], 0.3);
-        
-        // Validate it's parseable JSON and has expected structure
-        const keywordsDict = JSON.parse(keywordsJson);
-        
-        const requiredKeys = ['technical_skills', 'soft_skills', 'domain_terms', 'action_verbs'];
-        for (const key of requiredKeys) {
-          if (!(key in keywordsDict)) {
-            throw new Error(`Missing required key: ${key}`);
-          }
-        }
-        
-        // Deduplicate keywords within each category
-        for (const key of Object.keys(keywordsDict)) {
-          if (Array.isArray(keywordsDict[key])) {
-            keywordsDict[key] = [...new Set(keywordsDict[key])];
-          }
-        }
-        
-        log.info('Keyword extraction completed successfully');
-        return JSON.stringify(keywordsDict, null, 2);
-        
-      } catch (e) {
-        log.warn(`Attempt ${attempt + 1}: Invalid JSON in keyword response: ${e}`);
-        
-        if (attempt < maxRetries) {
-          log.info(`Retrying keyword extraction (attempt ${attempt + 2}/${maxRetries + 1})`);
-          continue;
-        } else {
-          log.error('All keyword extraction retry attempts failed');
-          throw new Error(`Failed to extract valid keywords after ${maxRetries + 1} attempts: ${e}`);
-        }
-      }
+    // Deduplicate keywords
+    for (const key of Object.keys(result)) {
+      if (Array.isArray(result[key])) result[key] = [...new Set(result[key])];
     }
-    
-    throw new Error('Keyword extraction failed unexpectedly');
+
+    log.info('Keyword extraction completed');
+    return JSON.stringify(result, null, 2);
   }
 
-  /**
-   * Score all resume items by relevance to job description (Stage 2)
-   * 
-   * Uses lower temperature (0.3) for consistent scoring.
-   * Returns JSON string with scores for all categories.
-   */
-  async scoreResumeForJob(jobDescription: string, resumeYaml: string, maxRetries = 2): Promise<string> {
+  /** Score resume items by job relevance (Stage 2) */
+  async scoreResumeForJob(jobDescription: string, resumeYaml: string): Promise<string> {
     log.info('Scoring resume items for job relevance');
-    log.debug(`Job description length: ${jobDescription.length} chars`);
-    log.debug(`Resume YAML size: ${resumeYaml.length} bytes`);
 
     const prompt = prompts.resumeScoringTemplate
       .replace('{job_description}', jobDescription)
       .replace('{resume_yaml}', resumeYaml);
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          log.info(`Scoring attempt ${attempt + 1}/${maxRetries + 1}`);
-        }
+    const result = await this.chatCompletionWithJsonValidation<Record<string, unknown>>(
+      prompt,
+      () => true,  // Any valid JSON is acceptable
+      0.3
+    );
 
-        const scoresJson = await this.chatCompletion([{ role: 'user', content: prompt }], 0.3);
-        
-        // Validate it's parseable JSON
-        JSON.parse(scoresJson);
-        
-        log.info('Resume scoring completed successfully');
-        return scoresJson;
-        
-      } catch (e) {
-        log.warn(`Attempt ${attempt + 1}: Invalid JSON in scoring response: ${e}`);
-        
-        if (attempt < maxRetries) {
-          log.info(`Retrying scoring (attempt ${attempt + 2}/${maxRetries + 1})`);
-          continue;
-        } else {
-          log.error('All scoring retry attempts failed');
-          throw new Error(`Failed to get valid JSON scores after ${maxRetries + 1} attempts: ${e}`);
-        }
-      }
-    }
-    
-    throw new Error('Resume scoring failed unexpectedly');
+    log.info('Resume scoring completed');
+    return JSON.stringify(result);
   }
 
-  /**
-   * Optimize resume keywords and descriptions to match job description (Stage 4)
-   * 
-   * Adapts filtered resume to use job-specific terminology without changing
-   * structure or facts. Integrates extracted keywords from Stage 1.
-   */
+  /** Optimize resume keywords for job (Stage 4) */
   async optimizeResumeKeywords(
     jobDescription: string,
     filteredConfig: string,
-    extractedKeywords: string = ''
+    extractedKeywords = ''
   ): Promise<string> {
-    log.info('Optimizing resume keywords for job');
-    log.debug(`Job description length: ${jobDescription.length} chars`);
-    log.debug(`Filtered config size: ${filteredConfig.length} bytes`);
+    log.info('Optimizing resume keywords');
 
     const prompt = prompts.resumeKeywordOptimizationTemplate
       .replace('{job_description}', jobDescription)
       .replace('{filtered_config}', filteredConfig)
-      .replace('{extracted_keywords}', extractedKeywords || '(No extracted keywords provided)');
+      .replace('{extracted_keywords}', extractedKeywords || '(none)');
 
     try {
-      let optimizedConfig = await this.chatCompletion([{ role: 'user', content: prompt }], 0.5);
-      
-      // Clean up markdown code blocks if present
-      if (optimizedConfig.trim().startsWith('```yaml')) {
-        const lines = optimizedConfig.split('\n');
-        let startIdx = 0;
-        let endIdx = lines.length;
-        
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].trim().startsWith('```yaml')) {
-            startIdx = i + 1;
-          } else if (lines[i].trim() === '```' && i > startIdx) {
-            endIdx = i;
-            break;
-          }
-        }
-        optimizedConfig = lines.slice(startIdx, endIdx).join('\n');
-      } else if (optimizedConfig.trim().startsWith('```')) {
-        const lines = optimizedConfig.split('\n');
-        let startIdx = 0;
-        let endIdx = lines.length;
-        
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].trim().startsWith('```')) {
-            if (startIdx === 0) {
-              startIdx = i + 1;
-            } else {
-              endIdx = i;
-              break;
-            }
-          }
-        }
-        optimizedConfig = lines.slice(startIdx, endIdx).join('\n');
-      }
-      
-      log.info('Keyword optimization completed successfully');
-      return optimizedConfig;
-      
+      // Temperature 0.8 matches Python for creative rewriting
+      const response = await this.chatCompletion([{ role: 'user', content: prompt }], 0.8);
+      return stripMarkdownCodeBlock(response);
     } catch (e) {
-      log.warn(`Failed to optimize resume keywords: ${e}`);
-      log.debug('Returning filtered config as fallback');
+      log.warn(`Keyword optimization failed: ${e}`);
       return filteredConfig;
     }
   }
 
-  /**
-   * Determine which resume section is relevant for a question
-   */
+  /** Determine which resume section is relevant for a question */
   private async determineResumeSection(question: string): Promise<string> {
-    const prompt = `For the following question: "${question}", which section of the resume is relevant?
+    const prompt = `For the question: "${question}", which resume section is relevant?
 
-Section Descriptions:
-- Personal information: Name, location, contact details, professional title/headline
-- Self Identification: Gender, pronouns, veteran status, disability status
-- Legal Authorization: Work authorization, visa requirements, citizenship
-- Work Preferences: Remote vs in-person, relocation willingness
-- Education Details: Degrees, universities, academic background
-- Experience Details: Work history, job titles, responsibilities, achievements
-- Projects: Personal or professional projects, portfolio items
-- Availability: Start date, notice period
-- Salary Expectations: Expected compensation
-- Certifications: Professional certifications, licenses
-- Languages: Spoken/written languages and proficiency
-- Interests: Career motivations, why interested in roles/companies
-- Cover letter: Full narrative introduction for a job application
+Sections: Personal information, Self Identification, Legal Authorization, Work Preferences,
+Education Details, Experience Details, Projects, Availability, Salary Expectations,
+Certifications, Languages, Interests, Cover letter
 
-Special Routing Rules:
-- Questions about 'why interested in this position/role/company' → Interests
-- Questions about specific technical experience → Experience Details
-- Questions about 'tell us about yourself' → Personal information
-- Questions about remote work or office location → Work Preferences
+Routing: 'why interested' → Interests | technical experience → Experience Details | 
+'about yourself' → Personal information | remote/office → Work Preferences
 
-Respond with ONLY ONE of these exact options (no markdown, no explanation):
-Personal information
-Self Identification
-Legal Authorization
-Work Preferences
-Education Details
-Experience Details
-Projects
-Availability
-Salary Expectations
-Certifications
-Languages
-Interests
-Cover letter`;
+Respond with ONLY the section name.`;
 
     const response = await this.chatCompletion([{ role: 'user', content: prompt }], 0.3);
-    
-    // Clean up and normalize the response
-    let section = response.trim().toLowerCase()
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/ /g, '_');
+    let section = response.trim().toLowerCase().replace(/\*\*/g, '').replace(/ /g, '_');
 
-    // Validate section name
     const validSections = [
       'personal_information', 'self_identification', 'legal_authorization',
       'work_preferences', 'education_details', 'experience_details',
@@ -625,17 +447,12 @@ Cover letter`;
     ];
 
     if (!validSections.includes(section)) {
-      // Try to find a partial match
-      const match = validSections.find(s => section.includes(s) || s.includes(section));
-      section = match || 'personal_information';
+      section = validSections.find(s => section.includes(s) || s.includes(section)) || 'personal_information';
     }
-
     return section;
   }
 
-  /**
-   * Get the prompt template for a resume section
-   */
+  /** Get prompt template for a resume section */
   private getTemplateForSection(section: string): string {
     const templates: Record<string, string> = {
       personal_information: prompts.personalInformationTemplate,
@@ -651,35 +468,25 @@ Cover letter`;
       languages: prompts.languagesTemplate,
       interests: prompts.interestsTemplate,
     };
-
     return templates[section] || prompts.personalInformationTemplate;
   }
 
-  /**
-   * Generate a cover letter
-   */
+  /** Generate a cover letter */
   private async generateCoverLetter(): Promise<string> {
     const prompt = prompts.coverLetterTemplate
       .replace('{resume}', resumeToNarrative(this.resume!))
       .replace('{job_description}', this.jobDescription);
-
     return this.chatCompletion([{ role: 'user', content: prompt }]);
   }
 
-  /**
-   * Get a brief experience summary
-   */
+  /** Get brief experience summary */
   private getExperienceSummary(): string {
-    if (!this.resume?.experienceDetails?.length) {
-      return '';
-    }
+    if (!this.resume?.experienceDetails?.length) return '';
     const recent = this.resume.experienceDetails[0];
     return `${recent.position} at ${recent.company}`;
   }
 
-  /**
-   * Find the best matching option using string similarity
-   */
+  /** Find best matching option using string similarity */
   private findBestMatch(text: string, options: string[]): string {
     const textLower = text.toLowerCase().trim();
     

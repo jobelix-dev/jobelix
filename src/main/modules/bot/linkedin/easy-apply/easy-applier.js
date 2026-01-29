@@ -1,9 +1,16 @@
-import * as fs from "fs";
-import * as path from "path";
 import { createLogger } from "../../utils/logger.js";
-import { getDebugHtmlPath } from "../../utils/paths.js";
+import { saveDebugHtml } from "../../utils/debug-html.js";
 import { FormHandler } from "./form-handler.js";
 import { NavigationHandler } from "./navigation.js";
+import {
+  EASY_APPLY_BUTTON_SELECTORS,
+  ALREADY_APPLIED_SELECTORS,
+  JOB_DESCRIPTION_SELECTORS,
+  MODAL
+} from "./selectors.js";
+import { getResumePath, getTailoredResumesPath } from "../../utils/paths.js";
+import { generateTailoredResume } from "../../models/resume-generator.js";
+import * as fs from "fs";
 const log = createLogger("EasyApplier");
 const DEFAULT_CONFIG = {
   maxPages: 15,
@@ -13,16 +20,7 @@ const DEFAULT_CONFIG = {
 };
 class EasyApplier {
   /**
-   * Create a new Easy Applier instance
-   * 
-   * Constructor signature matches LinkedInJobManager expectations:
-   * - page: Playwright page
-   * - gptAnswerer: AI for form responses
-   * - savedAnswers: Previously saved Q&A
-   * - resumePath: Path to resume file
-   * - recordCallback: Callback for persisting answers
-   * - reporter: Status reporter for IPC
-   * 
+   * Create a new Easy Applier instance 
    * @param page - Playwright page with job posting open
    * @param gptAnswerer - GPT answerer for generating form responses
    * @param savedAnswers - Previously saved Q&A pairs
@@ -51,35 +49,10 @@ class EasyApplier {
     this.navHandler = new NavigationHandler(page);
   }
   /**
-   * Save debug HTML snapshot for debugging purposes
-   * Matches Python's save_debug_html() method
+   * Save debug HTML snapshot - delegates to shared utility
    */
-  async saveDebugHtml(context, jobTitle = "") {
-    try {
-      const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const safeTitle = jobTitle.replace(/\s+/g, "_").replace(/[/\\]/g, "_").slice(0, 50);
-      const filename = safeTitle ? `${context}_${safeTitle}_${timestamp}.html` : `${context}_${timestamp}.html`;
-      const debugDir = getDebugHtmlPath();
-      if (!fs.existsSync(debugDir)) {
-        fs.mkdirSync(debugDir, { recursive: true });
-      }
-      const filepath = path.join(debugDir, filename);
-      const htmlContent = await this.page.content();
-      const url = this.page.url();
-      const fullContent = `<!-- Debug HTML Snapshot -->
-<!-- Context: ${context} -->
-<!-- Job Title: ${jobTitle || "N/A"} -->
-<!-- URL: ${url} -->
-<!-- Timestamp: ${(/* @__PURE__ */ new Date()).toISOString()} -->
-
-${htmlContent}`;
-      fs.writeFileSync(filepath, fullContent, "utf-8");
-      log.info(`\u{1F4F8} Saved debug HTML: ${filepath}`);
-      return filepath;
-    } catch (error) {
-      log.error(`Failed to save debug HTML: ${error}`);
-      return null;
-    }
+  async saveHtml(context, jobTitle = "") {
+    return saveDebugHtml(this.page, context, jobTitle);
   }
   /**
    * Apply to a job using Easy Apply
@@ -111,11 +84,24 @@ ${htmlContent}`;
       await this.page.waitForLoadState("domcontentloaded");
       await this.page.waitForTimeout(1e3 + Math.random() * 500);
       log.debug("Job page loaded");
-      await this.saveDebugHtml("job_page_loaded", job.title);
+      await this.saveHtml("job_page_loaded", job.title);
       const jobDescription = await this.getJobDescription();
       if (jobDescription) {
         job.description = jobDescription;
         log.debug(`Job description extracted: ${jobDescription.length} chars`);
+      }
+      if (this.config.useConstantResume) {
+        log.info(`\u{1F4C4} Using constant resume (tailoring disabled)`);
+      } else if (jobDescription && this.gptAnswerer) {
+        try {
+          const tailoredResumePath = await this.generateTailoredResume(job, jobDescription);
+          if (tailoredResumePath) {
+            this.formHandler.setResumePath(tailoredResumePath);
+            log.info(`\u{1F3AF} Using tailored resume: ${tailoredResumePath}`);
+          }
+        } catch (error) {
+          log.warn(`Failed to tailor resume, using original: ${error}`);
+        }
       }
       const modalResult = await this.openEasyApplyModal();
       if (modalResult === "already_applied") {
@@ -150,36 +136,19 @@ ${htmlContent}`;
     } catch (error) {
       result.error = String(error);
       log.error(`Error during Easy Apply: ${error}`);
-      await this.saveDebugHtml("apply_error", result.jobTitle);
+      await this.saveHtml("apply_error", result.jobTitle);
       await this.cleanupFailure();
     }
     return result;
   }
-  /**
-   * Check if the job has already been applied to
-   * 
-   * Looks for "Applied" or "Application sent" indicators on the page
-   */
+  /** Check if job was already applied to */
   async isAlreadyApplied() {
     try {
-      const appliedIndicators = [
-        ".jobs-details-top-card__apply-status--applied",
-        'span:has-text("Applied")',
-        'span:has-text("Application sent")',
-        'span:has-text("Candidature envoy\xE9e")',
-        // French
-        'span:has-text("Candidatura enviada")',
-        // Spanish
-        'span:has-text("Bewerbung gesendet")',
-        // German
-        '.artdeco-inline-feedback--success:has-text("Applied")'
-      ];
-      for (const selector of appliedIndicators) {
+      for (const selector of ALREADY_APPLIED_SELECTORS) {
         try {
           const indicator = this.page.locator(selector).first();
           if (await indicator.count() > 0 && await indicator.isVisible()) {
-            const text = await indicator.textContent();
-            log.info(`Job already applied (found indicator: "${text?.trim()}")`);
+            log.info(`Job already applied (found indicator)`);
             return true;
           }
         } catch {
@@ -193,123 +162,80 @@ ${htmlContent}`;
   /**
    * Open the Easy Apply modal on the current job page
    * 
-   * Matches Python's _find_easy_apply_button() with international selectors
-   * 
-   * @returns 'opened' if modal was opened, 'already_applied' if job was already applied, 'failed' otherwise
-   */
+  /** Open the Easy Apply modal */
   async openEasyApplyModal() {
     try {
       if (await this.isAlreadyApplied()) {
         log.warn("Job already applied - skipping");
         return "already_applied";
       }
-      await this.saveDebugHtml("before_find_button");
-      const selectors = [
-        '[data-view-name="job-apply-button"]',
-        // Most reliable - works for both button and link
-        "button.jobs-apply-button",
-        // English button version
-        'a[aria-label*="Easy Apply"]',
-        // English link
-        'a[aria-label*="Candidature simplifi\xE9e"]',
-        // French "Candidature simplifiée pour ce poste"
-        'button[aria-label*="Postuler"]',
-        // French button "Postuler via Easy Apply"
-        'a[aria-label*="Candidatar"]',
-        // Spanish
-        'button[aria-label*="Bewerben"]',
-        // German
-        'button[data-control-name="jobdetails_topcard_inapply"]',
-        ".jobs-s-apply button"
-      ];
+      await this.saveHtml("before_find_button");
       let easyApplyButton;
       let buttonLabel = "";
-      for (const selector of selectors) {
+      for (const selector of EASY_APPLY_BUTTON_SELECTORS) {
         try {
-          log.debug(`Trying selector: ${selector}`);
           const buttons = this.page.locator(selector);
           await buttons.first().waitFor({ state: "attached", timeout: 3e3 }).catch(() => {
           });
-          const allButtons = await buttons.all();
-          if (allButtons.length === 0) {
-            log.debug(`No buttons found with selector: ${selector}`);
-            continue;
-          }
-          for (let i = 0; i < allButtons.length; i++) {
-            const button = allButtons[i];
+          for (const button of await buttons.all()) {
             try {
               if (await button.isVisible() && await button.isEnabled()) {
                 easyApplyButton = button;
                 buttonLabel = (await button.textContent())?.trim() || await button.getAttribute("aria-label") || "";
-                log.info(`\u2713 Found Easy Apply button #${i} using selector: ${selector}`);
-                log.debug(`Button text: ${buttonLabel}`);
+                log.info(`\u2713 Found Easy Apply button: ${selector}`);
                 break;
               }
             } catch {
-              log.debug(`Button #${i} not clickable`);
               continue;
             }
           }
           if (easyApplyButton) break;
-        } catch (error) {
-          log.debug(`Selector '${selector}' failed: ${error}`);
+        } catch {
           continue;
         }
       }
       if (!easyApplyButton) {
-        log.warn("Easy Apply button not found with any selector");
-        await this.saveDebugHtml("button_not_found");
+        log.warn("Easy Apply button not found");
+        await this.saveHtml("button_not_found");
         return "failed";
       }
       const href = await easyApplyButton.getAttribute("href");
       if (href) {
-        log.info(`Navigating to apply URL: ${href}`);
+        log.info(`Navigating to apply URL`);
         await this.page.goto(href, { waitUntil: "domcontentloaded", timeout: 6e4 });
       } else {
         log.info("Clicking Easy Apply button");
         await easyApplyButton.click();
       }
-      log.info("Waiting for Easy Apply modal to load...");
+      log.info("Waiting for Easy Apply modal...");
       const maxAttempts = 3;
       let modalFound = false;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        log.debug(`Modal wait attempt ${attempt}/${maxAttempts}`);
-        const modalElements = await this.page.locator("div.jobs-easy-apply-modal").all();
+        const modalElements = await this.page.locator(MODAL.container).all();
         if (modalElements.length > 0) {
-          log.debug(`Modal exists in DOM (${modalElements.length} elements), checking visibility...`);
           try {
-            await this.page.waitForSelector("div.jobs-easy-apply-modal", {
-              timeout: 1e4,
-              state: "visible"
-            });
+            await this.page.waitForSelector(MODAL.container, { timeout: 1e4, state: "visible" });
             modalFound = true;
-            log.info("\u2705 Easy Apply modal is now visible");
+            log.info("\u2705 Easy Apply modal visible");
             break;
           } catch {
-            log.debug(`Modal exists but not visible yet on attempt ${attempt}`);
-            if (attempt < maxAttempts) {
-              await this.page.waitForTimeout(2e3);
-            }
+            if (attempt < maxAttempts) await this.page.waitForTimeout(2e3);
           }
         } else {
-          log.debug(`Modal not in DOM yet on attempt ${attempt}`);
-          if (attempt < maxAttempts) {
-            await this.page.waitForTimeout(3e3);
-          }
+          if (attempt < maxAttempts) await this.page.waitForTimeout(3e3);
         }
       }
       if (!modalFound) {
-        log.error("Easy Apply modal did not appear after 3 attempts");
-        await this.saveDebugHtml("modal_not_opened");
+        log.error("Easy Apply modal did not appear");
+        await this.saveHtml("modal_not_opened");
         return "failed";
       }
       await this.navHandler.waitForModalReady();
-      await this.saveDebugHtml("modal_opened");
-      log.debug("Easy Apply modal opened successfully");
+      await this.saveHtml("modal_opened");
       return "opened";
     } catch (error) {
       log.error(`Failed to open Easy Apply modal: ${error}`);
-      await this.saveDebugHtml("modal_open_error");
+      await this.saveHtml("modal_open_error");
       return "failed";
     }
   }
@@ -345,7 +271,7 @@ Description: ${job.description?.substring(0, 500) || "N/A"}
     while (step < this.config.maxPages) {
       step++;
       log.info(`========== EASY-APPLY Step ${step} ==========`);
-      await this.saveDebugHtml(`step_${step}_start`);
+      await this.saveHtml(`step_${step}_start`);
       const isModalOpen = await this.navHandler.isModalOpen();
       if (!isModalOpen) {
         log.info("Modal closed - application complete");
@@ -356,16 +282,16 @@ Description: ${job.description?.substring(0, 500) || "N/A"}
       result.totalFields += pageResult.fieldsProcessed;
       result.failedFields += pageResult.fieldsFailed;
       log.info(`Form page complete: ${pageResult.fieldsProcessed - pageResult.fieldsFailed}/${pageResult.fieldsProcessed} fields filled`);
-      await this.saveDebugHtml(`step_${step}_after_fill`);
+      await this.saveHtml(`step_${step}_after_fill`);
       log.debug(`Step ${step}.2: Clicking primary action button`);
       const navResult = await this.navHandler.clickPrimaryButton();
       if (!navResult.success) {
-        await this.saveDebugHtml(`step_${step}_nav_error`);
+        await this.saveHtml(`step_${step}_nav_error`);
         if (await this.navHandler.hasValidationErrors()) {
           retries++;
           if (retries > this.config.maxRetries) {
             const errors = await this.navHandler.getValidationErrors();
-            await this.saveDebugHtml(`step_${step}_validation_failed`);
+            await this.saveHtml(`step_${step}_validation_failed`);
             return {
               success: false,
               error: `Validation errors: ${errors.join(", ")}`
@@ -378,7 +304,7 @@ Description: ${job.description?.substring(0, 500) || "N/A"}
       }
       if (navResult.submitted) {
         log.info("Application submitted successfully \u2714");
-        await this.saveDebugHtml("submitted_success");
+        await this.saveHtml("submitted_success");
         result.pagesCompleted = step;
         await this.handlePostSubmit();
         return { success: true };
@@ -444,11 +370,7 @@ Description: ${job.description?.substring(0, 500) || "N/A"}
     } catch {
     }
   }
-  /**
-   * Extract job description from the job page
-   * 
-   * Matches Python bot's _get_job_description() with 6+ fallback selectors
-   */
+  /** Extract job description using multiple selectors */
   async getJobDescription() {
     try {
       try {
@@ -461,59 +383,20 @@ Description: ${job.description?.substring(0, 500) || "N/A"}
         }
       } catch {
       }
-      try {
-        const descSpan = this.page.locator('span[data-testid="expandable-text-box"]').first();
-        await descSpan.waitFor({ state: "attached", timeout: 1e4 });
-        const text = await descSpan.textContent();
-        if (text && text.trim()) {
-          log.debug(`Found description using data-testid selector (${text.length} chars)`);
-          return text.trim();
-        }
-      } catch {
-        log.debug('data-testid="expandable-text-box" selector not found');
-      }
-      try {
-        const detailsDiv = this.page.locator("#job-details").first();
-        if (await detailsDiv.isVisible()) {
-          const text = await detailsDiv.textContent();
-          if (text && text.trim()) {
+      for (const selector of JOB_DESCRIPTION_SELECTORS) {
+        try {
+          const element = this.page.locator(selector).first();
+          await element.waitFor({ state: "attached", timeout: 5e3 });
+          const text = await element.textContent();
+          if (text?.trim()) {
+            log.debug(`Found description (${text.length} chars)`);
             return text.trim();
           }
+        } catch {
+          continue;
         }
-      } catch {
       }
-      try {
-        const container = this.page.locator(
-          "article.jobs-description__container .jobs-box__html-content"
-        ).first();
-        await container.waitFor({ state: "attached", timeout: 5e3 });
-        const text = await container.textContent();
-        if (text && text.trim()) {
-          return text.trim();
-        }
-      } catch {
-      }
-      try {
-        const stretchDiv = this.page.locator("div.jobs-description-content__text--stretch").first();
-        if (await stretchDiv.isVisible()) {
-          const text = await stretchDiv.textContent();
-          if (text && text.trim()) {
-            return text.trim();
-          }
-        }
-      } catch {
-      }
-      try {
-        const descDiv = this.page.locator("div.jobs-description").first();
-        if (await descDiv.isVisible()) {
-          const text = await descDiv.textContent();
-          if (text && text.trim()) {
-            return text.trim();
-          }
-        }
-      } catch {
-      }
-      log.warn("Could not find job description using any selector");
+      log.warn("Could not find job description");
       return "";
     } catch (error) {
       log.error(`Error extracting job description: ${error}`);
@@ -521,24 +404,88 @@ Description: ${job.description?.substring(0, 500) || "N/A"}
     }
   }
   /**
-   * Update configuration
+   * Generate a tailored resume for the specific job application (MATCHES PYTHON)
+   * 
+   * Uses GPT to customize the resume YAML for this specific job,
+   * then generates a PDF from the tailored config.
+   * 
+   * @param job - Job object containing job details
+   * @param jobDescription - Full job description text
+   * @returns Path to the generated tailored resume PDF, or null if generation fails
    */
-  updateConfig(config) {
-    this.config = { ...this.config, ...config };
-    if (config.resumePath) {
-      this.formHandler.setResumePath(config.resumePath);
-    }
-    if (config.coverLetterPath) {
-      this.formHandler.setCoverLetterPath(config.coverLetterPath);
+  async generateTailoredResume(job, jobDescription) {
+    try {
+      const baseResumePath = getResumePath();
+      if (!fs.existsSync(baseResumePath)) {
+        log.error(`Resume config not found: ${baseResumePath}`);
+        log.error("Cannot tailor resume without base resume.yaml file");
+        return null;
+      }
+      log.info(`\u{1F3AF} Tailoring resume for ${job.company} - ${job.title}`);
+      log.debug(`Using base resume config: ${baseResumePath}`);
+      const baseResumeYaml = fs.readFileSync(baseResumePath, "utf-8");
+      const tailoredConfigYaml = await this.gptAnswerer.tailorResumeToJob(
+        jobDescription,
+        baseResumeYaml
+      );
+      if (!tailoredConfigYaml || tailoredConfigYaml.length < 100) {
+        log.error("Invalid tailored config received from API");
+        return null;
+      }
+      const result = await generateTailoredResume({
+        companyName: job.company,
+        jobTitle: job.title,
+        tailoredConfigYaml,
+        page: this.page
+        // Pass page for Playwright PDF generation
+      });
+      log.info(`\u2705 Tailored resume generated: ${result.pdfPath}`);
+      this.cleanupOldResumes();
+      return result.pdfPath;
+    } catch (error) {
+      log.error(`Failed to generate tailored resume: ${error}`);
+      return null;
     }
   }
   /**
-   * Check if a job has Easy Apply option
+   * Clean up old tailored resumes to prevent disk space issues
+   * Keeps the most recent 20 resumes
    */
+  cleanupOldResumes() {
+    try {
+      const resumesDir = getTailoredResumesPath();
+      const files = fs.readdirSync(resumesDir).filter((f) => f.endsWith(".pdf")).map((f) => ({
+        name: f,
+        path: `${resumesDir}/${f}`,
+        time: fs.statSync(`${resumesDir}/${f}`).mtime.getTime()
+      })).sort((a, b) => b.time - a.time);
+      const toDelete = files.slice(20);
+      for (const file of toDelete) {
+        fs.unlinkSync(file.path);
+        const yamlPath = file.path.replace(".pdf", ".yaml");
+        const scoresPath = file.path.replace(".pdf", "_scores.json");
+        if (fs.existsSync(yamlPath)) fs.unlinkSync(yamlPath);
+        if (fs.existsSync(scoresPath)) fs.unlinkSync(scoresPath);
+        log.debug(`Cleaned up old resume: ${file.name}`);
+      }
+      if (toDelete.length > 0) {
+        log.info(`\u{1F9F9} Cleaned up ${toDelete.length} old tailored resumes`);
+      }
+    } catch (error) {
+      log.debug(`Error cleaning up old resumes: ${error}`);
+    }
+  }
+  /** Update configuration */
+  updateConfig(config) {
+    this.config = { ...this.config, ...config };
+    if (config.resumePath) this.formHandler.setResumePath(config.resumePath);
+    if (config.coverLetterPath) this.formHandler.setCoverLetterPath(config.coverLetterPath);
+  }
+  /** Check if a job has Easy Apply option */
   async hasEasyApply() {
     try {
-      const easyApplyButton = this.page.locator('button:has-text("Easy Apply")').first();
-      return await easyApplyButton.count() > 0 && await easyApplyButton.isVisible();
+      const btn = this.page.locator('button:has-text("Easy Apply")').first();
+      return await btn.count() > 0 && await btn.isVisible();
     } catch {
       return false;
     }

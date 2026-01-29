@@ -1,4 +1,5 @@
 import { createLogger } from "../utils/logger.js";
+import { isBrowserClosed } from "../utils/browser-utils.js";
 const log = createLogger("Authenticator");
 class LinkedInAuthenticator {
   constructor(page, reporter) {
@@ -17,7 +18,7 @@ class LinkedInAuthenticator {
       });
       log.debug("Successfully navigated to LinkedIn.com");
     } catch (error) {
-      if (this.isBrowserClosed(error)) {
+      if (isBrowserClosed(error)) {
         log.error("Browser was closed during LinkedIn navigation");
         throw new Error("Browser closed - stopping bot");
       }
@@ -45,7 +46,7 @@ class LinkedInAuthenticator {
       });
       log.debug("Successfully navigated to login page");
     } catch (error) {
-      if (this.isBrowserClosed(error)) {
+      if (isBrowserClosed(error)) {
         log.error("Browser was closed during login navigation");
         throw new Error("Browser closed - stopping bot");
       }
@@ -89,7 +90,7 @@ class LinkedInAuthenticator {
           lastStatusTime = now;
         }
       } catch (error) {
-        if (this.isBrowserClosed(error)) {
+        if (isBrowserClosed(error)) {
           log.error("Browser was closed during login waiting loop");
           throw new Error("Browser closed - stopping bot");
         }
@@ -191,13 +192,6 @@ class LinkedInAuthenticator {
     } catch {
       log.warn("Page load timed out, continuing anyway");
     }
-  }
-  /**
-   * Check if error indicates browser was closed
-   */
-  isBrowserClosed(error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return message.includes("Target page, context or browser has been closed") || message.includes("Target closed") || message.includes("Browser closed");
   }
 }
 export {

@@ -135,7 +135,7 @@ class DateHandler extends BaseFieldHandler {
     if (answer) {
       this.formUtils.rememberAnswer("date", questionText, answer);
     }
-    return answer;
+    return answer || null;
   }
   /**
    * Parse date answer into components

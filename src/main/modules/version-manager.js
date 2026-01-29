@@ -45,12 +45,13 @@ export function getCurrentAppVersion() {
 }
 
 /**
- * Get current engine version from resources/{os}/version.txt
+ * Get current engine version
+ * Now uses app version since bot is integrated (no separate Python engine)
  * @returns {string} Version string (e.g., "1.2.3")
  */
 export function getCurrentEngineVersion() {
-  const versionFilePath = getVersionFilePath();
-  return readVersionFile(versionFilePath);
+  // Bot is now integrated into Electron - use app version
+  return getCurrentAppVersion();
 }
 
 /**

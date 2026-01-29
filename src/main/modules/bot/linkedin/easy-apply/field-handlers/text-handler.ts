@@ -10,6 +10,7 @@
 import type { Locator } from 'playwright';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
+import type { Resume } from '../../../types';
 
 const log = createLogger('TextHandler');
 
@@ -161,16 +162,92 @@ export class TextInputHandler extends BaseFieldHandler {
 
   /**
    * Smart matching for common text fields
+   * 
+   * Uses language-independent HTML patterns to identify field types like:
+   * - Location/City fields (geo-location pattern in element ID)
+   * - Phone number fields
+   * 
+   * This matches the Python smart_text_match() logic in playwright_form_utils.py
    */
   private async smartMatch(element: Locator, questionText: string): Promise<string | undefined> {
-    const questionLower = questionText.toLowerCase();
-
-    // Phone number detection
-    if (questionLower.includes('phone') && !questionLower.includes('prefix')) {
-      // Would get from resume, return undefined to use GPT
+    try {
+      const resume = this.gptAnswerer.resume as Resume | undefined;
+      if (!resume?.personalInformation) {
+        log.debug('[SMART TEXT] No resume or personal info available');
+        return undefined;
+      }
+      
+      const personalInfo = resume.personalInformation;
+      
+      // Find the input element and check its ID
+      const input = element.locator('input').first();
+      if (await input.count() === 0) {
+        return undefined;
+      }
+      
+      const elementId = (await input.getAttribute('id') || '').toLowerCase();
+      
+      log.debug(`[SMART TEXT] Element ID: ${elementId}`);
+      
+      // Location/City detection (HTML structure-based)
+      // Pattern: id contains "geo-location" or "location-geo" (matches Python exactly)
+      if (elementId.includes('geo-location') || elementId.includes('location-geo')) {
+        log.debug('[SMART TEXT] Detected location/city field (by HTML structure)');
+        const city = personalInfo.city;
+        if (city) {
+          log.info(`[SMART TEXT] ✅ Using city from resume: ${city}`);
+          return city;
+        } else {
+          log.warn('[SMART TEXT] No city in resume');
+        }
+        return undefined;
+      }
+      
+      // Phone number detection (HTML structure-based)
+      // Pattern: id contains "phonenumber-nationalnumber" or "phone-national" (matches Python)
+      if (elementId.includes('phonenumber-nationalnumber') || elementId.includes('phone-national')) {
+        log.debug('[SMART TEXT] Detected phone number field (by HTML structure)');
+        const phone = personalInfo.phonePrefix && personalInfo.phone 
+          ? `${personalInfo.phonePrefix}${personalInfo.phone}`
+          : personalInfo.phone;
+        if (phone) {
+          log.info(`[SMART TEXT] ✅ Using phone from resume: ${phone}`);
+          return phone;
+        } else {
+          log.warn('[SMART TEXT] No phone in resume');
+        }
+        return undefined;
+      }
+      
+      // Also check question text for common patterns as fallback
+      const questionLower = questionText.toLowerCase();
+      
+      // Phone number by question text
+      if (questionLower.includes('phone') && !questionLower.includes('prefix')) {
+        const phone = personalInfo.phonePrefix && personalInfo.phone 
+          ? `${personalInfo.phonePrefix}${personalInfo.phone}`
+          : personalInfo.phone;
+        if (phone) {
+          log.info(`[SMART TEXT] ✅ Using phone from resume (by question): ${phone}`);
+          return phone;
+        }
+      }
+      
+      // City by question text
+      if (questionLower.includes('city') || questionLower.includes('location')) {
+        const city = personalInfo.city;
+        if (city) {
+          log.info(`[SMART TEXT] ✅ Using city from resume (by question): ${city}`);
+          return city;
+        }
+      }
+      
+      log.debug('[SMART TEXT] No pattern matched');
+      return undefined;
+      
+    } catch (error) {
+      log.debug(`[SMART TEXT] Error analyzing element: ${error}`);
       return undefined;
     }
-
-    return undefined;
   }
 }

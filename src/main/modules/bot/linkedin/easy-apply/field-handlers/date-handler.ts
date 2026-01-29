@@ -206,7 +206,7 @@ export class DateHandler extends BaseFieldHandler {
       this.formUtils.rememberAnswer('date', questionText, answer);
     }
 
-    return answer;
+    return answer || null;
   }
 
   /**

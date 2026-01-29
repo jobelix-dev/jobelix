@@ -58,13 +58,6 @@ export class FormUtils {
   }
 
   /**
-   * Normalize text for comparison
-   */
-  normalizeText(text: string): string {
-    return normalizeText(text);
-  }
-
-  /**
    * Get a saved answer for a question
    * 
    * Looks up answers using substring matching, so "years of experience"
@@ -75,6 +68,12 @@ export class FormUtils {
    * @returns Saved answer or undefined if not found
    */
   getSavedAnswer(fieldType: string, questionText: string): string | undefined {
+    // Don't return cached answers for unknown/empty questions - they'd be wrong
+    if (!questionText || questionText.toLowerCase().includes('unknown')) {
+      log.warn(`[GET_SAVED] Refusing to lookup answer for unknown/empty question: "${questionText}"`);
+      return undefined;
+    }
+    
     const normalizedQuestion = questionText.toLowerCase();
     const typePrefix = fieldType.toLowerCase() + ':';
     
@@ -106,11 +105,66 @@ export class FormUtils {
    * Saves the answer to the in-memory cache and calls the record callback
    * to persist it to disk (old_Questions.csv).
    * 
+   * MATCHES PYTHON: Validates answer is not a placeholder before saving.
+   * 
    * @param fieldType - Type of field
    * @param questionText - The question
    * @param answer - The answer to save
    */
   rememberAnswer(fieldType: string, questionText: string, answer: string): void {
+    // === VALIDATION (MATCHES PYTHON) ===
+    
+    // Don't save answers for unknown questions - they would collide with other fields
+    if (!questionText || questionText.toLowerCase().includes('unknown')) {
+      log.warn(`[REMEMBER] Refusing to cache answer for unknown/empty question: "${questionText}"`);
+      return;
+    }
+    
+    // Don't save completely empty answers
+    if (!answer || !answer.trim()) {
+      log.warn(`[REMEMBER] Refusing to save empty answer for question: "${questionText}"`);
+      return;
+    }
+    
+    const answerStripped = answer.trim();
+    const answerLower = answerStripped.toLowerCase();
+    
+    // Allow numeric answers (including "0", "1", etc.) - valid for experience years, ratings, etc.
+    const isNumeric = /^[\d.\-]+$/.test(answerStripped);
+    
+    // Allow common valid short answers: Yes, No, Si, Oui, etc.
+    const validShortAnswers = ['yes', 'no', 'si', 'sí', 'oui', 'non', 'ja', 'nein'];
+    const isValidShort = validShortAnswers.includes(answerLower);
+    
+    // Reject very short non-numeric answers that are NOT valid short answers (likely placeholders)
+    if (!isNumeric && !isValidShort && answerStripped.length <= 2) {
+      log.warn(`[REMEMBER] Refusing to save too short answer: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    
+    // Pattern 1: Starts with "select" or "choose" in any language (word boundary)
+    const selectPatterns = ['select', 'sélect', 'selecciona', 'seleccione', 'seleziona', 'escolh'];
+    const choosePatterns = ['choose', 'choisir', 'choisissez', 'elegir', 'scegli'];
+    if ([...selectPatterns, ...choosePatterns].some(pattern => answerLower.startsWith(pattern))) {
+      log.warn(`[REMEMBER] Refusing to save selection prompt: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    
+    // Pattern 2: Contains "option" as a standalone word
+    const optionPatterns = ['option', 'opción', 'opzione', 'an option', 'una opción'];
+    if (optionPatterns.includes(answerLower)) {
+      log.warn(`[REMEMBER] Refusing to save 'option' placeholder: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    
+    // Pattern 3: Generic null/placeholder values
+    const nullValues = ['n/a', 'none', 'null', 'nil', 'undefined', '---', '...', '–'];
+    if (nullValues.includes(answerLower) || nullValues.includes(answerStripped)) {
+      log.warn(`[REMEMBER] Refusing to save null/placeholder value: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    
+    // === SAVE ANSWER ===
     const key = `${fieldType.toLowerCase()}:${questionText.toLowerCase()}`;
     this.answers.set(key, answer);
     

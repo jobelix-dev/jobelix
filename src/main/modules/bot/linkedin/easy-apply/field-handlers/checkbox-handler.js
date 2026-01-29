@@ -67,7 +67,7 @@ class CheckboxHandler extends BaseFieldHandler {
         return true;
       }
       const prompt = `Should I check this checkbox? "${labelText}" (Answer: yes or no)`;
-      const answer = await this.gptAnswerer.answerTextual(prompt);
+      const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
       if (answer?.toLowerCase().includes("yes")) {
         await checkbox.check();
         log.info(`\u2705 Checked: "${labelText.substring(0, 50)}..."`);
@@ -96,13 +96,26 @@ class CheckboxHandler extends BaseFieldHandler {
 Options:
 ${optionsList}
 
-Which options should I select? List the numbers separated by commas, or say "none".`;
-      const answer = await this.gptAnswerer.answerTextual(prompt);
-      if (!answer || answer.toLowerCase() === "none") {
+Which options should I select? List the numbers separated by commas, or say "none". If the question asks how you heard about a company and "LinkedIn" or "Job Board" is an option, select that.`;
+      const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
+      if (!answer || answer.toLowerCase().trim() === "none") {
         log.debug("No checkboxes selected");
         return true;
       }
       const selectedNumbers = this.parseSelectedNumbers(answer, options.length);
+      if (selectedNumbers.length === 0) {
+        log.warn(`Could not parse checkbox selection from: "${answer}"`);
+        if (questionText.toLowerCase().includes("hear about") || questionText.toLowerCase().includes("how did you")) {
+          for (let i = 0; i < options.length; i++) {
+            const label = options[i].label.toLowerCase();
+            if (label.includes("linkedin") || label.includes("job board") || label.includes("job site")) {
+              selectedNumbers.push(i + 1);
+              log.info(`Fallback: selecting "${options[i].label}" for referral question`);
+              break;
+            }
+          }
+        }
+      }
       for (const num of selectedNumbers) {
         const option = options[num - 1];
         if (option && !await option.checkbox.isChecked()) {

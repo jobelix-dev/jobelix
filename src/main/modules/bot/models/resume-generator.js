@@ -70,19 +70,28 @@ async function generateTailoredResume(options) {
 async function generatePdfWithPlaywright(yamlContent, outputPath, page, companyName, jobTitle) {
   const config = yaml.load(yamlContent);
   const html = generateResumeHtml(config, companyName, jobTitle);
-  await page.setContent(html, { waitUntil: "networkidle" });
-  await page.pdf({
-    path: outputPath,
-    format: "A4",
-    printBackground: true,
-    margin: {
-      top: "0.5in",
-      right: "0.5in",
-      bottom: "0.5in",
-      left: "0.5in"
-    }
-  });
-  log.info("PDF generated with Playwright");
+  const browser = page.context().browser();
+  if (!browser) {
+    throw new Error("Browser not available for PDF generation");
+  }
+  const pdfPage = await browser.newPage();
+  try {
+    await pdfPage.setContent(html, { waitUntil: "networkidle" });
+    await pdfPage.pdf({
+      path: outputPath,
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: "0.5in",
+        right: "0.5in",
+        bottom: "0.5in",
+        left: "0.5in"
+      }
+    });
+    log.info("PDF generated with Playwright");
+  } finally {
+    await pdfPage.close();
+  }
 }
 async function generatePdfWithHtml(yamlContent, outputPath, companyName, jobTitle) {
   const config = yaml.load(yamlContent);

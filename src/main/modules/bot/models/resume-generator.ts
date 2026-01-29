@@ -129,6 +129,7 @@ export async function generateTailoredResume(
 
 /**
  * Generate PDF using Playwright page
+ * Creates a new page to avoid Trusted Types policy issues from LinkedIn
  */
 async function generatePdfWithPlaywright(
   yamlContent: string,
@@ -140,23 +141,36 @@ async function generatePdfWithPlaywright(
   const config = yaml.load(yamlContent) as any;
   const html = generateResumeHtml(config, companyName, jobTitle);
 
-  // Set HTML content
-  await page.setContent(html, { waitUntil: 'networkidle' });
+  // Create a NEW page for PDF generation to avoid Trusted Types policy from LinkedIn
+  const browser = page.context().browser();
+  if (!browser) {
+    throw new Error('Browser not available for PDF generation');
+  }
+  
+  const pdfPage = await browser.newPage();
+  
+  try {
+    // Set HTML content on the new page (no Trusted Types restrictions)
+    await pdfPage.setContent(html, { waitUntil: 'networkidle' });
 
-  // Generate PDF
-  await page.pdf({
-    path: outputPath,
-    format: 'A4',
-    printBackground: true,
-    margin: {
-      top: '0.5in',
-      right: '0.5in',
-      bottom: '0.5in',
-      left: '0.5in',
-    },
-  });
+    // Generate PDF
+    await pdfPage.pdf({
+      path: outputPath,
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '0.5in',
+        right: '0.5in',
+        bottom: '0.5in',
+        left: '0.5in',
+      },
+    });
 
-  log.info('PDF generated with Playwright');
+    log.info('PDF generated with Playwright');
+  } finally {
+    // Always close the PDF page
+    await pdfPage.close();
+  }
 }
 
 /**

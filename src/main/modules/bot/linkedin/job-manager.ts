@@ -1,7 +1,12 @@
 /**
  * LinkedIn Job Manager - Manages job search and application flow
  * 
- * Mirrors the Python LinkedInJobManager class.
+ * Coordinates the job search process:
+ * 1. Navigates to LinkedIn job search pages
+ * 2. Extracts job listings from search results
+ * 3. Filters jobs based on blacklist criteria
+ * 4. Delegates applications to EasyApplier
+ * 5. Tracks progress and reports status
  */
 
 import type { Page, Locator } from 'playwright';
@@ -11,7 +16,9 @@ import type { Job, JobSearchConfig, SavedAnswer } from '../types';
 import { createJob, isBlacklisted, setJobDescription } from '../models/job';
 import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
-import { getOutputFolderPath, getOldQuestionsPath, getDebugHtmlPath } from '../utils/paths';
+import { getOutputFolderPath, getOldQuestionsPath } from '../utils/paths';
+import { saveDebugHtml } from '../utils/debug-html';
+import { waitRandom, DELAYS } from '../utils/delays';
 import { buildSearchUrl } from '../core/config-validator';
 import { LinkedInEasyApplier } from './easy-apply/easy-applier';
 import type { GPTAnswerer } from '../ai/gpt-answerer';
@@ -108,7 +115,7 @@ export class LinkedInJobManager {
         while (emptyPages < maxEmptyPages) {
           log.info(`Going to job page ${page}`);
           await this.navigateToSearchPage(position, location, page);
-          await this.page.waitForTimeout(Math.random() * 800 + 200);
+          await waitRandom(this.page, DELAYS.CLICK);
 
           log.info('Starting the application process for this page...');
 
@@ -146,7 +153,7 @@ export class LinkedInJobManager {
           page++;
 
           // Human-like delay between pages
-          await this.page.waitForTimeout(9000 + Math.random() * 3000);
+          await waitRandom(this.page, DELAYS.BETWEEN_PAGES);
         }
       } catch (error) {
         if (this.isBrowserClosed(error)) {
@@ -206,7 +213,7 @@ export class LinkedInJobManager {
         log.info('⚠️ No job tiles found on this page - likely reached end of results');
         
         // Save debug HTML to understand the page structure
-        await this.saveDebugHtml('no_jobs_found');
+        await saveDebugHtml(this.page, 'no_jobs_found');
         return 0;
       }
 
@@ -276,7 +283,7 @@ export class LinkedInJobManager {
           this.writeToFile(job, 'success');
           this.seenJobs.add(job.link);
         } catch (error) {
-          await this.saveDebugHtml(`job_apply_error_${job.company.replace(/\s+/g, '_')}`);
+          await saveDebugHtml(this.page, `job_apply_error_${job.company.replace(/\s+/g, '_')}`);
           this.writeToFile(job, 'failed');
           log.error(`apply_jobs failed for ${job.title} at ${job.company}: ${error}`);
           
@@ -288,7 +295,7 @@ export class LinkedInJobManager {
       return jobs.length;
 
     } catch (error) {
-      await this.saveDebugHtml('apply_jobs_exception');
+      await saveDebugHtml(this.page, 'apply_jobs_exception');
       throw error;
     }
   }
@@ -461,21 +468,6 @@ export class LinkedInJobManager {
     fs.appendFileSync(filePath, line, 'utf-8');
   }
 
-  /**
-   * Save debug HTML snapshot
-   */
-  private async saveDebugHtml(context: string): Promise<void> {
-    try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${context}_${timestamp}.html`;
-      const filePath = path.join(getDebugHtmlPath(), filename);
-      const content = await this.page.content();
-      fs.writeFileSync(filePath, content, 'utf-8');
-      log.info(`Saved debug HTML: ${filename}`);
-    } catch (error) {
-      log.error(`Failed to save debug HTML: ${error}`);
-    }
-  }
 
   /**
    * Parse a CSV line into parts
