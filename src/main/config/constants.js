@@ -119,6 +119,10 @@ export const VERSION = {
   DEFAULT: '0.0.0',
 };
 
+// Bot configuration
+// Node.js bot is the only option - Python bot has been removed
+export const BOT_CONFIG = {};
+
 // Spawn process configurations
 export const SPAWN_CONFIG = {
   BOT: {

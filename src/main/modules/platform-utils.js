@@ -51,14 +51,12 @@ export function isArchLinux() {
 }
 
 /**
- * Get the root resources directory path
- * Returns different paths for packaged vs development mode
- * @returns {string} Absolute path to resources directory
+ * Get the root data directory path
+ * Uses Electron's userData folder for persistent storage
+ * @returns {string} Absolute path to userData directory
  */
 export function getResourceRoot() {
-  return app.isPackaged 
-    ? process.resourcesPath 
-    : path.join(process.cwd(), DIRECTORIES.RESOURCES);
+  return app.getPath('userData');
 }
 
 /**
@@ -72,17 +70,16 @@ export function getBotExecutableName() {
 }
 
 /**
- * Build path to platform-specific resource
- * @param {...string} pathSegments - Path segments to join (after platform folder)
+ * Build path to resource in userData
+ * @param {...string} pathSegments - Path segments to join
  * @returns {string} Absolute path to the resource
  * @example
- * // Returns: /path/to/resources/linux/main/data_folder/config.yaml
- * getPlatformResourcePath('main', 'data_folder', 'config.yaml')
+ * // Returns: ~/.config/jobelix/data/config.yaml
+ * getPlatformResourcePath('data', 'config.yaml')
  */
 export function getPlatformResourcePath(...pathSegments) {
   const resourceRoot = getResourceRoot();
-  const platformFolder = getPlatformFolder();
-  return path.join(resourceRoot, platformFolder, ...pathSegments);
+  return path.join(resourceRoot, ...pathSegments);
 }
 
 /**
@@ -146,4 +143,30 @@ export function logPlatformInfo() {
   logger.info(`  Packaged: ${app.isPackaged}`);
   logger.info(`  Resource Root: ${getResourceRoot()}`);
   logger.info(`  Platform Folder: ${getPlatformFolder()}`);
+}
+
+/**
+ * Initialize all data directories for the application
+ * Creates: data/, output/, tailored_resumes/, chrome_profile/, debug_html/
+ * This should be called on app startup to ensure directories exist
+ */
+export function initializeDataDirectories() {
+  const userData = getResourceRoot();
+  
+  const directories = [
+    path.join(userData, 'data'),
+    path.join(userData, 'output'),
+    path.join(userData, 'tailored_resumes'),
+    path.join(userData, 'chrome_profile'),
+    path.join(userData, 'debug_html'),
+  ];
+  
+  for (const dir of directories) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      logger.debug(`Created directory: ${dir}`);
+    }
+  }
+  
+  logger.info(`Data directories initialized at: ${userData}`);
 }

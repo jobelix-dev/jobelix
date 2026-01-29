@@ -14,34 +14,38 @@ export interface ReleaseAsset {
   content_type: string;
 }
 
+// Asset metadata for download
+export interface AssetInfo {
+  url: string;
+  filename: string;
+  size: number;
+}
+
 // Parsed release information with platform-specific download URLs
 export interface ReleaseInfo {
   version: string;
   publishedAt: string;
   assets: {
-    windows?: {
-      url: string;
-      filename: string;
-      size: number;
-    };
-    mac?: {
-      url: string;
-      filename: string;
-      size: number;
-    };
-    linux?: {
-      url: string;
-      filename: string;
-      size: number;
-    };
-    'linux-arch'?: {
-      url: string;
-      filename: string;
-      size: number;
-    };
+    // Windows
+    'windows-x64'?: AssetInfo;
+    'windows-arm64'?: AssetInfo;
+    // macOS
+    'mac-x64'?: AssetInfo;      // Intel
+    'mac-arm64'?: AssetInfo;    // Apple Silicon
+    // Linux
+    'linux-x64'?: AssetInfo;    // Ubuntu/Debian x64
+    'linux-arm64'?: AssetInfo;  // Ubuntu/Debian ARM
+    'linux-arch'?: AssetInfo;   // Arch Linux
   };
   htmlUrl: string;
 }
+
+// Platform types for download detection
+export type Platform = 
+  | 'windows-x64' | 'windows-arm64'
+  | 'mac-x64' | 'mac-arm64'
+  | 'linux-x64' | 'linux-arm64' | 'linux-arch'
+  | 'unknown' | 'unsupported';
 
 // GitHub API response type (partial - only fields we need)
 interface GitHubRelease {
@@ -85,52 +89,62 @@ export async function getLatestRelease(): Promise<ReleaseInfo> {
     // Find platform-specific assets
     const assets: ReleaseInfo['assets'] = {};
 
+    /**
+     * Asset naming patterns (from electron-builder config):
+     * - Windows: Jobelix-{ver}-windows-{arch}-setup.exe
+     * - macOS: Jobelix-{ver}-macos-{arch}.dmg
+     * - Linux Ubuntu: Jobelix-{ver}-ubuntu-22.04.AppImage (or ubuntu-22.04-arm)
+     * - Linux Arch: Jobelix-{ver}-arch.AppImage
+     */
+    
     const isArchLinuxAsset = (name: string) => {
       const lower = name.toLowerCase();
-      if (lower.includes('aarch64') || lower.includes('arm64')) return false;
-      return lower.includes('linux-arch') || lower.includes('archlinux') || /(^|[^a-z])arch([^.a-z]|$)/.test(lower);
+      // Exclude ARM64 assets from arch detection
+      if (lower.includes('arm64') || lower.includes('aarch64')) return false;
+      // Check for arch-specific markers
+      return lower.includes('-arch.') || lower.includes('-arch-') || lower.includes('archlinux');
     };
 
-    const isUbuntuAsset = (name: string) => {
+    const isArmAsset = (name: string) => {
       const lower = name.toLowerCase();
-      return lower.includes('ubuntu-22.04') || lower.includes('ubuntu');
+      return lower.includes('arm64') || lower.includes('aarch64') || lower.includes('-arm.');
     };
 
     for (const asset of data.assets) {
       const name = asset.name.toLowerCase();
+      const assetInfo: AssetInfo = {
+        url: asset.browser_download_url,
+        filename: asset.name,
+        size: asset.size,
+      };
       
       // Windows: .exe installer
       if (name.endsWith('.exe') && name.includes('setup')) {
-        assets.windows = {
-          url: asset.browser_download_url,
-          filename: asset.name,
-          size: asset.size,
-        };
+        if (isArmAsset(name)) {
+          assets['windows-arm64'] = assetInfo;
+        } else {
+          assets['windows-x64'] = assetInfo;
+        }
       }
       
       // macOS: .dmg disk image
       else if (name.endsWith('.dmg')) {
-        assets.mac = {
-          url: asset.browser_download_url,
-          filename: asset.name,
-          size: asset.size,
-        };
+        if (isArmAsset(name)) {
+          assets['mac-arm64'] = assetInfo;
+        } else {
+          assets['mac-x64'] = assetInfo;
+        }
       }
       
-      // Linux: .AppImage (split Arch vs other Linux when tagged)
+      // Linux: .AppImage
       else if (name.endsWith('.appimage')) {
         if (isArchLinuxAsset(name)) {
-          assets['linux-arch'] = {
-            url: asset.browser_download_url,
-            filename: asset.name,
-            size: asset.size,
-          };
-        } else if (!assets.linux || isUbuntuAsset(name)) {
-          assets.linux = {
-            url: asset.browser_download_url,
-            filename: asset.name,
-            size: asset.size,
-          };
+          assets['linux-arch'] = assetInfo;
+        } else if (isArmAsset(name)) {
+          assets['linux-arm64'] = assetInfo;
+        } else {
+          // Default to x64 Ubuntu/Debian
+          assets['linux-x64'] = assetInfo;
         }
       }
     }

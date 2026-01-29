@@ -8,7 +8,11 @@ import { useEffect, useState } from 'react';
 import { Rocket, AlertCircle, Info, Download, X, LogIn, MousePointer2Off, StopCircle, Shield, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { BotLaunchStatus } from '@/lib/shared/types';
-import { PROGRESS_SIMULATION_INTERVAL_MS, SIMULATED_INSTALL_DURATION_MS, MAX_LOGS_TO_DISPLAY } from '@/lib/bot-status/constants';
+
+// Constants (inlined)
+const PROGRESS_SIMULATION_INTERVAL_MS = 200;
+const SIMULATED_INSTALL_DURATION_MS = 30000;
+const MAX_LOGS_TO_DISPLAY = 10;
 
 interface LaunchButtonProps {
   canLaunch: boolean;

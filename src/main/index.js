@@ -12,7 +12,7 @@ import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { createMainWindow } from './modules/window-manager.js';
 import { checkForUpdates } from './modules/version-manager.js';
 import { setupAutoUpdater, setupAutoUpdaterListeners, showUpdateRequiredWindow } from './modules/update-manager.js';
-import { logPlatformInfo } from './modules/platform-utils.js';
+import { logPlatformInfo, initializeDataDirectories } from './modules/platform-utils.js';
 import { isMac } from './modules/platform-utils.js';
 import { waitForNextJs } from './utils/dev-utils.js';
 import logger from './utils/logger.js';
@@ -30,6 +30,9 @@ async function initializeApp() {
     
     // Setup auto-updater listeners for seamless background updates
     setupAutoUpdaterListeners();
+    
+    // Initialize data directories (cross-platform userData folder)
+    initializeDataDirectories();
     
     // Log platform information for debugging
     logPlatformInfo();

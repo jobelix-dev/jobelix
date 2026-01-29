@@ -13,7 +13,7 @@ import ArrayInputField, { ArrayInputFieldRef } from './ArrayInputField';
 interface SearchCriteriaSectionProps {
   positions: string[];
   locations: string[];
-  remoteWork: boolean;
+  remoteWork?: boolean; // Deprecated - kept for backward compatibility but no longer used
   onChange: (field: string, value: string[] | boolean) => void;
   errors?: {
     positions?: boolean;
@@ -34,7 +34,7 @@ const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteri
   {
     positions,
     locations,
-    remoteWork,
+    // remoteWork is no longer used - remote filter disabled
     onChange,
     errors,
     positionsInputId,
@@ -87,17 +87,8 @@ const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteri
         addButtonId={locationsAddButtonId}
       />
 
-      <label className="flex items-center gap-2 cursor-pointer group">
-        <input
-          type="checkbox"
-          checked={remoteWork}
-          onChange={(e) => onChange('remote_work', e.target.checked)}
-          className="w-4 h-4 text-primary bg-white border border-border rounded focus:ring-2 focus:ring-primary transition-colors cursor-pointer"
-        />
-        <span className="text-sm text-muted group-hover:text-default transition-colors">
-          Include remote opportunities
-        </span>
-      </label>
+      {/* Remote filter removed - it limits job results too much.
+          Bot now searches all jobs (on-site, hybrid, remote) by default. */}
     </div>
   );
 });

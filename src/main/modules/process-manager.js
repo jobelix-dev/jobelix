@@ -1,6 +1,6 @@
 /**
  * Process Manager
- * Manages external bot automation process
+ * Manages external bot automation process with local IPC communication
  */
 
 import { spawn } from 'child_process';
@@ -20,8 +20,65 @@ import logger from '../utils/logger.js';
 
 // Track active bot process
 let activeBotProcess = null;
+let statusEmitter = null;  // Store the emitStatus callback
 
 const PLAYWRIGHT_BROWSER_DIR = 'playwright-browsers';
+
+/**
+ * Parse bot status from stdout line
+ * Bot sends status as [STATUS]{json} lines
+ */
+function parseBotStatusLine(line, emitStatus) {
+  if (!line.startsWith('[STATUS]')) return false;
+  
+  try {
+    const jsonStr = line.substring(8); // Remove '[STATUS]' prefix
+    const status = JSON.parse(jsonStr);
+    
+    logger.debug(`[Bot IPC] Received status: ${status.type}`);
+    
+    // Forward to renderer based on message type
+    switch (status.type) {
+      case 'session_start':
+        emitBotStatus(emitStatus, {
+          stage: 'running',
+          message: `Bot started (v${status.bot_version})`,
+          stats: status.stats
+        });
+        break;
+        
+      case 'heartbeat':
+        emitBotStatus(emitStatus, {
+          stage: 'running',
+          activity: status.activity,
+          details: status.details,
+          stats: status.stats
+        });
+        break;
+        
+      case 'session_complete':
+        emitBotStatus(emitStatus, {
+          stage: status.success ? 'completed' : 'failed',
+          message: status.success ? 'Bot completed successfully' : (status.error_message || 'Bot failed'),
+          stats: status.stats
+        });
+        break;
+        
+      case 'stopped':
+        emitBotStatus(emitStatus, {
+          stage: 'stopped',
+          message: 'Bot stopped by user',
+          stats: status.stats
+        });
+        break;
+    }
+    
+    return true;
+  } catch (err) {
+    logger.debug(`[Bot IPC] Failed to parse status: ${err.message}`);
+    return false;
+  }
+}
 
 function emitBotStatus(emitStatus, payload) {
   if (!emitStatus) return;
@@ -317,9 +374,9 @@ async function ensureChromiumInstalled(emitStatus, bundledCliPath) {
 
 /**
  * Launch the bot automation process
- * Spawns bot in detached mode with the provided token
+ * Spawns bot with stdio pipes for IPC communication
  * @param {string} token - Authentication token for the bot
- * @param {(payload: {stage: string, message?: string, progress?: number, log?: string}) => void} [emitStatus]
+ * @param {(payload: {stage: string, message?: string, progress?: number, activity?: string, stats?: object}) => void} [emitStatus]
  * @returns {Promise<{success: boolean, message?: string, pid?: number, platform?: string, error?: string}>}
  */
 export async function launchBot(token, emitStatus) {
@@ -368,8 +425,7 @@ export async function launchBot(token, emitStatus) {
     // Get backend API URL from environment or use default
     const public_app_url = process.env.NEXT_PUBLIC_APP_URL || 'http://www.jobelix.fr/';
     
-    // Debug: Log the backend API URL being used
-    logger.info(`public app url from env: "${process.env.NEXT_PUBLIC_APP_URL}"`);
+    logger.info(`Public app URL: "${public_app_url}"`);
 
     emitBotStatus(emitStatus, { stage: 'launching', message: 'Launching bot...' });
 
@@ -388,47 +444,91 @@ export async function launchBot(token, emitStatus) {
       botEnv.LD_LIBRARY_PATH = internalLibsPath + (process.env.LD_LIBRARY_PATH ? ':' + process.env.LD_LIBRARY_PATH : '');
     }
 
-    // Spawn the bot process with --playwright flag, token, and backend API URL
-    const botProcess = spawn(botPath, ['--playwright', token, '--public_app_url', public_app_url], {
-      ...SPAWN_CONFIG.BOT,
+    // Store emitStatus globally for stdout parsing
+    statusEmitter = emitStatus;
+
+    // Spawn the bot process with piped stdio for IPC
+    const botProcess = spawn(botPath, ['--token', token, '--public_app_url', public_app_url], {
       cwd: botCwd,
       env: botEnv,
+      stdio: ['ignore', 'pipe', 'pipe'],  // stdin ignored, stdout/stderr piped for IPC
+      detached: false,  // Keep attached for IPC
+      windowsHide: true,
     });
 
     // Track the active bot process
     activeBotProcess = botProcess;
 
-    // Capture stdout/stderr for debugging
-    if (botProcess.stdout) {
-      botProcess.stdout.on('data', (data) => {
-        logger.info(`[Bot stdout] ${data.toString().trim()}`);
-      });
-    }
-    
-    if (botProcess.stderr) {
-      botProcess.stderr.on('data', (data) => {
-        logger.error(`[Bot stderr] ${data.toString().trim()}`);
-      });
-    }
+    // Buffer for incomplete lines
+    let stdoutBuffer = '';
 
-    botProcess.on('error', (error) => {
-      logger.error('[Bot process error]', error);
+    // Parse stdout for status messages
+    botProcess.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      stdoutBuffer += chunk;
+      
+      // Process complete lines
+      const lines = stdoutBuffer.split('\n');
+      stdoutBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        
+        // Try to parse as status message
+        if (!parseBotStatusLine(trimmed, emitStatus)) {
+          // Regular log line - log it
+          logger.info(`[Bot] ${trimmed}`);
+        }
+      }
     });
-
-    botProcess.on('exit', (code, signal) => {
-      logger.warn(`[Bot process exited] Code: ${code}, Signal: ${signal}`);
-      // Clear active process reference when it exits
-      if (activeBotProcess && activeBotProcess.pid === botProcess.pid) {
-        activeBotProcess = null;
+    
+    // Capture stderr for errors
+    botProcess.stderr.on('data', (data) => {
+      const msg = data.toString().trim();
+      if (msg) {
+        logger.error(`[Bot stderr] ${msg}`);
       }
     });
 
-    // Detach the process so it continues running independently
-    botProcess.unref();
+    botProcess.on('error', (error) => {
+      logger.error('[Bot process error]', error);
+      emitBotStatus(emitStatus, {
+        stage: 'failed',
+        message: `Bot error: ${error.message}`
+      });
+    });
+
+    botProcess.on('exit', (code, signal) => {
+      logger.info(`[Bot process exited] Code: ${code}, Signal: ${signal}`);
+      
+      // Clear active process reference when it exits
+      if (activeBotProcess && activeBotProcess.pid === botProcess.pid) {
+        activeBotProcess = null;
+        statusEmitter = null;
+      }
+      
+      // Emit final status based on exit code
+      if (code === 0) {
+        emitBotStatus(emitStatus, {
+          stage: 'completed',
+          message: 'Bot completed successfully'
+        });
+      } else if (signal === 'SIGTERM' || signal === 'SIGKILL') {
+        emitBotStatus(emitStatus, {
+          stage: 'stopped',
+          message: 'Bot stopped by user'
+        });
+      } else {
+        emitBotStatus(emitStatus, {
+          stage: 'failed',
+          message: `Bot exited with code ${code}`
+        });
+      }
+    });
 
     logger.success('Bot process launched successfully');
     logger.info(`  PID: ${botProcess.pid}`);
-    logger.debug(`  Command: ${botPath} --playwright [TOKEN_HIDDEN]`);
 
     emitBotStatus(emitStatus, { stage: 'running', message: 'Bot running.' });
 
