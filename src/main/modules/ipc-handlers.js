@@ -5,9 +5,8 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
-import { launchBot, stopBot } from './process-manager.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
-import { IPC_CHANNELS, BOT_CONFIG } from '../config/constants.js';
+import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
 // Dynamic import for TypeScript bot launcher (only loaded when needed)
@@ -82,20 +81,15 @@ export function setupIpcHandlers() {
       }
     };
 
-    // Choose between Node.js bot and Python bot based on config
+    // Launch Node.js bot
     let result;
-    if (BOT_CONFIG.USE_NODE_BOT) {
-      logger.info('🚀 Using Node.js bot (TypeScript/Playwright)');
-      try {
-        const launcher = await getNodeBotLauncher();
-        result = await launcher.launchNodeBot(token, sendBotStatus);
-      } catch (error) {
-        logger.error('Failed to load Node.js bot launcher:', error);
-        result = { success: false, error: error.message || 'Failed to load bot launcher' };
-      }
-    } else {
-      logger.info('🐍 Using Python bot (PyInstaller)');
-      result = await launchBot(token, sendBotStatus);
+    logger.info('🚀 Launching Node.js bot (TypeScript/Playwright)');
+    try {
+      const launcher = await getNodeBotLauncher();
+      result = await launcher.launchNodeBot(token, sendBotStatus);
+    } catch (error) {
+      logger.error('Failed to load Node.js bot launcher:', error);
+      result = { success: false, error: error.message || 'Failed to load bot launcher' };
     }
     
     if (result.success) {
@@ -112,18 +106,14 @@ export function setupIpcHandlers() {
     logger.ipc(IPC_CHANNELS.STOP_BOT, '🛑 STOP_BOT IPC handler called');
     logger.info('[IPC] 🛑 Stop bot requested from frontend');
     
-    // Stop both bots (whichever is running)
+    // Stop Node.js bot
     let result;
-    if (BOT_CONFIG.USE_NODE_BOT) {
-      try {
-        const launcher = await getNodeBotLauncher();
-        result = await launcher.stopNodeBot();
-      } catch (error) {
-        logger.error('Failed to stop Node.js bot:', error);
-        result = { success: false, error: error.message };
-      }
-    } else {
-      result = await stopBot();
+    try {
+      const launcher = await getNodeBotLauncher();
+      result = await launcher.stopNodeBot();
+    } catch (error) {
+      logger.error('Failed to stop Node.js bot:', error);
+      result = { success: false, error: error.message };
     }
     
     if (result.success) {

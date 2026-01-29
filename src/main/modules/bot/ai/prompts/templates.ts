@@ -2,7 +2,7 @@
  * Prompt Templates for GPT Answerer
  * 
  * Contains all prompt templates for different types of questions.
- * Mirrors the Python templates.py file EXACTLY.
+ * EXACTLY MATCHES the Python templates.py file.
  */
 
 // Numeric question template (MATCHES PYTHON)
@@ -42,7 +42,8 @@ Question: how much years experience with Java?
 ## `;
 
 // Personal Information Template (MATCHES PYTHON)
-export const personalInformationTemplate = `Answer the following question based on the provided personal information and experience.
+export const personalInformationTemplate = `
+Answer the following question based on the provided personal information and experience.
 
 ## Rules
 - Answer questions directly.
@@ -78,150 +79,286 @@ Recent Experience: {experience_summary}
 Question: {question}
 `;
 
-// Self Identification Template
-export const selfIdentificationTemplate = `Answer the following question based on the provided self-identification details.
+// Self Identification Template (MATCHES PYTHON)
+export const selfIdentificationTemplate = `
+Answer the following question based on the provided self-identification details.
 
 ## Rules
 - Answer questions directly.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Male, uses he/him pronouns, not a veteran, no disability.
+Question: What are your gender?
+Male
 
 Self-Identification: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Legal Authorization Template
-export const legalAuthorizationTemplate = `Answer the following question based on the provided legal authorization details.
+// Legal Authorization Template (MATCHES PYTHON)
+export const legalAuthorizationTemplate = `
+Answer the following question based on the provided legal authorization details.
 
 ## Rules
 - Answer questions directly.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Authorized to work in the EU, no US visa required.
+Question: Are you legally allowed to work in the EU?
+Yes
 
 Legal Authorization: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Work Preferences Template
-export const workPreferencesTemplate = `Answer the following question based on the provided work preferences.
+// Work Preferences Template (MATCHES PYTHON)
+export const workPreferencesTemplate = `
+Answer the following question based on the provided work preferences.
 
 ## Rules
 - Answer questions directly.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+## Example
+My resume: Open to remote work, willing to relocate.
+Question: Are you open to remote work?
+Yes
 
 Work Preferences: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Education Details Template
-export const educationDetailsTemplate = `Answer the following question based on the provided education details.
+// Education Details Template (MATCHES PYTHON)
+export const educationDetailsTemplate = `
+Answer the following question based on the provided education details.
 
 ## Rules
 - Answer questions directly.
-- Be specific about degrees, institutions, and fields of study.
+- If it seems likely that you have the experience, even if not explicitly defined, answer as if you have the experience.
+- **If uncertain, choose the answer most favorable to the candidate's qualifications without being dishonest.**
+- If unsure, respond with "I have no experience with that, but I learn fast" or "Not yet, but willing to learn."
+- Keep the answer under 140 characters.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Bachelor's degree in Computer Science with experience in Python.
+Question: Do you have experience with Python?
+Yes, I have experience with Python.
 
 Education Details: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Experience Details Template
-export const experienceDetailsTemplate = `Answer the following question based on the provided work experience.
+// Experience Details Template (MATCHES PYTHON)
+export const experienceDetailsTemplate = `
+Answer the following question based on the provided experience details.
 
 ## Rules
-- Answer questions directly.
-- Reference specific roles, companies, and achievements when relevant.
-- Emphasize skills and accomplishments that match the question context.
+- Answer questions directly and **with specific details**.
+- **Always include concrete information**: years of experience, specific technologies, frameworks, notable achievements, company names if relevant.
+- If the question asks about a specific technology or skill:
+  - State the exact number of years of experience (calculate from work history dates)
+  - List specific tools, frameworks, or technologies used
+  - Mention 1-2 concrete achievements or projects if available
+- If it seems likely that you have the experience, even if not explicitly defined, answer as if you have the experience.
+- **If uncertain, choose the answer most favorable to the candidate's qualifications without being dishonest.**
+- If truly unsure, respond with "I have limited direct experience with that, but strong related skills in [mention similar technologies]" - always offer something positive.
+- Keep the answer under 200 characters (expanded for technical detail).
+- Use a confident, professional tone that showcases expertise.
+
+## Example
+My resume: 3 years as a software developer with leadership experience.
+Question: Do you have leadership experience?
+Yes, I have 3 years of leadership experience managing development teams and driving technical decisions.
+
+My resume: Senior Backend Engineer (2019-2024) - Python, FastAPI, PostgreSQL, built microservices handling 1M+ requests/day.
+Question: Describe your experience with Python and backend development
+I have 5 years of Python backend development experience using FastAPI and Django, building scalable microservices that handle over 1 million requests daily with PostgreSQL databases.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
 
 Experience Details: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Projects Template
-export const projectsTemplate = `Answer the following question based on the provided project information.
+// Projects Template (MATCHES PYTHON)
+export const projectsTemplate = `
+Answer the following question based on the provided project details.
 
 ## Rules
 - Answer questions directly.
-- Highlight technical skills and outcomes.
+- If it seems likely that you have the experience, even if not explicitly defined, answer as if you have the experience.
+- **If uncertain, choose the answer most favorable to the candidate's qualifications without being dishonest.**
+- Keep the answer under 140 characters.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Led the development of a mobile app, repository available.
+Question: Have you led any projects?
+Yes, led the development of a mobile app
 
 Projects: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Availability Template
-export const availabilityTemplate = `Answer the following question based on the provided availability information.
+// Availability Template (MATCHES PYTHON)
+export const availabilityTemplate = `
+Answer the following question based on the provided availability details.
 
 ## Rules
 - Answer questions directly.
-- Be specific about dates and notice periods.
+- Keep the answer under 140 characters.
+- Use periods only if the answer has multiple sentences.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Available to start immediately.
+Question: When can you start?
+I can start immediately.
 
 Availability: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Salary Expectations Template
-export const salaryExpectationsTemplate = `Answer the following question based on the provided salary expectations.
+// Salary Expectations Template (MATCHES PYTHON)
+export const salaryExpectationsTemplate = `
+Answer the following question based on the provided salary expectations.
 
 ## Rules
 - Answer questions directly.
-- If no specific range is provided, give a reasonable range based on the role and experience level.
+- Keep the answer under 140 characters.
+- Use periods only if the answer has multiple sentences.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Looking for a salary in the range of 50k-60k USD.
+Question: What are your salary expectations?
+55000.
 
 Salary Expectations: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Certifications Template
-export const certificationsTemplate = `Answer the following question based on the provided certifications.
+// Certifications Template (MATCHES PYTHON)
+export const certificationsTemplate = `
+Answer the following question based on the provided certifications.
 
 ## Rules
 - Answer questions directly.
-- List relevant certifications with their full names.
+- If it seems likely that you have the experience, even if not explicitly defined, answer as if you have the experience.
+- **If uncertain, choose the answer most favorable to the candidate's qualifications without being dishonest.**
+- If unsure, respond with "I have no experience with that, but I learn fast" or "Not yet, but willing to learn."
+- Keep the answer under 140 characters.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+## Example
+My resume: Certified in Project Management Professional (PMP).
+Question: Do you have PMP certification?
+Yes, I am PMP certified.
 
 Certifications: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Languages Template
-export const languagesTemplate = `Answer the following question based on the provided language skills.
+// Languages Template (MATCHES PYTHON)
+export const languagesTemplate = `
+Answer the following question based on the provided language skills.
 
 ## Rules
 - Answer questions directly.
-- Include proficiency levels when relevant.
+- If it seems likely that you have the experience, even if not explicitly defined, answer as if you have the experience.
+- **If uncertain, choose the answer most favorable to the candidate's qualifications without being dishonest.**
+- If unsure, respond with "I have no experience with that, but I learn fast" or "Not yet, but willing to learn."
+- Keep the answer under 140 characters.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
+
+
+## Example
+My resume: Fluent in Italian and English.
+Question: What languages do you speak?
+Fluent in Italian and English.
 
 Languages: {resume_section}
-Question: {question}`;
+Question: {question}
+`;
 
-// Interests Template
-export const interestsTemplate = `Answer the following question about career interests and motivations.
+// Interests Template (MATCHES PYTHON)
+export const interestsTemplate = `
+Answer the following question based on the provided interests and professional motivation.
 
 ## Rules
-- Answer questions directly.
-- For "why interested in this role/company" questions, connect personal interests with the job opportunity.
-- Be enthusiastic but professional.
+- Answer questions directly and enthusiastically.
+- If the interests section is empty or the question asks "why are you interested in this position", pivot to discussing relevant professional experience, skills alignment, and career growth opportunities.
+- Focus on how your background makes this role a natural fit.
+- Be specific and genuine - mention actual skills/technologies from your resume that relate to the opportunity.
+- Never say "I don't have interests" or "Not specified" - always provide a meaningful response.
+- Keep the answer under 200 characters (expanded from 140 for motivation questions).
+- Use periods only if the answer has multiple sentences.
 
 ## Language Rule
 - Always answer in the same language as the question.
+- Do not translate unless required to match the question language.
+- If the language is unclear or mixed, default to English.
 
-## Job Description (for context):
-{job_description}
+## Example
+My resume: Interested in AI and data science.
+Question: What are your interests?
+AI and data science.
 
-Resume Overview: {resume_section}
-Question: {question}`;
+My resume: [Interests empty, but experienced in Python and cloud architecture]
+Question: Why are you interested in this position?
+This role aligns perfectly with my 5+ years of Python and cloud architecture experience, offering an opportunity to leverage my backend development skills while growing in a challenging environment.
+
+Interests: {resume_section}
+Question: {question}
+`;
 
 // Cover Letter Template (MATCHES PYTHON)
 export const coverLetterTemplate = `You are a professional career advisor and expert cover letter writer. Write a compelling, personalized cover letter based on the candidate's resume and the job description.
@@ -332,6 +469,7 @@ export const resumeTailoringTemplate = `You are an expert resume writer and job 
 - Always answer in the same language as the question.
 - Do not translate unless required to match the question language.
 - If the language is unclear or mixed, default to English.
+
 
 ## What to Tailor:
 1. **Project Descriptions**:

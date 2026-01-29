@@ -1,13 +1,11 @@
 /**
  * Navigation Handler - Manages Easy Apply modal navigation
  * 
- * Handles all navigation within the LinkedIn Easy Apply modal:
- * - Next button clicking
- * - Review button clicking
- * - Submit button clicking
- * - Back button for error recovery
+ * Handles:
+ * - Primary button clicking (Next/Review/Submit)
+ * - Modal state detection
+ * - Validation error detection
  * - Modal dismissal
- * - Error detection
  */
 
 import type { Page, Locator } from 'playwright';
@@ -15,30 +13,17 @@ import { createLogger } from '../../utils/logger';
 
 const log = createLogger('Navigation');
 
-/**
- * Possible states of the Easy Apply modal
- */
+/** Possible states of the Easy Apply modal */
 export type ModalState = 
-  | 'form'        // Regular form page with Next button
-  | 'review'      // Review page before submission
-  | 'submit'      // Final submit button visible
-  | 'success'     // Application submitted successfully
-  | 'error'       // Error occurred
-  | 'closed'      // Modal was closed
-  | 'unknown';    // Unable to determine state
+  | 'form'      // Regular form page with Next button
+  | 'review'    // Review page before submission
+  | 'submit'    // Final submit button visible
+  | 'success'   // Application submitted successfully
+  | 'error'     // Error occurred
+  | 'closed'    // Modal was closed
+  | 'unknown';  // Unable to determine state
 
-/**
- * Navigation result after an action
- */
-export interface NavigationResult {
-  success: boolean;
-  state: ModalState;
-  error?: string;
-}
-
-/**
- * Navigation result after clicking primary button
- */
+/** Result after clicking primary button */
 export interface PrimaryButtonResult {
   success: boolean;
   submitted: boolean;  // True if this was the final Submit click
@@ -143,6 +128,11 @@ export class NavigationHandler {
         return { success: false, submitted: false, error: 'Validation errors' };
       }
 
+      // Handle "Save this application?" modal if it appears (MATCHES PYTHON)
+      if (await this.handleSaveApplicationModal()) {
+        log.info('Handled "Save this application?" modal - continuing');
+      }
+
       // Wait for button to become detached (page updated)
       try {
         await primaryBtn.waitFor({ state: 'detached', timeout: 8000 });
@@ -175,6 +165,84 @@ export class NavigationHandler {
     } catch (error) {
       log.error(`Error clicking primary button: ${error}`);
       return { success: false, submitted: false, error: String(error) };
+    }
+  }
+
+  /**
+   * Handle the "Save this application?" modal that appears when LinkedIn
+   * thinks we're trying to exit the application.
+   * 
+   * MATCHES PYTHON: handle_save_application_modal()
+   * 
+   * This modal has two buttons:
+   * - "Discard" - discards the application
+   * - "Save" - saves the draft and exits
+   * 
+   * We click "Save" to preserve progress, then wait for modal to reopen.
+   */
+  private async handleSaveApplicationModal(): Promise<boolean> {
+    try {
+      // Look for the "Save this application?" modal
+      const saveModal = this.page.locator('div.artdeco-modal').filter({ hasText: 'Save this application' });
+      
+      if (await saveModal.count() > 0 && await saveModal.isVisible()) {
+        log.info('⚠️ "Save this application?" modal detected');
+        
+        // Click "Save" button to save draft and continue
+        const saveSelectors = [
+          'button[data-control-name*="save"]',
+          'button:has-text("Save")',
+          '.artdeco-modal__footer button.artdeco-button--primary',
+        ];
+        
+        let saveButton = null;
+        for (const selector of saveSelectors) {
+          try {
+            const btn = saveModal.locator(selector).first();
+            if (await btn.count() > 0) {
+              saveButton = btn;
+              break;
+            }
+          } catch { continue; }
+        }
+        
+        if (saveButton) {
+          log.info('Clicking "Save" button to preserve application');
+          await saveButton.click();
+          await this.page.waitForTimeout(1500);
+          
+          // Wait for modal to close
+          try {
+            await saveModal.waitFor({ state: 'hidden', timeout: 3000 });
+            log.info('✅ Save modal closed');
+          } catch {
+            log.warn('Save modal didn\'t close - continuing anyway');
+          }
+          
+          // Wait for Easy Apply modal to reopen
+          await this.page.waitForTimeout(1000);
+          log.info('Waiting for Easy Apply modal to reopen...');
+          
+          try {
+            const easyApplyModal = this.page.locator('div.jobs-easy-apply-modal').first();
+            await easyApplyModal.waitFor({ state: 'visible', timeout: 5000 });
+            log.info('✅ Easy Apply modal reopened - application continuing');
+          } catch {
+            log.warn('Easy Apply modal didn\'t reopen - may have completed');
+          }
+          
+          return true;
+        } else {
+          log.warn('Could not find Save button in modal');
+          return false;
+        }
+      }
+      
+      return false;
+      
+    } catch (error) {
+      log.debug(`Error handling save modal: ${error}`);
+      return false;
     }
   }
 
@@ -265,144 +333,6 @@ export class NavigationHandler {
     } catch (error) {
       log.error(`Error getting modal state: ${error}`);
       return 'unknown';
-    }
-  }
-
-  /**
-   * Click the Next button to go to the next form page
-   * 
-   * @returns Navigation result with new state
-   */
-  async clickNext(): Promise<NavigationResult> {
-    try {
-      // Find Next button - LinkedIn uses various labels
-      const nextSelectors = [
-        'button[aria-label*="Continue to next step"]',
-        'button[data-easy-apply-next-button]',
-        'button:has-text("Next")',
-        'button:has-text("Continue")',
-      ];
-
-      let nextButton: Locator | null = null;
-      for (const selector of nextSelectors) {
-        const btn = this.page.locator(selector).first();
-        if (await btn.count() > 0 && await btn.isEnabled()) {
-          nextButton = btn;
-          break;
-        }
-      }
-
-      if (!nextButton) {
-        log.debug('No Next button found');
-        return { success: false, state: await this.getModalState(), error: 'No Next button found' };
-      }
-
-      // Click and wait for navigation
-      await nextButton.click();
-      await this.page.waitForTimeout(1000);
-
-      // Check for validation errors
-      const hasErrors = await this.hasValidationErrors();
-      if (hasErrors) {
-        log.warn('Validation errors detected after clicking Next');
-        return { success: false, state: 'error', error: 'Validation errors' };
-      }
-
-      const newState = await this.getModalState();
-      log.debug(`Clicked Next → state: ${newState}`);
-      return { success: true, state: newState };
-
-    } catch (error) {
-      log.error(`Error clicking Next: ${error}`);
-      return { success: false, state: 'error', error: String(error) };
-    }
-  }
-
-  /**
-   * Click the Review button
-   */
-  async clickReview(): Promise<NavigationResult> {
-    try {
-      const reviewButton = this.page.locator('button[aria-label*="Review"]').first();
-      
-      if (await reviewButton.count() === 0 || !(await reviewButton.isEnabled())) {
-        log.debug('No Review button found');
-        return { success: false, state: await this.getModalState(), error: 'No Review button' };
-      }
-
-      await reviewButton.click();
-      await this.page.waitForTimeout(1000);
-
-      const newState = await this.getModalState();
-      log.debug(`Clicked Review → state: ${newState}`);
-      return { success: true, state: newState };
-
-    } catch (error) {
-      log.error(`Error clicking Review: ${error}`);
-      return { success: false, state: 'error', error: String(error) };
-    }
-  }
-
-  /**
-   * Click the Submit button to finalize the application
-   * 
-   * This is the final action - after this, the application is submitted.
-   */
-  async clickSubmit(): Promise<NavigationResult> {
-    try {
-      const submitButton = this.page.locator('button[aria-label*="Submit application"]').first();
-      
-      if (await submitButton.count() === 0 || !(await submitButton.isEnabled())) {
-        log.debug('No Submit button found');
-        return { success: false, state: await this.getModalState(), error: 'No Submit button' };
-      }
-
-      // Final confirmation log
-      log.info('🚀 Submitting application...');
-      
-      await submitButton.click();
-      await this.page.waitForTimeout(2000);
-
-      // Check for success
-      const newState = await this.getModalState();
-      
-      if (newState === 'success') {
-        log.info('✅ Application submitted successfully!');
-        return { success: true, state: 'success' };
-      } else {
-        log.warn(`Submit clicked but state is: ${newState}`);
-        return { success: false, state: newState, error: 'Submission may have failed' };
-      }
-
-    } catch (error) {
-      log.error(`Error clicking Submit: ${error}`);
-      return { success: false, state: 'error', error: String(error) };
-    }
-  }
-
-  /**
-   * Click the Back button to return to previous page
-   * 
-   * Useful for error recovery.
-   */
-  async clickBack(): Promise<NavigationResult> {
-    try {
-      const backButton = this.page.locator('button[aria-label*="Back"]').first();
-      
-      if (await backButton.count() === 0) {
-        return { success: false, state: await this.getModalState(), error: 'No Back button' };
-      }
-
-      await backButton.click();
-      await this.page.waitForTimeout(500);
-
-      const newState = await this.getModalState();
-      log.debug(`Clicked Back → state: ${newState}`);
-      return { success: true, state: newState };
-
-    } catch (error) {
-      log.error(`Error clicking Back: ${error}`);
-      return { success: false, state: 'error', error: String(error) };
     }
   }
 

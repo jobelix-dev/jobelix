@@ -74,6 +74,9 @@ class NavigationHandler {
         log.warn("Validation errors after clicking button");
         return { success: false, submitted: false, error: "Validation errors" };
       }
+      if (await this.handleSaveApplicationModal()) {
+        log.info('Handled "Save this application?" modal - continuing');
+      }
       try {
         await primaryBtn.waitFor({ state: "detached", timeout: 8e3 });
         log.debug("Button became detached - page updated");
@@ -97,6 +100,71 @@ class NavigationHandler {
     } catch (error) {
       log.error(`Error clicking primary button: ${error}`);
       return { success: false, submitted: false, error: String(error) };
+    }
+  }
+  /**
+   * Handle the "Save this application?" modal that appears when LinkedIn
+   * thinks we're trying to exit the application.
+   * 
+   * MATCHES PYTHON: handle_save_application_modal()
+   * 
+   * This modal has two buttons:
+   * - "Discard" - discards the application
+   * - "Save" - saves the draft and exits
+   * 
+   * We click "Save" to preserve progress, then wait for modal to reopen.
+   */
+  async handleSaveApplicationModal() {
+    try {
+      const saveModal = this.page.locator("div.artdeco-modal").filter({ hasText: "Save this application" });
+      if (await saveModal.count() > 0 && await saveModal.isVisible()) {
+        log.info('\u26A0\uFE0F "Save this application?" modal detected');
+        const saveSelectors = [
+          'button[data-control-name*="save"]',
+          'button:has-text("Save")',
+          ".artdeco-modal__footer button.artdeco-button--primary"
+        ];
+        let saveButton = null;
+        for (const selector of saveSelectors) {
+          try {
+            const btn = saveModal.locator(selector).first();
+            if (await btn.count() > 0) {
+              saveButton = btn;
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+        if (saveButton) {
+          log.info('Clicking "Save" button to preserve application');
+          await saveButton.click();
+          await this.page.waitForTimeout(1500);
+          try {
+            await saveModal.waitFor({ state: "hidden", timeout: 3e3 });
+            log.info("\u2705 Save modal closed");
+          } catch {
+            log.warn("Save modal didn't close - continuing anyway");
+          }
+          await this.page.waitForTimeout(1e3);
+          log.info("Waiting for Easy Apply modal to reopen...");
+          try {
+            const easyApplyModal = this.page.locator("div.jobs-easy-apply-modal").first();
+            await easyApplyModal.waitFor({ state: "visible", timeout: 5e3 });
+            log.info("\u2705 Easy Apply modal reopened - application continuing");
+          } catch {
+            log.warn("Easy Apply modal didn't reopen - may have completed");
+          }
+          return true;
+        } else {
+          log.warn("Could not find Save button in modal");
+          return false;
+        }
+      }
+      return false;
+    } catch (error) {
+      log.debug(`Error handling save modal: ${error}`);
+      return false;
     }
   }
   /**
@@ -170,115 +238,6 @@ class NavigationHandler {
     } catch (error) {
       log.error(`Error getting modal state: ${error}`);
       return "unknown";
-    }
-  }
-  /**
-   * Click the Next button to go to the next form page
-   * 
-   * @returns Navigation result with new state
-   */
-  async clickNext() {
-    try {
-      const nextSelectors = [
-        'button[aria-label*="Continue to next step"]',
-        "button[data-easy-apply-next-button]",
-        'button:has-text("Next")',
-        'button:has-text("Continue")'
-      ];
-      let nextButton = null;
-      for (const selector of nextSelectors) {
-        const btn = this.page.locator(selector).first();
-        if (await btn.count() > 0 && await btn.isEnabled()) {
-          nextButton = btn;
-          break;
-        }
-      }
-      if (!nextButton) {
-        log.debug("No Next button found");
-        return { success: false, state: await this.getModalState(), error: "No Next button found" };
-      }
-      await nextButton.click();
-      await this.page.waitForTimeout(1e3);
-      const hasErrors = await this.hasValidationErrors();
-      if (hasErrors) {
-        log.warn("Validation errors detected after clicking Next");
-        return { success: false, state: "error", error: "Validation errors" };
-      }
-      const newState = await this.getModalState();
-      log.debug(`Clicked Next \u2192 state: ${newState}`);
-      return { success: true, state: newState };
-    } catch (error) {
-      log.error(`Error clicking Next: ${error}`);
-      return { success: false, state: "error", error: String(error) };
-    }
-  }
-  /**
-   * Click the Review button
-   */
-  async clickReview() {
-    try {
-      const reviewButton = this.page.locator('button[aria-label*="Review"]').first();
-      if (await reviewButton.count() === 0 || !await reviewButton.isEnabled()) {
-        log.debug("No Review button found");
-        return { success: false, state: await this.getModalState(), error: "No Review button" };
-      }
-      await reviewButton.click();
-      await this.page.waitForTimeout(1e3);
-      const newState = await this.getModalState();
-      log.debug(`Clicked Review \u2192 state: ${newState}`);
-      return { success: true, state: newState };
-    } catch (error) {
-      log.error(`Error clicking Review: ${error}`);
-      return { success: false, state: "error", error: String(error) };
-    }
-  }
-  /**
-   * Click the Submit button to finalize the application
-   * 
-   * This is the final action - after this, the application is submitted.
-   */
-  async clickSubmit() {
-    try {
-      const submitButton = this.page.locator('button[aria-label*="Submit application"]').first();
-      if (await submitButton.count() === 0 || !await submitButton.isEnabled()) {
-        log.debug("No Submit button found");
-        return { success: false, state: await this.getModalState(), error: "No Submit button" };
-      }
-      log.info("\u{1F680} Submitting application...");
-      await submitButton.click();
-      await this.page.waitForTimeout(2e3);
-      const newState = await this.getModalState();
-      if (newState === "success") {
-        log.info("\u2705 Application submitted successfully!");
-        return { success: true, state: "success" };
-      } else {
-        log.warn(`Submit clicked but state is: ${newState}`);
-        return { success: false, state: newState, error: "Submission may have failed" };
-      }
-    } catch (error) {
-      log.error(`Error clicking Submit: ${error}`);
-      return { success: false, state: "error", error: String(error) };
-    }
-  }
-  /**
-   * Click the Back button to return to previous page
-   * 
-   * Useful for error recovery.
-   */
-  async clickBack() {
-    try {
-      const backButton = this.page.locator('button[aria-label*="Back"]').first();
-      if (await backButton.count() === 0) {
-        return { success: false, state: await this.getModalState(), error: "No Back button" };
-      }
-      await backButton.click();
-      await this.page.waitForTimeout(500);
-      const newState = await this.getModalState();
-      log.debug(`Clicked Back \u2192 state: ${newState}`);
-      return { success: true, state: newState };
-    } catch (error) {
-      log.error(`Error clicking Back: ${error}`);
-      return { success: false, state: "error", error: String(error) };
     }
   }
   /**

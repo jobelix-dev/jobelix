@@ -112,13 +112,45 @@ class FormHandler {
             log.error(`Error processing section: ${error}`);
           }
         }
+        try {
+          const form = this.page.locator("form").first();
+          const fileInputs = await form.locator('input[type="file"]').all();
+          for (const fileInput of fileInputs) {
+            try {
+              const block = await fileInput.locator('xpath=./ancestor::div[contains(@class,"jobs-document-upload") or contains(@class,"jobs-resume-picker")]').first();
+              if (await block.count() === 0) {
+                continue;
+              }
+              const key = await this.formUtils.stableKey(block);
+              if (processedKeys.has(key)) {
+                continue;
+              }
+              if (await this.fileUploadHandler.canHandle(block)) {
+                log.debug("Processing bare file input block");
+                const success = await this.fileUploadHandler.handle(block);
+                processedKeys.add(key);
+                newlyHandled++;
+                result.fieldsProcessed++;
+                if (!success) {
+                  result.fieldsFailed++;
+                }
+              }
+            } catch {
+            }
+          }
+        } catch {
+        }
         log.debug(`Pass ${passIndex}: handled ${newlyHandled} new elements`);
         if (newlyHandled === 0) {
           break;
         }
         try {
           const form = this.page.locator("form").first();
-          await form.evaluate((el) => el.scrollBy(0, 300));
+          await form.evaluate((el) => {
+            if ("scrollTop" in el) {
+              el.scrollTop += 300;
+            }
+          });
           await this.page.waitForTimeout(300);
         } catch {
         }
@@ -143,8 +175,12 @@ class FormHandler {
       ".jobs-easy-apply-form-section__grouping",
       ".fb-dash-form-element",
       "[data-test-form-element]",
-      ".jobs-document-upload"
-      // Resume upload sections
+      ".jobs-document-upload",
+      // Resume/document upload sections
+      ".jobs-resume-picker",
+      // Resume picker sections (ADDED - matches Python)
+      "[data-test-document-upload]"
+      // Document upload attribute
     ];
     const sections = [];
     const seenElements = /* @__PURE__ */ new Set();

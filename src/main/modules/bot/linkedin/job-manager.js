@@ -2,7 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { createJob, isBlacklisted } from "../models/job.js";
 import { createLogger } from "../utils/logger.js";
-import { getOutputFolderPath, getOldQuestionsPath, getDebugHtmlPath } from "../utils/paths.js";
+import { getOutputFolderPath, getOldQuestionsPath } from "../utils/paths.js";
+import { saveDebugHtml } from "../utils/debug-html.js";
+import { waitRandom, DELAYS } from "../utils/delays.js";
 import { buildSearchUrl } from "../core/config-validator.js";
 import { LinkedInEasyApplier } from "./easy-apply/easy-applier.js";
 const log = createLogger("JobManager");
@@ -80,7 +82,7 @@ class LinkedInJobManager {
         while (emptyPages < maxEmptyPages) {
           log.info(`Going to job page ${page}`);
           await this.navigateToSearchPage(position, location, page);
-          await this.page.waitForTimeout(Math.random() * 800 + 200);
+          await waitRandom(this.page, DELAYS.CLICK);
           log.info("Starting the application process for this page...");
           if (this.reporter && Date.now() - this.lastHeartbeat > 45e3) {
             const shouldContinue = this.reporter.sendHeartbeat("applying_jobs", {
@@ -108,7 +110,7 @@ class LinkedInJobManager {
           }
           log.info("Applications on this page completed \u2714");
           page++;
-          await this.page.waitForTimeout(9e3 + Math.random() * 3e3);
+          await waitRandom(this.page, DELAYS.BETWEEN_PAGES);
         }
       } catch (error) {
         if (this.isBrowserClosed(error)) {
@@ -156,7 +158,7 @@ class LinkedInJobManager {
       }
       if (tiles.length === 0) {
         log.info("\u26A0\uFE0F No job tiles found on this page - likely reached end of results");
-        await this.saveDebugHtml("no_jobs_found");
+        await saveDebugHtml(this.page, "no_jobs_found");
         return 0;
       }
       log.info(`Found ${tiles.length} job tiles`);
@@ -209,7 +211,7 @@ class LinkedInJobManager {
           this.writeToFile(job, "success");
           this.seenJobs.add(job.link);
         } catch (error) {
-          await this.saveDebugHtml(`job_apply_error_${job.company.replace(/\s+/g, "_")}`);
+          await saveDebugHtml(this.page, `job_apply_error_${job.company.replace(/\s+/g, "_")}`);
           this.writeToFile(job, "failed");
           log.error(`apply_jobs failed for ${job.title} at ${job.company}: ${error}`);
           await this.page.waitForTimeout(3e3 + Math.random() * 2e3);
@@ -217,7 +219,7 @@ class LinkedInJobManager {
       }
       return jobs.length;
     } catch (error) {
-      await this.saveDebugHtml("apply_jobs_exception");
+      await saveDebugHtml(this.page, "apply_jobs_exception");
       throw error;
     }
   }
@@ -350,21 +352,6 @@ class LinkedInJobManager {
     const line = `"${job.company}","${job.title}","${job.link}","${job.location}"
 `;
     fs.appendFileSync(filePath, line, "utf-8");
-  }
-  /**
-   * Save debug HTML snapshot
-   */
-  async saveDebugHtml(context) {
-    try {
-      const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-      const filename = `${context}_${timestamp}.html`;
-      const filePath = path.join(getDebugHtmlPath(), filename);
-      const content = await this.page.content();
-      fs.writeFileSync(filePath, content, "utf-8");
-      log.info(`Saved debug HTML: ${filename}`);
-    } catch (error) {
-      log.error(`Failed to save debug HTML: ${error}`);
-    }
   }
   /**
    * Parse a CSV line into parts

@@ -92,9 +92,9 @@ export class CheckboxHandler extends BaseFieldHandler {
         return true;
       }
 
-      // For other single checkboxes, ask GPT
+      // For other single checkboxes, ask GPT directly (no section routing)
       const prompt = `Should I check this checkbox? "${labelText}" (Answer: yes or no)`;
-      const answer = await this.gptAnswerer.answerTextual(prompt);
+      const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
       
       if (answer?.toLowerCase().includes('yes')) {
         await checkbox.check();
@@ -128,21 +128,38 @@ export class CheckboxHandler extends BaseFieldHandler {
         options.push({ checkbox, label });
       }
 
-      // Format options for GPT
+      // Format options for GPT (MATCHES PYTHON APPROACH)
       const optionsList = options.map((o, i) => `${i + 1}. ${o.label}`).join('\n');
       
-      // Ask GPT which options to select
-      const prompt = `Question: "${questionText}"\n\nOptions:\n${optionsList}\n\nWhich options should I select? List the numbers separated by commas, or say "none".`;
+      // Ask GPT directly which options to select (no section routing!)
+      // This is critical for questions like "How did you hear about us?" which are
+      // NOT based on resume content
+      const prompt = `Question: "${questionText}"\n\nOptions:\n${optionsList}\n\nWhich options should I select? List the numbers separated by commas, or say "none". If the question asks how you heard about a company and "LinkedIn" or "Job Board" is an option, select that.`;
       
-      const answer = await this.gptAnswerer.answerTextual(prompt);
+      const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
       
-      if (!answer || answer.toLowerCase() === 'none') {
+      if (!answer || answer.toLowerCase().trim() === 'none') {
         log.debug('No checkboxes selected');
         return true;
       }
 
       // Parse selected numbers
       const selectedNumbers = this.parseSelectedNumbers(answer, options.length);
+      
+      if (selectedNumbers.length === 0) {
+        log.warn(`Could not parse checkbox selection from: "${answer}"`);
+        // Try to find "linkedin" or "job board" as fallback for "how did you hear" questions
+        if (questionText.toLowerCase().includes('hear about') || questionText.toLowerCase().includes('how did you')) {
+          for (let i = 0; i < options.length; i++) {
+            const label = options[i].label.toLowerCase();
+            if (label.includes('linkedin') || label.includes('job board') || label.includes('job site')) {
+              selectedNumbers.push(i + 1);
+              log.info(`Fallback: selecting "${options[i].label}" for referral question`);
+              break;
+            }
+          }
+        }
+      }
       
       // Check the selected options
       for (const num of selectedNumbers) {

@@ -173,6 +173,46 @@ export class FormHandler {
           }
         }
 
+        // CRITICAL: Pick up bare <input type="file"> blocks (MATCHES PYTHON _answer_visible_form)
+        // This handles file upload sections that aren't found by standard selectors
+        try {
+          const form = this.page.locator('form').first();
+          const fileInputs = await form.locator('input[type="file"]').all();
+          
+          for (const fileInput of fileInputs) {
+            try {
+              // Find ancestor container (matches Python's xpath ancestor lookup)
+              const block = await fileInput.locator('xpath=./ancestor::div[contains(@class,"jobs-document-upload") or contains(@class,"jobs-resume-picker")]').first();
+              
+              if (await block.count() === 0) {
+                continue;
+              }
+              
+              const key = await this.formUtils.stableKey(block);
+              if (processedKeys.has(key)) {
+                continue;
+              }
+              
+              // Use file upload handler directly
+              if (await this.fileUploadHandler.canHandle(block)) {
+                log.debug('Processing bare file input block');
+                const success = await this.fileUploadHandler.handle(block);
+                processedKeys.add(key);
+                newlyHandled++;
+                result.fieldsProcessed++;
+                
+                if (!success) {
+                  result.fieldsFailed++;
+                }
+              }
+            } catch {
+              // Could not process this file input, continue to next
+            }
+          }
+        } catch {
+          // No form found or error processing file inputs
+        }
+
         log.debug(`Pass ${passIndex}: handled ${newlyHandled} new elements`);
 
         // Exit if no new elements were handled (matches Python's if newly_handled == 0: break)
@@ -183,7 +223,11 @@ export class FormHandler {
         // Scroll to load more elements (virtualized lists) - matches Python's form_el.evaluate scroll
         try {
           const form = this.page.locator('form').first();
-          await form.evaluate((el) => el.scrollBy(0, 300));
+          await form.evaluate((el) => { 
+            if ('scrollTop' in el) {
+              (el as { scrollTop: number }).scrollTop += 300;
+            }
+          });
           await this.page.waitForTimeout(300);
         } catch {
           // Scroll failed - form might not exist or be scrollable
@@ -211,12 +255,14 @@ export class FormHandler {
    * for each form field grouping.
    */
   private async findFormSections(): Promise<Locator[]> {
-    // LinkedIn form section selectors
+    // LinkedIn form section selectors (MATCHES PYTHON approach)
     const sectionSelectors = [
       '.jobs-easy-apply-form-section__grouping',
       '.fb-dash-form-element',
       '[data-test-form-element]',
-      '.jobs-document-upload',  // Resume upload sections
+      '.jobs-document-upload',        // Resume/document upload sections
+      '.jobs-resume-picker',          // Resume picker sections (ADDED - matches Python)
+      '[data-test-document-upload]',  // Document upload attribute
     ];
 
     const sections: Locator[] = [];

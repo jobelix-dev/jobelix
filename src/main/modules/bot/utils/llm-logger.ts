@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createLogger } from '../utils/logger';
 import { getDataFolderPath } from '../utils/paths';
-import type { ChatMessage, TokenUsage } from './backend-client';
+import type { ChatMessage, TokenUsage } from '../ai/backend-client';
 
 const log = createLogger('LLMLogger');
 

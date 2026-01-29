@@ -1,83 +1,42 @@
 /**
  * Path utilities for the LinkedIn Auto Apply Bot
  * 
- * Provides centralized path management for data files, output, etc.
+ * All user data is stored in Electron's userData folder:
+ * - Windows: %APPDATA%/jobelix
+ * - macOS: ~/Library/Application Support/jobelix
+ * - Linux: ~/.config/jobelix
+ * 
+ * This keeps user data persistent across app updates and follows OS conventions.
  */
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { fileURLToPath } from 'url';
 import { app } from 'electron';
 
-// ESM equivalent of __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 /**
- * Get the base resources path based on environment
+ * Get the user data folder path (Electron's userData)
+ * This is where all persistent user data is stored.
  */
-export function getResourcesPath(): string {
-  if (app.isPackaged) {
-    return process.resourcesPath;
-  }
-  // Development mode - navigate from bot/utils to project root/resources
-  // __dirname is: src/main/modules/bot/utils
-  // We need:      resources
-  return path.join(__dirname, '..', '..', '..', '..', '..', 'resources');
-}
-
-/**
- * Detect Arch-based Linux distributions via /etc/os-release
- * Matches the logic in platform-utils.js
- */
-function isArchLinux(): boolean {
-  try {
-    if (!fs.existsSync('/etc/os-release')) return false;
-    const content = fs.readFileSync('/etc/os-release', 'utf-8');
-    const idMatch = content.match(/^ID=(.+)$/m);
-    const likeMatch = content.match(/^ID_LIKE=(.+)$/m);
-    const id = idMatch ? idMatch[1].replace(/"/g, '').toLowerCase() : '';
-    const like = likeMatch ? likeMatch[1].replace(/"/g, '').toLowerCase() : '';
-    return id === 'arch' || like.includes('arch');
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Get the platform-specific bot resources directory
- * 
- * Supports: mac, win, linux (Ubuntu), linux-arch (Arch/Manjaro)
- */
-export function getBotResourcesPath(): string {
-  let platform: string;
-  
-  if (process.platform === 'darwin') {
-    platform = 'mac';
-  } else if (process.platform === 'win32') {
-    platform = 'win';
-  } else if (process.platform === 'linux') {
-    // Check for Arch Linux vs other distros
-    platform = isArchLinux() ? 'linux-arch' : 'linux';
-  } else {
-    platform = 'linux'; // Fallback
-  }
-  
-  return path.join(getResourcesPath(), platform);
+export function getUserDataPath(): string {
+  return app.getPath('userData');
 }
 
 /**
  * Get the data folder path (contains config.yaml, resume.yaml)
  */
 export function getDataFolderPath(): string {
-  return path.join(getBotResourcesPath(), 'main', 'data_folder');
+  const dataPath = path.join(getUserDataPath(), 'data');
+  if (!fs.existsSync(dataPath)) {
+    fs.mkdirSync(dataPath, { recursive: true });
+  }
+  return dataPath;
 }
 
 /**
- * Get the output folder path (for CSVs, generated resumes)
+ * Get the output folder path (for CSVs, logs)
  */
 export function getOutputFolderPath(): string {
-  const outputPath = path.join(getDataFolderPath(), 'output');
+  const outputPath = path.join(getUserDataPath(), 'output');
   if (!fs.existsSync(outputPath)) {
     fs.mkdirSync(outputPath, { recursive: true });
   }
@@ -88,7 +47,7 @@ export function getOutputFolderPath(): string {
  * Get the tailored resumes folder path
  */
 export function getTailoredResumesPath(): string {
-  const resumesPath = path.join(getBotResourcesPath(), 'main', 'tailored_resumes');
+  const resumesPath = path.join(getUserDataPath(), 'tailored_resumes');
   if (!fs.existsSync(resumesPath)) {
     fs.mkdirSync(resumesPath, { recursive: true });
   }
@@ -99,7 +58,7 @@ export function getTailoredResumesPath(): string {
  * Get the debug HTML folder path
  */
 export function getDebugHtmlPath(): string {
-  const debugPath = path.join(getBotResourcesPath(), 'main', 'debug_html');
+  const debugPath = path.join(getUserDataPath(), 'debug_html');
   if (!fs.existsSync(debugPath)) {
     fs.mkdirSync(debugPath, { recursive: true });
   }
@@ -110,7 +69,11 @@ export function getDebugHtmlPath(): string {
  * Get the Chrome profile path for persistent sessions
  */
 export function getChromeProfilePath(): string {
-  return path.join(getBotResourcesPath(), 'main', 'chrome_profile');
+  const chromePath = path.join(getUserDataPath(), 'chrome_profile');
+  if (!fs.existsSync(chromePath)) {
+    fs.mkdirSync(chromePath, { recursive: true });
+  }
+  return chromePath;
 }
 
 /**
@@ -138,9 +101,11 @@ export function getOldQuestionsPath(): string {
  * Ensure all required directories exist
  */
 export function ensureDirectories(): void {
+  getDataFolderPath();
   getOutputFolderPath();
   getTailoredResumesPath();
   getDebugHtmlPath();
+  getChromeProfilePath();
 }
 
 /**

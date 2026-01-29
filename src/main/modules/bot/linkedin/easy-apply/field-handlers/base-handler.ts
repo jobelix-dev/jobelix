@@ -12,8 +12,9 @@
  */
 
 import type { Page, Locator } from 'playwright';
-import type { GPTAnswerer } from '../../ai/gpt-answerer';
+import type { GPTAnswerer } from '../../../ai/gpt-answerer';
 import type { FormUtils } from '../form-utils';
+import { normalizeText } from '../form-utils';
 
 /**
  * Abstract base class for all field handlers
@@ -73,14 +74,56 @@ export abstract class BaseFieldHandler {
    * @returns The question text, or a default value
    */
   protected async extractQuestionText(element: Locator): Promise<string> {
+    // Helper to deduplicate text (handles "Code paysCode pays" -> "Code pays")
+    // LinkedIn sometimes includes visually-hidden duplicate text for accessibility
+    const deduplicateText = (text: string): string => {
+      const trimmed = text.trim();
+      if (trimmed.length < 4) return trimmed;
+      
+      // Check if the text is exactly doubled
+      const half = Math.floor(trimmed.length / 2);
+      const firstHalf = trimmed.substring(0, half);
+      const secondHalf = trimmed.substring(half);
+      if (firstHalf === secondHalf) {
+        return firstHalf;
+      }
+      return trimmed;
+    };
+
+    // Helper to extract visible text only (excludes .visually-hidden elements)
+    const getVisibleText = async (locator: Locator): Promise<string | null> => {
+      try {
+        // Use evaluate to exclude visually-hidden content (matches Python approach)
+        // Note: The callback runs in browser context where DOM APIs are available
+        //
+        // IMPORTANT: LinkedIn's HTML structure:
+        // - <span aria-hidden="true"> = VISIBLE text (shown on page, hidden from screen readers)
+        // - <span class="visually-hidden"> = HIDDEN text (for screen readers only, CSS hidden)
+        //
+        // We must ONLY remove .visually-hidden and .sr-only elements, NOT [aria-hidden="true"]!
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const text = await locator.evaluate((el: any): string | null => {
+          const clone = el.cloneNode(true);
+          // Remove ONLY screen-reader-only elements (NOT aria-hidden which contains visible text!)
+          clone.querySelectorAll('.visually-hidden, .sr-only').forEach((e: any) => e.remove());
+          return clone.textContent;
+        });
+        return text?.trim() || null;
+      } catch {
+        // Fallback to regular textContent
+        const text = await locator.textContent();
+        return text?.trim() || null;
+      }
+    };
+
     // Try different label sources in order of preference
     
     // 1. Try <legend> (for fieldsets/radio groups)
     try {
       const legend = element.locator('legend').first();
       if (await legend.count() > 0) {
-        const text = await legend.textContent();
-        if (text?.trim()) return text.trim();
+        const text = await getVisibleText(legend);
+        if (text) return deduplicateText(text);
       }
     } catch { /* ignore */ }
 
@@ -88,27 +131,45 @@ export abstract class BaseFieldHandler {
     try {
       const label = element.locator('label').first();
       if (await label.count() > 0) {
-        const text = await label.textContent();
-        if (text?.trim()) return text.trim();
+        const text = await getVisibleText(label);
+        if (text) return deduplicateText(text);
       }
     } catch { /* ignore */ }
 
-    // 3. Try data-test attribute for question title
+    // 3. Try data-test attribute for question title (radio buttons)
     try {
       const title = element.locator('[data-test-form-builder-radio-button-form-component__title]').first();
       if (await title.count() > 0) {
-        const text = await title.textContent();
-        if (text?.trim()) return text.trim();
+        const text = await getVisibleText(title);
+        if (text) return deduplicateText(text);
       }
     } catch { /* ignore */ }
 
-    // 4. Try aria-label attribute
+    // 4. Try data-test attribute for checkbox form title
     try {
-      const ariaLabel = await element.getAttribute('aria-label');
-      if (ariaLabel?.trim()) return ariaLabel.trim();
+      const checkboxTitle = element.locator('[data-test-checkbox-form-title]').first();
+      if (await checkboxTitle.count() > 0) {
+        const text = await getVisibleText(checkboxTitle);
+        if (text) return deduplicateText(text);
+      }
     } catch { /* ignore */ }
 
-    // 5. Try input name attribute as fallback
+    // 5. Try data-test attribute for text entity list title (dropdowns with labels)
+    try {
+      const textEntityTitle = element.locator('[data-test-text-entity-list-form-title]').first();
+      if (await textEntityTitle.count() > 0) {
+        const text = await getVisibleText(textEntityTitle);
+        if (text) return deduplicateText(text);
+      }
+    } catch { /* ignore */ }
+
+    // 6. Try aria-label attribute
+    try {
+      const ariaLabel = await element.getAttribute('aria-label');
+      if (ariaLabel?.trim()) return deduplicateText(ariaLabel.trim());
+    } catch { /* ignore */ }
+
+    // 7. Try input name attribute as fallback
     try {
       const input = element.locator('input, select, textarea').first();
       if (await input.count() > 0) {
@@ -127,6 +188,6 @@ export abstract class BaseFieldHandler {
    * in capitalization, accents, or whitespace.
    */
   protected normalizeText(text: string): string {
-    return this.formUtils.normalizeText(text);
+    return normalizeText(text);
   }
 }

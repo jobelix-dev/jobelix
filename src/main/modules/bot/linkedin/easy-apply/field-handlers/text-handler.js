@@ -105,13 +105,70 @@ class TextInputHandler extends BaseFieldHandler {
   }
   /**
    * Smart matching for common text fields
+   * 
+   * Uses language-independent HTML patterns to identify field types like:
+   * - Location/City fields (geo-location pattern in element ID)
+   * - Phone number fields
+   * 
+   * This matches the Python smart_text_match() logic in playwright_form_utils.py
    */
   async smartMatch(element, questionText) {
-    const questionLower = questionText.toLowerCase();
-    if (questionLower.includes("phone") && !questionLower.includes("prefix")) {
+    try {
+      const resume = this.gptAnswerer.resume;
+      if (!resume?.personalInformation) {
+        log.debug("[SMART TEXT] No resume or personal info available");
+        return void 0;
+      }
+      const personalInfo = resume.personalInformation;
+      const input = element.locator("input").first();
+      if (await input.count() === 0) {
+        return void 0;
+      }
+      const elementId = (await input.getAttribute("id") || "").toLowerCase();
+      log.debug(`[SMART TEXT] Element ID: ${elementId}`);
+      if (elementId.includes("geo-location") || elementId.includes("location-geo")) {
+        log.debug("[SMART TEXT] Detected location/city field (by HTML structure)");
+        const city = personalInfo.city;
+        if (city) {
+          log.info(`[SMART TEXT] \u2705 Using city from resume: ${city}`);
+          return city;
+        } else {
+          log.warn("[SMART TEXT] No city in resume");
+        }
+        return void 0;
+      }
+      if (elementId.includes("phonenumber-nationalnumber") || elementId.includes("phone-national")) {
+        log.debug("[SMART TEXT] Detected phone number field (by HTML structure)");
+        const phone = personalInfo.phonePrefix && personalInfo.phone ? `${personalInfo.phonePrefix}${personalInfo.phone}` : personalInfo.phone;
+        if (phone) {
+          log.info(`[SMART TEXT] \u2705 Using phone from resume: ${phone}`);
+          return phone;
+        } else {
+          log.warn("[SMART TEXT] No phone in resume");
+        }
+        return void 0;
+      }
+      const questionLower = questionText.toLowerCase();
+      if (questionLower.includes("phone") && !questionLower.includes("prefix")) {
+        const phone = personalInfo.phonePrefix && personalInfo.phone ? `${personalInfo.phonePrefix}${personalInfo.phone}` : personalInfo.phone;
+        if (phone) {
+          log.info(`[SMART TEXT] \u2705 Using phone from resume (by question): ${phone}`);
+          return phone;
+        }
+      }
+      if (questionLower.includes("city") || questionLower.includes("location")) {
+        const city = personalInfo.city;
+        if (city) {
+          log.info(`[SMART TEXT] \u2705 Using city from resume (by question): ${city}`);
+          return city;
+        }
+      }
+      log.debug("[SMART TEXT] No pattern matched");
+      return void 0;
+    } catch (error) {
+      log.debug(`[SMART TEXT] Error analyzing element: ${error}`);
       return void 0;
     }
-    return void 0;
   }
 }
 export {

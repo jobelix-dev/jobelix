@@ -15,12 +15,6 @@ class FormUtils {
     log.info(`Loaded ${this.answers.size} saved answers`);
   }
   /**
-   * Normalize text for comparison
-   */
-  normalizeText(text) {
-    return normalizeText(text);
-  }
-  /**
    * Get a saved answer for a question
    * 
    * Looks up answers using substring matching, so "years of experience"
@@ -31,6 +25,10 @@ class FormUtils {
    * @returns Saved answer or undefined if not found
    */
   getSavedAnswer(fieldType, questionText) {
+    if (!questionText || questionText.toLowerCase().includes("unknown")) {
+      log.warn(`[GET_SAVED] Refusing to lookup answer for unknown/empty question: "${questionText}"`);
+      return void 0;
+    }
     const normalizedQuestion = questionText.toLowerCase();
     const typePrefix = fieldType.toLowerCase() + ":";
     const exactKey = typePrefix + normalizedQuestion;
@@ -55,11 +53,46 @@ class FormUtils {
    * Saves the answer to the in-memory cache and calls the record callback
    * to persist it to disk (old_Questions.csv).
    * 
+   * MATCHES PYTHON: Validates answer is not a placeholder before saving.
+   * 
    * @param fieldType - Type of field
    * @param questionText - The question
    * @param answer - The answer to save
    */
   rememberAnswer(fieldType, questionText, answer) {
+    if (!questionText || questionText.toLowerCase().includes("unknown")) {
+      log.warn(`[REMEMBER] Refusing to cache answer for unknown/empty question: "${questionText}"`);
+      return;
+    }
+    if (!answer || !answer.trim()) {
+      log.warn(`[REMEMBER] Refusing to save empty answer for question: "${questionText}"`);
+      return;
+    }
+    const answerStripped = answer.trim();
+    const answerLower = answerStripped.toLowerCase();
+    const isNumeric = /^[\d.\-]+$/.test(answerStripped);
+    const validShortAnswers = ["yes", "no", "si", "s\xED", "oui", "non", "ja", "nein"];
+    const isValidShort = validShortAnswers.includes(answerLower);
+    if (!isNumeric && !isValidShort && answerStripped.length <= 2) {
+      log.warn(`[REMEMBER] Refusing to save too short answer: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    const selectPatterns = ["select", "s\xE9lect", "selecciona", "seleccione", "seleziona", "escolh"];
+    const choosePatterns = ["choose", "choisir", "choisissez", "elegir", "scegli"];
+    if ([...selectPatterns, ...choosePatterns].some((pattern) => answerLower.startsWith(pattern))) {
+      log.warn(`[REMEMBER] Refusing to save selection prompt: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    const optionPatterns = ["option", "opci\xF3n", "opzione", "an option", "una opci\xF3n"];
+    if (optionPatterns.includes(answerLower)) {
+      log.warn(`[REMEMBER] Refusing to save 'option' placeholder: "${answer}" for question: "${questionText}"`);
+      return;
+    }
+    const nullValues = ["n/a", "none", "null", "nil", "undefined", "---", "...", "\u2013"];
+    if (nullValues.includes(answerLower) || nullValues.includes(answerStripped)) {
+      log.warn(`[REMEMBER] Refusing to save null/placeholder value: "${answer}" for question: "${questionText}"`);
+      return;
+    }
     const key = `${fieldType.toLowerCase()}:${questionText.toLowerCase()}`;
     this.answers.set(key, answer);
     if (this.recordCallback) {

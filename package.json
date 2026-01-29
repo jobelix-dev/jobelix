@@ -51,24 +51,7 @@
       "!tests/**/*",
       "!node_modules/.cache/**/*"
     ],
-    "extraResources": [
-      {
-        "from": "resources/${os}/",
-        "to": "./${os}/",
-        "filter": [
-          "main/**",
-          "version.txt"
-        ]
-      },
-      {
-        "from": "resources/linux-arch/",
-        "to": "./linux-arch/",
-        "filter": [
-          "main/**",
-          "version.txt"
-        ]
-      }
-    ],
+
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",

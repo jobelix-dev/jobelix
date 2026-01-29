@@ -26,7 +26,7 @@ export type { FormPageResult, AnswerRecordCallback } from './form-handler';
 
 // Navigation
 export { NavigationHandler } from './navigation';
-export type { ModalState, NavigationResult } from './navigation';
+export type { ModalState, PrimaryButtonResult } from './navigation';
 
 // Utilities
 export { FormUtils, normalizeText } from './form-utils';
