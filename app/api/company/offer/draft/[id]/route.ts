@@ -22,6 +22,25 @@ import { NextRequest } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 
 /**
+ * SECURITY: Whitelist of allowed fields for draft updates.
+ * This prevents mass assignment attacks where a malicious client
+ * could attempt to set arbitrary database columns.
+ */
+const ALLOWED_DRAFT_FIELDS = [
+  'basic_info',
+  'compensation',
+  'work_config',
+  'skills',
+  'locations',
+  'responsibilities',
+  'capabilities',
+  'questions',
+  'perks',
+  'seniority',
+  'status',
+] as const;
+
+/**
  * GET - Retrieve a specific draft by ID
  */
 export async function GET(
@@ -104,6 +123,17 @@ export async function PUT(
     const updates = await req.json();
 
     /**
+     * SECURITY FIX: Sanitize updates to only allow whitelisted fields.
+     * This prevents mass assignment attacks where a malicious client
+     * could attempt to set arbitrary database columns.
+     */
+    const sanitizedUpdates = Object.fromEntries(
+      Object.entries(updates || {}).filter(
+        ([key]) => ALLOWED_DRAFT_FIELDS.includes(key as typeof ALLOWED_DRAFT_FIELDS[number])
+      )
+    );
+
+    /**
      * 🔐 SECURITY:
      * Don't log full `updates` objects in production.
      * Drafts may contain sensitive company info and logs can leak.
@@ -114,7 +144,7 @@ export async function PUT(
     const { data: draft, error: updateError } = await supabase
       .from('company_offer_draft')
       .update({
-        ...updates,
+        ...sanitizedUpdates,
         updated_at: new Date().toISOString(),
       })
       .eq('id', draftId)

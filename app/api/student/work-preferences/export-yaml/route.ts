@@ -1,6 +1,8 @@
 /**
  * Export YAML API Route
  * Saves config.yaml to repository root for Electron app usage
+ * 
+ * SECURITY: Requires authentication - only authenticated users can export their config
  */
 
 import "server-only";
@@ -8,9 +10,14 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
+import { authenticateRequest } from '@/lib/server/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY FIX: Authenticate the request
+    const auth = await authenticateRequest();
+    if (auth.error) return auth.error;
+
     const { yamlContent } = await request.json();
 
     if (!yamlContent) {
