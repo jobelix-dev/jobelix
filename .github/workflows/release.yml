@@ -2,6 +2,8 @@ name: Build & Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   pull_request:
@@ -145,10 +147,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # Release job - runs on tags or manual trigger with publish=true
+  # Release job - runs on push to main, tags, or manual trigger with publish=true
   release:
     needs: build
     if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
     runs-on: ubuntu-latest
@@ -171,6 +174,22 @@ jobs:
           else
             # Get version from package.json
             VERSION=$(node -p "require('./package.json').version")
+            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag (if not exists)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          TAG=${{ steps.version.outputs.tag }}
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag $TAG"
+          fi
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
           fi
 
