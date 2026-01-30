@@ -17,8 +17,9 @@
 /.next/
 /out/
 
-# production
-/build
+# production (Next.js build output, not electron-builder assets)
+# Note: /build/license.txt and /build/icon.* are tracked for electron-builder
+/.next-build
 
 # misc
 .DS_Store
