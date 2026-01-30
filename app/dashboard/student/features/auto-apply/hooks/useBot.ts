@@ -392,13 +392,6 @@ export function useBot(): UseBotReturn {
       }
       const { token } = await tokenResponse.json();
 
-      // Set initial launch status
-      setLaunchStatus({
-        stage: 'checking',
-        message: 'Checking browser...',
-        logs: [],
-      });
-
       // Launch via IPC with API URL
       const apiUrl = process.env.NEXT_PUBLIC_APP_URL
         ? `${process.env.NEXT_PUBLIC_APP_URL}/api/autoapply/gpt4`
