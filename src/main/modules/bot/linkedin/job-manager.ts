@@ -324,10 +324,43 @@ export class LinkedInJobManager {
     let link = '';
     let applyMethod = '';
 
+    // Helper to deduplicate text (handles "ML Engineer (F/H)ML Engineer (F/H)" -> "ML Engineer (F/H)")
+    // LinkedIn includes visually-hidden duplicate text for accessibility
+    const deduplicateText = (text: string): string => {
+      const trimmed = text.trim();
+      if (trimmed.length < 4) return trimmed;
+      
+      // Check if the text is exactly doubled (with possible whitespace variation)
+      const half = Math.floor(trimmed.length / 2);
+      const firstHalf = trimmed.substring(0, half).trim();
+      const secondHalf = trimmed.substring(half).trim();
+      if (firstHalf === secondHalf) {
+        return firstHalf;
+      }
+      return trimmed;
+    };
+
+    // Helper to get visible text only (excludes .visually-hidden elements)
+    const getVisibleText = async (locator: Locator): Promise<string> => {
+      try {
+        const text = await locator.evaluate((el: Element): string => {
+          const clone = el.cloneNode(true) as Element;
+          // Remove screen-reader-only elements
+          clone.querySelectorAll('.visually-hidden, .sr-only').forEach(e => e.remove());
+          return clone.textContent || '';
+        });
+        return deduplicateText(text);
+      } catch {
+        // Fallback to regular textContent with deduplication
+        const text = await locator.textContent();
+        return deduplicateText(text || '');
+      }
+    };
+
     // 1) Title & link
     try {
       const aTag = tile.locator('a.job-card-container__link');
-      title = (await aTag.textContent() || '').trim();
+      title = await getVisibleText(aTag);
       const href = await aTag.getAttribute('href');
       if (href) {
         const cleanHref = href.split('?')[0];
@@ -342,7 +375,7 @@ export class LinkedInJobManager {
     // 2) Company
     try {
       const companySpan = tile.locator('.artdeco-entity-lockup__subtitle span').first();
-      company = (await companySpan.textContent() || '').trim();
+      company = await getVisibleText(companySpan);
     } catch (error) {
       log.error(`[extract] company failed: ${error}`);
     }
@@ -350,7 +383,7 @@ export class LinkedInJobManager {
     // 3) Location
     try {
       const locationSpan = tile.locator('ul.job-card-container__metadata-wrapper li span').first();
-      location = (await locationSpan.textContent() || '').trim();
+      location = await getVisibleText(locationSpan);
     } catch (error) {
       log.error(`[extract] location failed: ${error}`);
     }

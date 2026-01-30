@@ -3,12 +3,12 @@
  * 
  * Displays real-time bot session status with live updates.
  * Shows activity, stats, elapsed time, and provides stop control.
- * Updated: 2026-01-30
+ * Stop button always force kills the browser PID.
  */
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { BotSession, BotLaunchStatus, HistoricalTotals } from '@/lib/shared/types';
 import * as Icons from 'lucide-react';
 import { useConfirmDialog } from '@/app/components/useConfirmDialog';
@@ -27,6 +27,13 @@ const ACTIVITY_MESSAGES: Record<string, string> = {
   'finalizing': 'Finalizing...',
 };
 
+// Bot process status from main process
+interface BotProcessStatus {
+  running: boolean;
+  pid: number | null;
+  startedAt: number | null;
+}
+
 interface BotStatusCardProps {
   session: BotSession;
   historicalTotals: HistoricalTotals;
@@ -34,10 +41,22 @@ interface BotStatusCardProps {
   onLaunch?: () => Promise<{ success: boolean; error?: string }>;
   onShowInstructions?: () => void;
   launchStatus?: BotLaunchStatus | null;
+  botProcess?: BotProcessStatus | null;
+  stopping?: boolean;
 }
 
-export default function BotStatusCard({ session, historicalTotals, onStop, onLaunch, onShowInstructions, launchStatus }: BotStatusCardProps) {
+export default function BotStatusCard({ 
+  session, 
+  historicalTotals, 
+  onStop, 
+  onLaunch, 
+  onShowInstructions, 
+  launchStatus, 
+  botProcess, 
+  stopping 
+}: BotStatusCardProps) {
   const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
+  
   const isActive = session.status === 'starting' || session.status === 'running';
   const isCompleted = session.status === 'completed' || session.status === 'failed' || session.status === 'stopped';
   const isStopped = session.status === 'stopped';
@@ -88,7 +107,7 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
     : null;
   const showActivityCard = isActive && activityMessage && !isInstalling;
 
-  // Handle stop button click
+  // Handle stop button click - always force kills
   const handleStop = async () => {
     if (session.status !== 'starting' && session.status !== 'running') {
       await alert(
@@ -99,7 +118,7 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
     }
 
     const confirmed = await confirm(
-      'Are you sure you want to stop the bot? The current operation will complete before stopping.',
+      'Are you sure you want to stop the bot? This will immediately terminate the browser process.',
       { title: 'Stop Bot', variant: 'danger', confirmText: 'Stop', cancelText: 'Cancel' }
     );
     if (!confirmed) return;
@@ -115,10 +134,31 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
       <HeaderSection
         isActive={isActive}
         isCompleted={isCompleted}
+        stopping={stopping}
         onStop={handleStop}
         onLaunch={onLaunch}
         onShowInstructions={onShowInstructions}
       />
+
+      {/* Process info banner when running */}
+      {isActive && botProcess?.running && (
+        <ProcessInfoBanner 
+          pid={botProcess.pid} 
+          startedAt={botProcess.startedAt} 
+        />
+      )}
+
+      {/* Stopping banner */}
+      {stopping && (
+        <div className="p-3 bg-warning-subtle/15 border border-warning/20 rounded-lg">
+          <div className="flex items-center gap-3">
+            <Icons.Loader2 className="w-4 h-4 text-warning animate-spin" />
+            <span className="text-sm text-default">
+              Stopping bot...
+            </span>
+          </div>
+        </div>
+      )}
 
       {isInstalling && launchStatus && (
         <InstallProgressBanner progress={progressValue} />
@@ -138,7 +178,7 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 
       <StatsGrid stats={displayStats} isActive={isActive} />
 
-      {isStopped && <StatusBanner variant="warning" title="Session Stopped" message="The bot was manually stopped and will not restart automatically. Click &quot;Launch Again&quot; to start a new session." />}
+      {isStopped && <StatusBanner variant="warning" title="Session Stopped" message="The bot was stopped. Click &quot;Launch Again&quot; to start a new session." />}
       {isFailed && <StatusBanner variant="error" title="Session Failed" message="The bot encountered an error and stopped. You can launch a new session when ready." />}
       
       {ConfirmDialogComponent}
@@ -151,12 +191,13 @@ export default function BotStatusCard({ session, historicalTotals, onStop, onLau
 interface HeaderSectionProps {
   isActive: boolean;
   isCompleted: boolean;
+  stopping?: boolean;
   onStop: () => void;
   onLaunch?: () => Promise<{ success: boolean; error?: string }>;
   onShowInstructions?: () => void;
 }
 
-function HeaderSection({ isActive, isCompleted, onStop, onLaunch, onShowInstructions }: HeaderSectionProps) {
+function HeaderSection({ isActive, isCompleted, stopping, onStop, onLaunch, onShowInstructions }: HeaderSectionProps) {
   return (
     <div className="flex items-center justify-between">
       <h3 className="text-lg font-semibold text-default">Bot Session</h3>
@@ -164,10 +205,20 @@ function HeaderSection({ isActive, isCompleted, onStop, onLaunch, onShowInstruct
       {isActive ? (
         <button
           onClick={onStop}
-          className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow"
+          disabled={stopping}
+          className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Icons.OctagonX className="w-4 h-4" />
-          Stop Bot
+          {stopping ? (
+            <>
+              <Icons.Loader2 className="w-4 h-4 animate-spin" />
+              Stopping...
+            </>
+          ) : (
+            <>
+              <Icons.OctagonX className="w-4 h-4" />
+              Stop Bot
+            </>
+          )}
         </button>
       ) : isCompleted && onLaunch ? (
         <div className="flex items-center gap-2">
@@ -206,7 +257,7 @@ function ActivityBanner({ message, company, jobTitle }: ActivityBannerProps) {
         <div className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0" />
         <span className="text-sm text-default">
           {message}
-          {company && <span className="font-medium"> • {company}</span>}
+          {company && <span className="font-medium"> - {company}</span>}
           {jobTitle && <span className="text-muted"> - {jobTitle}</span>}
         </span>
       </div>
@@ -311,6 +362,67 @@ function StatusBanner({ variant, title, message }: StatusBannerProps) {
     <div className={`p-4 ${bgClass} rounded-lg`}>
       <p className="text-sm font-medium text-default mb-1">{title}</p>
       <p className="text-sm text-muted">{message}</p>
+    </div>
+  );
+}
+
+interface ProcessInfoBannerProps {
+  pid: number | null;
+  startedAt: number | null;
+}
+
+/**
+ * ProcessInfoBanner - displays PID and live-updating runtime
+ * Uses useEffect to update runtime every second via interval
+ */
+function ProcessInfoBanner({ pid, startedAt }: ProcessInfoBannerProps) {
+  const [runtime, setRuntime] = useState<string | null>(() => {
+    // Initialize runtime based on startedAt
+    if (!startedAt) return null;
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  });
+  
+  useEffect(() => {
+    if (!startedAt) return;
+    
+    // Update every second via interval (external timer is the "external system")
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      setRuntime(minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [startedAt]);
+  
+  if (!pid && !runtime) return null;
+  
+  return (
+    <div className="p-2.5 bg-info-subtle/10 border border-info/15 rounded-lg">
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-4 text-muted">
+          {pid && (
+            <span className="flex items-center gap-1.5">
+              <Icons.Cpu className="w-3.5 h-3.5 text-info" />
+              PID: <span className="font-mono text-default">{pid}</span>
+            </span>
+          )}
+          {runtime && (
+            <span className="flex items-center gap-1.5">
+              <Icons.Timer className="w-3.5 h-3.5 text-info" />
+              Running: <span className="text-default">{runtime}</span>
+            </span>
+          )}
+        </div>
+        <span className="flex items-center gap-1.5 text-success">
+          <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+          Active
+        </span>
+      </div>
     </div>
   );
 }

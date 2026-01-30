@@ -100,6 +100,8 @@ export const IPC_CHANNELS = {
   WRITE_RESUME: 'write-resume',
   LAUNCH_BOT: 'launch-bot',
   STOP_BOT: 'stop-bot',
+  FORCE_STOP_BOT: 'force-stop-bot',
+  GET_BOT_STATUS: 'get-bot-status',
   
   // Auth cache
   SAVE_AUTH_CACHE: 'save-auth-cache',

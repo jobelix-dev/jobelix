@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
   launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
   stopBot: () => ipcRenderer.invoke('stop-bot'),
+  forceStopBot: () => ipcRenderer.invoke('force-stop-bot'),
+  getBotStatus: () => ipcRenderer.invoke('get-bot-status'),
   
   // Auth cache
   saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),

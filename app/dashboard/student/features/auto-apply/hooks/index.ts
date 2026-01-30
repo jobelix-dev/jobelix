@@ -2,6 +2,8 @@
  * Auto Apply feature hooks
  */
 
-export { useBotLauncher } from './useBotLauncher';
+export { useBot } from './useBot';
 export { useCredits } from './useCredits';
-export { useBotStatus } from './useBotStatus';
+
+// Legacy exports - marked for removal
+// useBotLauncher and useBotStatus have been consolidated into useBot
