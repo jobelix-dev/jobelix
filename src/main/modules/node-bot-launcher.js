@@ -233,7 +233,7 @@ export async function launchNodeBot(token, sendBotStatus) {
 }
 
 /**
- * Stop the running bot
+ * Stop the running bot gracefully
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function stopNodeBot() {
@@ -266,11 +266,80 @@ export async function stopNodeBot() {
 }
 
 /**
+ * Force stop the bot by killing the browser process tree
+ * Uses tree-kill for cross-platform process termination (Windows/macOS/Linux)
+ * @returns {Promise<{success: boolean, error?: string, killed?: boolean}>}
+ */
+export async function forceStopBot() {
+  logger.info('🔪 Force stopping bot (killing browser process)...');
+
+  const pid = botInstance?.getBrowserPid?.();
+  
+  if (!pid) {
+    logger.warn('No browser PID available, attempting graceful stop');
+    return stopNodeBot();
+  }
+
+  logger.info(`Killing process tree for PID: ${pid}`);
+
+  return new Promise((resolve) => {
+    // Dynamic import tree-kill (it's already in dependencies)
+    import('tree-kill').then(({ default: treeKill }) => {
+      // Use SIGKILL on Unix, taskkill /F on Windows
+      const signal = process.platform === 'win32' ? undefined : 'SIGKILL';
+      
+      treeKill(pid, signal, (err) => {
+        if (err) {
+          logger.warn(`tree-kill warning: ${err.message}`);
+          // Process might already be dead, that's okay
+        }
+        
+        // Cleanup state regardless of kill result
+        botInstance = null;
+        isRunning = false;
+        statusCallback = null;
+        
+        // Emit stopped status
+        emitStatus({ stage: 'stopped', message: 'Bot force stopped' });
+        
+        logger.info('✅ Bot force stopped');
+        resolve({ success: true, killed: true });
+      });
+    }).catch((importErr) => {
+      logger.error('Failed to import tree-kill:', importErr);
+      // Fallback to graceful stop
+      stopNodeBot().then(resolve);
+    });
+  });
+}
+
+/**
  * Check if bot is currently running
  * @returns {boolean}
  */
 export function isBotRunning() {
   return isRunning || (botInstance?.running ?? false);
+}
+
+/**
+ * Get detailed bot status including PID
+ * @returns {{running: boolean, pid: number|null, startedAt: number|null}}
+ */
+export function getBotStatus() {
+  if (!botInstance) {
+    return { running: false, pid: null, startedAt: null };
+  }
+  
+  if (typeof botInstance.getStatus === 'function') {
+    return botInstance.getStatus();
+  }
+  
+  // Fallback for older bot versions
+  return {
+    running: isRunning || (botInstance?.running ?? false),
+    pid: botInstance?.getBrowserPid?.() ?? null,
+    startedAt: null,
+  };
 }
 
 /**

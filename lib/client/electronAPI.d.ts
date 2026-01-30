@@ -14,6 +14,17 @@ export interface ElectronAPI {
     error?: string;
     message?: string;
   }>;
+  forceStopBot: () => Promise<{
+    success: boolean;
+    error?: string;
+    killed?: boolean;
+  }>;
+  getBotStatus: () => Promise<{
+    success: boolean;
+    running: boolean;
+    pid: number | null;
+    startedAt: number | null;
+  }>;
   saveAuthCache: (tokens: {
     access_token: string;
     refresh_token: string;

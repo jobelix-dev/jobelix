@@ -101,7 +101,7 @@ export function setupIpcHandlers() {
     return result;
   });
 
-  // Handler: Stop bot automation
+  // Handler: Stop bot automation (graceful)
   ipcMain.handle(IPC_CHANNELS.STOP_BOT, async () => {
     logger.ipc(IPC_CHANNELS.STOP_BOT, '🛑 STOP_BOT IPC handler called');
     logger.info('[IPC] 🛑 Stop bot requested from frontend');
@@ -125,6 +125,41 @@ export function setupIpcHandlers() {
     }
     
     return result;
+  });
+
+  // Handler: Force stop bot (kill process tree)
+  ipcMain.handle(IPC_CHANNELS.FORCE_STOP_BOT, async () => {
+    logger.ipc(IPC_CHANNELS.FORCE_STOP_BOT, '🔪 FORCE_STOP_BOT IPC handler called');
+    logger.info('[IPC] 🔪 Force stop bot requested from frontend');
+    
+    let result;
+    try {
+      const launcher = await getNodeBotLauncher();
+      result = await launcher.forceStopBot();
+    } catch (error) {
+      logger.error('Failed to force stop bot:', error);
+      result = { success: false, error: error.message };
+    }
+    
+    if (result.success) {
+      logger.ipc(IPC_CHANNELS.FORCE_STOP_BOT, '✅ Bot force stopped');
+    } else {
+      logger.ipc(IPC_CHANNELS.FORCE_STOP_BOT, `❌ Force stop failed: ${result.error}`);
+    }
+    
+    return result;
+  });
+
+  // Handler: Get bot status (running, PID, etc.)
+  ipcMain.handle(IPC_CHANNELS.GET_BOT_STATUS, async () => {
+    try {
+      const launcher = await getNodeBotLauncher();
+      const status = launcher.getBotStatus();
+      return { success: true, ...status };
+    } catch (error) {
+      logger.error('Failed to get bot status:', error);
+      return { success: false, running: false, pid: null, startedAt: null };
+    }
   });
 
   // Handler: Minimize window
@@ -225,6 +260,9 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.WRITE_CONFIG);
   ipcMain.removeHandler(IPC_CHANNELS.WRITE_RESUME);
   ipcMain.removeHandler(IPC_CHANNELS.LAUNCH_BOT);
+  ipcMain.removeHandler(IPC_CHANNELS.STOP_BOT);
+  ipcMain.removeHandler(IPC_CHANNELS.FORCE_STOP_BOT);
+  ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_STATUS);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MAXIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);

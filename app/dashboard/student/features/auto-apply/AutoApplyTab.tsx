@@ -8,12 +8,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, Search, FileText, ClipboardCheck, Zap, Info, LogIn, MousePointer2Off, StopCircle, X } from 'lucide-react';
+import { AlertCircle, Search, FileText, ClipboardCheck, Zap, Info, LogIn, MousePointer2Off, StopCircle, X, Loader2, OctagonX } from 'lucide-react';
 import CreditsSection from './components/CreditsSection';
 import LaunchButton from './components/LaunchButton';
 import BotStatusCard from './components/BotStatusCard';
+import { BotLaunchStatus } from '@/lib/shared/types';
+import { useSimulatedProgress } from '@/app/hooks';
+import { InstallProgressBanner, SetupMessageBanner } from './components/BotLaunchStatusBanners';
 import { usePreferences } from '../job-preferences/hooks';
-import { useBotLauncher, useCredits, useBotStatus } from './hooks';
+import { useBot, useCredits } from './hooks';
 
 export default function AutoApplyTab() {
   const [profilePublished, setProfilePublished] = useState(false);
@@ -23,26 +26,26 @@ export default function AutoApplyTab() {
   // Custom hooks for separated concerns
   const credits = useCredits();
   const preferences = usePreferences();
-  const botLauncher = useBotLauncher();
-  const botStatus = useBotStatus({ onBotStopped: botLauncher.clearLaunchStatus });
+  const bot = useBot();
 
-  // Wrapper for bot launch that refreshes status after launch
+  // Wrapper for bot launch
   const handleLaunchBot = async () => {
-    const result = await botLauncher.launchBot();
-    if (result.success) {
-      // Refresh bot status to immediately show the new session
-      await botStatus.refresh();
-    }
-    return result;
+    return await bot.launchBot();
   };
 
-  // Clear launch status when bot session becomes active
+  // Clear launch status when bot session ends
   useEffect(() => {
-    if (botStatus.session && (botStatus.session.status === 'starting' || botStatus.session.status === 'running')) {
-      // Bot is now active, clear any lingering launch status
-      botLauncher.clearLaunchStatus();
+    if (bot.session && ['completed', 'failed', 'stopped'].includes(bot.session.status)) {
+      // Give user time to see the final status before clearing
+      const timer = setTimeout(() => {
+        // Don't clear if bot was relaunched
+        if (bot.session && ['completed', 'failed', 'stopped'].includes(bot.session.status)) {
+          // Keep session visible for summary, just clear launching state
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [botStatus.session, botLauncher.clearLaunchStatus]);
+  }, [bot.session]);
 
   // Check if profile is published
   useEffect(() => {
@@ -57,7 +60,7 @@ export default function AutoApplyTab() {
         } else {
           setProfilePublished(false);
         }
-      } catch (error) {
+      } catch {
         setProfilePublished(false);
       } finally {
         setCheckingProfile(false);
@@ -97,6 +100,11 @@ export default function AutoApplyTab() {
     }
   };
 
+  // Determine what to show based on bot state
+  const isSessionActive = bot.session && (bot.session.status === 'starting' || bot.session.status === 'running');
+  const isSessionEnded = bot.session && ['completed', 'failed', 'stopped'].includes(bot.session.status);
+  const isLaunching = bot.launching || bot.launchStatus;
+
   return (
     <div className="space-y-10">
       {/* Instructions Modal - Can be reopened */}
@@ -132,13 +140,13 @@ export default function AutoApplyTab() {
                 <div className="flex-shrink-0 w-8 h-8 bg-warning/10 rounded-full flex items-center justify-center">
                   <MousePointer2Off className="w-4 h-4 text-warning" />
                 </div>
-                <p className="text-sm text-default">Don’t click or scroll while the bot runs.</p>
+                <p className="text-sm text-default">Don&apos;t click or scroll while the bot runs.</p>
               </div>
               <div className="flex items-center gap-3 rounded-lg bg-error-subtle/10 p-3">
                 <div className="flex-shrink-0 w-8 h-8 bg-error/10 rounded-full flex items-center justify-center">
                   <StopCircle className="w-4 h-4 text-error" />
                 </div>
-                <p className="text-sm text-default">Stop with “Stop Bot” or close the window.</p>
+                <p className="text-sm text-default">Stop with &quot;Stop Bot&quot; or close the window.</p>
               </div>
               <div className="flex items-center gap-3 rounded-lg bg-info-subtle/10 p-3">
                 <div className="flex-shrink-0 w-8 h-8 bg-info/10 rounded-full flex items-center justify-center">
@@ -229,36 +237,47 @@ export default function AutoApplyTab() {
           </div>
         ) : (
           <>
-            {/* Show status card only for active sessions or recently completed sessions */}
-            {botStatus.session && (botStatus.session.status === 'starting' || botStatus.session.status === 'running') ? (
+            {/* Show status card when bot is launching OR session is active */}
+            {(isLaunching && !isSessionActive) ? (
+              // Bot is launching but session not yet running - show launch status with stop option
+              <LaunchingStatusCard
+                launchStatus={bot.launchStatus}
+                onStop={bot.stopBot}
+                stopping={bot.stopping}
+              />
+            ) : isSessionActive ? (
               <BotStatusCard 
-                session={botStatus.session}
-                historicalTotals={botStatus.historicalTotals}
-                onStop={botStatus.stopBot}
+                session={bot.session!}
+                historicalTotals={bot.historicalTotals}
+                onStop={bot.stopBot}
                 onLaunch={canLaunch ? handleLaunchBot : undefined}
                 onShowInstructions={() => setShowInstructions(true)}
-                launchStatus={botLauncher.launchStatus}
+                launchStatus={bot.launchStatus}
+                botProcess={bot.botProcess}
+                stopping={bot.stopping}
               />
-            ) : botStatus.session && (botStatus.session.status === 'completed' || botStatus.session.status === 'failed' || botStatus.session.status === 'stopped') ? (
-              /* Show recent session summary, then launch button below */
+            ) : isSessionEnded ? (
+              /* Show recent session summary, then launch button */
               <div className="space-y-4">
                 <BotStatusCard 
-                  session={botStatus.session}
-                  historicalTotals={botStatus.historicalTotals}
-                  onStop={botStatus.stopBot}
+                  session={bot.session!}
+                  historicalTotals={bot.historicalTotals}
+                  onStop={bot.stopBot}
                   onLaunch={canLaunch ? handleLaunchBot : undefined}
                   onShowInstructions={() => setShowInstructions(true)}
-                  launchStatus={botLauncher.launchStatus}
+                  launchStatus={bot.launchStatus}
+                  botProcess={bot.botProcess}
+                  stopping={bot.stopping}
                 />
               </div>
             ) : (
               <LaunchButton
                 canLaunch={canLaunch}
-                launching={botLauncher.launching}
-                launchError={botLauncher.error}
+                launching={bot.launching}
+                launchError={bot.error}
                 hasCredits={hasCredits}
                 onLaunch={handleLaunchBot}
-                launchStatus={botLauncher.launchStatus}
+                launchStatus={bot.launchStatus}
               />
             )}
           </>
@@ -271,6 +290,76 @@ export default function AutoApplyTab() {
           <strong className="text-warning">Beta Notice:</strong> This auto-apply bot is currently in beta and provided on an experimental basis. Use is at your own discretion. We are not responsible for any account restrictions, suspensions, or other consequences resulting from its use.
         </p>
       </div>
+    </div>
+  );
+}
+
+// --- Helper Components ---
+
+interface LaunchingStatusCardProps {
+  launchStatus: BotLaunchStatus | null;
+  onStop: () => Promise<{ success: boolean; error?: string }>;
+  stopping?: boolean;
+}
+
+/**
+ * Card shown during bot launch phase before session is created
+ */
+function LaunchingStatusCard({ launchStatus, onStop, stopping }: LaunchingStatusCardProps) {
+  const isInstalling = launchStatus?.stage === 'installing';
+  const showSetupMessage = launchStatus && ['checking', 'launching'].includes(launchStatus.stage);
+
+  const progressValue = useSimulatedProgress({
+    isActive: isInstalling,
+    realProgress: launchStatus?.progress,
+  });
+
+  const handleStop = async () => {
+    await onStop();
+  };
+
+  return (
+    <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
+      {/* Header with Stop button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-default">Bot Session</h3>
+        <button
+          onClick={handleStop}
+          disabled={stopping}
+          className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {stopping ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Stopping...
+            </>
+          ) : (
+            <>
+              <OctagonX className="w-4 h-4" />
+              Stop Bot
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Status banners */}
+      {isInstalling && launchStatus && (
+        <InstallProgressBanner progress={progressValue} />
+      )}
+
+      {!isInstalling && showSetupMessage && launchStatus && (
+        <SetupMessageBanner message={launchStatus.message} stage={launchStatus.stage} />
+      )}
+
+      {/* Default launching state */}
+      {!isInstalling && !showSetupMessage && (
+        <div className="p-3 bg-primary-subtle/15 border border-primary/20 rounded-lg">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+            <span className="text-sm text-default">Starting bot...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

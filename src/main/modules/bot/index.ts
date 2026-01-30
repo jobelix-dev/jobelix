@@ -31,6 +31,7 @@ import type { Browser, BrowserContext, Page } from 'playwright-core';
 import { chromium } from 'playwright-core';
 import * as path from 'path';
 import * as os from 'os';
+import type { ChildProcess } from 'child_process';
 
 import type { JobSearchConfig, Resume } from './types';
 import { loadAndValidateConfig } from './core/config-validator';
@@ -93,6 +94,8 @@ export class LinkedInBot {
   // State tracking
   private isRunning = false;
   private shouldStop = false;
+  private browserPid: number | null = null;
+  private startedAt: number | null = null;
 
   /**
    * Initialize the bot with configuration
@@ -224,6 +227,24 @@ export class LinkedInBot {
   }
 
   /**
+   * Get the browser process ID (for force kill)
+   */
+  getBrowserPid(): number | null {
+    return this.browserPid;
+  }
+
+  /**
+   * Get bot status information
+   */
+  getStatus(): { running: boolean; pid: number | null; startedAt: number | null } {
+    return {
+      running: this.isRunning,
+      pid: this.browserPid,
+      startedAt: this.startedAt,
+    };
+  }
+
+  /**
    * Launch Playwright browser with persistent profile
    */
   private async launchBrowser(): Promise<void> {
@@ -245,6 +266,23 @@ export class LinkedInBot {
         '--no-sandbox',
       ],
     });
+
+    // Extract browser PID for force-kill capability
+    // Playwright stores the browser process internally
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const browserServer = (this.context as any)._browser;
+      const browserProcess: ChildProcess | undefined = browserServer?._browserProcess;
+      if (browserProcess?.pid) {
+        this.browserPid = browserProcess.pid;
+        this.startedAt = Date.now();
+        log.info(`Browser PID: ${this.browserPid}`);
+      } else {
+        log.warn('Could not extract browser PID from Playwright context');
+      }
+    } catch (e) {
+      log.warn(`Failed to get browser PID: ${e}`);
+    }
 
     // Get the first page or create one
     const pages = this.context.pages();
@@ -269,6 +307,8 @@ export class LinkedInBot {
         this.browser = null;
       }
       this.page = null;
+      this.browserPid = null;
+      this.startedAt = null;
     } catch (error) {
       log.error('Cleanup error', error as Error);
     }
