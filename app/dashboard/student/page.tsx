@@ -82,6 +82,8 @@ function StudentDashboardContent() {
       if (!shouldLeave) {
         return;
       }
+      // User confirmed leaving, reset the unsaved flag
+      setJobPreferencesUnsaved(false);
     }
 
     setActiveTab(nextTab);
