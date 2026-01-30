@@ -3,15 +3,88 @@
  * Release Script - Build and optionally publish Electron app
  * 
  * Detects OS and architecture, sets appropriate labels for artifact naming.
+ * Fetches the latest GitHub release version unless a specific version is provided.
+ * 
  * Usage:
- *   npm run dist              # Build only
- *   npm run release           # Build and publish to GitHub
+ *   npm run dist                        # Build only (uses package.json version)
+ *   npm run release                     # Build and publish at latest GitHub version
+ *   npm run release -- --version 1.2.3  # Build and publish at specific version
  *   JOBELIX_LINUX_LABEL=arch npm run release  # Override Linux label for Arch
  */
 
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
+import https from 'https';
+
+const GITHUB_OWNER = 'jobelix-dev';
+const GITHUB_REPO = 'jobelix-releases';
+
+/**
+ * Fetch the latest release version from GitHub
+ */
+async function fetchLatestVersion() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Jobelix-Release-Script',
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    };
+
+    // Add auth token if available
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+    if (token) {
+      options.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 404) {
+          // No releases yet
+          resolve(null);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error(`GitHub API returned ${res.statusCode}: ${data}`));
+          return;
+        }
+        try {
+          const json = JSON.parse(data);
+          // tag_name is typically "v1.2.3", strip the "v" prefix
+          const version = json.tag_name?.replace(/^v/, '') || null;
+          resolve(version);
+        } catch (e) {
+          reject(new Error(`Failed to parse GitHub response: ${e.message}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.setTimeout(10000, () => {
+      req.destroy();
+      reject(new Error('GitHub API request timed out'));
+    });
+    req.end();
+  });
+}
+
+/**
+ * Update package.json version
+ */
+function updatePackageVersion(version) {
+  const pkgPath = new URL('../package.json', import.meta.url).pathname;
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+  const oldVersion = pkg.version;
+  pkg.version = version;
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  return oldVersion;
+}
 
 /**
  * Detect if running on Arch Linux or derivative
@@ -53,62 +126,144 @@ function getPlatformInfo() {
   throw new Error(`Unsupported platform: ${platform}`);
 }
 
-// Get platform info
-const platformInfo = getPlatformInfo();
+/**
+ * Parse CLI arguments
+ */
+function parseArgs(args) {
+  const result = {
+    version: null,
+    publish: false,
+    extraArgs: [],
+  };
 
-// Setup environment
-const env = { ...process.env };
-if (platformInfo.label) {
-  env.JOBELIX_LINUX_LABEL = platformInfo.label;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--version' && args[i + 1]) {
+      result.version = args[++i].replace(/^v/, '');
+    } else if (arg === '--publish') {
+      result.publish = true;
+      if (args[i + 1] && !args[i + 1].startsWith('-')) {
+        result.extraArgs.push('--publish', args[++i]);
+      } else {
+        result.extraArgs.push('--publish', 'always');
+      }
+    } else {
+      result.extraArgs.push(arg);
+    }
+  }
+
+  return result;
 }
 
-// Parse arguments
-const args = process.argv.slice(2);
-const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+// Main
+async function main() {
+  // Get platform info
+  const platformInfo = getPlatformInfo();
 
-// Build electron-builder command
-const builderArgs = ['electron-builder'];
+  // Parse arguments
+  const args = process.argv.slice(2);
+  const parsed = parseArgs(args);
 
-// Add platform flag
-if (platformInfo.os === 'win') builderArgs.push('--win');
-if (platformInfo.os === 'mac') builderArgs.push('--mac');
-if (platformInfo.os === 'linux') builderArgs.push('--linux');
+  console.log('═'.repeat(60));
+  console.log('Jobelix Release Script');
+  console.log('═'.repeat(60));
 
-// Add architecture
-builderArgs.push(`--${platformInfo.arch}`);
+  // Determine version
+  let targetVersion = parsed.version;
+  let versionSource = 'CLI argument';
 
-// Add any additional args (like --publish always)
-builderArgs.push(...args);
+  if (!targetVersion && parsed.extraArgs.includes('always')) {
+    // Publishing - fetch latest version from GitHub
+    console.log('Fetching latest release version from GitHub...');
+    try {
+      const latestVersion = await fetchLatestVersion();
+      if (latestVersion) {
+        targetVersion = latestVersion;
+        versionSource = `GitHub latest (${latestVersion})`;
+        console.log(`  Latest release: v${latestVersion}`);
+      } else {
+        // No releases yet, use package.json version
+        const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));
+        targetVersion = pkg.version;
+        versionSource = 'package.json (no releases yet)';
+        console.log('  No releases found, using package.json version');
+      }
+    } catch (error) {
+      console.warn(`  Warning: Could not fetch GitHub releases: ${error.message}`);
+      console.warn('  Falling back to package.json version');
+      const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));
+      targetVersion = pkg.version;
+      versionSource = 'package.json (GitHub fetch failed)';
+    }
+  }
 
-console.log('═'.repeat(60));
-console.log('Jobelix Release Script');
-console.log('═'.repeat(60));
-console.log(`Platform:     ${process.platform} (${platformInfo.os})`);
-console.log(`Architecture: ${platformInfo.arch}`);
-if (platformInfo.label) {
-  console.log(`Linux Label:  ${platformInfo.label}`);
+  // Update package.json version if needed
+  if (targetVersion) {
+    const oldVersion = updatePackageVersion(targetVersion);
+    if (oldVersion !== targetVersion) {
+      console.log(`Version:      ${oldVersion} → ${targetVersion} (${versionSource})`);
+    } else {
+      console.log(`Version:      ${targetVersion} (${versionSource})`);
+    }
+  } else {
+    const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));
+    console.log(`Version:      ${pkg.version} (package.json)`);
+  }
+
+  // Setup environment
+  const env = { ...process.env };
+  if (platformInfo.label) {
+    env.JOBELIX_LINUX_LABEL = platformInfo.label;
+  }
+
+  const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+
+  // Build electron-builder command
+  const builderArgs = ['electron-builder'];
+
+  // Add platform flag
+  if (platformInfo.os === 'win') builderArgs.push('--win');
+  if (platformInfo.os === 'mac') builderArgs.push('--mac');
+  if (platformInfo.os === 'linux') builderArgs.push('--linux');
+
+  // Add architecture
+  builderArgs.push(`--${platformInfo.arch}`);
+
+  // Add any additional args
+  builderArgs.push(...parsed.extraArgs);
+
+  console.log(`Platform:     ${process.platform} (${platformInfo.os})`);
+  console.log(`Architecture: ${platformInfo.arch}`);
+  if (platformInfo.label) {
+    console.log(`Linux Label:  ${platformInfo.label}`);
+  }
+  console.log(`Command:      ${cmd} ${builderArgs.join(' ')}`);
+  console.log('═'.repeat(60));
+
+  // Run electron-builder
+  const result = spawnSync(cmd, builderArgs, {
+    stdio: 'inherit',
+    env,
+    shell: true,
+  });
+
+  // Handle errors
+  if (result.error) {
+    console.error('\n❌ Error spawning electron-builder:');
+    console.error(result.error);
+    process.exit(1);
+  }
+
+  if (result.status !== 0) {
+    console.error(`\n❌ electron-builder exited with code ${result.status}`);
+    process.exit(result.status ?? 1);
+  }
+
+  console.log('\n✅ Build completed successfully');
+  process.exit(0);
 }
-console.log(`Command:      ${cmd} ${builderArgs.join(' ')}`);
-console.log('═'.repeat(60));
 
-// Run electron-builder
-const result = spawnSync(cmd, builderArgs, {
-  stdio: 'inherit',
-  env,
-  shell: true,
-});
-
-// Handle errors
-if (result.error) {
-  console.error('\n❌ Error spawning electron-builder:');
-  console.error(result.error);
+main().catch(error => {
+  console.error('Fatal error:', error);
   process.exit(1);
-}
-
-if (result.status !== 0) {
-  console.error(`\n❌ electron-builder exited with code ${result.status}`);
-  process.exit(result.status ?? 1);
-}
-
-console.log('\n✅ Build completed successfully');
-process.exit(0);
+});
