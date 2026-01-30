@@ -5,6 +5,8 @@
  * and when it was last synced.
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { getGitHubConnection } from '@/lib/server/githubOAuth';

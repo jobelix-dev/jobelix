@@ -33,16 +33,18 @@ export async function GET() {
         // No resume found
         return NextResponse.json({ data: null })
       }
+      console.error('Database error fetching resume:', error)
       return NextResponse.json(
-        { error: error.message },
+        { error: 'Failed to fetch resume' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({ data })
   } catch (error: any) {
+    console.error('Unexpected error fetching resume:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch resume' },
+      { error: 'Failed to fetch resume' },
       { status: 500 }
     )
   }
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error('[Resume Upload] Storage upload error:', uploadError)
       return NextResponse.json(
-        { error: `Storage upload failed: ${uploadError.message}` },
+        { error: 'Failed to upload resume' },
         { status: 500 }
       )
     }
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       console.error('[Resume Upload] Database error:', dbError)
       return NextResponse.json(
-        { error: `Database error: ${dbError.message}` },
+        { error: 'Failed to save resume metadata' },
         { status: 500 }
       )
     }
@@ -128,7 +130,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Resume Upload] Unexpected error:', error)
     return NextResponse.json(
-      { error: error.message || 'Upload failed' },
+      { error: 'Failed to upload resume' },
       { status: 500 }
     )
   }

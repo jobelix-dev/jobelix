@@ -5,6 +5,8 @@
  * User can reconnect later if needed.
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { deleteGitHubConnection } from '@/lib/server/githubOAuth';

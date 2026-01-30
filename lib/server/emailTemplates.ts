@@ -5,6 +5,19 @@
 
 import "server-only";
 
+/**
+ * Escape HTML special characters to prevent XSS/HTML injection
+ */
+function escapeHtml(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export interface FeedbackEmailData {
   type: 'bug' | 'feature'
   subject: string
@@ -22,8 +35,13 @@ export interface FeedbackEmailData {
  */
 export function generateFeedbackEmail(data: FeedbackEmailData): string {
   const emailType = data.type === 'bug' ? '🐛 Bug Report' : '💡 Feature Request'
-  const fromUser = data.userEmail || 'Anonymous User'
-  const userId = data.userId || 'Not logged in'
+  const fromUser = escapeHtml(data.userEmail || 'Anonymous User')
+  const userId = escapeHtml(data.userId || 'Not logged in')
+  const pageUrl = escapeHtml(data.pageUrl)
+  const userAgent = escapeHtml(data.userAgent)
+  const subject = escapeHtml(data.subject)
+  const description = escapeHtml(data.description)
+  const feedbackId = escapeHtml(data.feedbackId)
 
   return `
     <!DOCTYPE html>
@@ -93,23 +111,23 @@ export function generateFeedbackEmail(data: FeedbackEmailData): string {
         <strong>User ID:</strong> ${userId}
       </div>
       <div class="info-row">
-        <strong>Page:</strong> ${data.pageUrl}
+        <strong>Page:</strong> ${pageUrl}
       </div>
       <div class="info-row">
-        <strong>User Agent:</strong> ${data.userAgent}
+        <strong>User Agent:</strong> ${userAgent}
       </div>
       
       <hr />
       
       <h3>Subject</h3>
-      <p>${data.subject}</p>
+      <p>${subject}</p>
       
       <h3>Description</h3>
-      <div class="description">${data.description}</div>
+      <div class="description">${description}</div>
       
       <div class="footer">
         <p>
-          <strong>Feedback ID:</strong> ${data.feedbackId}<br>
+          <strong>Feedback ID:</strong> ${feedbackId}<br>
           <strong>Submitted:</strong> ${new Date(data.createdAt).toLocaleString()}
         </p>
       </div>
@@ -120,8 +138,11 @@ export function generateFeedbackEmail(data: FeedbackEmailData): string {
 
 /**
  * Get email subject line for feedback
+ * Note: Subject is plain text, no HTML escaping needed but we sanitize newlines
  */
 export function getFeedbackEmailSubject(type: 'bug' | 'feature', subject: string): string {
   const prefix = type === 'bug' ? '🐛 Bug Report' : '💡 Feature Request'
-  return `${prefix}: ${subject}`
+  // Remove newlines and limit length for email subject
+  const cleanSubject = subject.replace(/[\r\n]+/g, ' ').slice(0, 100)
+  return `${prefix}: ${cleanSubject}`
 }
