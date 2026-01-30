@@ -2,13 +2,13 @@
  * Reset Password Form Component
  * 
  * Client-side form for requesting password reset email.
- * Calls Supabase Auth directly from client to properly handle PKCE flow.
+ * Calls server API to initiate reset, avoiding PKCE storage issues
+ * when email link is opened in a different browser/app.
  */
 
 'use client';
 import { useState } from 'react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-import { createClient } from '@/lib/client/supabaseClient';
 
 export default function ResetPasswordForm() {
   const [email, setEmail] = useState('');
@@ -24,15 +24,24 @@ export default function ResetPasswordForm() {
     setSuccess(false);
 
     try {
-      const supabase = createClient();      
-      const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/update-password`;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
-        captchaToken: captchaToken || undefined,
+      // Call server API instead of client-side Supabase
+      // This avoids PKCE code_verifier storage issues when the reset link
+      // is opened in a different browser/app (e.g., Electron -> Chrome)
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          captchaToken: captchaToken || undefined,
+        }),
       });
 
-      if (resetError) {
-        throw resetError;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email');
       }
 
       setSuccess(true);
