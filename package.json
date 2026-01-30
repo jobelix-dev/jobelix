@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "1.0.0",
+  "version": "0.2.5",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
@@ -44,7 +44,6 @@
       "package.json",
       "build/license.txt"
     ],
-
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
