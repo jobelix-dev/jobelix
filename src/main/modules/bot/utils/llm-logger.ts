@@ -87,11 +87,10 @@ export class LLMLogger {
       usage.input_tokens * pricing.input +
       usage.output_tokens * pricing.output;
 
-    // Log to console
+    // Log to console (without cost)
     log.debug(
       `Model: ${model}, Tokens: ${usage.total_tokens} ` +
-      `(in:${usage.input_tokens}, out:${usage.output_tokens}), ` +
-      `Cost: $${totalCost.toFixed(6)}`
+      `(in:${usage.input_tokens}, out:${usage.output_tokens})`
     );
 
     // Create log entry
@@ -185,14 +184,12 @@ export class LLMLogger {
     log.info('========== LLM USAGE SUMMARY ==========');
     log.info(`Total calls: ${usage.totalCalls}`);
     log.info(`Total tokens: ${usage.totalTokens.toLocaleString()}`);
-    log.info(`Total cost: $${usage.totalCost.toFixed(4)}`);
     log.info('');
     log.info('By model:');
     for (const [model, stats] of Object.entries(usage.byModel)) {
       log.info(
         `  ${model}: ${stats.calls} calls, ` +
-        `${stats.tokens.toLocaleString()} tokens, ` +
-        `$${stats.cost.toFixed(4)}`
+        `${stats.tokens.toLocaleString()} tokens`
       );
     }
     log.info('=======================================');
