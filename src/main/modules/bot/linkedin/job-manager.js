@@ -243,9 +243,33 @@ class LinkedInJobManager {
     let location = "";
     let link = "";
     let applyMethod = "";
+    const deduplicateText = (text) => {
+      const trimmed = text.trim();
+      if (trimmed.length < 4) return trimmed;
+      const half = Math.floor(trimmed.length / 2);
+      const firstHalf = trimmed.substring(0, half).trim();
+      const secondHalf = trimmed.substring(half).trim();
+      if (firstHalf === secondHalf) {
+        return firstHalf;
+      }
+      return trimmed;
+    };
+    const getVisibleText = async (locator) => {
+      try {
+        const text = await locator.evaluate((el) => {
+          const clone = el.cloneNode(true);
+          clone.querySelectorAll(".visually-hidden, .sr-only").forEach((e) => e.remove());
+          return clone.textContent || "";
+        });
+        return deduplicateText(text);
+      } catch {
+        const text = await locator.textContent();
+        return deduplicateText(text || "");
+      }
+    };
     try {
       const aTag = tile.locator("a.job-card-container__link");
-      title = (await aTag.textContent() || "").trim();
+      title = await getVisibleText(aTag);
       const href = await aTag.getAttribute("href");
       if (href) {
         const cleanHref = href.split("?")[0];
@@ -256,13 +280,13 @@ class LinkedInJobManager {
     }
     try {
       const companySpan = tile.locator(".artdeco-entity-lockup__subtitle span").first();
-      company = (await companySpan.textContent() || "").trim();
+      company = await getVisibleText(companySpan);
     } catch (error) {
       log.error(`[extract] company failed: ${error}`);
     }
     try {
       const locationSpan = tile.locator("ul.job-card-container__metadata-wrapper li span").first();
-      location = (await locationSpan.textContent() || "").trim();
+      location = await getVisibleText(locationSpan);
     } catch (error) {
       log.error(`[extract] location failed: ${error}`);
     }

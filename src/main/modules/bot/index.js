@@ -27,6 +27,8 @@ class LinkedInBot {
     // State tracking
     this.isRunning = false;
     this.shouldStop = false;
+    this.browserPid = null;
+    this.startedAt = null;
   }
   /**
    * Initialize the bot with configuration
@@ -124,6 +126,22 @@ class LinkedInBot {
     return this.isRunning;
   }
   /**
+   * Get the browser process ID (for force kill)
+   */
+  getBrowserPid() {
+    return this.browserPid;
+  }
+  /**
+   * Get bot status information
+   */
+  getStatus() {
+    return {
+      running: this.isRunning,
+      pid: this.browserPid,
+      startedAt: this.startedAt
+    };
+  }
+  /**
    * Launch Playwright browser with persistent profile
    */
   async launchBrowser() {
@@ -143,6 +161,19 @@ class LinkedInBot {
         "--no-sandbox"
       ]
     });
+    try {
+      const browserServer = this.context._browser;
+      const browserProcess = browserServer?._browserProcess;
+      if (browserProcess?.pid) {
+        this.browserPid = browserProcess.pid;
+        this.startedAt = Date.now();
+        log.info(`Browser PID: ${this.browserPid}`);
+      } else {
+        log.warn("Could not extract browser PID from Playwright context");
+      }
+    } catch (e) {
+      log.warn(`Failed to get browser PID: ${e}`);
+    }
     const pages = this.context.pages();
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
     log.info("\u2705 Browser launched");
@@ -162,6 +193,8 @@ class LinkedInBot {
         this.browser = null;
       }
       this.page = null;
+      this.browserPid = null;
+      this.startedAt = null;
     } catch (error) {
       log.error("Cleanup error", error);
     }

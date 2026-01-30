@@ -104,6 +104,7 @@ export function useBot(): UseBotReturn {
   const launchingRef = useRef(false);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusPollRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionCountedRef = useRef<string | null>(null); // Track which session's totals have been counted
   
   // Electron detection
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
@@ -205,14 +206,21 @@ export function useBot(): UseBotReturn {
       };
     });
     
-    // Update historical totals when session ends
+    // Update historical totals when session ends (prevent double-counting)
     if (['completed', 'failed', 'stopped'].includes(payload.stage) && payload.stats) {
-      setHistoricalTotals((prev) => ({
-        jobs_found: prev.jobs_found + (payload.stats?.jobs_found || 0),
-        jobs_applied: prev.jobs_applied + (payload.stats?.jobs_applied || 0),
-        jobs_failed: prev.jobs_failed + (payload.stats?.jobs_failed || 0),
-        credits_used: prev.credits_used + (payload.stats?.credits_used || 0),
-      }));
+      setSession((currentSession) => {
+        // Only count if this session hasn't been counted yet
+        if (currentSession && sessionCountedRef.current !== currentSession.id) {
+          sessionCountedRef.current = currentSession.id;
+          setHistoricalTotals((prev) => ({
+            jobs_found: prev.jobs_found + (payload.stats?.jobs_found || 0),
+            jobs_applied: prev.jobs_applied + (payload.stats?.jobs_applied || 0),
+            jobs_failed: prev.jobs_failed + (payload.stats?.jobs_failed || 0),
+            credits_used: prev.credits_used + (payload.stats?.credits_used || 0),
+          }));
+        }
+        return currentSession;
+      });
     }
   }, []);
 
@@ -345,6 +353,7 @@ export function useBot(): UseBotReturn {
     setError(null);
     setLaunchStatus(null);
     setSession(null);
+    sessionCountedRef.current = null; // Reset for new session
 
     try {
       // Check Electron
