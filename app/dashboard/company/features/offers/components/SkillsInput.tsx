@@ -60,9 +60,9 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
         <p className="text-muted text-sm text-center py-4">No skills added yet</p>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {skills.map((skill, index) => (
-          <div key={index} className="flex gap-2 items-start">
+          <div key={index} className="flex flex-col sm:flex-row gap-2 p-3 sm:p-0 bg-surface sm:bg-transparent rounded-lg sm:rounded-none">
             <input
               type="text"
               value={skill.skill_text}
@@ -70,41 +70,45 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
               className="flex-1 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
               placeholder="Skill name (e.g. React)"
             />
-            <select
-              value={skill.importance}
-              onChange={(e) => updateSkill(index, 'importance', e.target.value as 'must' | 'nice')}
-              className="w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-            >
-              <option value="must">Required</option>
-              <option value="nice">Nice to Have</option>
-            </select>
-            <select
-              value={skill.level || ''}
-              onChange={(e) => updateSkill(index, 'level', e.target.value || null)}
-              className="w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-            >
-              <option value="">Any Level</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-              <option value="expert">Expert</option>
-            </select>
-            <input
-              type="number"
-              value={skill.years || ''}
-              onChange={(e) => updateSkill(index, 'years', e.target.value ? parseInt(e.target.value) : null)}
-              className="w-20 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-              placeholder="Yrs"
-              min={0}
-            />
-            <button
-              type="button"
-              onClick={() => removeSkill(index)}
-              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
-              title="Remove skill"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="flex gap-2">
+              <select
+                value={skill.importance}
+                onChange={(e) => updateSkill(index, 'importance', e.target.value as 'must' | 'nice')}
+                className="flex-1 sm:flex-none sm:w-28 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+              >
+                <option value="must">Required</option>
+                <option value="nice">Nice to Have</option>
+              </select>
+              <select
+                value={skill.level || ''}
+                onChange={(e) => updateSkill(index, 'level', e.target.value || null)}
+                className="flex-1 sm:flex-none sm:w-28 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+              >
+                <option value="">Any Level</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+                <option value="expert">Expert</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={skill.years || ''}
+                onChange={(e) => updateSkill(index, 'years', e.target.value ? parseInt(e.target.value) : null)}
+                className="flex-1 sm:flex-none sm:w-20 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+                placeholder="Yrs"
+                min={0}
+              />
+              <button
+                type="button"
+                onClick={() => removeSkill(index)}
+                className="p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
+                title="Remove skill"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ))}
       </div>

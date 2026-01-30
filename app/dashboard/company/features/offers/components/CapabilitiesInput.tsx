@@ -49,7 +49,7 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
 
       <div className="space-y-2">
         {capabilities.map((capability, index) => (
-          <div key={index} className="flex gap-2 items-start">
+          <div key={index} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={capability.text}
@@ -57,22 +57,24 @@ export default function CapabilitiesInput({ capabilities, onChange }: Capabiliti
               className="flex-1 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
               placeholder="e.g. Strong communication skills"
             />
-            <select
-              value={capability.importance}
-              onChange={(e) => updateCapability(index, 'importance', e.target.value as 'must' | 'nice')}
-              className="w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-            >
-              <option value="must">Required</option>
-              <option value="nice">Nice to Have</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => removeCapability(index)}
-              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
-              title="Remove capability"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="flex gap-2">
+              <select
+                value={capability.importance}
+                onChange={(e) => updateCapability(index, 'importance', e.target.value as 'must' | 'nice')}
+                className="flex-1 sm:flex-none sm:w-32 px-3 py-2 text-sm border border-border rounded bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+              >
+                <option value="must">Required</option>
+                <option value="nice">Nice to Have</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => removeCapability(index)}
+                className="p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
+                title="Remove capability"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ))}
       </div>

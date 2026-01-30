@@ -33,6 +33,7 @@ class FormHandler {
       resumePath || null,
       coverLetterPath || null
     );
+    this.checkboxHandler = new CheckboxHandler(page, gptAnswerer, this.formUtils);
     this.handlers = [
       this.fileUploadHandler,
       // File uploads first (most specific)
@@ -40,7 +41,7 @@ class FormHandler {
       // Radio buttons
       new DropdownHandler(page, gptAnswerer, this.formUtils),
       // Dropdowns/selects
-      new CheckboxHandler(page, gptAnswerer, this.formUtils),
+      this.checkboxHandler,
       // Checkboxes
       new TypeaheadHandler(page, gptAnswerer, this.formUtils),
       // Autocomplete fields
@@ -51,6 +52,13 @@ class FormHandler {
       new TextInputHandler(page, gptAnswerer, this.formUtils)
       // Text inputs (most generic)
     ];
+  }
+  /**
+   * Set retry mode for handlers that support it
+   * When true, checkbox handler will force-check all unchecked checkboxes
+   */
+  setRetryMode(isRetry) {
+    this.checkboxHandler.setRetryMode(isRetry);
   }
   /**
    * Fill all form fields on the current Easy Apply page

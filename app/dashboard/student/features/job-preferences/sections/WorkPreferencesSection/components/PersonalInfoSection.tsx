@@ -47,7 +47,7 @@ export default function PersonalInfoSection({
         Personal Information
       </h4>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm font-medium text-muted">
             Date of Birth

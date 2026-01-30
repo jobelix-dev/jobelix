@@ -81,7 +81,7 @@ export default function ProfileEditorSection({
   const setActiveProjectIndex = onEditingProjectIndexChange ?? setInternalProjectIndex;
 
   return (
-    <div className="max-w-2xl mx-auto relative">
+    <div className="max-w-2xl mx-auto relative px-1 sm:px-0">
       {/* Loading Overlay */}
       {disabled && (
         <LoadingOverlay 
@@ -94,12 +94,12 @@ export default function ProfileEditorSection({
         />
       )}
       
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {/* Basic Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-muted">Basic Information</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="text-base sm:text-lg font-semibold text-muted">Basic Information</h3>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label htmlFor="profile-student-name" className="text-sm font-medium">Full Name</label>
@@ -204,9 +204,9 @@ export default function ProfileEditorSection({
 
 
         {/* Education */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Education</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-semibold text-muted">Education</h3>
             <button
               onClick={handlers.addEducation}
               disabled={disabled}
@@ -239,9 +239,9 @@ export default function ProfileEditorSection({
 
 
         {/* Experience */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Experience</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-semibold text-muted">Experience</h3>
             <button
               onClick={handlers.addExperience}
               disabled={disabled}
@@ -274,9 +274,9 @@ export default function ProfileEditorSection({
 
 
         {/* Projects */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-semibold text-muted">
               Projects {data.projects.length > 0 && (
                 <span className="text-sm font-normal text-muted">
                   ({data.projects.length})
@@ -294,9 +294,9 @@ export default function ProfileEditorSection({
           </div>
 
           {data.projects.length === 0 ? (
-            <p className="text-sm text-muted text-center py-8">No projects added yet</p>
+            <p className="text-sm text-muted text-center py-6 sm:py-8">No projects added yet</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {data.projects.map((project, index) => (
                 <ProjectCard
                   key={index}
@@ -325,8 +325,8 @@ export default function ProfileEditorSection({
 
 
         {/* Skills */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-muted">Skills</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="text-base sm:text-lg font-semibold text-muted">Skills</h3>
 
           <SkillsInput
             skills={data.skills}
@@ -340,9 +340,9 @@ export default function ProfileEditorSection({
 
 
         {/* Languages */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Languages</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-semibold text-muted">Languages</h3>
             <button
               onClick={handlers.addLanguage}
               disabled={disabled}
@@ -368,9 +368,9 @@ export default function ProfileEditorSection({
 
 
         {/* Publications */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Publications</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-semibold text-muted">Publications</h3>
             <button
               onClick={handlers.addPublication}
               disabled={disabled}
@@ -403,9 +403,9 @@ export default function ProfileEditorSection({
 
 
         {/* Certifications */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Certifications & Awards</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-semibold text-muted">Certifications & Awards</h3>
             <button
               onClick={handlers.addCertification}
               disabled={disabled}
@@ -438,8 +438,8 @@ export default function ProfileEditorSection({
 
 
         {/* Social Links */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-muted">Social Links</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="text-base sm:text-lg font-semibold text-muted">Social Links</h3>
 
           <SocialLinksInput
             social_links={data.social_links}

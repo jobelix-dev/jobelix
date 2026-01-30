@@ -27,16 +27,16 @@ export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTa
   }, [hasUnsavedChanges, onUnsavedChanges]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-2">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-2">
           <div>
-            <h2 className="text-2xl font-bold text-default">
+            <h2 className="text-xl sm:text-2xl font-bold text-default">
               Job Preferences
             </h2>
             <p className="text-sm text-muted mt-1">
-              Set your job preferences to receive better startup matches <br /> and enable the LinkedIn Auto-Apply bot.
+              Set your job preferences to receive better startup matches <br className="hidden sm:block" /> and enable the LinkedIn Auto-Apply bot.
             </p>
           </div>
           
@@ -48,7 +48,7 @@ export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTa
                   const saveButton = document.getElementById('save-preferences-button');
                   saveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0"
+                className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0 w-full sm:w-auto"
               >
                 <span className="text-sm font-medium text-warning">
                   Unsaved
@@ -56,7 +56,7 @@ export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTa
                 <ArrowDown className="w-4 h-4 text-warning" />
               </button>
             ) : preferences.preferencesComplete ? ( // no changes + complete preferences = show Saved badge
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0">
+              <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0 w-full sm:w-auto">
                 <CheckCircle className="w-4 h-4 text-success" />
                 <span className="text-sm font-medium text-success">
                   Saved
@@ -68,7 +68,7 @@ export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTa
                   const saveButton = document.getElementById('save-preferences-button');
                   saveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0"
+                className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0 w-full sm:w-auto"
               >
                 <span className="text-sm font-medium text-warning">
                   Unsaved

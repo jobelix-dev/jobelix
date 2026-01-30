@@ -56,8 +56,7 @@ class DateHandler extends BaseFieldHandler {
       if (await dateInput.count() === 0) return false;
       const existingValue = await dateInput.inputValue();
       if (existingValue?.trim()) {
-        log.debug(`Already filled: "${existingValue}"`);
-        return true;
+        log.debug(`Clearing LinkedIn prefill: "${existingValue}"`);
       }
       const answer = await this.getDateAnswer(questionText);
       if (!answer) return false;

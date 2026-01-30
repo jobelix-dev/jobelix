@@ -171,7 +171,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const isCompletionStep = tourSteps[0]?.id === 'complete';
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6 px-1 sm:px-0">
       {/* Save error feedback */}
       {saveError && (
         <div className="flex items-center gap-2 p-3 bg-primary-subtle/60/30 border border-border rounded-lg text-sm shadow-sm">
@@ -181,12 +181,12 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
       )}
 
       {/* Main Container */}
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
 
         {/* Essential Fields */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {/* Target Positions & Locations */}
-          <div className="bg-background rounded-xl p-4 shadow-sm">
+          <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
             <SearchCriteriaSection
               ref={searchCriteriaRef}
               positions={preferences.positions}
@@ -205,8 +205,8 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
           </div>
 
           {/* Experience Levels & Job Types Side by Side */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-background rounded-xl p-4 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
               <ExperienceLevelsSection
                 values={{
                   exp_internship: preferences.exp_internship,
@@ -222,7 +222,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
               />
             </div>
 
-            <div className="bg-background rounded-xl p-4 shadow-sm">
+            <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
               <JobTypesSection
                 values={{
                   job_full_time: preferences.job_full_time,
@@ -242,7 +242,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         </div>
 
         {/* Advanced Settings Toggle */}
-        <div className="pt-4 mt-6">
+        <div className="pt-2 sm:pt-4 mt-4 sm:mt-6">
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="flex items-center gap-2 text-sm font-semibold text-primary-hover hover:text-primary-hover transition-colors"
@@ -262,15 +262,15 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
 
           {/* Advanced Settings Section - Collapsible */}
           {showAdvanced && (
-            <div className="mt-6 space-y-4">
+            <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
               <p className="text-sm text-primary-hover italic">
                 These fields are optional and have sensible defaults
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Left Column */}
-                <div className="space-y-4">
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
                     <BlacklistSection
                       ref={blacklistRef}
                       companyBlacklist={preferences.company_blacklist}
@@ -279,7 +279,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                     />
                   </div>
 
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
+                  <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
                     <DateFiltersSection
                       values={{
                         date_24_hours: preferences.date_24_hours,
@@ -293,7 +293,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                     />
                   </div>
 
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
+                  <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
                     <WorkAuthorizationSection
                       values={{
                         eu_work_authorization: preferences.eu_work_authorization,
@@ -307,8 +307,8 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-4">
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
                     <WorkPreferencesSubSection
                       values={{
                         in_person_work: preferences.in_person_work,
@@ -329,7 +329,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                     />
                   </div>
 
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
+                  <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
                     <PersonalInfoSection
                       values={{
                         date_of_birth: preferences.date_of_birth,

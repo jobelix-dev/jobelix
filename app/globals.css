@@ -477,29 +477,11 @@ html {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--color-primary-subtle), rgba(45, 134, 89, 0.1));
-  margin-bottom: 12px;
-}
-
-@media (min-width: 640px) {
-  .stat-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 11px;
-    margin-bottom: 14px;
-  }
-}
-
-@media (min-width: 768px) {
-  .stat-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-  }
+  margin-bottom: 16px;
 }
 
 /* Keyboard shortcut badge */
@@ -536,15 +518,27 @@ html {
 /* Quote marks - responsive size */
 .quote-mark {
   font-family: Georgia, serif;
-  font-size: 3rem;
+  font-size: 4rem;
   line-height: 1;
   color: var(--color-primary);
   opacity: 0.15;
 }
 
-@media (min-width: 640px) {
-  .quote-mark {
-    font-size: 4rem;
-  }
+/* ========== RESPONSIVE UTILITIES ========== */
+
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area padding for mobile devices */
+.safe-area-inset {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 

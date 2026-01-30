@@ -162,8 +162,8 @@ export default function AutoApplyTab() {
       )}
 
       {/* Page Header */}
-      <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl font-bold text-default">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <h2 className="text-xl sm:text-2xl font-bold text-default">
           Auto Apply
         </h2>
         <p className="text-sm text-muted mt-1">
@@ -172,10 +172,10 @@ export default function AutoApplyTab() {
       </div>
 
       {/* How It Works */}
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-background rounded-xl p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-default mb-4">How It Works</h3>
-          <div className="grid sm:grid-cols-2 gap-4">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-default mb-3 sm:mb-4">How It Works</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex items-start gap-3">
               <Search className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <p className="text-sm text-muted">Finds jobs based on your preferences</p>
@@ -197,7 +197,7 @@ export default function AutoApplyTab() {
       </div>
 
       {/* Credits Section - Always visible */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
         <CreditsSection
           balance={credits.credits?.balance || 0}
           loading={credits.loading}
@@ -211,7 +211,7 @@ export default function AutoApplyTab() {
       </div>
 
       {/* Blocking Message or Launch Button */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-muted">Checking requirements...</div>
@@ -266,7 +266,7 @@ export default function AutoApplyTab() {
       </div>
 
       {/* Beta Disclaimer */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
         <p className="text-xs text-muted leading-relaxed">
           <strong className="text-warning">Beta Notice:</strong> This auto-apply bot is currently in beta and provided on an experimental basis. Use is at your own discretion. We are not responsible for any account restrictions, suspensions, or other consequences resulting from its use.
         </p>

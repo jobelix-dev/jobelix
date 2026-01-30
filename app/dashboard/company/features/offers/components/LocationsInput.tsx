@@ -56,7 +56,7 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
       <div className="space-y-2">
         {locations.map((location, index) => (
           <div key={index} className="flex gap-2 items-start">
-            <div className="flex-1 grid grid-cols-2 gap-2">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input
                 type="text"
                 value={location.city || ''}
@@ -75,7 +75,7 @@ export default function LocationsInput({ locations, onChange }: LocationsInputPr
             <button
               type="button"
               onClick={() => removeLocation(index)}
-              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
+              className="p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove location"
             >
               <Trash2 className="w-4 h-4" />

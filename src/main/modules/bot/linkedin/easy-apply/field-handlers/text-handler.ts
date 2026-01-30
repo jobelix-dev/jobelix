@@ -48,14 +48,14 @@ export class TextInputHandler extends BaseFieldHandler {
       const questionText = await this.extractQuestionText(element);
       log.debug(`Question: "${questionText}"`);
 
-      // Check if already filled
-      if (await this.isPrefilledValid(input)) {
-        log.debug('Keeping pre-filled value');
-        return true;
+      // Always clear and get fresh answer from GPT (don't trust LinkedIn prefill)
+      const existingValue = await input.inputValue();
+      if (existingValue?.trim()) {
+        log.debug(`Clearing LinkedIn prefill: "${existingValue}"`);
       }
 
-      // Get answer using priority: smartMatch → saved → GPT
-      const answer = await this.getAnswer(element, input, questionText);
+      // Get answer from GPT
+      const answer = await this.askGpt(input, questionText);
       if (!answer?.trim()) {
         log.warn('No answer available for text input');
         return false;
@@ -82,57 +82,6 @@ export class TextInputHandler extends BaseFieldHandler {
   }
 
   /**
-   * Check if the pre-filled value should be kept
-   */
-  private async isPrefilledValid(input: Locator): Promise<boolean> {
-    const existingValue = await input.inputValue();
-    if (!existingValue?.trim()) return false;
-    
-    const lower = existingValue.toLowerCase();
-    // Only override placeholder text
-    return !lower.includes('select') && !lower.includes('enter');
-  }
-
-  /**
-   * Get answer from smart matching, saved answers, or GPT
-   */
-  private async getAnswer(element: Locator, input: Locator, questionText: string): Promise<string | undefined> {
-    const isUrlField = this.isUrlQuestion(questionText);
-    const matcher = this.createSmartMatcher();
-
-    // For URL fields, smart match first (saved answers may have bad text)
-    if (isUrlField) {
-      const match = matcher.matchByQuestionText(questionText);
-      if (match?.value) return match.value;
-    }
-
-    // Try smart matching by element ID
-    const elementMatch = await matcher.matchByElementId(input);
-    if (elementMatch?.value) return elementMatch.value;
-
-    // Check saved answers
-    const savedAnswer = this.formUtils.getSavedAnswer('text', questionText);
-    if (savedAnswer) {
-      // For URL fields, validate that saved answer looks like a URL
-      if (isUrlField) {
-        if (this.looksLikeUrl(savedAnswer)) return savedAnswer;
-        log.debug(`[URL FIELD] Ignoring non-URL saved answer`);
-      } else {
-        return savedAnswer;
-      }
-    }
-
-    // Try question-text matching for non-URL fields
-    if (!isUrlField) {
-      const questionMatch = matcher.matchByQuestionText(questionText);
-      if (questionMatch?.value) return questionMatch.value;
-    }
-
-    // Ask GPT as fallback
-    return this.askGpt(input, questionText);
-  }
-
-  /**
    * Ask GPT for an answer (numeric or textual)
    */
   private async askGpt(input: Locator, questionText: string): Promise<string | undefined> {
@@ -156,27 +105,6 @@ export class TextInputHandler extends BaseFieldHandler {
     await input.fill('');
     await input.fill(value);
     await this.page.waitForTimeout(TIMEOUTS.short);
-  }
-
-  /**
-   * Check if the question is asking for a URL
-   */
-  private isUrlQuestion(questionText: string): boolean {
-    const lower = questionText.toLowerCase();
-    return (
-      lower.includes('website') ||
-      lower.includes('url') ||
-      lower.includes('portfolio') ||
-      lower.includes('github') ||
-      lower.includes('linkedin')
-    );
-  }
-
-  /**
-   * Check if a string looks like a URL
-   */
-  private looksLikeUrl(value: string): boolean {
-    return value.startsWith('http') || value.includes('.com') || value.includes('.io');
   }
 
   /**

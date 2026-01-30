@@ -353,7 +353,7 @@ export default function ValidationTour({
 
       <div
         ref={popoverRef}
-        className="absolute z-[1001] w-[320px] rounded-xl border border-warning/40 bg-background shadow-xl pointer-events-auto"
+        className="absolute z-[1001] w-[90vw] sm:w-[320px] max-w-[320px] rounded-xl border border-warning/40 bg-background shadow-xl pointer-events-auto"
         style={{ top: effectiveTop, left: effectiveLeft }}
       >
         <div className="flex items-start justify-between px-4 pt-4">
