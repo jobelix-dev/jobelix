@@ -10,7 +10,7 @@
 
 import type { Page, Locator } from 'playwright-core';
 import { createLogger } from '../../utils/logger';
-import { MODAL, ERROR_SELECTORS, TIMEOUTS } from './selectors';
+import { MODAL, ERROR_SELECTORS, TIMEOUTS, TOAST_ERROR_SELECTOR, TOAST_MESSAGE_SELECTOR, JOB_CLOSED_PATTERNS } from './selectors';
 
 const log = createLogger('Navigation');
 
@@ -152,6 +152,18 @@ export class NavigationHandler {
    * Check the result after clicking Submit
    */
   private async checkSubmitResult(): Promise<PrimaryButtonResult> {
+    // First check for toast errors (e.g., "This job is now closed")
+    const toastError = await this.checkToastError();
+    if (toastError) {
+      const isJobClosed = this.isJobClosedError(toastError);
+      if (isJobClosed) {
+        log.error(`❌ Job is closed or unavailable: "${toastError}"`);
+        return { success: false, submitted: false, error: 'Job closed' };
+      }
+      log.error(`❌ Toast error after submit: "${toastError}"`);
+      return { success: false, submitted: false, error: toastError };
+    }
+
     const stillOpen = await this.isModalOpen();
     if (!stillOpen) {
       log.info('✅ Application submitted successfully!');
@@ -412,5 +424,34 @@ export class NavigationHandler {
     } catch {
       // Modal might already be ready
     }
+  }
+
+  /**
+   * Check for visible toast error messages (e.g., "This job is now closed")
+   * Returns the error message if found, null otherwise
+   */
+  async checkToastError(): Promise<string | null> {
+    try {
+      const toast = this.page.locator(TOAST_ERROR_SELECTOR);
+      if (await toast.count() === 0 || !await toast.isVisible()) {
+        return null;
+      }
+      
+      const message = await toast.locator(TOAST_MESSAGE_SELECTOR).textContent();
+      const errorText = message?.trim() || 'Unknown toast error';
+      log.warn(`Toast error detected: "${errorText}"`);
+      return errorText;
+    } catch (error) {
+      log.debug(`Error checking toast: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a toast error indicates the job is closed/unavailable
+   */
+  isJobClosedError(errorMessage: string): boolean {
+    const lowerMessage = errorMessage.toLowerCase();
+    return JOB_CLOSED_PATTERNS.some(pattern => lowerMessage.includes(pattern));
   }
 }
