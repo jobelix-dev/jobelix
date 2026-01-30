@@ -165,7 +165,7 @@ const resumeTailoringTemplate = `You are an expert resume writer and job applica
 - **DO NOT change the overall format or organization**; the structure must be preserved.
 - **ONLY modify the content within existing fields** to better match the job description.
 - **ONLY delete irrelevant projects** based on the job description (do not remove those that are related to the job).
-- **Keep all technical details accurate** \u2014 do not fabricate or make up experience or skills.
+- **Keep all technical details accurate**  -  do not fabricate or make up experience or skills.
 - **Preserve all dates, company names, and factual information**.
 - Focus on **emphasizing relevant skills** and **rephrasing descriptions** where needed to align with the job description.
 - When tailoring, ensure your focus is on keywords, key phrases, and job-specific terminology that are found in the job description.

@@ -144,12 +144,12 @@ export default function OffersManager() {
 
   // Show list view
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-default">Job Offers</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-default">Job Offers</h1>
         <button
           onClick={handleCreateNew}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors font-medium"
+          className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors font-medium w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           Create New Offer

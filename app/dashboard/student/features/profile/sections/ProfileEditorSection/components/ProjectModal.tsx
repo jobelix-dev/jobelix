@@ -37,8 +37,8 @@ export default function ProjectModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-default truncate pr-4">
+        <div className="sticky top-0 bg-background border-b border-border px-4 sm:px-6 py-4 flex items-center justify-between">
+          <h3 className="text-base sm:text-lg font-semibold text-default truncate pr-4">
             {projectName}
           </h3>
           <button
@@ -51,9 +51,9 @@ export default function ProjectModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           {/* Two column layout for name and link */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Project Name</label>
@@ -106,13 +106,13 @@ export default function ProjectModal({
           </div>
 
           {/* Bottom bar with auto-save indicator and done button */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border">
             <div className="text-xs text-muted">
               Changes are saved automatically
             </div>
             <button
               onClick={onClose}
-              className="px-8 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-lg transition-colors shadow-sm"
+              className="w-full sm:w-auto px-8 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-lg transition-colors shadow-sm"
             >
               Done
             </button>

@@ -66,20 +66,20 @@ export default function CreditsSection({
   }
 
   return (
-    <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
-      <h3 className="text-lg font-semibold text-default">Credits</h3>
+    <div className="bg-background rounded-xl p-3 sm:p-4 shadow-sm space-y-3 sm:space-y-4">
+      <h3 className="text-base sm:text-lg font-semibold text-default">Credits</h3>
 
       {/* Current Balance */}
-      <div className="flex items-center justify-between p-4 bg-primary-subtle/20 rounded-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 p-3 sm:p-4 bg-primary-subtle/20 rounded-lg">
         <div className="flex items-center gap-3">
-          <Coins className="w-5 h-5 text-primary" />
+          <Coins className="w-5 h-5 text-primary flex-shrink-0" />
           <div>
             <p className="text-sm text-muted">Available Balance</p>
-            <div className="flex items-center gap-2">
-              <p className="text-3xl font-bold text-success">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-2xl sm:text-3xl font-bold text-success">
                 {balance.toLocaleString()}
               </p>
-              <p className="text-3xl font-bold text-success">
+              <p className="text-2xl sm:text-3xl font-bold text-success">
                 ≈ {Math.ceil(balance / 7)} jobs
               </p>
             </div>
@@ -88,7 +88,7 @@ export default function CreditsSection({
         <button
           onClick={onRefresh}
           disabled={refreshing}
-          className="p-2 hover:bg-primary-subtle rounded-lg transition-colors disabled:cursor-not-allowed"
+          className="p-2 hover:bg-primary-subtle rounded-lg transition-colors disabled:cursor-not-allowed self-end sm:self-auto"
           title="Refresh balance"
         >
           <RefreshCw className={`w-4 h-4 text-muted ${refreshing ? 'animate-spin' : ''}`} />
@@ -96,9 +96,9 @@ export default function CreditsSection({
       </div>
 
       {/* Daily Claim */}
-      <div className="flex items-center justify-between p-3 bg-success-subtle/10 rounded-lg border border-success/20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 p-3 bg-success-subtle/10 rounded-lg border border-success/20">
         <div className="flex items-center gap-3">
-          <Gift className="w-5 h-5 text-success" />
+          <Gift className="w-5 h-5 text-success flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-default">Daily Free Credits</p>
             <p className="text-xs text-muted">Claim 50 credits every day</p>
@@ -107,7 +107,7 @@ export default function CreditsSection({
         <button
           onClick={handleClaim}
           disabled={claiming}
-          className="px-4 py-2 text-sm font-medium bg-success hover:bg-success/90 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 text-sm font-medium bg-success hover:bg-success/90 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
         >
           {claiming ? 'Claiming...' : 'Claim 50'}
         </button>
@@ -118,9 +118,9 @@ export default function CreditsSection({
       )}
 
       {/* Buy Credits Toggle Button */}
-      <div className="flex items-center justify-between p-3 bg-primary-subtle/10 rounded-lg border border-primary/20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 p-3 bg-primary-subtle/10 rounded-lg border border-primary/20">
         <div className="flex items-center gap-3">
-          <Coins className="w-5 h-5 text-primary" />
+          <Coins className="w-5 h-5 text-primary flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-default">Buy Credits</p>
             <p className="text-xs text-muted">Purchase credits to continue applying</p>
@@ -128,7 +128,7 @@ export default function CreditsSection({
         </div>
         <button
           onClick={() => setShowBuyCredits(!showBuyCredits)}
-          className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
         >
           {showBuyCredits ? 'Hide' : 'Show'}
         </button>
@@ -138,7 +138,7 @@ export default function CreditsSection({
       {showBuyCredits && (
         <div className="animate-in slide-in-from-top-2 duration-300">
           <p className="text-sm font-medium text-default mb-3">Choose a Plan</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {CREDIT_PLANS.map((plan) => (
               <button
                 key={plan.id}

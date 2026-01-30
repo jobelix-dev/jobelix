@@ -61,7 +61,7 @@ export default function PerksInput({ perks, onChange }: PerksInputProps) {
             <button
               type="button"
               onClick={() => removePerk(index)}
-              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
+              className="p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove perk"
             >
               <Trash2 className="w-4 h-4" />

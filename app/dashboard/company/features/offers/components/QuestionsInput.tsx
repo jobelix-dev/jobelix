@@ -66,7 +66,7 @@ export default function QuestionsInput({ questions, onChange }: QuestionsInputPr
             <button
               type="button"
               onClick={() => removeQuestion(index)}
-              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
+              className="p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove question"
             >
               <Trash2 className="w-4 h-4" />

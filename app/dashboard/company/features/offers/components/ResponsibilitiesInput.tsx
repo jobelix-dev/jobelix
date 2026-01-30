@@ -61,7 +61,7 @@ export default function ResponsibilitiesInput({ responsibilities, onChange }: Re
             <button
               type="button"
               onClick={() => removeResponsibility(index)}
-              className="p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
+              className="p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors"
               title="Remove responsibility"
             >
               <Trash2 className="w-4 h-4" />

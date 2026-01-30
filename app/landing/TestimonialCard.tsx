@@ -32,30 +32,27 @@ export default function TestimonialCard({
   const colors = colorMap[accentColor];
 
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl p-5 sm:p-6 hover:shadow-lg transition-all duration-300 card-shadow relative h-full flex flex-col">
-      {/* Large quote mark */}
-      <div className="quote-mark absolute top-3 sm:top-4 left-4 sm:left-6 text-3xl sm:text-[4rem]">&ldquo;</div>
-      
+    <div className="bg-white rounded-2xl p-6 hover:shadow-lg transition-all duration-300 card-shadow relative h-full flex flex-col">
       {/* Star Rating */}
-      <div className="flex items-center gap-0.5 sm:gap-1 mb-3 sm:mb-4 relative z-10">
+      <div className="flex items-center gap-1 mb-4 relative z-10">
         {[...Array(5)].map((_, i) => (
-          <Star key={i} className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warning fill-warning" />
+          <Star key={i} className="w-4 h-4 text-warning fill-warning" />
         ))}
       </div>
       
       {/* Quote */}
-      <p className="text-sm sm:text-base text-default mb-4 sm:mb-6 leading-relaxed relative z-10 flex-1 pt-2 sm:pt-4">
-        {quote}
+      <p className="text-default mb-6 leading-relaxed relative z-10 flex-1">
+        &ldquo;{quote}&rdquo;
       </p>
       
       {/* User Info */}
-      <div className="flex items-center gap-2.5 sm:gap-3 relative z-10">
-        <div className={`w-9 h-9 sm:w-10 sm:h-10 ${colors.bg} rounded-full flex items-center justify-center ${colors.text} font-semibold text-xs sm:text-sm`}>
+      <div className="flex items-center gap-3 relative z-10">
+        <div className={`w-10 h-10 ${colors.bg} rounded-full flex items-center justify-center ${colors.text} font-semibold text-sm`}>
           {initials}
         </div>
         <div>
-          <div className="font-medium text-default text-xs sm:text-sm">{name}</div>
-          <div className="text-[10px] sm:text-xs text-muted">{role} · {company}</div>
+          <div className="font-medium text-default text-sm">{name}</div>
+          <div className="text-xs text-muted">{role} · {company}</div>
         </div>
       </div>
     </div>

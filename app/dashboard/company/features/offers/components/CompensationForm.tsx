@@ -32,7 +32,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
       </div>
 
       {/* Salary Range */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-2">
             Minimum Salary
@@ -60,7 +60,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
       </div>
 
       {/* Currency and Period */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-2">
             Currency
@@ -93,7 +93,7 @@ export default function CompensationForm({ data, onChange, perks, onPerksChange 
       </div>
 
       {/* Equity */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-2">
             Equity Available

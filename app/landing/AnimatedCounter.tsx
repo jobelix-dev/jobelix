@@ -91,10 +91,10 @@ export default function AnimatedCounter({ value, label, duration = 2000 }: Anima
 
   return (
     <div ref={ref} className="text-center">
-      <div className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-primary mb-1 sm:mb-2 tabular-nums">
+      <div className="text-4xl md:text-5xl font-bold text-primary mb-2 tabular-nums">
         {prefix}{displayValue}{suffix}
       </div>
-      <div className="text-xs sm:text-sm text-muted font-medium mt-0.5 sm:mt-1">{label}</div>
+      <div className="text-sm text-muted font-medium mt-1">{label}</div>
     </div>
   );
 }

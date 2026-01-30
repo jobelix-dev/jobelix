@@ -23,9 +23,8 @@ class TextareaHandler extends BaseFieldHandler {
       const questionText = await this.extractQuestionText(element);
       log.debug(`Question: "${questionText}"`);
       const existingValue = await textarea.inputValue();
-      if (existingValue?.trim() && existingValue.length > 50) {
-        log.debug("Textarea already has substantial content, skipping");
-        return true;
+      if (existingValue?.trim()) {
+        log.debug(`Clearing existing content: [${existingValue.length} chars]`);
       }
       log.debug(`Asking GPT for long-form answer: "${questionText}"`);
       const answer = await this.gptAnswerer.answerTextual(questionText);

@@ -1,6 +1,14 @@
 /**
  * Newsletter subscription endpoint
- * Accepts email and sends welcome email via Resend
+ * 
+ * - Adds subscriber to Resend Contacts for list management
+ * - Sends welcome email via Resend
+ * 
+ * View/manage subscribers at: https://resend.com/contacts
+ * Send broadcasts at: https://resend.com/broadcasts
+ * 
+ * Environment variables required:
+ * - RESEND_API_KEY: Your Resend API key
  */
 
 import "server-only";
@@ -29,49 +37,79 @@ export async function POST(request: NextRequest) {
 
     const { email } = validation.data;
 
-    // Send welcome email via Resend
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: 'Jobelix <newsletter@jobelix.fr>',
-          to: email,
-          subject: 'Welcome to Jobelix Updates!',
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #2C3E35; max-width: 600px; margin: 0 auto; padding: 40px 20px; }
-                h1 { color: #2D8659; }
-                .button { display: inline-block; padding: 12px 24px; background: #2D8659; color: white; text-decoration: none; border-radius: 8px; margin-top: 20px; }
-                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #D4EDDA; font-size: 14px; color: #5F7A6A; }
-              </style>
-            </head>
-            <body>
-              <h1>Welcome to Jobelix!</h1>
-              <p>Thanks for subscribing to our newsletter. You'll receive:</p>
-              <ul>
-                <li>New feature announcements</li>
-                <li>Job search tips and career advice</li>
-                <li>Product updates and improvements</li>
-              </ul>
-              <a href="https://www.jobelix.fr/download" class="button">Download Jobelix</a>
-              <div class="footer">
-                <p>You can unsubscribe at any time by clicking the link in our emails.</p>
-                <p>&copy; 2026 Jobelix. All rights reserved.</p>
-              </div>
-            </body>
-            </html>
-          `,
-        });
-        console.log('Newsletter welcome email sent to:', email);
-      } catch (emailError) {
-        console.error('Newsletter email error:', emailError);
-        // Don't fail the request if email fails
+    if (!resend) {
+      console.warn('RESEND_API_KEY not set - newsletter subscription skipped');
+      return NextResponse.json({
+        success: true,
+        message: 'Successfully subscribed!',
+      });
+    }
+
+    // 1. Add subscriber to Resend Contacts
+    try {
+      await resend.contacts.create({
+        email,
+        unsubscribed: false,
+      });
+      console.log('Newsletter subscriber added:', email);
+    } catch (contactError: unknown) {
+      // Handle duplicate subscriber gracefully
+      const errorMessage = contactError instanceof Error ? contactError.message : String(contactError);
+      if (errorMessage.includes('already exists')) {
+        console.log('Subscriber already exists:', email);
+      } else {
+        console.error('Failed to add subscriber:', contactError);
+        // Continue anyway - still send welcome email
       }
-    } else {
-      console.warn('RESEND_API_KEY not set - newsletter email not sent');
+    }
+
+    // 2. Send welcome email with List-Unsubscribe header
+    const unsubscribeUrl = `https://www.jobelix.fr/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}`;
+    
+    try {
+      await resend.emails.send({
+        from: 'Jobelix <newsletter@jobelix.fr>',
+        to: email,
+        subject: 'Welcome to Jobelix Updates!',
+        headers: {
+          'List-Unsubscribe': `<${unsubscribeUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #2C3E35; max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+              h1 { color: #2D8659; }
+              .button { display: inline-block; padding: 12px 24px; background: #2D8659; color: #ffffff !important; text-decoration: none; border-radius: 8px; margin-top: 20px; }
+              .button:hover, .button:visited, .button:active { color: #ffffff !important; }
+              .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #D4EDDA; font-size: 14px; color: #5F7A6A; }
+              .footer a { color: #5F7A6A; }
+            </style>
+          </head>
+          <body>
+            <h1>Welcome to Jobelix!</h1>
+            <p>Thanks for subscribing to our newsletter. You'll receive:</p>
+            <ul>
+              <li>New feature announcements</li>
+              <li>Job search tips and career advice</li>
+              <li>Product updates and improvements</li>
+            </ul>
+            <a href="https://www.jobelix.fr/download" class="button">Download Jobelix</a>
+            <div class="footer">
+              <p>You can <a href="${unsubscribeUrl}">unsubscribe</a> at any time.</p>
+              <p>&copy; 2026 Jobelix. All rights reserved.</p>
+            </div>
+          </body>
+          </html>
+        `,
+      });
+      console.log('Newsletter welcome email sent to:', email);
+    } catch (emailError) {
+      console.error('Newsletter email error:', emailError);
+      // Don't fail the request if email fails
     }
 
     return NextResponse.json({

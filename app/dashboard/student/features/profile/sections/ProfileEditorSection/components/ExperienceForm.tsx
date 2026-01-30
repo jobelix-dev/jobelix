@@ -41,12 +41,12 @@ export default function ExperienceForm({
   const hasErrors = Object.keys(fieldErrors).length > 0;
 
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-border/50 bg-white shadow-sm">
       {/* Header - Always visible */}
       <div className="relative">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary-subtle transition-colors text-left"
+          className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary-subtle/30 transition-colors text-left rounded-t-xl"
         >
           <div className="flex-1 min-w-0 pr-16">
             <div className="flex items-center gap-2">
@@ -80,7 +80,7 @@ export default function ExperienceForm({
             e.stopPropagation();
             if (!disabled) onRemove();
           }}
-          className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-error hover:bg-error-subtle rounded transition-colors ${
+          className={`absolute right-12 top-1/2 -translate-y-1/2 p-2 sm:p-1.5 text-error hover:bg-error-subtle rounded transition-colors ${
             disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
           }`}
           title="Remove experience"
@@ -91,9 +91,9 @@ export default function ExperienceForm({
 
       {/* Expandable content */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-primary-subtle space-y-4 bg-primary-subtle/30/10">
+        <div className="px-3 sm:px-4 pb-4 pt-3 border-t border-border/30 space-y-4 bg-primary-subtle/10 rounded-b-xl">
           {/* Two column layout for short fields */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Organization</label>
