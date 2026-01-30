@@ -109,6 +109,11 @@ export default function BotStatusCard({
 
   // Handle stop button click - always force kills
   const handleStop = async () => {
+    // Prevent multiple clicks while stopping
+    if (stopping) {
+      return;
+    }
+    
     if (session.status !== 'starting' && session.status !== 'running') {
       await alert(
         `Cannot stop bot: session is already ${session.status}. Try refreshing the page.`,
