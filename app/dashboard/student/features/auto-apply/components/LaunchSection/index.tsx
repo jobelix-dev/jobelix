@@ -14,10 +14,9 @@
 
 import { useState, useMemo } from 'react';
 import {
-  Rocket,
+  Play,
   OctagonX,
   Loader2,
-  Play,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -197,9 +196,7 @@ export default function LaunchSection({
 
       {/* Header with title and action button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-default">
-          {isActive ? 'Bot Running' : 'Auto Apply Bot'}
-        </h3>
+        <h3 className="text-lg font-semibold text-default">Bot Status</h3>
 
         {/* Action Button */}
         {canStart && !isActive && (
@@ -215,8 +212,8 @@ export default function LaunchSection({
               </>
             ) : (
               <>
-                {botState === 'idle' ? <Rocket className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                {botState === 'idle' ? 'Launch Bot' : 'Start Bot'}
+                <Play className="w-4 h-4" />
+                Start
               </>
             )}
           </button>

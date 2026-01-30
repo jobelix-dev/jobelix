@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Rocket,
+  Play,
   Info,
   X,
   LogIn,
@@ -115,8 +115,8 @@ export function InstructionsModal({
             onClick={onConfirm}
             className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
           >
-            <Rocket className="w-4 h-4" />
-            Launch Bot
+            <Play className="w-4 h-4" />
+            Start
           </button>
         </div>
       </div>
