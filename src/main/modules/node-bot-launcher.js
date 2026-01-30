@@ -93,12 +93,13 @@ function getChromiumSubpaths() {
 
 /**
  * Get the backend API URL
+ * Fallback hierarchy: BACKEND_API_URL env > NEXT_PUBLIC_BACKEND_URL env > localhost dev server
  */
 function getApiUrl() {
-  // Try environment variables first (check multiple possible names), then default
+  // Try environment variables first (check multiple possible names), then default to localhost dev server
   return process.env.BACKEND_API_URL 
     || process.env.NEXT_PUBLIC_BACKEND_URL 
-    || 'https://api.jobelix.com';
+    || 'http://localhost:3000/api/autoapply/gpt4';
 }
 
 /**
@@ -131,9 +132,10 @@ async function importBotModule() {
  * 
  * @param {string} token - 64-character hex authentication token
  * @param {Function} sendBotStatus - Callback to send status updates to renderer
+ * @param {string} [apiUrl] - Backend API URL (optional, falls back to env or default)
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function launchNodeBot(token, sendBotStatus) {
+export async function launchNodeBot(token, sendBotStatus, apiUrl) {
   logger.info('🚀 Launching Node.js bot...');
 
   // Check if already running
@@ -181,10 +183,14 @@ export async function launchNodeBot(token, sendBotStatus) {
     logger.info(`Resume path: ${resumePath}`);
     logger.info(`Chromium path: ${chromiumPath || 'system default'}`);
 
+    // Determine API URL: use parameter > env var > default
+    const finalApiUrl = apiUrl || getApiUrl();
+    logger.info(`Backend API URL: ${finalApiUrl}`);
+
     // Initialize bot
     const options = {
       token,
-      apiUrl: getApiUrl(),
+      apiUrl: finalApiUrl,
       configPath,
       resumePath,
       chromiumPath,
@@ -340,6 +346,21 @@ export function getBotStatus() {
     pid: botInstance?.getBrowserPid?.() ?? null,
     startedAt: null,
   };
+}
+
+/**
+ * Get bot log file path
+ * @returns {string|null} Path to the bot log file, or null if not initialized
+ */
+export async function getBotLogPath() {
+  try {
+    // Import logger module to get log file path
+    const { logger } = await importBotModule();
+    return logger.getLogFilePath();
+  } catch (error) {
+    logger.error('Failed to get bot log path:', error);
+    return null;
+  }
 }
 
 /**

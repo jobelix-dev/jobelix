@@ -2,7 +2,7 @@ export interface ElectronAPI {
   readConfigFile: () => Promise<{ success: boolean; content: string }>;
   writeConfigFile: (content: string) => Promise<{ success: boolean; error?: string }>;
   writeResumeFile: (content: string) => Promise<{ success: boolean; path?: string; error?: string }>;
-  launchBot: (token: string) => Promise<{ 
+  launchBot: (token: string, apiUrl?: string) => Promise<{ 
     success: boolean; 
     error?: string; 
     message?: string;
@@ -24,6 +24,11 @@ export interface ElectronAPI {
     running: boolean;
     pid: number | null;
     startedAt: number | null;
+  }>;
+  getBotLogPath: () => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
   }>;
   saveAuthCache: (tokens: {
     access_token: string;

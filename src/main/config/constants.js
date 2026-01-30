@@ -102,6 +102,7 @@ export const IPC_CHANNELS = {
   STOP_BOT: 'stop-bot',
   FORCE_STOP_BOT: 'force-stop-bot',
   GET_BOT_STATUS: 'get-bot-status',
+  GET_BOT_LOG_PATH: 'get-bot-log-path',
   
   // Auth cache
   SAVE_AUTH_CACHE: 'save-auth-cache',
