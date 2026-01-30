@@ -2,8 +2,16 @@
 -- This migration removes the bot_sessions table and related code
 -- Bot status is now communicated via local IPC (stdout/stdin) instead of database
 
--- Remove from Realtime publication first
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS bot_sessions;
+-- Remove from Realtime publication first (only if table exists in publication)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'bot_sessions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE bot_sessions;
+  END IF;
+END $$;
 
 -- Drop the cleanup function
 DROP FUNCTION IF EXISTS cleanup_stale_bot_sessions();
