@@ -25,6 +25,9 @@
 .DS_Store
 *.pem
 
+# copilot
+.github/copilot*
+
 # debug
 npm-debug.log*
 yarn-debug.log*
