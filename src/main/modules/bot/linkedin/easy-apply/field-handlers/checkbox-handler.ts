@@ -11,7 +11,7 @@
  * - On retries (isRetry=true), force-checks ALL unchecked checkboxes to ensure submission
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { normalizeText } from '../form-utils';

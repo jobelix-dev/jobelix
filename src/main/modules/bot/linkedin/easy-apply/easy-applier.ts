@@ -4,7 +4,7 @@
  * Orchestrates: Click Easy Apply → Fill forms → Navigate pages → Submit
  */
 
-import type { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 import type { SavedAnswer, Job } from '../../types';
 import type { StatusReporter } from '../../utils/status-reporter';
 import { createLogger } from '../../utils/logger';

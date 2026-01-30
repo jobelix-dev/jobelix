@@ -41,9 +41,9 @@ export default function MobileNav() {
           />
           
           {/* Side Panel */}
-          <div className="fixed top-0 right-0 bottom-0 w-[280px] max-w-[85vw] bg-white shadow-2xl z-[101] animate-in slide-in-from-right duration-300">
+          <div className="fixed top-0 right-0 bottom-0 w-[280px] max-w-[85vw] bg-surface shadow-2xl z-[101] animate-in slide-in-from-right duration-300">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between p-4 border-b border-border/20">
               <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
                 <Image 
                   src="/icon.png" 
@@ -56,7 +56,7 @@ export default function MobileNav() {
               </Link>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 text-muted hover:text-default hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-muted hover:text-default hover:bg-primary/10 rounded-lg transition-colors"
                 aria-label="Close menu"
               >
                 <X className="w-5 h-5" />
@@ -87,7 +87,7 @@ export default function MobileNav() {
                 FAQ
               </a>
               
-              <div className="border-t border-gray-100 my-4" />
+              <div className="border-t border-border/20 my-4" />
               
               <Link 
                 href="/login" 

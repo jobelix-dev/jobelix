@@ -4,7 +4,7 @@
  * Uses HTML attributes and URN patterns for reliable detection, with keyword fallback.
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { createLogger } from '../../../utils/logger';
 
 const log = createLogger('DocumentTypeDetector');

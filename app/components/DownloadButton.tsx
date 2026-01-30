@@ -18,111 +18,17 @@ import { useEffect, useState } from 'react';
 import { Download, Loader2, ChevronDown } from 'lucide-react';
 import type { ReleaseInfo, Platform, AssetInfo } from '@/lib/client/github-api';
 import { formatFileSize, getFallbackDownloadUrl } from '@/lib/client/github-api';
+import { 
+  detectPlatform, 
+  getPlatformDisplayName, 
+  PLATFORM_OPTIONS 
+} from '@/lib/client/platformDetection';
 
 interface DownloadButtonProps {
   releaseInfo?: ReleaseInfo;
   loading?: boolean;
   className?: string;
   variant?: 'primary' | 'secondary';
-}
-
-/**
- * Detect user's operating system and architecture from browser APIs
- * Uses navigator.userAgentData when available (modern browsers) for better accuracy
- */
-function detectPlatform(): Platform {
-  if (typeof window === 'undefined') return 'unknown';
-  
-  const userAgent = navigator.userAgent.toLowerCase();
-  const uaData = (navigator as any).userAgentData;
-  const uaPlatform = (uaData?.platform || navigator.platform || '').toLowerCase();
-  
-  // Check for mobile/unsupported platforms
-  const isMobile = /android|iphone|ipad|ipod|ios/.test(userAgent) || /android|ios/.test(uaPlatform);
-  const isChromeOs = /cros/.test(userAgent);
-  if (isMobile || isChromeOs) return 'unsupported';
-
-  // Detect architecture
-  // Modern Chrome/Edge expose this via userAgentData
-  let isArm = false;
-  if (uaData?.getHighEntropyValues) {
-    // This is async but we need sync result - check what we can synchronously
-    // Fall back to heuristics
-  }
-  
-  // Heuristics for ARM detection:
-  // - macOS: Apple Silicon M1/M2/M3 reports as "MacIntel" historically but modern browsers may expose arm
-  // - Windows: ARM devices include "ARM" in user agent
-  // - Linux: aarch64 in user agent
-  const isArmUserAgent = 
-    userAgent.includes('arm64') || 
-    userAgent.includes('aarch64') ||
-    userAgent.includes('arm;') ||
-    // Windows on ARM specific
-    userAgent.includes('windows nt') && userAgent.includes('arm');
-  
-  // For macOS, check if it's Apple Silicon via multiple signals
-  const isMacArm = 
-    (uaPlatform.includes('mac') || userAgent.includes('macintosh')) && (
-      // Check WebGL renderer for Apple GPU (M1/M2/M3)
-      detectAppleSilicon() ||
-      // Some browsers expose ARM in userAgentData
-      uaPlatform.includes('arm')
-    );
-  
-  isArm = isArmUserAgent || isMacArm;
-
-  // Detect OS
-  if (uaPlatform.includes('win') || userAgent.includes('win')) {
-    return isArm ? 'windows-arm64' : 'windows-x64';
-  }
-  
-  if (uaPlatform.includes('mac') || (userAgent.includes('mac') && !userAgent.includes('iphone') && !userAgent.includes('ipad'))) {
-    return isArm ? 'mac-arm64' : 'mac-x64';
-  }
-  
-  if (uaPlatform.includes('linux') || userAgent.includes('linux')) {
-    // Check for Arch-based distros
-    const isArchDistro =
-      userAgent.includes('arch') ||
-      userAgent.includes('manjaro') ||
-      userAgent.includes('endeavouros') ||
-      userAgent.includes('garuda') ||
-      userAgent.includes('arco') ||
-      userAgent.includes('artix') ||
-      userAgent.includes('cachyos') ||
-      userAgent.includes('parabola') ||
-      userAgent.includes('blackarch') ||
-      userAgent.includes('rebornos');
-    
-    if (isArchDistro) return 'linux-arch';
-    return isArm ? 'linux-arm64' : 'linux-x64';
-  }
-  
-  return 'unknown';
-}
-
-/**
- * Detect Apple Silicon via WebGL renderer
- * Apple Silicon Macs report "Apple M1/M2/M3" or "Apple GPU" in WebGL renderer
- */
-function detectAppleSilicon(): boolean {
-  if (typeof document === 'undefined') return false;
-  
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (!gl) return false;
-    
-    const debugInfo = (gl as WebGLRenderingContext).getExtension('WEBGL_debug_renderer_info');
-    if (!debugInfo) return false;
-    
-    const renderer = (gl as WebGLRenderingContext).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-    // Apple Silicon GPUs contain "Apple M" or "Apple GPU"
-    return /apple (m\d|gpu)/i.test(renderer);
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -134,50 +40,15 @@ function trackDownload(platform: Platform, version?: string) {
 }
 
 /**
- * Get platform-specific display name
- */
-function getPlatformDisplayName(platform: Platform): string {
-  switch (platform) {
-    case 'windows-x64': return 'Windows';
-    case 'windows-arm64': return 'Windows (ARM)';
-    case 'mac-x64': return 'macOS (Intel)';
-    case 'mac-arm64': return 'macOS (Apple Silicon)';
-    case 'linux-x64': return 'Linux';
-    case 'linux-arm64': return 'Linux (ARM)';
-    case 'linux-arch': return 'Arch Linux';
-    case 'unsupported': return 'Unsupported Device';
-    default: return 'Your Platform';
-  }
-}
-
-/**
- * Get the download asset for a specific platform
- */
-function getPlatformDownload(platform: Platform, releaseInfo: ReleaseInfo): AssetInfo | undefined {
-  if (platform === 'unknown' || platform === 'unsupported') return undefined;
-  return releaseInfo.assets[platform];
-}
-
-/**
  * Get all available platforms for dropdown
  */
 function getAvailablePlatforms(releaseInfo: ReleaseInfo): { platform: Platform; name: string; asset: AssetInfo }[] {
   const platforms: { platform: Platform; name: string; asset: AssetInfo }[] = [];
   
-  const platformMap: { key: keyof ReleaseInfo['assets']; platform: Platform; name: string }[] = [
-    { key: 'windows-x64', platform: 'windows-x64', name: 'Windows (64-bit)' },
-    { key: 'windows-arm64', platform: 'windows-arm64', name: 'Windows (ARM)' },
-    { key: 'mac-arm64', platform: 'mac-arm64', name: 'macOS (Apple Silicon)' },
-    { key: 'mac-x64', platform: 'mac-x64', name: 'macOS (Intel)' },
-    { key: 'linux-x64', platform: 'linux-x64', name: 'Linux (Ubuntu/Debian)' },
-    { key: 'linux-arm64', platform: 'linux-arm64', name: 'Linux ARM64' },
-    { key: 'linux-arch', platform: 'linux-arch', name: 'Arch Linux' },
-  ];
-  
-  for (const { key, platform, name } of platformMap) {
+  for (const { key, name } of PLATFORM_OPTIONS) {
     const asset = releaseInfo.assets[key];
     if (asset) {
-      platforms.push({ platform, name, asset });
+      platforms.push({ platform: key, name, asset });
     }
   }
   

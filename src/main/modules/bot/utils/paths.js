@@ -66,18 +66,31 @@ function getChromiumPath() {
     throw new Error(`No Chromium installation found in: ${browsersPath}`);
   }
   const platform = process.platform;
-  let execPath;
+  const arch = process.arch;
+  const chromiumBase = path.join(browsersPath, chromiumDir);
+  const pathCandidates = [];
   if (platform === "darwin") {
-    execPath = path.join(browsersPath, chromiumDir, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium");
+    if (arch === "arm64") {
+      pathCandidates.push(path.join(chromiumBase, "chrome-mac-arm64", "Chromium.app", "Contents", "MacOS", "Chromium"));
+    }
+    pathCandidates.push(path.join(chromiumBase, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"));
   } else if (platform === "win32") {
-    execPath = path.join(browsersPath, chromiumDir, "chrome-win", "chrome.exe");
+    if (arch === "x64") {
+      pathCandidates.push(path.join(chromiumBase, "chrome-win64", "chrome.exe"));
+    }
+    pathCandidates.push(path.join(chromiumBase, "chrome-win", "chrome.exe"));
   } else {
-    execPath = path.join(browsersPath, chromiumDir, "chrome-linux", "chrome");
+    if (arch === "x64") {
+      pathCandidates.push(path.join(chromiumBase, "chrome-linux64", "chrome"));
+    }
+    pathCandidates.push(path.join(chromiumBase, "chrome-linux", "chrome"));
   }
-  if (!fs.existsSync(execPath)) {
-    throw new Error(`Chromium executable not found at: ${execPath}`);
+  for (const execPath of pathCandidates) {
+    if (fs.existsSync(execPath)) {
+      return execPath;
+    }
   }
-  return execPath;
+  throw new Error(`Chromium executable not found. Checked paths: ${pathCandidates.join(", ")}`);
 }
 export {
   ensureDirectories,

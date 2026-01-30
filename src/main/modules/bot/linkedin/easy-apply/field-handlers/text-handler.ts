@@ -7,7 +7,7 @@
  * - City, company name, URLs
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { TIMEOUTS } from '../selectors';

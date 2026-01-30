@@ -5,7 +5,7 @@
  * Mirrors the Python LinkedInAuthenticator class.
  */
 
-import type { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
 import { isBrowserClosed } from '../utils/browser-utils';

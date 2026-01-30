@@ -5,7 +5,7 @@
  * These fields require typing text, waiting for suggestions, then selecting.
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { TIMEOUTS } from '../selectors';

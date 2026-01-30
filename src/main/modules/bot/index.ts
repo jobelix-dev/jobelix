@@ -27,8 +27,8 @@
  */
 
 import { BrowserWindow } from 'electron';
-import type { Browser, BrowserContext, Page } from 'playwright';
-import { chromium } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright-core';
+import { chromium } from 'playwright-core';
 import * as path from 'path';
 import * as os from 'os';
 

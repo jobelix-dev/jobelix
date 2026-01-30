@@ -4,7 +4,7 @@
  * Dropdowns are used for: Phone country code, Years of experience, Education level, Schools
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { TIMEOUTS } from '../selectors';
