@@ -7,6 +7,9 @@
 
 import type { Platform } from '@/lib/client/github-api';
 
+// Re-export Platform type for convenience
+export type { Platform };
+
 /** Platforms that have actual download assets (excludes 'unknown' and 'unsupported') */
 export type DownloadablePlatform = Exclude<Platform, 'unknown' | 'unsupported'>;
 
