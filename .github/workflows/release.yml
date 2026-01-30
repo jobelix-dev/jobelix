@@ -166,15 +166,29 @@ jobs:
 
       - name: Determine version tag
         id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag push - use the tag as-is
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            # Manual dispatch with version specified
             echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
-            # Get version from package.json
-            VERSION=$(node -p "require('./package.json').version")
-            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+            # Push to main - get latest release and increment patch version
+            LATEST=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
+            echo "Latest release: $LATEST"
+            
+            # Strip 'v' prefix and split into parts
+            VERSION=${LATEST#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            echo "New version: $NEW_VERSION"
+            echo "tag=$NEW_VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Create and push tag (if not exists)
@@ -189,8 +203,6 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
             echo "Created and pushed tag $TAG"
-          fi
-            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download all artifacts
