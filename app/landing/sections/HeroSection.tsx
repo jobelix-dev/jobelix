@@ -10,7 +10,7 @@ import ScrollReveal from "../ScrollReveal";
 
 export default function HeroSection() {
   return (
-    <section className="pt-20 pb-16 px-6 relative overflow-hidden noise-overlay">
+    <section className="pt-20 pb-16 px-6 relative overflow-hidden noise-overlay bg-white">
       {/* Background gradient orbs with improved animation */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[100px] animate-gradient-shift pointer-events-none" />
       <div className="absolute top-40 right-1/4 w-[400px] h-[400px] bg-success/8 rounded-full blur-[100px] animate-gradient-shift-delayed pointer-events-none" />

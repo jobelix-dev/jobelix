@@ -141,22 +141,12 @@ export default function Home() {
         <HeroSection />
         
         <div className="gradient-divider" />
-        <LogoCarousel />
-        <div className="gradient-divider" />
-        
-        <StatsSection />
-        
-        <div className="gradient-divider" />
         
         <FeaturesSection />
         
         <div className="gradient-divider" />
         
         <StepsSection />
-        
-        <div className="gradient-divider" />
-        
-        <TestimonialsSection />
         
         <div className="gradient-divider" />
         
@@ -167,8 +157,6 @@ export default function Home() {
         <ScrollReveal>
           <NewsletterForm />
         </ScrollReveal>
-        
-        <CTASection />
         
         <Footer />
       </main>

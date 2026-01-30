@@ -9,7 +9,7 @@ import ScrollReveal from "../ScrollReveal";
 
 export default function StepsSection() {
   return (
-    <section className="py-24 px-6 bg-white">
+    <section className="py-24 px-6 section-gradient-1">
       <div className="max-w-6xl mx-auto">
         <ScrollReveal>
           <div className="text-center mb-16">

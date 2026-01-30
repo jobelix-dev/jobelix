@@ -43,7 +43,7 @@ export default function NewsletterForm() {
   };
 
   return (
-    <section className="py-20 px-6 section-gradient-1">
+    <section className="py-20 px-6 bg-white">
       <div className="max-w-xl mx-auto text-center">
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/80 backdrop-blur-sm rounded-full text-xs font-medium text-primary mb-4 shadow-sm">
@@ -55,7 +55,7 @@ export default function NewsletterForm() {
           Career Tips & Product Updates
         </h3>
         <p className="text-muted mb-6">
-          Get notified when we launch new features and receive weekly job search tips.
+          Get notified when we launch new features.
         </p>
 
         {status === 'success' ? (
