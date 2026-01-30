@@ -7,7 +7,7 @@
  * - Cover letter text
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 
@@ -38,11 +38,10 @@ export class TextareaHandler extends BaseFieldHandler {
       const questionText = await this.extractQuestionText(element);
       log.debug(`Question: "${questionText}"`);
 
-      // Check if already filled
+      // Always clear and get fresh answer from GPT (don't trust prefill)
       const existingValue = await textarea.inputValue();
-      if (existingValue?.trim() && existingValue.length > 50) {
-        log.debug('Textarea already has substantial content, skipping');
-        return true;
+      if (existingValue?.trim()) {
+        log.debug(`Clearing existing content: [${existingValue.length} chars]`);
       }
 
       // Get answer from GPT (textareas are usually open-ended)

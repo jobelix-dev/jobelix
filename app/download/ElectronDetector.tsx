@@ -47,13 +47,13 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
   if (isElectron) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-gradient-to-r from-success-subtle to-success-subtle/20/20 border-2 border-success rounded-lg p-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-success/40 rounded-full mb-4">
-            <CheckCircle className="w-8 h-8 text-success" />
+        <div className="bg-gradient-to-r from-success-subtle to-success-subtle/20/20 border-2 border-success rounded-lg p-4 sm:p-6 md:p-8 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-success/40 rounded-full mb-4">
+            <CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-success" />
           </div>
           
-          <h2 className="text-2xl font-bold text-default mb-2">
-            You're Already Using the Desktop App! 🎉
+          <h2 className="text-xl sm:text-2xl font-bold text-default mb-2">
+            You&apos;re Already Using the Desktop App!
           </h2>
           
           <p className="text-muted mb-6">
@@ -81,11 +81,11 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
   // User is in browser - show download button
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 border border-primary-subtle rounded-lg p-8 text-center">
+      <div className="bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 border border-primary-subtle rounded-lg p-4 sm:p-6 md:p-8 text-center">
         {fetchError ? (
           // Error state - show fallback link
           <div>
-            <h2 className="text-2xl font-bold text-default mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-default mb-4">
               Download Jobelix Desktop App
             </h2>
             <p className="text-muted mb-6">
@@ -104,7 +104,7 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
         ) : (
           // Success state - show download button
           <div>
-            <h2 className="text-2xl font-bold text-default mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-default mb-4">
               Ready to Get Started?
             </h2>
             <p className="text-muted mb-6">

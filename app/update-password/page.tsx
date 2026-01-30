@@ -23,10 +23,10 @@ export const metadata: Metadata = {
 
 export default function UpdatePasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-8 md:p-12">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-default">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-default">
             Set New Password
           </h1>
           <p className="mt-2 text-sm text-muted">
@@ -34,7 +34,7 @@ export default function UpdatePasswordPage() {
           </p>
         </div>
 
-        <div className="bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 border border-primary-subtle rounded-lg p-8 shadow-sm">
+        <div className="bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 border border-primary-subtle rounded-lg p-4 sm:p-6 md:p-8 shadow-sm">
           <UpdatePasswordForm />
         </div>
       </div>

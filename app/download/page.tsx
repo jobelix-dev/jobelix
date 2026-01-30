@@ -75,14 +75,14 @@ export default async function DownloadPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
-      <div className="max-w-5xl mx-auto px-6 py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="flex items-center justify-start mb-8">
           <BackToDashboardLink />
         </div>
 
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-default mb-4">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-default mb-4">
             Download Jobelix Desktop App
           </h1>
           <p className="text-lg text-muted max-w-2xl mx-auto">
@@ -95,8 +95,8 @@ export default async function DownloadPage() {
         <ElectronDetector releaseInfo={releaseInfo} fetchError={fetchError} />
 
         {/* Features Grid */}
-        <div className="mt-16 grid md:grid-cols-3 gap-6">
-          <div className="p-6 bg-surface rounded-lg border border-border">
+        <div className="mt-12 sm:mt-16 grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="p-4 sm:p-6 bg-surface rounded-lg border border-border">
             <div className="w-12 h-12 bg-primary-subtle/40 rounded-lg flex items-center justify-center mb-4">
               <Sparkles className="w-6 h-6 text-primary" />
             </div>
@@ -108,7 +108,7 @@ export default async function DownloadPage() {
             </p>
           </div>
 
-          <div className="p-6 bg-surface rounded-lg border border-border">
+          <div className="p-4 sm:p-6 bg-surface rounded-lg border border-border">
             <div className="w-12 h-12 bg-info/40 rounded-lg flex items-center justify-center mb-4">
               <CheckCircle2 className="w-6 h-6 text-info" />
             </div>
@@ -120,7 +120,7 @@ export default async function DownloadPage() {
             </p>
           </div>
 
-          <div className="p-6 bg-surface rounded-lg border border-border">
+          <div className="p-4 sm:p-6 bg-surface rounded-lg border border-border">
             <div className="w-12 h-12 bg-success/40 rounded-lg flex items-center justify-center mb-4">
               <Download className="w-6 h-6 text-success" />
             </div>
@@ -134,11 +134,11 @@ export default async function DownloadPage() {
         </div>
 
         {/* System Requirements */}
-        <div className="mt-12 p-6 bg-surface/50 rounded-lg border border-border">
+        <div className="mt-8 sm:mt-12 p-4 sm:p-6 bg-surface/50 rounded-lg border border-border">
           <h3 className="text-lg font-semibold text-default mb-3">
             System Requirements
           </h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted">
             <div>
               <p className="font-medium text-default mb-1">Windows</p>
               <p>Windows 10 or later (64-bit)</p>

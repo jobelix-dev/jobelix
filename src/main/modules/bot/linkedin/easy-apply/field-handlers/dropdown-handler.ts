@@ -4,7 +4,7 @@
  * Dropdowns are used for: Phone country code, Years of experience, Education level, Schools
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { TIMEOUTS } from '../selectors';
@@ -45,8 +45,11 @@ export class DropdownHandler extends BaseFieldHandler {
 
       log.debug(`Options: ${options.slice(0, 5).join(', ')}${options.length > 5 ? '...' : ''}`);
 
-      // Get answer: saved → smartMatch → GPT
-      const { answer, fromGPT } = await this.getAnswer(questionText, options);
+      // Always ask GPT (don't use saved answers or smart matching)
+      log.debug(`Asking GPT: "${questionText}"`);
+      const truncatedOptions = this.truncateOptionsForGPT(options, questionText);
+      const answer = await this.gptAnswerer.answerFromOptions(questionText, truncatedOptions);
+      
       if (!answer?.trim()) {
         log.warn('No answer available for dropdown');
         return false;
@@ -60,9 +63,7 @@ export class DropdownHandler extends BaseFieldHandler {
         return false;
       }
 
-      if (fromGPT) {
-        this.formUtils.rememberAnswer('dropdown', questionText, answer);
-      }
+      this.formUtils.rememberAnswer('dropdown', questionText, answer);
 
       // Handle validation errors
       await this.handleValidationError(
@@ -79,45 +80,16 @@ export class DropdownHandler extends BaseFieldHandler {
   }
 
   /**
-   * Get answer from saved answers, smart matching, or GPT
+   * Smart matching for school fields only (to match resume school name to dropdown options)
    */
-  private async getAnswer(
-    questionText: string, 
-    options: string[]
-  ): Promise<{ answer: string | undefined; fromGPT: boolean }> {
-    // 1. Check saved answers
-    const savedAnswer = this.formUtils.getSavedAnswer('dropdown', questionText);
-    if (savedAnswer) return { answer: savedAnswer, fromGPT: false };
-
-    // 2. Try smart matching
-    const smartAnswer = this.smartMatch(questionText, options);
-    if (smartAnswer) return { answer: smartAnswer, fromGPT: false };
-
-    // 3. Ask GPT
-    log.debug(`Asking GPT: "${questionText}"`);
-    const truncatedOptions = this.truncateOptionsForGPT(options, questionText);
-    const gptAnswer = await this.gptAnswerer.answerFromOptions(questionText, truncatedOptions);
-    return { answer: gptAnswer, fromGPT: true };
-  }
-
-  /**
-   * Smart matching for common dropdown types
-   */
-  private smartMatch(questionText: string, options: string[]): string | undefined {
+  private smartMatchSchool(questionText: string, options: string[]): string | undefined {
     const questionLower = questionText.toLowerCase();
-    const matcher = this.createSmartMatcher();
 
     // School/University detection
     if (this.isSchoolField(questionLower)) {
       log.debug('[SMART MATCH] Detected school/university field');
-      const school = matcher.matchSchool(options);
-      if (school) return school;
-    }
-
-    // Phone prefix detection  
-    if (this.isPhonePrefixField(questionLower)) {
-      const prefix = matcher.matchPhonePrefix(options);
-      if (prefix) return prefix;
+      const matcher = this.createSmartMatcher();
+      return matcher.matchSchool(options) ?? undefined;
     }
 
     return undefined;
@@ -132,17 +104,6 @@ export class DropdownHandler extends BaseFieldHandler {
       questionLower.includes('university') ||
       questionLower.includes('college') ||
       questionLower.includes('institution')
-    );
-  }
-
-  /**
-   * Check if this is a phone prefix field
-   */
-  private isPhonePrefixField(questionLower: string): boolean {
-    return (
-      questionLower.includes('phone') ||
-      questionLower.includes('prefix') ||
-      questionLower.includes('code')
     );
   }
 

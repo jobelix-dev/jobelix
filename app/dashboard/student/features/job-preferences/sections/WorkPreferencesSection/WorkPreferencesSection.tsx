@@ -7,9 +7,8 @@
 
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Save, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
 import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
 import ExperienceLevelsSection from './components/ExperienceLevelsSection';
@@ -19,18 +18,21 @@ import PersonalInfoSection from './components/PersonalInfoSection';
 import WorkAuthorizationSection from './components/WorkAuthorizationSection';
 import WorkPreferencesSubSection from './components/WorkPreferencesSection';
 import BlacklistSection, { BlacklistSectionRef } from './components/BlacklistSection';
-import { useWorkPreferences, useWorkPreferencesTour } from './hooks';
+import { PreferenceCard } from './components/PreferenceCard';
+import { useWorkPreferences, useWorkPreferencesTour, useSavePreferences } from './hooks';
 import { getValidationErrors } from './validation';
-import type { WorkPreferences } from './types';
+import type { ValidationErrors } from './types';
 
-export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { onSave?: () => void; onUnsavedChanges?: (hasChanges: boolean) => void }) {
+interface WorkPreferencesEditorProps {
+  onSave?: () => void;
+  onUnsavedChanges?: (hasChanges: boolean) => void;
+}
+
+export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: WorkPreferencesEditorProps) {
   const {
     preferences,
-    setPreferences,
-    initialPreferences,
     setInitialPreferences,
     loading,
-    hasUnsavedChanges,
     setHasUnsavedChanges,
     updateField,
     updateCheckbox,
@@ -39,17 +41,13 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     clearDraft,
   } = useWorkPreferences(onUnsavedChanges);
 
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<any | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   // Refs to child components with array inputs
   const searchCriteriaRef = useRef<SearchCriteriaSectionRef>(null);
   const blacklistRef = useRef<BlacklistSectionRef>(null);
 
-  const getValidationPreferences = () => {
+  const getValidationPreferences = useCallback(() => {
     const pendingSearch = searchCriteriaRef.current?.getPendingInputs();
     const pendingBlacklist = blacklistRef.current?.getPendingInputs();
 
@@ -68,94 +66,47 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
     }
 
     return prefsToValidate;
-  };
+  }, [preferences]);
 
   const {
     tourOpen,
     tourSteps,
     tourIndex,
-    setTourOpen,
-    setTourSteps,
-    setTourIndex,
     handleTourNext,
     handleTourBack,
     handleTourExit,
     startTour,
   } = useWorkPreferencesTour(getValidationPreferences, getValidationErrors, setShowAdvanced);
 
-  useEffect(() => {
-    if (!tourOpen) return;
-    setValidationErrors(getValidationErrors(preferences));
-  }, [preferences, tourOpen]);
-
-  // Save preferences to database
-  const handleSave = async () => {
-    const prefsToValidate = getValidationPreferences();
-    const currentValidationErrors = getValidationErrors(prefsToValidate);
-
-    if (Object.keys(currentValidationErrors).length > 0) {
-      setValidationErrors(currentValidationErrors);
-      startTour(currentValidationErrors);
-      return;
-    }
-
-    // Now flush the pending inputs to actually add them to the UI state
+  const flushPendingInputs = useCallback(() => {
     searchCriteriaRef.current?.flushAllPendingInputs();
     blacklistRef.current?.flushAllPendingInputs();
+  }, []);
 
-    setSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
+  const {
+    saving,
+    saveError,
+    saveSuccess,
+    validationErrors,
+    handleSave,
+    updateValidationErrors,
+  } = useSavePreferences({
+    getPreferencesToValidate: getValidationPreferences,
+    flushPendingInputs,
+    setInitialPreferences,
+    setHasUnsavedChanges,
+    clearDraft,
+    onUnsavedChanges,
+    onSave,
+    onTourStart: startTour,
+    onTourExit: handleTourExit,
+  });
 
-    try {
-      // Save the complete preferences (including pending inputs)
-      const response = await fetch('/api/student/work-preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prefsToValidate),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save preferences');
-      }
-
-      // Update initial preferences to the saved state
-      setInitialPreferences(prefsToValidate);
-      setHasUnsavedChanges(false); // all changes now saved
-      if (onUnsavedChanges) {
-        console.log('Calling onUnsavedChanges(false) after save');
-        onUnsavedChanges(false);
-      }
-      clearDraft();
-      
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-      setValidationErrors(null);
-      handleTourExit();
-      
-      // Export preferences to YAML file in repo root (Electron only)
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        try {
-          console.log('Exporting YAML config...');
-          await exportPreferencesToYAML(prefsToValidate);
-          console.log('YAML config exported successfully');
-        } catch (yamlError) {
-          console.error('Failed to export YAML:', yamlError);
-          // Don't fail the whole save if YAML export fails
-        }
-      }
-      
-      // Notify parent component
-      if (onSave) {
-        onSave();
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      setSaveError(error instanceof Error ? error.message : 'Failed to save preferences');
-    } finally {
-      setSaving(false);
+  useEffect(() => {
+    if (tourOpen) {
+      updateValidationErrors(preferences);
     }
-  };
+  }, [preferences, tourOpen, updateValidationErrors]);
 
   if (loading) {
     return (
@@ -171,8 +122,7 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
   const isCompletionStep = tourSteps[0]?.id === 'complete';
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Save error feedback */}
+    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6 px-1 sm:px-0">
       {saveError && (
         <div className="flex items-center gap-2 p-3 bg-primary-subtle/60/30 border border-border rounded-lg text-sm shadow-sm">
           <AlertCircle className="w-4 h-4 text-primary-hover flex-shrink-0" />
@@ -180,33 +130,26 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         </div>
       )}
 
-      {/* Main Container */}
-      <div className="space-y-8">
-
+      <div className="space-y-6 sm:space-y-8">
         {/* Essential Fields */}
-        <div className="space-y-4">
-          {/* Target Positions & Locations */}
-          <div className="bg-background rounded-xl p-4 shadow-sm">
+        <div className="space-y-3 sm:space-y-4">
+          <PreferenceCard>
             <SearchCriteriaSection
               ref={searchCriteriaRef}
               positions={preferences.positions}
               locations={preferences.locations}
               remoteWork={preferences.remote_work}
               onChange={updateSearchCriteria}
-              errors={{
-                positions: fieldErrors?.positions,
-                locations: fieldErrors?.locations,
-              }}
+              errors={{ positions: fieldErrors?.positions, locations: fieldErrors?.locations }}
               positionsInputId="job-pref-positions"
               locationsInputId="job-pref-locations"
               positionsAddButtonId="job-pref-positions-add"
               locationsAddButtonId="job-pref-locations-add"
             />
-          </div>
+          </PreferenceCard>
 
-          {/* Experience Levels & Job Types Side by Side */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-background rounded-xl p-4 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <PreferenceCard>
               <ExperienceLevelsSection
                 values={{
                   exp_internship: preferences.exp_internship,
@@ -220,9 +163,9 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                 hasError={fieldErrors?.experience}
                 tourId="job-pref-experience"
               />
-            </div>
+            </PreferenceCard>
 
-            <div className="bg-background rounded-xl p-4 shadow-sm">
+            <PreferenceCard>
               <JobTypesSection
                 values={{
                   job_full_time: preferences.job_full_time,
@@ -237,12 +180,12 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
                 hasError={fieldErrors?.jobType}
                 tourId="job-pref-job-types"
               />
-            </div>
+            </PreferenceCard>
           </div>
         </div>
 
         {/* Advanced Settings Toggle */}
-        <div className="pt-4 mt-6">
+        <div className="pt-2 sm:pt-4 mt-4 sm:mt-6">
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="flex items-center gap-2 text-sm font-semibold text-primary-hover hover:text-primary-hover transition-colors"
@@ -260,124 +203,20 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
             )}
           </button>
 
-          {/* Advanced Settings Section - Collapsible */}
           {showAdvanced && (
-            <div className="mt-6 space-y-4">
-              <p className="text-sm text-primary-hover italic">
-                These fields are optional and have sensible defaults
-              </p>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Left Column */}
-                <div className="space-y-4">
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
-                    <BlacklistSection
-                      ref={blacklistRef}
-                      companyBlacklist={preferences.company_blacklist}
-                      titleBlacklist={preferences.title_blacklist}
-                      onChange={updateArray}
-                    />
-                  </div>
-
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
-                    <DateFiltersSection
-                      values={{
-                        date_24_hours: preferences.date_24_hours,
-                        date_week: preferences.date_week,
-                        date_month: preferences.date_month,
-                        date_all_time: preferences.date_all_time,
-                      }}
-                      onChange={updateCheckbox}
-                      hasError={fieldErrors?.dateFilter}
-                      tourId="job-pref-date-filters"
-                    />
-                  </div>
-
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
-                    <WorkAuthorizationSection
-                      values={{
-                        eu_work_authorization: preferences.eu_work_authorization,
-                        us_work_authorization: preferences.us_work_authorization,
-                      }}
-                      onChange={updateCheckbox}
-                      hasError={fieldErrors?.workAuthorization}
-                      tourId="job-pref-work-authorization"
-                    />
-                  </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-4">
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
-                    <WorkPreferencesSubSection
-                      values={{
-                        in_person_work: preferences.in_person_work,
-                        open_to_relocation: preferences.open_to_relocation,
-                        willing_to_complete_assessments: preferences.willing_to_complete_assessments,
-                        willing_to_undergo_drug_tests: preferences.willing_to_undergo_drug_tests,
-                        willing_to_undergo_background_checks: preferences.willing_to_undergo_background_checks,
-                        notice_period: preferences.notice_period,
-                        salary_expectation_usd: preferences.salary_expectation_usd,
-                      }}
-                      onChange={updateField}
-                      errors={{
-                        notice_period: fieldErrors?.notice_period,
-                        salary_expectation_usd: fieldErrors?.salary_expectation_usd,
-                      }}
-                      noticePeriodId="job-pref-notice-period"
-                      salaryId="job-pref-salary"
-                    />
-                  </div>
-
-                  <div className="bg-background rounded-xl p-4 shadow-sm">
-                    <PersonalInfoSection
-                      values={{
-                        date_of_birth: preferences.date_of_birth,
-                        pronouns: preferences.pronouns,
-                        gender: preferences.gender,
-                        ethnicity: preferences.ethnicity,
-                        is_veteran: preferences.is_veteran,
-                        has_disability: preferences.has_disability,
-                      }}
-                      onChange={updateField}
-                      errors={{
-                        date_of_birth: fieldErrors?.date_of_birth,
-                        pronouns: fieldErrors?.pronouns,
-                        gender: fieldErrors?.gender,
-                        ethnicity: fieldErrors?.ethnicity,
-                      }}
-                      dateOfBirthId="job-pref-date-of-birth"
-                      pronounsId="job-pref-pronouns"
-                      genderId="job-pref-gender"
-                      ethnicityId="job-pref-ethnicity"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AdvancedSettings
+              preferences={preferences}
+              blacklistRef={blacklistRef}
+              fieldErrors={fieldErrors}
+              updateArray={updateArray}
+              updateCheckbox={updateCheckbox}
+              updateField={updateField}
+            />
           )}
         </div>
       </div>
 
-      {/* Save Button */}
-      <button
-        id="save-preferences-button"
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-primary hover:bg-primary-hover text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {saveSuccess ? (
-          <>
-            <CheckCircle className="w-4 h-4" />
-            Saved!
-          </>
-        ) : (
-          <>
-            <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Preferences'}
-          </>
-        )}
-      </button>
+      <SaveButton saving={saving} saveSuccess={saveSuccess} onSave={handleSave} />
 
       <ValidationTour
         isOpen={tourOpen}
@@ -386,7 +225,144 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: { on
         onBack={handleTourBack}
         onExit={handleTourExit}
       />
-
     </div>
+  );
+}
+
+// --- Sub-components ---
+
+interface AdvancedSettingsProps {
+  preferences: any;
+  blacklistRef: React.RefObject<BlacklistSectionRef | null>;
+  fieldErrors: ValidationErrors | null;
+  updateArray: (field: string, value: string[]) => void;
+  updateCheckbox: (field: string, checked: boolean) => void;
+  updateField: (field: string, value: any) => void;
+}
+
+function AdvancedSettings({ preferences, blacklistRef, fieldErrors, updateArray, updateCheckbox, updateField }: AdvancedSettingsProps) {
+  return (
+    <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
+      <p className="text-sm text-primary-hover italic">
+        These fields are optional and have sensible defaults
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        {/* Left Column */}
+        <div className="space-y-3 sm:space-y-4">
+          <PreferenceCard>
+            <BlacklistSection
+              ref={blacklistRef}
+              companyBlacklist={preferences.company_blacklist}
+              titleBlacklist={preferences.title_blacklist}
+              onChange={updateArray}
+            />
+          </PreferenceCard>
+
+          <PreferenceCard>
+            <DateFiltersSection
+              values={{
+                date_24_hours: preferences.date_24_hours,
+                date_week: preferences.date_week,
+                date_month: preferences.date_month,
+                date_all_time: preferences.date_all_time,
+              }}
+              onChange={updateCheckbox}
+              hasError={fieldErrors?.dateFilter}
+              tourId="job-pref-date-filters"
+            />
+          </PreferenceCard>
+
+          <PreferenceCard>
+            <WorkAuthorizationSection
+              values={{
+                eu_work_authorization: preferences.eu_work_authorization,
+                us_work_authorization: preferences.us_work_authorization,
+              }}
+              onChange={updateCheckbox}
+              hasError={fieldErrors?.workAuthorization}
+              tourId="job-pref-work-authorization"
+            />
+          </PreferenceCard>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-3 sm:space-y-4">
+          <PreferenceCard>
+            <WorkPreferencesSubSection
+              values={{
+                in_person_work: preferences.in_person_work,
+                open_to_relocation: preferences.open_to_relocation,
+                willing_to_complete_assessments: preferences.willing_to_complete_assessments,
+                willing_to_undergo_drug_tests: preferences.willing_to_undergo_drug_tests,
+                willing_to_undergo_background_checks: preferences.willing_to_undergo_background_checks,
+                notice_period: preferences.notice_period,
+                salary_expectation_usd: preferences.salary_expectation_usd,
+              }}
+              onChange={updateField}
+              errors={{
+                notice_period: fieldErrors?.notice_period,
+                salary_expectation_usd: fieldErrors?.salary_expectation_usd,
+              }}
+              noticePeriodId="job-pref-notice-period"
+              salaryId="job-pref-salary"
+            />
+          </PreferenceCard>
+
+          <PreferenceCard>
+            <PersonalInfoSection
+              values={{
+                date_of_birth: preferences.date_of_birth,
+                pronouns: preferences.pronouns,
+                gender: preferences.gender,
+                ethnicity: preferences.ethnicity,
+                is_veteran: preferences.is_veteran,
+                has_disability: preferences.has_disability,
+              }}
+              onChange={updateField}
+              errors={{
+                date_of_birth: fieldErrors?.date_of_birth,
+                pronouns: fieldErrors?.pronouns,
+                gender: fieldErrors?.gender,
+                ethnicity: fieldErrors?.ethnicity,
+              }}
+              dateOfBirthId="job-pref-date-of-birth"
+              pronounsId="job-pref-pronouns"
+              genderId="job-pref-gender"
+              ethnicityId="job-pref-ethnicity"
+            />
+          </PreferenceCard>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SaveButtonProps {
+  saving: boolean;
+  saveSuccess: boolean;
+  onSave: () => void;
+}
+
+function SaveButton({ saving, saveSuccess, onSave }: SaveButtonProps) {
+  return (
+    <button
+      id="save-preferences-button"
+      onClick={onSave}
+      disabled={saving}
+      className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-primary hover:bg-primary-hover text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {saveSuccess ? (
+        <>
+          <CheckCircle className="w-4 h-4" />
+          Saved!
+        </>
+      ) : (
+        <>
+          <Save className="w-4 h-4" />
+          {saving ? 'Saving...' : 'Save Preferences'}
+        </>
+      )}
+    </button>
   );
 }

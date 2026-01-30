@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Minus, Square, X } from 'lucide-react';
 
 /**
@@ -59,8 +59,8 @@ export default function WindowControls() {
 
   return (
     <div 
-      className="fixed top-0 right-0 z-[60] flex items-center h-12 gap-0 select-none"
-      style={{ WebkitAppRegion: 'no-drag' } as any}
+      className="hidden sm:flex fixed top-0 right-0 z-[60] items-center h-12 gap-0 select-none"
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       {/* Minimize Button */}
       <button

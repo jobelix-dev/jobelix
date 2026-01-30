@@ -7,16 +7,14 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"next dev\" \"electron .\"",
-    "fetch:bot": "node scripts/fetch-python-runtime.mjs",
     "build": "next build",
     "build:bot": "node scripts/build-bot.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "NODE_OPTIONS='--max-old-space-size=4096' vitest",
     "test:coverage": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --coverage",
-    "build-installer": "npm run build:bot && npm run fetch:bot && node scripts/release.mjs",
-    "dist": "npm run build:bot && npm run fetch:bot && node scripts/release.mjs",
-    "release": "npm run build:bot && npm run fetch:bot && node scripts/release.mjs --publish always",
+    "dist": "npm run build:bot && node scripts/release.mjs",
+    "release": "npm run build:bot && node scripts/release.mjs --publish always",
     "postinstall": "patch-package"
   },
   "build": {
@@ -25,6 +23,7 @@
     "buildDependenciesFromSource": false,
     "nodeGypRebuild": false,
     "npmRebuild": false,
+    "compression": "maximum",
     "publish": [
       {
         "provider": "github",
@@ -37,19 +36,13 @@
     },
     "files": [
       "src/main/**/*",
+      "!src/main/**/*.ts",
+      "!src/main/**/__tests__/**/*",
       "preload.js",
       "loader.html",
       "update-required.html",
       "package.json",
-      "build/license.txt",
-      "!.next/**/*",
-      "!app/**/*",
-      "!lib/**/*",
-      "!public/**/*",
-      "!supabase/**/*",
-      "!docs/**/*",
-      "!tests/**/*",
-      "!node_modules/.cache/**/*"
+      "build/license.txt"
     ],
 
     "win": {
@@ -91,6 +84,14 @@
     }
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.7.3",
+    "js-yaml": "^4.1.1",
+    "playwright-core": "^1.58.0",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
     "@ai-sdk/openai": "^3.0.1",
     "@ai-sdk/react": "^3.0.3",
     "@hcaptcha/react-hcaptcha": "^2.0.2",
@@ -101,10 +102,6 @@
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.3.1",
     "ai": "^6.0.3",
-    "dotenv": "^17.2.3",
-    "electron-log": "^5.4.3",
-    "electron-updater": "^6.7.3",
-    "js-yaml": "^4.1.1",
     "lucide-react": "^0.562.0",
     "next": "^16.1.6",
     "openai": "^6.15.0",
@@ -117,11 +114,8 @@
     "resend": "^6.7.0",
     "server-only": "^0.0.1",
     "stripe": "^20.1.2",
-    "tree-kill": "^1.2.2",
     "yaml": "^2.8.2",
-    "zod": "^4.2.1"
-  },
-  "devDependencies": {
+    "zod": "^4.2.1",
     "@tailwindcss/postcss": "^4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",

@@ -9,11 +9,11 @@
  */
 
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/shared/types';
 import { api } from '@/lib/client/api';
-import { Shield, X, MessageSquare } from 'lucide-react';
+import { Shield, X, MessageSquare, LogOut, MoreHorizontal } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
@@ -31,6 +31,28 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+
+    if (showMenu) {
+      // Use both mouse and touch events for better mobile support
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showMenu]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -96,65 +118,117 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-4xl mx-auto">
-        <header className="flex items-center justify-between mb-8 relative z-40">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-sm text-muted">
-              Logged in as <strong>{getDisplayRole(profile.role)}</strong>
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowFeedbackModal(true)}
-              className="px-4 py-2 rounded border border-border hover:bg-primary-subtle flex items-center gap-2"
-            >
-              <MessageSquare size={18} />
-              Feedback
-            </button>
-            <button
-              onClick={() => setShowPrivacyModal(true)}
-              className="px-4 py-2 rounded border border-border hover:bg-primary-subtle flex items-center gap-2"
-            >
-              <Shield size={18} />
-              Privacy
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 rounded border border-border hover:bg-primary-subtle"
-            >
-              Log out
-            </button>
-          </div>
-        </header>
+    <div className="min-h-screen bg-background">
+      {/* Clean Header Bar - z-[60] to be above TitleBar (z-[55]) */}
+      <header 
+        className="sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14">
+            {/* Logo / Title */}
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg sm:text-xl font-bold text-default">Jobelix</h1>
+              <span className="hidden sm:inline text-xs text-muted bg-primary-subtle/50 px-2 py-0.5 rounded-full">
+                {getDisplayRole(profile.role)}
+              </span>
+            </div>
+            
+            {/* Desktop Actions */}
+            <div className="hidden sm:flex items-center gap-2 relative z-[60]">
+              <button
+                onClick={() => setShowFeedbackModal(true)}
+                className="p-2 rounded-lg text-muted hover:text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
+                title="Send Feedback"
+              >
+                <MessageSquare size={18} />
+              </button>
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="p-2 rounded-lg text-muted hover:text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
+                title="Privacy Info"
+              >
+                <Shield size={18} />
+              </button>
+              <div className="w-px h-5 bg-border/30 mx-1" />
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted hover:text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
+              >
+                <LogOut size={16} />
+                <span>Log out</span>
+              </button>
+            </div>
 
+            {/* Mobile Menu Button */}
+            <div className="sm:hidden relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 rounded-lg text-muted hover:text-default hover:bg-primary-subtle/50 transition-colors"
+              >
+                <MoreHorizontal size={20} />
+              </button>
+              
+              {/* Mobile Dropdown Menu */}
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-surface rounded-xl shadow-lg border border-border/30 py-1 z-[100]">
+                  <button
+                    onClick={() => { setShowFeedbackModal(true); setShowMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default active:bg-primary-subtle/50 transition-colors"
+                  >
+                    <MessageSquare size={16} className="text-muted" />
+                    Feedback
+                  </button>
+                  <button
+                    onClick={() => { setShowPrivacyModal(true); setShowMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default active:bg-primary-subtle/50 transition-colors"
+                  >
+                    <Shield size={16} className="text-muted" />
+                    Privacy
+                  </button>
+                  <div className="h-px bg-border/20 my-1" />
+                  <button
+                    onClick={() => { handleLogout(); setShowMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-error active:bg-error-subtle transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         {profile.role === 'student' && <StudentDashboard />}
         {profile.role === 'company' && <CompanyDashboard />}
-      </div>
+      </main>
 
       {/* Privacy Modal */}
       {showPrivacyModal && (
         <div 
-          className="fixed inset-0 bg-background bg-opacity-30 flex items-start justify-center z-50 pt-20"
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start justify-center z-50 pt-20 px-4"
           onClick={() => setShowPrivacyModal(false)}
         >
           <div 
-            className="bg-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4 relative"
+            className="bg-surface rounded-2xl shadow-xl p-6 max-w-md w-full relative animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowPrivacyModal(false)}
-              className="absolute top-3 right-3 p-1 hover:bg-primary-subtle rounded"
+              className="absolute top-4 right-4 p-1.5 hover:bg-primary-subtle rounded-lg transition-colors"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
             
             <div className="pr-6">
-              <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
-                <Shield size={20} />
-                Data & Privacy
-              </h2>
+              <div className="w-10 h-10 rounded-xl bg-primary-subtle flex items-center justify-center mb-4">
+                <Shield size={20} className="text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold mb-4">Data & Privacy</h2>
               
               <div className="space-y-3 text-sm text-muted">
                 <p>
@@ -162,11 +236,11 @@ export default function DashboardPage() {
                 </p>
                 
                 <p>
-                  <strong>Your rights:</strong> Access, rectify, erase, or export your data at any time.
+                  <strong className="text-default">Your rights:</strong> Access, rectify, erase, or export your data at any time.
                 </p>
 
                 <p>
-                  <strong>Contact:</strong>{' '}
+                  <strong className="text-default">Contact:</strong>{' '}
                   <a 
                     href="mailto:jobelix.contact@gmail.com" 
                     className="text-info hover:underline"
@@ -175,7 +249,7 @@ export default function DashboardPage() {
                   </a>
                 </p>
                 
-                <p className="text-xs text-muted pt-2">
+                <p className="text-xs pt-2 border-t border-border/20">
                   We respond within 30 days • Updated January 2025
                 </p>
               </div>

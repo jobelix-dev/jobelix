@@ -8,7 +8,7 @@
  * - Modal dismissal
  */
 
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from 'playwright-core';
 import { createLogger } from '../../utils/logger';
 import { MODAL, ERROR_SELECTORS, TIMEOUTS } from './selectors';
 

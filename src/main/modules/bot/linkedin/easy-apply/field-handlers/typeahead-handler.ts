@@ -5,7 +5,7 @@
  * These fields require typing text, waiting for suggestions, then selecting.
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { TIMEOUTS } from '../selectors';
@@ -46,15 +46,15 @@ export class TypeaheadHandler extends BaseFieldHandler {
       const questionText = await this.extractQuestionText(element);
       log.debug(`Question: "${questionText}"`);
 
-      // Skip if already filled
+      // Always clear and get fresh answer from GPT (don't trust prefill)
       const existingValue = await input.inputValue();
       if (existingValue?.trim()) {
-        log.debug(`Already filled: "${existingValue}"`);
-        return true;
+        log.debug(`Clearing LinkedIn prefill: "${existingValue}"`);
       }
 
-      // Get answer: smartMatch → saved → GPT
-      const answer = await this.getAnswer(element, input, questionText);
+      // Get answer from GPT
+      log.debug(`Asking GPT: "${questionText}"`);
+      const answer = await this.gptAnswerer.answerTextual(questionText);
       if (!answer?.trim()) {
         log.warn('No answer available for typeahead');
         return false;
@@ -77,35 +77,6 @@ export class TypeaheadHandler extends BaseFieldHandler {
       log.error(`Error handling typeahead: ${error}`);
       return false;
     }
-  }
-
-  /**
-   * Get answer from smart matching, saved answers, or GPT
-   */
-  private async getAnswer(element: Locator, input: Locator, questionText: string): Promise<string | undefined> {
-    const matcher = this.createSmartMatcher();
-
-    // Try HTML element ID matching first
-    const elementMatch = await matcher.matchByElementId(input);
-    if (elementMatch?.value) {
-      log.debug(`Smart match by element ID: "${elementMatch.value}"`);
-      return elementMatch.value;
-    }
-
-    // Try question text matching
-    const questionMatch = matcher.matchByQuestionText(questionText);
-    if (questionMatch?.value) {
-      log.debug(`Smart match by question: "${questionMatch.value}"`);
-      return questionMatch.value;
-    }
-
-    // Try saved answers
-    const savedAnswer = this.formUtils.getSavedAnswer('typeahead', questionText);
-    if (savedAnswer) return savedAnswer;
-
-    // Ask GPT
-    log.debug(`Asking GPT: "${questionText}"`);
-    return this.gptAnswerer.answerTextual(questionText);
   }
 
   /**

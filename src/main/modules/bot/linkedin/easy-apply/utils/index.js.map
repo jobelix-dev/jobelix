@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["index.ts"],
+  "sourcesContent": ["/**\n * Easy Apply Utilities - Shared utilities for LinkedIn Easy Apply\n */\n\nexport { SmartFieldMatcher, type FieldMatchResult } from './smart-field-matcher';\nexport { detectDocumentType, type DocumentTypeResult } from './document-type-detector';\nexport { \n  generateCoverLetterPdf, \n  cleanupGeneratedCoverLetter,\n  getGeneratedCoverLetterPath \n} from './cover-letter-generator';\n"],
+  "mappings": "AAIA,SAAS,yBAAgD;AACzD,SAAS,0BAAmD;AAC5D;AAAA,EACE;AAAA,EACA;AAAA,EACA;AAAA,OACK;",
+  "names": []
+}

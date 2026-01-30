@@ -10,9 +10,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Save, AlertCircle, Check } from 'lucide-react';
+import { Save, Check } from 'lucide-react';
 import { ExtractedResumeData } from '@/lib/shared/types';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
+import { SectionWithAddButton } from '@/app/components/shared';
+import BasicInfoForm from './components/BasicInfoForm';
 import EducationForm from './components/EducationForm';
 import ExperienceForm from './components/ExperienceForm';
 import ProjectCard from './components/ProjectCard';
@@ -81,7 +83,7 @@ export default function ProfileEditorSection({
   const setActiveProjectIndex = onEditingProjectIndexChange ?? setInternalProjectIndex;
 
   return (
-    <div className="max-w-2xl mx-auto relative">
+    <div className="max-w-2xl mx-auto relative px-1 sm:px-0">
       {/* Loading Overlay */}
       {disabled && (
         <LoadingOverlay 
@@ -94,222 +96,91 @@ export default function ProfileEditorSection({
         />
       )}
       
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {/* Basic Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-muted">Basic Information</h3>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="profile-student-name" className="text-sm font-medium">Full Name</label>
-                {validation?.fieldErrors?.student_name && (
-                  <span className="flex items-center gap-1 text-xs text-warning">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{validation.fieldErrors.student_name}</span>
-                  </span>
-                )}
-              </div>
-              <input
-                id="profile-student-name"
-                type="text"
-                value={data.student_name || ''}
-                onChange={(e) => handlers.updateField('student_name', e.target.value)}
-                placeholder="Enter your name"
-                disabled={disabled}
-                className={`w-full px-3 py-2 text-sm rounded border ${
-                  validation?.fieldErrors?.student_name 
-                    ? 'border-warning ring-1 ring-warning/50/50' 
-                    : 'border-border'
-                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="profile-email" className="text-sm font-medium">Email</label>
-                {validation?.fieldErrors?.email && (
-                  <span className="flex items-center gap-1 text-xs text-warning">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{validation.fieldErrors.email}</span>
-                  </span>
-                )}
-              </div>
-              <input
-                id="profile-email"
-                type="email"
-                value={data.email || ''}
-                onChange={(e) => handlers.updateField('email', e.target.value)}
-                placeholder="your.email@example.com"
-                disabled={disabled}
-                className={`w-full px-3 py-2 text-sm rounded border ${
-                  validation?.fieldErrors?.email 
-                    ? 'border-warning ring-1 ring-warning/50/50' 
-                    : 'border-border'
-                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="profile-phone-number" className="text-sm font-medium">Phone Number</label>
-                {validation?.fieldErrors?.phone_number && (
-                  <span className="flex items-center gap-1 text-xs text-warning">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{validation.fieldErrors.phone_number}</span>
-                  </span>
-                )}
-              </div>
-              <input
-                id="profile-phone-number"
-                type="tel"
-                value={data.phone_number || ''}
-                onChange={(e) => handlers.updateField('phone_number', e.target.value)}
-                placeholder="+1 (555) 123-4567"
-                disabled={disabled}
-                className={`w-full px-3 py-2 text-sm rounded border ${
-                  validation?.fieldErrors?.phone_number 
-                    ? 'border-warning ring-1 ring-warning/50/50' 
-                    : 'border-border'
-                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="profile-address" className="text-sm font-medium">Address</label>
-                {validation?.fieldErrors?.address && (
-                  <span className="flex items-center gap-1 text-xs text-warning">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{validation.fieldErrors.address}</span>
-                  </span>
-                )}
-              </div>
-              <input
-                id="profile-address"
-                type="text"
-                value={data.address || ''}
-                onChange={(e) => handlers.updateField('address', e.target.value)}
-                placeholder="City, Country"
-                disabled={disabled}
-                className={`w-full px-3 py-2 text-sm rounded border ${
-                  validation?.fieldErrors?.address 
-                    ? 'border-warning ring-1 ring-warning/50/50' 
-                    : 'border-border'
-                } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
-              />
-            </div>
-          </div>
-        </div>
-
+        <BasicInfoForm
+          data={data}
+          onUpdateField={handlers.updateField}
+          fieldErrors={validation?.fieldErrors}
+          disabled={disabled}
+        />
 
         {/* Education */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Education</h3>
-            <button
-              onClick={handlers.addEducation}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Education
-            </button>
+        <SectionWithAddButton
+          title="Education"
+          onAdd={handlers.addEducation}
+          addLabel="Add Education"
+          disabled={disabled}
+          isEmpty={data.education.length === 0}
+          emptyMessage="No education added yet"
+        >
+          <div className="space-y-6">
+            {data.education.map((edu, index) => (
+              <EducationForm
+                key={index}
+                data={edu}
+                onChange={(field, value) => handlers.updateEducation(index, field, value)}
+                onRemove={() => handlers.removeEducation(index)}
+                fieldErrors={validation?.fieldErrors?.education?.[index]}
+                disabled={disabled}
+                forceExpanded={expandedEducationIndex === index}
+                idPrefix={`profile-education-${index}`}
+              />
+            ))}
           </div>
-
-          {data.education.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">No education added yet</p>
-          ) : (
-            <div className="space-y-6">
-              {data.education.map((edu, index) => (
-                <EducationForm
-                  key={index}
-                  data={edu}
-                  onChange={(field, value) => handlers.updateEducation(index, field, value)}
-                  onRemove={() => handlers.removeEducation(index)}
-                  fieldErrors={validation?.fieldErrors?.education?.[index]}
-                  disabled={disabled}
-                  forceExpanded={expandedEducationIndex === index}
-                  idPrefix={`profile-education-${index}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        </SectionWithAddButton>
 
 
         {/* Experience */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Experience</h3>
-            <button
-              onClick={handlers.addExperience}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Experience
-            </button>
+        <SectionWithAddButton
+          title="Experience"
+          onAdd={handlers.addExperience}
+          addLabel="Add Experience"
+          disabled={disabled}
+          isEmpty={data.experience.length === 0}
+          emptyMessage="No work experience added yet"
+        >
+          <div className="space-y-6">
+            {data.experience.map((exp, index) => (
+              <ExperienceForm
+                key={index}
+                data={exp}
+                onChange={(field, value) => handlers.updateExperience(index, field, value)}
+                onRemove={() => handlers.removeExperience(index)}
+                fieldErrors={validation?.fieldErrors?.experience?.[index]}
+                disabled={disabled}
+                forceExpanded={expandedExperienceIndex === index}
+                idPrefix={`profile-experience-${index}`}
+              />
+            ))}
           </div>
-
-          {data.experience.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">No work experience added yet</p>
-          ) : (
-            <div className="space-y-6">
-              {data.experience.map((exp, index) => (
-                <ExperienceForm
-                  key={index}
-                  data={exp}
-                  onChange={(field, value) => handlers.updateExperience(index, field, value)}
-                  onRemove={() => handlers.removeExperience(index)}
-                  fieldErrors={validation?.fieldErrors?.experience?.[index]}
-                  disabled={disabled}
-                  forceExpanded={expandedExperienceIndex === index}
-                  idPrefix={`profile-experience-${index}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        </SectionWithAddButton>
 
 
         {/* Projects */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">
-              Projects {data.projects.length > 0 && (
-                <span className="text-sm font-normal text-muted">
-                  ({data.projects.length})
-                </span>
-              )}
-            </h3>
-            <button
-              onClick={handlers.addProject}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Project
-            </button>
+        <SectionWithAddButton
+          title="Projects"
+          count={data.projects.length}
+          showCount
+          onAdd={handlers.addProject}
+          addLabel="Add Project"
+          disabled={disabled}
+          isEmpty={data.projects.length === 0}
+          emptyMessage="No projects added yet"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {data.projects.map((project, index) => (
+              <ProjectCard
+                key={index}
+                data={project}
+                onClick={() => setActiveProjectIndex(index)}
+                onRemove={() => handlers.removeProject(index)}
+                fieldErrors={validation?.fieldErrors?.projects?.[index]}
+                onConfirmDelete={onConfirmDelete}
+              />
+            ))}
           </div>
-
-          {data.projects.length === 0 ? (
-            <p className="text-sm text-muted text-center py-8">No projects added yet</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {data.projects.map((project, index) => (
-                <ProjectCard
-                  key={index}
-                  data={project}
-                  onClick={() => setActiveProjectIndex(index)}
-                  onRemove={() => handlers.removeProject(index)}
-                  fieldErrors={validation?.fieldErrors?.projects?.[index]}
-                  onConfirmDelete={onConfirmDelete}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        </SectionWithAddButton>
 
         {/* Project Edit Modal */}
         {activeProjectIndex !== null && (
@@ -325,9 +196,7 @@ export default function ProfileEditorSection({
 
 
         {/* Skills */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-muted">Skills</h3>
-
+        <SectionWithAddButton title="Skills">
           <SkillsInput
             skills={data.skills}
             onChange={handlers.updateSkills}
@@ -336,111 +205,82 @@ export default function ProfileEditorSection({
             inputId="profile-skills-input"
             addButtonId="profile-skills-add"
           />
-        </div>
+        </SectionWithAddButton>
 
 
         {/* Languages */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Languages</h3>
-            <button
-              onClick={handlers.addLanguage}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Language
-            </button>
-          </div>
-
-          {data.languages.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">No languages added yet</p>
-          ) : (
-            <LanguagesInput
-              languages={data.languages}
-              onChange={handlers.updateLanguages}
-              fieldErrors={validation?.fieldErrors.languages}
-              disabled={disabled}
-              idPrefix="profile-language"
-            />
-          )}
-        </div>
+        <SectionWithAddButton
+          title="Languages"
+          onAdd={handlers.addLanguage}
+          addLabel="Add Language"
+          disabled={disabled}
+          isEmpty={data.languages.length === 0}
+          emptyMessage="No languages added yet"
+        >
+          <LanguagesInput
+            languages={data.languages}
+            onChange={handlers.updateLanguages}
+            fieldErrors={validation?.fieldErrors.languages}
+            disabled={disabled}
+            idPrefix="profile-language"
+          />
+        </SectionWithAddButton>
 
 
         {/* Publications */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Publications</h3>
-            <button
-              onClick={handlers.addPublication}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Publication
-            </button>
+        <SectionWithAddButton
+          title="Publications"
+          onAdd={handlers.addPublication}
+          addLabel="Add Publication"
+          disabled={disabled}
+          isEmpty={data.publications.length === 0}
+          emptyMessage="No publications added yet"
+        >
+          <div className="space-y-4">
+            {data.publications.map((publication, index) => (
+              <PublicationForm
+                key={index}
+                data={publication}
+                onChange={(field, value) => handlers.updatePublication(index, field, value)}
+                onRemove={() => handlers.removePublication(index)}
+                fieldErrors={validation?.fieldErrors?.publications?.[index]}
+                disabled={disabled}
+                forceExpanded={expandedPublicationIndex === index}
+                idPrefix={`profile-publication-${index}`}
+              />
+            ))}
           </div>
-
-          {data.publications.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">No publications added yet</p>
-          ) : (
-            <div className="space-y-4">
-              {data.publications.map((publication, index) => (
-                <PublicationForm
-                  key={index}
-                  data={publication}
-                  onChange={(field, value) => handlers.updatePublication(index, field, value)}
-                  onRemove={() => handlers.removePublication(index)}
-                  fieldErrors={validation?.fieldErrors?.publications?.[index]}
-                  disabled={disabled}
-                  forceExpanded={expandedPublicationIndex === index}
-                  idPrefix={`profile-publication-${index}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        </SectionWithAddButton>
 
 
         {/* Certifications */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-muted">Certifications & Awards</h3>
-            <button
-              onClick={handlers.addCertification}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Add Certification
-            </button>
+        <SectionWithAddButton
+          title="Certifications & Awards"
+          onAdd={handlers.addCertification}
+          addLabel="Add Certification"
+          disabled={disabled}
+          isEmpty={data.certifications.length === 0}
+          emptyMessage="No certifications added yet"
+        >
+          <div className="space-y-4">
+            {data.certifications.map((certification, index) => (
+              <CertificationForm
+                key={index}
+                data={certification}
+                onChange={(field, value) => handlers.updateCertification(index, field, value)}
+                onRemove={() => handlers.removeCertification(index)}
+                fieldErrors={validation?.fieldErrors?.certifications?.[index]}
+                disabled={disabled}
+                forceExpanded={expandedCertificationIndex === index}
+                idPrefix={`profile-certification-${index}`}
+              />
+            ))}
           </div>
-
-          {data.certifications.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">No certifications added yet</p>
-          ) : (
-            <div className="space-y-4">
-              {data.certifications.map((certification, index) => (
-                <CertificationForm
-                  key={index}
-                  data={certification}
-                  onChange={(field, value) => handlers.updateCertification(index, field, value)}
-                  onRemove={() => handlers.removeCertification(index)}
-                  fieldErrors={validation?.fieldErrors?.certifications?.[index]}
-                  disabled={disabled}
-                  forceExpanded={expandedCertificationIndex === index}
-                  idPrefix={`profile-certification-${index}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        </SectionWithAddButton>
 
 
         {/* Social Links */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-muted">Social Links</h3>
-
+        <SectionWithAddButton title="Social Links">
           <SocialLinksInput
             social_links={data.social_links}
             onChange={handlers.updateSocialLinks}
@@ -448,7 +288,7 @@ export default function ProfileEditorSection({
             disabled={disabled}
             idPrefix="profile-social"
           />
-        </div>
+        </SectionWithAddButton>
 
         {/* Save Button */}
         <button

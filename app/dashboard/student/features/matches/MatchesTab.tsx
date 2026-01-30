@@ -26,7 +26,7 @@ export default function MatchesTab() {
 
       {/* Empty State */}
       <div className="max-w-2xl mx-auto">
-        <div className="bg-primary-subtle/10 border border-border rounded-lg p-12 text-center">
+        <div className="bg-primary-subtle/10 border border-border rounded-lg p-6 sm:p-8 md:p-12 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-info/30 mb-4">
           <Briefcase className="w-8 h-8 text-info" />
         </div>

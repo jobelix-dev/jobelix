@@ -8,7 +8,7 @@
  * This matches the Python smart_text_match() logic in playwright_form_utils.py
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import type { Resume, PersonalInformation, Education } from '../../../types';
 import { createLogger } from '../../../utils/logger';
 import { normalizeText } from '../form-utils';

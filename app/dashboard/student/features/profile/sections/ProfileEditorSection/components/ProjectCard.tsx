@@ -54,13 +54,13 @@ export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {},
       onClick={onClick}
       className="group relative p-4 rounded-lg border border-border bg-primary-subtle/10 hover:bg-primary-subtle/30 hover:border-primary transition-all cursor-pointer"
     >
-      {/* Delete button - shows on hover */}
+      {/* Delete button - shows on hover, always visible on touch */}
       <button
         onClick={handleDelete}
-        className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 bg-surface hover:bg-error-subtle text-muted hover:text-error rounded transition-all shadow-sm z-10"
+        className="absolute top-2 right-2 p-2 sm:p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 bg-surface hover:bg-error-subtle text-muted hover:text-error rounded transition-all shadow-sm z-10"
         title="Delete project"
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
       </button>
 
       {/* Error indicator */}

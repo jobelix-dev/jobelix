@@ -8,7 +8,7 @@
  * - Error detection
  */
 
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from 'playwright-core';
 import type { SavedAnswer } from '../../types';
 import { createLogger } from '../../utils/logger';
 

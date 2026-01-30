@@ -55,10 +55,10 @@ export default async function SignupPage({
   const displayRole = dbRole === 'student' ? 'talent' : 'employer';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-12 bg-background">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 md:p-12 bg-background">
       <Header />
-      <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-8 rounded-lg shadow-lg border border-primary-subtle">
-        <h2 className="text-2xl font-semibold mb-4 text-default">
+      <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-4 sm:p-6 md:p-8 rounded-lg shadow-lg border border-primary-subtle">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-default">
           {displayRole === 'talent' ? 'Join as a talent' : 'Join as an employer'}
         </h2>
         <p className="text-sm text-muted mb-6">

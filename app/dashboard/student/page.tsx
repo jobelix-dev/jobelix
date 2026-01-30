@@ -88,14 +88,13 @@ function StudentDashboardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Dashboard Navigation */}
-        <DashboardNav activeTab={activeTab} onTabChange={handleTabChange} />
+    <div>
+      {/* Dashboard Navigation */}
+      <DashboardNav activeTab={activeTab} onTabChange={handleTabChange} />
 
-        {/* Tab Content */}
-        <div className="space-y-8">
-          {activeTab === 'profile' && (
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {activeTab === 'profile' && (
             <ProfileTab
               profileData={profileState.profileData}
               setProfileData={profileState.setProfileData}
@@ -127,7 +126,6 @@ function StudentDashboardContent() {
 
           {activeTab === 'auto-apply' && <AutoApplyTab />}
         </div>
-      </div>
       {ConfirmDialogComponent}
     </div>
   );

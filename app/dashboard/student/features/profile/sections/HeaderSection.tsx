@@ -109,13 +109,13 @@ export default function HeaderSection({
   };
 
   return (
-    <section className="max-w-2xl mx-auto">
+    <section className="max-w-2xl mx-auto px-1 sm:px-0">
       {/* Page Header with Status */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-2">
         <div>
-          <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Complete Your Profile</h1>
           <p className="text-sm text-muted mt-1">
-            Set and save your profile to receive better employer matches <br /> and enable the LinkedIn Auto-Apply bot
+            Set and save your profile to receive better employer matches <br className="hidden sm:block" /> and enable the LinkedIn Auto-Apply bot
           </p>
         </div>
         
@@ -126,7 +126,7 @@ export default function HeaderSection({
               const publishButton = document.getElementById('publish-profile-button');
               publishButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0"
+            className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0 w-full sm:w-auto"
           >
             <span className="text-sm font-medium text-warning">
               Unsaved Changes
@@ -136,7 +136,7 @@ export default function HeaderSection({
         )}
         
         {draftStatus === 'published' && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0">
+          <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0 w-full sm:w-auto">
             <CloudUpload className="w-4 h-4 text-success" />
             <span className="text-sm font-medium text-success">
               Saved
@@ -146,7 +146,7 @@ export default function HeaderSection({
       </div>
       
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6 mb-4 sm:mb-6">
         {/* Resume Upload Card */}
         <div className="p-4 rounded-lg border border-primary-subtle bg-surface">
           <h3 className="font-semibold mb-2 flex items-center gap-2">
@@ -257,16 +257,16 @@ export default function HeaderSection({
 
       {/* Compact Resume Info */}
       {resumeInfo && (
-        <div className="flex items-center gap-4 p-3 rounded-lg bg-primary-subtle/10">
-          <div className="flex-1">
-            <p className="font-medium text-sm">{resumeInfo.filename}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 rounded-lg bg-primary-subtle/10">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{resumeInfo.filename}</p>
             <p className="text-xs text-muted">
               Uploaded {resumeInfo.uploaded_at ? new Date(resumeInfo.uploaded_at).toLocaleDateString() : 'N/A'}
             </p>
           </div>
           <button
             onClick={onDownload}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white transition-colors w-full sm:w-auto"
           >
             Download
           </button>

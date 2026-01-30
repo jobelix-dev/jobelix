@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import type { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 import { createLogger } from '../utils/logger';
 import { getTailoredResumesPath } from '../utils/paths';
 

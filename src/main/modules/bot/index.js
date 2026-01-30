@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import * as path from "path";
 import * as os from "os";
 import { loadAndValidateConfig } from "./core/config-validator.js";

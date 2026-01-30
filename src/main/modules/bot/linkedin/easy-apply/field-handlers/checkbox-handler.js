@@ -3,6 +3,22 @@ import { createLogger } from "../../../utils/logger.js";
 import { normalizeText } from "../form-utils.js";
 const log = createLogger("CheckboxHandler");
 class CheckboxHandler extends BaseFieldHandler {
+  constructor() {
+    super(...arguments);
+    /**
+     * Whether this is a retry attempt (force-check all unchecked checkboxes)
+     */
+    this.isRetry = false;
+  }
+  /**
+   * Set retry mode - when true, force-checks all unchecked checkboxes
+   */
+  setRetryMode(isRetry) {
+    this.isRetry = isRetry;
+    if (isRetry) {
+      log.debug("Retry mode enabled - will force-check all unchecked checkboxes");
+    }
+  }
   /**
    * Check if this element is a checkbox field
    */
@@ -91,6 +107,16 @@ class CheckboxHandler extends BaseFieldHandler {
         log.info(`\u2705 Auto-checked consent: "${labelText.substring(0, 50)}..."`);
         return true;
       }
+      if (this.isRetry) {
+        const label = await this.getCheckboxLabelElement(element, checkbox);
+        if (label) {
+          await label.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
+        log.info(`\u2705 Force-checked on retry: "${labelText.substring(0, 50)}..."`);
+        return true;
+      }
       const prompt = `Should I check this checkbox? "${labelText}" (Answer: yes or no)`;
       const answer = await this.gptAnswerer.answerCheckboxQuestion(prompt);
       if (answer?.toLowerCase().includes("yes")) {
@@ -119,6 +145,26 @@ class CheckboxHandler extends BaseFieldHandler {
       for (const checkbox of checkboxes) {
         const label = await this.getCheckboxLabel(element, checkbox);
         options.push({ checkbox, label });
+      }
+      if (this.isRetry) {
+        let checkedCount = 0;
+        for (const option of options) {
+          if (!await option.checkbox.isChecked()) {
+            const label = await this.getCheckboxLabelElement(element, option.checkbox);
+            if (label) {
+              await label.click();
+            } else {
+              await option.checkbox.click({ force: true });
+            }
+            log.info(`\u2705 Force-checked on retry: "${option.label}"`);
+            await this.page.waitForTimeout(100);
+            checkedCount++;
+          }
+        }
+        if (checkedCount > 0) {
+          log.info(`Force-checked ${checkedCount} checkbox(es) on retry`);
+        }
+        return true;
       }
       const optionsList = options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
       const prompt = `Question: "${questionText}"

@@ -41,10 +41,95 @@ const MODAL = {
   container: "div.jobs-easy-apply-modal",
   footer: "div.jobs-easy-apply-modal footer, footer.jobs-easy-apply-modal__footer"
 };
+const FORM_SECTIONS = [
+  ".jobs-easy-apply-form-section__grouping",
+  ".fb-dash-form-element",
+  "[data-test-form-element]",
+  ".jobs-document-upload",
+  ".jobs-resume-picker"
+];
+const ERROR_SELECTORS = [
+  "[data-test-form-element-error-message]",
+  ".artdeco-inline-feedback--error",
+  ".fb-form-element__error-text",
+  '[role="alert"]'
+];
+const PRIMARY_BUTTONS = [
+  "button[data-live-test-easy-apply-next-button]",
+  "button[data-live-test-easy-apply-review-button]",
+  "button[data-easy-apply-next-button]",
+  'button[aria-label="Continue to next step"]',
+  'button[aria-label="Submit application"]',
+  'button[aria-label="Review your application"]'
+];
+const SUBMIT_BUTTONS = [
+  'button[aria-label="Submit application"]',
+  'button[aria-label="Soumettre la candidature"]',
+  // French
+  'button[aria-label="Enviar solicitud"]',
+  // Spanish
+  'button[aria-label="Bewerbung absenden"]',
+  // German
+  'button:has-text("Submit")',
+  'button:has-text("Soumettre")',
+  // French
+  'button:has-text("Enviar")'
+  // Spanish
+];
+const NEXT_BUTTONS = [
+  'button[aria-label="Continue to next step"]',
+  `button[aria-label="Passer \xE0 l'\xE9tape suivante"]`,
+  // French
+  'button[aria-label="Continuar al siguiente paso"]',
+  // Spanish
+  'button:has-text("Next")',
+  'button:has-text("Suivant")',
+  // French
+  'button:has-text("Siguiente")'
+  // Spanish
+];
+const REVIEW_BUTTONS = [
+  'button[aria-label="Review your application"]',
+  'button[aria-label="V\xE9rifier votre candidature"]',
+  // French
+  'button[aria-label="Revisar tu solicitud"]',
+  // Spanish
+  'button:has-text("Review")',
+  'button:has-text("V\xE9rifier")',
+  // French
+  'button:has-text("Revisar")'
+  // Spanish
+];
+const DOCUMENT_UPLOAD = {
+  container: ".js-jobs-document-upload__container",
+  resumeSection: ".jobs-document-upload, .jobs-resume-picker",
+  fileInput: 'input[type="file"]',
+  uploadButton: "button.jobs-document-upload__upload-button"
+};
+const TIMEOUTS = {
+  /** Short wait for UI transitions */
+  short: 150,
+  /** Medium wait for animations */
+  medium: 500,
+  /** Long wait for network requests */
+  long: 1e3,
+  /** Extra long wait for file uploads */
+  upload: 2e3,
+  /** Wait between typing characters */
+  typing: 50
+};
 export {
   ALREADY_APPLIED_SELECTORS,
+  DOCUMENT_UPLOAD,
   EASY_APPLY_BUTTON_SELECTORS,
+  ERROR_SELECTORS,
+  FORM_SECTIONS,
   JOB_DESCRIPTION_SELECTORS,
-  MODAL
+  MODAL,
+  NEXT_BUTTONS,
+  PRIMARY_BUTTONS,
+  REVIEW_BUTTONS,
+  SUBMIT_BUTTONS,
+  TIMEOUTS
 };
 //# sourceMappingURL=selectors.js.map

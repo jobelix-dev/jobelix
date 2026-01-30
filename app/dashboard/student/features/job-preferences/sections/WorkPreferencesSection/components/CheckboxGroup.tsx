@@ -30,7 +30,8 @@ export default function CheckboxGroup({
   columns = 2,
   hasError = false,
 }: CheckboxGroupProps) {
-  const gridClass = columns === 2 ? 'grid-cols-2' : `grid-cols-${columns}`;
+  // Mobile-first: single column on mobile, then use specified columns
+  const gridClass = columns === 2 ? 'sm:grid-cols-2' : `sm:grid-cols-${columns}`;
 
   return (
     <div className="space-y-2">
@@ -39,7 +40,7 @@ export default function CheckboxGroup({
           {label}
         </label>
       )}
-      <div className={`grid ${gridClass} gap-3`}>
+      <div className={`grid grid-cols-1 ${gridClass} gap-2 sm:gap-3`}>
         {options.map(({ key, label }) => (
           <label
             key={key}

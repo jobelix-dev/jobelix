@@ -7,7 +7,7 @@
  * - Text input that accepts date strings
  */
 
-import type { Locator } from 'playwright';
+import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 
@@ -90,11 +90,10 @@ export class DateHandler extends BaseFieldHandler {
       const dateInput = element.locator('input[type="date"]').first();
       if (await dateInput.count() === 0) return false;
 
-      // Check if already filled
+      // Always clear and get fresh answer from GPT (don't trust prefill)
       const existingValue = await dateInput.inputValue();
       if (existingValue?.trim()) {
-        log.debug(`Already filled: "${existingValue}"`);
-        return true;
+        log.debug(`Clearing LinkedIn prefill: "${existingValue}"`);
       }
 
       // Get answer from GPT
