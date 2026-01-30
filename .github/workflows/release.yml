@@ -1,0 +1,178 @@
+name: Build & Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to GitHub Releases'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux Intel (Ubuntu 22.04)
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+            artifact_name: Jobelix-linux-x64
+            linux_label: ubuntu-22.04
+
+          # Linux ARM64 (Ubuntu 22.04)
+          - os: ubuntu-22.04-arm
+            platform: linux
+            arch: arm64
+            artifact_name: Jobelix-linux-arm64
+            linux_label: ubuntu-22.04-arm
+
+          # Windows Intel (x64)
+          - os: windows-2022
+            platform: win32
+            arch: x64
+            artifact_name: Jobelix-windows-x64
+
+          # Windows ARM64
+          - os: windows-2022
+            platform: win32
+            arch: arm64
+            artifact_name: Jobelix-windows-arm64
+
+          # macOS Intel (x64)
+          - os: macos-15
+            platform: darwin
+            arch: x64
+            artifact_name: Jobelix-macos-x64
+
+          # macOS Apple Silicon (ARM64)
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            artifact_name: Jobelix-macos-arm64
+
+          # NOTE: Arch Linux build is run locally with `npm run release`
+          # and JOBELIX_LINUX_LABEL=arch env var. Upload the .AppImage
+          # manually to the GitHub release.
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # Linux-specific dependencies for Electron
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-0 \
+            libnotify4 \
+            libnss3 \
+            libxss1 \
+            libxtst6 \
+            xdg-utils \
+            libatspi2.0-0 \
+            libuuid1 \
+            libsecret-1-0 \
+            libgbm1 \
+            libasound2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Build bot TypeScript
+        run: npm run build:bot
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      # Build electron app
+      - name: Build Electron app (Linux)
+        if: matrix.platform == 'linux'
+        env:
+          JOBELIX_LINUX_LABEL: ${{ matrix.linux_label }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --${{ matrix.arch }}
+
+      - name: Build Electron app (Windows)
+        if: matrix.platform == 'win32'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --${{ matrix.arch }}
+
+      - name: Build Electron app (macOS)
+        if: matrix.platform == 'darwin'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --mac --${{ matrix.arch }}
+
+      # Upload artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.zip
+            dist/*.yml
+            dist/*.yaml
+            dist/latest*.yml
+          if-no-files-found: warn
+          retention-days: 7
+
+  # Release job - runs on push to main, tags, or manual trigger with publish=true
+  # Does NOT run on pull_request events (only builds for CI validation)
+  release:
+    needs: build
+    if: |
+      github.event_name != 'pull_request' && (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/tags/v') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          draft: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
