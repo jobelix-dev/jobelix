@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Finalize profile error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to finalize profile' },
+      { error: 'Failed to finalize profile' },
       { status: 500 }
     )
   }

@@ -43,6 +43,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(userCredits)
   } catch (err: any) {
     console.error('Get balance error:', err)
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch credit balance' }, { status: 500 })
   }
 }

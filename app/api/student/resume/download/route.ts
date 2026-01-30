@@ -29,8 +29,9 @@ export async function GET() {
       .download(filePath)
 
     if (error) {
+      console.error('Resume download error:', error)
       return NextResponse.json(
-        { error: error.message },
+        { error: 'Resume not found' },
         { status: 404 }
       )
     }
@@ -42,8 +43,9 @@ export async function GET() {
       },
     })
   } catch (error: any) {
+    console.error('Resume download error:', error)
     return NextResponse.json(
-      { error: error.message || 'Download failed' },
+      { error: 'Failed to download resume' },
       { status: 500 }
     )
   }

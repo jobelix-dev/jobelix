@@ -39,6 +39,6 @@ export async function GET(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('Check can claim error:', err)
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to check daily credit eligibility' }, { status: 500 })
   }
 }

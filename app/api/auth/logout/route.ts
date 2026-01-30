@@ -59,8 +59,9 @@ export async function POST() {
      * Catch unexpected server errors and return a generic message.
      * Avoid returning internal error details to the browser.
      */
+    console.error('Logout error:', error);
     return NextResponse.json(
-      { error: error.message || 'Logout failed' },
+      { error: 'Logout failed' },
       { status: 500 }
     )
   }

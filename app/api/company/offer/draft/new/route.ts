@@ -103,8 +103,9 @@ export async function POST() {
      * - Do NOT return error.message to the client (can leak internals).
      * - Log the real error on the server; return a generic message to the client.
      */
+    console.error('Create offer draft error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create draft' },
+      { error: 'Failed to create draft' },
       { status: 500 }
     );
   }

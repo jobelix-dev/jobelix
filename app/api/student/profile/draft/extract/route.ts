@@ -518,7 +518,7 @@ ${JSON.stringify({
   } catch (error: any) {
     console.error('Resume extraction error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to extract resume data' },
+      { error: 'Failed to extract resume data' },
       { status: 500 }
     )
   }

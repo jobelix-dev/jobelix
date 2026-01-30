@@ -386,7 +386,7 @@ Process ALL ${batch.length} repositories in this batch.`,
   } catch (error: any) {
     console.error('GitHub import error:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to import GitHub data' },
+      { success: false, error: 'Failed to import GitHub data' },
       { status: 500 }
     );
   }
