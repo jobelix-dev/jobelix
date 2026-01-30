@@ -10,10 +10,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle, Rocket } from 'lucide-react';
+import { CheckCircle, Rocket, AlertTriangle, Info } from 'lucide-react';
 import DownloadButton from '@/app/components/DownloadButton';
 import type { ReleaseInfo } from '@/lib/client/github-api';
 import { getFallbackDownloadUrl } from '@/lib/client/github-api';
+import { detectPlatform, type Platform } from '@/lib/client/platformDetection';
 import Link from 'next/link';
 
 interface ElectronDetectorProps {
@@ -24,12 +25,17 @@ interface ElectronDetectorProps {
 export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDetectorProps) {
   const [isElectron, setIsElectron] = useState<boolean | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [platform, setPlatform] = useState<Platform>('unknown');
 
   useEffect(() => {
     setIsClient(true);
     // Check if window.electronAPI exists (only available in Electron)
     setIsElectron(typeof window !== 'undefined' && !!(window as any).electronAPI);
+    setPlatform(detectPlatform());
   }, []);
+
+  const isMacOS = platform.startsWith('mac-');
+  const isWindows = platform.startsWith('windows-');
 
   // Show loading state during hydration
   if (!isClient || isElectron === null) {
@@ -115,6 +121,38 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
               loading={!releaseInfo && !fetchError}
               variant="primary"
             />
+            
+            {/* Platform-specific notices */}
+            {isMacOS && (
+              <div className="mt-6 p-4 bg-warning-subtle/30 border border-warning/30 rounded-lg text-left">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-default">macOS Support Coming Soon</p>
+                    <p className="text-xs text-muted mt-1">
+                      The macOS version is currently unsigned and will not run due to Gatekeeper restrictions. 
+                      We are actively working on code signing and expect to have a fully functional macOS release available shortly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {isWindows && (
+              <div className="mt-6 p-4 bg-info-subtle/30 border border-info/30 rounded-lg text-left">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-default">Beta Notice for Windows</p>
+                    <p className="text-xs text-muted mt-1">
+                      Jobelix is currently in beta. When installing, Windows may display a security warning because the app is from an unknown publisher. 
+                      To proceed, click <span className="font-medium text-default">&quot;More info&quot;</span> and then select <span className="font-medium text-default">&quot;Run anyway&quot;</span>. 
+                      Code signing is in progress and this step will not be required in future releases.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <p className="mt-6 text-sm text-muted">
               Already have an account?{' '}
