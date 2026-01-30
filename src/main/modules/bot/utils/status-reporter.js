@@ -19,16 +19,28 @@ class StatusReporter {
     log.debug("Main window set for IPC");
   }
   /**
-   * Emit a status message to the renderer
+   * Convert internal camelCase stats to snake_case for frontend
    */
-  emit(message) {
+  getSnakeCaseStats() {
+    return {
+      jobs_found: this.stats.jobsFound,
+      jobs_applied: this.stats.jobsApplied,
+      jobs_failed: this.stats.jobsFailed,
+      credits_used: this.stats.creditsUsed
+    };
+  }
+  /**
+   * Emit a status message to the renderer
+   * Uses the format expected by useBot.ts
+   */
+  emit(payload) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       log.warn("Cannot emit status - no main window");
       return;
     }
     try {
-      this.mainWindow.webContents.send("bot-status", message);
-      log.debug(`Emitted: ${message.type} - ${message.activity || ""}`);
+      this.mainWindow.webContents.send("bot-status", payload);
+      log.debug(`Emitted: stage=${payload.stage} activity=${payload.activity || ""}`);
     } catch (error) {
       log.error("Failed to emit status", error);
     }
@@ -41,9 +53,11 @@ class StatusReporter {
     this.stopped = false;
     this.stats = { jobsFound: 0, jobsApplied: 0, jobsFailed: 0, creditsUsed: 0 };
     this.emit({
-      type: "session_start",
+      stage: "running",
+      message: "Bot session started",
+      activity: "initializing",
       details: { botVersion, platform },
-      stats: this.stats
+      stats: this.getSnakeCaseStats()
     });
   }
   /**
@@ -56,10 +70,10 @@ class StatusReporter {
       return false;
     }
     this.emit({
-      type: "heartbeat",
+      stage: "running",
       activity,
       details,
-      stats: this.stats
+      stats: this.getSnakeCaseStats()
     });
     return true;
   }
@@ -69,10 +83,9 @@ class StatusReporter {
   completeSession(success, errorMessage) {
     log.info(`Session complete: ${success ? "success" : "failed"}`);
     this.emit({
-      type: "session_complete",
-      success,
-      errorMessage,
-      stats: this.stats
+      stage: success ? "completed" : "failed",
+      message: errorMessage || (success ? "Session completed successfully" : "Session failed"),
+      stats: this.getSnakeCaseStats()
     });
   }
   /**
@@ -82,9 +95,10 @@ class StatusReporter {
     this.stopped = true;
     log.info("Session marked as stopped");
     this.emit({
-      type: "stopped",
+      stage: "stopped",
+      message: "User requested stop",
       details: { reason: "User requested stop" },
-      stats: this.stats
+      stats: this.getSnakeCaseStats()
     });
   }
   /**
