@@ -342,13 +342,13 @@ function isProcessAlive(pid) {
 }
 
 /**
- * Get detailed bot status including PID
+ * Get detailed bot status including PID and current stats
  * Verifies process is actually alive (handles manual browser close)
- * @returns {{running: boolean, pid: number|null, startedAt: number|null}}
+ * @returns {{running: boolean, pid: number|null, startedAt: number|null, stats: object|null}}
  */
 export function getBotStatus() {
   if (!botInstance) {
-    return { running: false, pid: null, startedAt: null };
+    return { running: false, pid: null, startedAt: null, stats: null };
   }
   
   let status;
@@ -376,11 +376,17 @@ export function getBotStatus() {
       // Emit stopped status so UI updates
       emitStatus({ stage: 'stopped', message: 'Browser was closed externally' });
       
-      return { running: false, pid: null, startedAt: null };
+      return { running: false, pid: null, startedAt: null, stats: null };
     }
   }
   
-  return status;
+  // Get current stats from bot instance (for page reload restoration)
+  let stats = null;
+  if (status.running && typeof botInstance.getStats === 'function') {
+    stats = botInstance.getStats();
+  }
+  
+  return { ...status, stats };
 }
 
 /**

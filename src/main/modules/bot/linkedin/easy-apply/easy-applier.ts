@@ -103,6 +103,8 @@ export class EasyApplier {
       if (modalResult === 'failed') {
         result.error = 'Could not open Easy Apply modal';
         await this.cleanupFailure();
+        // Update stats: application failed (modal issue)
+        this.reporter?.incrementJobsFailed();
         return result;
       }
 
@@ -114,6 +116,8 @@ export class EasyApplier {
       if (!processResult.success) {
         result.error = processResult.error;
         await this.cleanupFailure();
+        // Update stats: application failed during form processing
+        this.reporter?.incrementJobsFailed();
         return result;
       }
 
@@ -125,6 +129,8 @@ export class EasyApplier {
 
       if (result.success) {
         log.info(`✅ Successfully applied to "${job.title}" at ${job.company}`);
+        // Update stats: application succeeded
+        this.reporter?.incrementJobsApplied();
       }
 
     } catch (error) {
@@ -132,6 +138,8 @@ export class EasyApplier {
       log.error(`Error during Easy Apply: ${error}`);
       await this.saveHtml('apply_error', result.jobTitle);
       await this.cleanupFailure();
+      // Update stats: application failed due to exception
+      this.reporter?.incrementJobsFailed();
     }
 
     return result;
