@@ -216,17 +216,70 @@ export function useBot(): UseBotReturn {
     }
   }, []);
 
-  // Register IPC listener on mount (single listener for entire component)
+  // Register IPC listener and restore session on mount
   useEffect(() => {
-    if (!isElectron || listenerAttachedRef.current) {
+    if (!isElectron) {
       return;
     }
 
-    if (window.electronAPI?.onBotStatus) {
+    // Register IPC listener (only once)
+    if (!listenerAttachedRef.current && window.electronAPI?.onBotStatus) {
       console.log('[useBot] Registering bot status listener');
       window.electronAPI.onBotStatus(handleBotStatus);
       listenerAttachedRef.current = true;
     }
+
+    // Check if bot is already running (e.g., after page reload)
+    const checkExistingBot = async () => {
+      if (!window.electronAPI?.getBotStatus) return;
+      
+      try {
+        const status = await window.electronAPI.getBotStatus();
+        console.log('[useBot] Initial bot status check:', status);
+        
+        if (status.success && status.running) {
+          // Bot is running - restore session state
+          const now = new Date().toISOString();
+          const startedAt = status.startedAt 
+            ? new Date(status.startedAt).toISOString() 
+            : now;
+          
+          setBotProcess({
+            running: true,
+            pid: status.pid,
+            startedAt: status.startedAt,
+          });
+          
+          // Create a session to show the status card
+          setSession((prev) => prev || {
+            id: 'restored-session',
+            user_id: 'local',
+            status: 'running',
+            started_at: startedAt,
+            last_heartbeat_at: now,
+            completed_at: null,
+            current_activity: null,
+            activity_details: null,
+            jobs_found: 0,
+            jobs_applied: 0,
+            jobs_failed: 0,
+            credits_used: 0,
+            error_message: null,
+            error_details: null,
+            bot_version: null,
+            platform: null,
+            created_at: startedAt,
+            updated_at: now,
+          });
+          
+          console.log('[useBot] Restored running bot session');
+        }
+      } catch (err) {
+        console.error('[useBot] Failed to check existing bot:', err);
+      }
+    };
+    
+    checkExistingBot();
 
     return () => {
       if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
@@ -381,6 +434,12 @@ export function useBot(): UseBotReturn {
       return { success: false, error: 'Electron API not available' };
     }
 
+    // Prevent duplicate stop calls
+    if (stopping) {
+      console.log('[useBot] Already stopping, ignoring duplicate call');
+      return { success: false, error: 'Stop already in progress' };
+    }
+
     setStopping(true);
     console.log('[useBot] Force stopping bot...');
 
@@ -391,7 +450,13 @@ export function useBot(): UseBotReturn {
       
       if (result.success) {
         setBotProcess(null);
-        // Session will be updated via IPC 'stopped' event
+        // Update session to stopped state immediately (don't wait for IPC)
+        setSession((prev) => prev ? {
+          ...prev,
+          status: 'stopped',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } : null);
       }
       
       return result;
@@ -404,7 +469,7 @@ export function useBot(): UseBotReturn {
     } finally {
       setStopping(false);
     }
-  }, [isElectron]);
+  }, [isElectron, stopping]);
 
   return {
     // Launch
