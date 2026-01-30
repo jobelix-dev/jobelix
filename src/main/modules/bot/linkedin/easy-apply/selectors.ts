@@ -51,12 +51,24 @@ export const FORM_SECTIONS = [
   '.jobs-resume-picker',
 ] as const;
 
-/** Validation error selectors */
+/** Validation error selectors (inline form errors) */
 export const ERROR_SELECTORS = [
   '[data-test-form-element-error-message]',
   '.artdeco-inline-feedback--error',
   '.fb-form-element__error-text',
   '[role="alert"]',
+] as const;
+
+/** Toast error selectors (global notifications) */
+export const TOAST_ERROR_SELECTOR = '.artdeco-toast-item--visible[data-test-artdeco-toast-item-type="error"]';
+export const TOAST_MESSAGE_SELECTOR = '.artdeco-toast-item__message';
+
+/** Job closed error patterns */
+export const JOB_CLOSED_PATTERNS = [
+  'job is now closed',
+  'job has been closed',
+  'no longer accepting applications',
+  'position has been filled',
 ] as const;
 
 /** Primary action buttons */
