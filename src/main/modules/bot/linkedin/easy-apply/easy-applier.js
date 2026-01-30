@@ -50,6 +50,7 @@ class EasyApplier {
       if (modalResult === "failed") {
         result.error = "Could not open Easy Apply modal";
         await this.cleanupFailure();
+        this.reporter?.incrementJobsFailed();
         return result;
       }
       await this.setJobContext(job);
@@ -57,6 +58,7 @@ class EasyApplier {
       if (!processResult.success) {
         result.error = processResult.error;
         await this.cleanupFailure();
+        this.reporter?.incrementJobsFailed();
         return result;
       }
       result.success = !this.config.dryRun || true;
@@ -66,12 +68,14 @@ class EasyApplier {
       }
       if (result.success) {
         log.info(`\u2705 Successfully applied to "${job.title}" at ${job.company}`);
+        this.reporter?.incrementJobsApplied();
       }
     } catch (error) {
       result.error = String(error);
       log.error(`Error during Easy Apply: ${error}`);
       await this.saveHtml("apply_error", result.jobTitle);
       await this.cleanupFailure();
+      this.reporter?.incrementJobsFailed();
     }
     return result;
   }

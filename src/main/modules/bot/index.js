@@ -142,6 +142,19 @@ class LinkedInBot {
     };
   }
   /**
+   * Get current session stats from StatusReporter
+   * Used by getBotStatus() to restore stats on page reload
+   */
+  getStats() {
+    const stats = statusReporter.getStats();
+    return {
+      jobs_found: stats.jobsFound,
+      jobs_applied: stats.jobsApplied,
+      jobs_failed: stats.jobsFailed,
+      credits_used: stats.creditsUsed
+    };
+  }
+  /**
    * Launch Playwright browser with persistent profile
    */
   async launchBrowser() {
