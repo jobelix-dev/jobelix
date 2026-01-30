@@ -182,7 +182,8 @@ export type BotActivity =
   | 'application_submitted'
   | 'application_failed'
   | 'finalizing'
-  | 'stopped';
+  | 'stopped'
+  | 'stats_update';
 
 export interface BotStatusMessage {
   type: 'session_start' | 'heartbeat' | 'session_complete' | 'stopped' | 'error';
