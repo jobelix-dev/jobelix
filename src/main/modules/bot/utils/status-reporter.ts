@@ -3,13 +3,39 @@
  * 
  * Replaces the Python stdout-based IPC with direct Electron IPC.
  * Sends status updates to the renderer process in real-time.
+ * 
+ * PAYLOAD FORMAT (must match useBot.ts expectations):
+ * {
+ *   stage: 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped',
+ *   message?: string,
+ *   activity?: string,
+ *   details?: Record<string, unknown>,
+ *   stats?: { jobs_found, jobs_applied, jobs_failed, credits_used }  // snake_case!
+ * }
  */
 
 import { BrowserWindow } from 'electron';
-import type { BotStats, BotActivity, BotStatusMessage } from '../types';
+import type { BotStats, BotActivity } from '../types';
 import { createLogger } from './logger';
 
 const log = createLogger('StatusReporter');
+
+// Stage type matching frontend expectations
+type BotStage = 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped';
+
+// Payload format matching useBot.ts expectations (snake_case stats)
+interface StatusPayload {
+  stage: BotStage;
+  message?: string;
+  activity?: string;
+  details?: Record<string, unknown>;
+  stats?: {
+    jobs_found: number;
+    jobs_applied: number;
+    jobs_failed: number;
+    credits_used: number;
+  };
+}
 
 export class StatusReporter {
   private mainWindow: BrowserWindow | null = null;
@@ -30,17 +56,30 @@ export class StatusReporter {
   }
 
   /**
-   * Emit a status message to the renderer
+   * Convert internal camelCase stats to snake_case for frontend
    */
-  private emit(message: BotStatusMessage): void {
+  private getSnakeCaseStats() {
+    return {
+      jobs_found: this.stats.jobsFound,
+      jobs_applied: this.stats.jobsApplied,
+      jobs_failed: this.stats.jobsFailed,
+      credits_used: this.stats.creditsUsed,
+    };
+  }
+
+  /**
+   * Emit a status message to the renderer
+   * Uses the format expected by useBot.ts
+   */
+  private emit(payload: StatusPayload): void {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       log.warn('Cannot emit status - no main window');
       return;
     }
 
     try {
-      this.mainWindow.webContents.send('bot-status', message);
-      log.debug(`Emitted: ${message.type} - ${message.activity || ''}`);
+      this.mainWindow.webContents.send('bot-status', payload);
+      log.debug(`Emitted: stage=${payload.stage} activity=${payload.activity || ''}`);
     } catch (error) {
       log.error('Failed to emit status', error as Error);
     }
@@ -55,9 +94,11 @@ export class StatusReporter {
     this.stats = { jobsFound: 0, jobsApplied: 0, jobsFailed: 0, creditsUsed: 0 };
     
     this.emit({
-      type: 'session_start',
+      stage: 'running',
+      message: 'Bot session started',
+      activity: 'initializing',
       details: { botVersion, platform },
-      stats: this.stats,
+      stats: this.getSnakeCaseStats(),
     });
   }
 
@@ -72,10 +113,10 @@ export class StatusReporter {
     }
 
     this.emit({
-      type: 'heartbeat',
+      stage: 'running',
       activity,
       details,
-      stats: this.stats,
+      stats: this.getSnakeCaseStats(),
     });
 
     return true;
@@ -88,10 +129,9 @@ export class StatusReporter {
     log.info(`Session complete: ${success ? 'success' : 'failed'}`);
     
     this.emit({
-      type: 'session_complete',
-      success,
-      errorMessage,
-      stats: this.stats,
+      stage: success ? 'completed' : 'failed',
+      message: errorMessage || (success ? 'Session completed successfully' : 'Session failed'),
+      stats: this.getSnakeCaseStats(),
     });
   }
 
@@ -103,9 +143,10 @@ export class StatusReporter {
     log.info('Session marked as stopped');
     
     this.emit({
-      type: 'stopped',
+      stage: 'stopped',
+      message: 'User requested stop',
       details: { reason: 'User requested stop' },
-      stats: this.stats,
+      stats: this.getSnakeCaseStats(),
     });
   }
 

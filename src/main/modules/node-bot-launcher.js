@@ -328,7 +328,22 @@ export function isBotRunning() {
 }
 
 /**
+ * Check if a process is alive using kill signal 0
+ * @param {number} pid - Process ID to check
+ * @returns {boolean} - True if process exists and is running
+ */
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get detailed bot status including PID
+ * Verifies process is actually alive (handles manual browser close)
  * @returns {{running: boolean, pid: number|null, startedAt: number|null}}
  */
 export function getBotStatus() {
@@ -336,16 +351,36 @@ export function getBotStatus() {
     return { running: false, pid: null, startedAt: null };
   }
   
+  let status;
   if (typeof botInstance.getStatus === 'function') {
-    return botInstance.getStatus();
+    status = botInstance.getStatus();
+  } else {
+    // Fallback for older bot versions
+    status = {
+      running: isRunning || (botInstance?.running ?? false),
+      pid: botInstance?.getBrowserPid?.() ?? null,
+      startedAt: null,
+    };
   }
   
-  // Fallback for older bot versions
-  return {
-    running: isRunning || (botInstance?.running ?? false),
-    pid: botInstance?.getBrowserPid?.() ?? null,
-    startedAt: null,
-  };
+  // Verify process is actually alive (handles manual browser close)
+  if (status.running && status.pid) {
+    const alive = isProcessAlive(status.pid);
+    if (!alive) {
+      logger.info(`Browser process ${status.pid} is no longer running, cleaning up state`);
+      
+      // Clean up stale state
+      botInstance = null;
+      isRunning = false;
+      
+      // Emit stopped status so UI updates
+      emitStatus({ stage: 'stopped', message: 'Browser was closed externally' });
+      
+      return { running: false, pid: null, startedAt: null };
+    }
+  }
+  
+  return status;
 }
 
 /**

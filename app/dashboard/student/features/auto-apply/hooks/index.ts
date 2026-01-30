@@ -3,7 +3,6 @@
  */
 
 export { useBot } from './useBot';
-export { useCredits } from './useCredits';
+export type { BotState, LaunchProgress, SessionStats, HistoricalTotals, UseBotReturn } from './useBot';
 
-// Legacy exports - marked for removal
-// useBotLauncher and useBotStatus have been consolidated into useBot
+export { useCredits } from './useCredits';
