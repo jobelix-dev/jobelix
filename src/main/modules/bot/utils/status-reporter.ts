@@ -161,24 +161,42 @@ export class StatusReporter {
   // Statistics Methods
   // =========================================================================
 
+  /**
+   * Emit a stats-only update to keep UI in sync
+   * Called after each stat increment for real-time updates
+   */
+  private emitStatsUpdate(): void {
+    if (this.stopped) return;
+    
+    this.emit({
+      stage: 'running',
+      activity: 'stats_update',
+      stats: this.getSnakeCaseStats(),
+    });
+  }
+
   incrementJobsFound(count = 1): void {
     this.stats.jobsFound += count;
     log.debug(`Jobs found: +${count} (total: ${this.stats.jobsFound})`);
+    this.emitStatsUpdate();
   }
 
   incrementJobsApplied(count = 1): void {
     this.stats.jobsApplied += count;
     log.debug(`Jobs applied: +${count} (total: ${this.stats.jobsApplied})`);
+    this.emitStatsUpdate();
   }
 
   incrementJobsFailed(count = 1): void {
     this.stats.jobsFailed += count;
     log.debug(`Jobs failed: +${count} (total: ${this.stats.jobsFailed})`);
+    this.emitStatsUpdate();
   }
 
   incrementCreditsUsed(count = 1): void {
     this.stats.creditsUsed += count;
     log.debug(`Credits used: +${count} (total: ${this.stats.creditsUsed})`);
+    this.emitStatsUpdate();
   }
 
   getStats(): BotStats {
