@@ -6,10 +6,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readConfigFile: () => ipcRenderer.invoke('read-config'),
   writeConfigFile: (content) => ipcRenderer.invoke('write-config', content),
   writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
-  launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
+  launchBot: (token, apiUrl) => ipcRenderer.invoke('launch-bot', { token, apiUrl }),
   stopBot: () => ipcRenderer.invoke('stop-bot'),
   forceStopBot: () => ipcRenderer.invoke('force-stop-bot'),
   getBotStatus: () => ipcRenderer.invoke('get-bot-status'),
+  getBotLogPath: () => ipcRenderer.invoke('get-bot-log-path'),
   
   // Auth cache
   saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),

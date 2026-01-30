@@ -343,9 +343,14 @@ export function useBot(): UseBotReturn {
         logs: [],
       });
 
-      // Launch via IPC
+      // Launch via IPC with API URL
+      const apiUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/autoapply/gpt4`
+        : undefined; // Let Electron use its fallback
+      
       console.log('[useBot] Calling electronAPI.launchBot...');
-      const result = await window.electronAPI.launchBot(token);
+      console.log('[useBot] API URL:', apiUrl || 'Using Electron default');
+      const result = await window.electronAPI.launchBot(token, apiUrl);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to launch bot');

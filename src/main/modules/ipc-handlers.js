@@ -69,8 +69,11 @@ export function setupIpcHandlers() {
   });
 
   // Handler: Launch bot automation
-  ipcMain.handle(IPC_CHANNELS.LAUNCH_BOT, async (event, token) => {
+  ipcMain.handle(IPC_CHANNELS.LAUNCH_BOT, async (event, { token, apiUrl }) => {
     logger.ipc(IPC_CHANNELS.LAUNCH_BOT, 'Launching bot');
+    if (apiUrl) {
+      logger.info(`Using API URL from frontend: ${apiUrl}`);
+    }
     const sendBotStatus = (payload) => {
       try {
         if (!event.sender.isDestroyed()) {
@@ -86,7 +89,7 @@ export function setupIpcHandlers() {
     logger.info('🚀 Launching Node.js bot (TypeScript/Playwright)');
     try {
       const launcher = await getNodeBotLauncher();
-      result = await launcher.launchNodeBot(token, sendBotStatus);
+      result = await launcher.launchNodeBot(token, sendBotStatus, apiUrl);
     } catch (error) {
       logger.error('Failed to load Node.js bot launcher:', error);
       result = { success: false, error: error.message || 'Failed to load bot launcher' };
@@ -159,6 +162,24 @@ export function setupIpcHandlers() {
     } catch (error) {
       logger.error('Failed to get bot status:', error);
       return { success: false, running: false, pid: null, startedAt: null };
+    }
+  });
+
+  // Handler: Get bot log file path
+  ipcMain.handle(IPC_CHANNELS.GET_BOT_LOG_PATH, async () => {
+    logger.ipc(IPC_CHANNELS.GET_BOT_LOG_PATH, 'Getting bot log file path');
+    try {
+      const launcher = await getNodeBotLauncher();
+      const logPath = launcher.getBotLogPath();
+      if (logPath) {
+        logger.ipc(IPC_CHANNELS.GET_BOT_LOG_PATH, `Log path: ${logPath}`);
+        return { success: true, path: logPath };
+      } else {
+        return { success: false, error: 'Log file not initialized' };
+      }
+    } catch (error) {
+      logger.error('Failed to get bot log path:', error);
+      return { success: false, error: error.message || 'Failed to get log path' };
     }
   });
 
@@ -263,6 +284,7 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.STOP_BOT);
   ipcMain.removeHandler(IPC_CHANNELS.FORCE_STOP_BOT);
   ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_STATUS);
+  ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_LOG_PATH);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MAXIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);
