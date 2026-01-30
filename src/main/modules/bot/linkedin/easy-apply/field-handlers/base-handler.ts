@@ -11,7 +11,7 @@
  * says it can handle the current element.
  */
 
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from 'playwright-core';
 import type { GPTAnswerer } from '../../../ai/gpt-answerer';
 import type { FormUtils } from '../form-utils';
 import { normalizeText } from '../form-utils';

@@ -2,7 +2,7 @@
  * Cover Letter Generator - Generates PDF cover letters using AI
  */
 
-import type { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';

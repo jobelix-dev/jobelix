@@ -1,11 +1,18 @@
 /**
  * Hook for managing work preferences tour
+ * 
+ * Uses the generic useValidationTour hook with work preferences-specific
+ * step building logic.
  */
 
-import { useState, Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useCallback } from 'react';
 import { ValidationTourStep } from '@/app/dashboard/student/components/ValidationTour';
+import { useValidationTour } from '@/app/hooks';
 import { ValidationErrors } from '../types';
 
+/**
+ * Builds tour steps from work preferences validation errors
+ */
 export const buildValidationTourSteps = (
   errors: ValidationErrors,
   setShowAdvanced: Dispatch<SetStateAction<boolean>>
@@ -133,96 +140,46 @@ export const buildValidationTourSteps = (
   return steps;
 };
 
-export const completionStep: ValidationTourStep = {
+const COMPLETION_STEP: ValidationTourStep = {
   id: 'complete',
   targetId: 'save-preferences-button',
   title: 'Save now',
   message: 'All set - you can save now.',
 };
 
-export function useWorkPreferencesTour(
-  getValidationPreferences: () => any,
-  getValidationErrors: (prefs: any) => ValidationErrors,
+export function useWorkPreferencesTour<T>(
+  getValidationPreferences: () => T,
+  getValidationErrors: (prefs: T) => ValidationErrors,
   setShowAdvanced: Dispatch<SetStateAction<boolean>>
 ) {
-  const [tourOpen, setTourOpen] = useState(false);
-  const [tourSteps, setTourSteps] = useState<ValidationTourStep[]>([]);
-  const [tourIndex, setTourIndex] = useState(0);
-
-  const getActiveSteps = () => {
+  const getActiveSteps = useCallback(() => {
     const prefsToValidate = getValidationPreferences();
     return buildValidationTourSteps(getValidationErrors(prefsToValidate), setShowAdvanced);
-  };
+  }, [getValidationPreferences, getValidationErrors, setShowAdvanced]);
 
-  const handleTourNext = () => {
-    const activeSteps = getActiveSteps();
-    const currentId = tourSteps[tourIndex]?.id;
-    const currentIndexInActive = currentId
-      ? activeSteps.findIndex((step) => step.id === currentId)
-      : -1;
-    const nextIndex = currentIndexInActive >= 0 ? currentIndexInActive + 1 : 0;
+  const tour = useValidationTour({
+    getActiveSteps,
+    completionStep: COMPLETION_STEP,
+  });
 
-    if (activeSteps.length === 0) {
-      setTourSteps([completionStep]);
-      setTourIndex(0);
-      return;
-    }
-
-    if (nextIndex >= activeSteps.length) {
-      setTourSteps([completionStep]);
-      setTourIndex(0);
-      return;
-    }
-
-    setTourSteps(activeSteps);
-    setTourIndex(nextIndex);
-  };
-
-  const handleTourBack = () => {
-    const activeSteps = getActiveSteps();
-    const isComplete = tourSteps[0]?.id === 'complete';
-
-    if (isComplete) {
-      if (activeSteps.length > 0) {
-        setTourSteps(activeSteps);
-        setTourIndex(activeSteps.length - 1);
-      }
-      return;
-    }
-
-    const currentId = tourSteps[tourIndex]?.id;
-    const currentIndexInActive = currentId
-      ? activeSteps.findIndex((step) => step.id === currentId)
-      : -1;
-    const prevIndex = currentIndexInActive > 0 ? currentIndexInActive - 1 : 0;
-
-    setTourSteps(activeSteps);
-    setTourIndex(prevIndex);
-  };
-
-  const handleTourExit = () => {
-    setTourOpen(false);
-    setTourSteps([]);
-    setTourIndex(0);
-  };
-
-  const startTour = (errors: ValidationErrors) => {
+  const startTour = useCallback((errors: ValidationErrors) => {
     const steps = buildValidationTourSteps(errors, setShowAdvanced);
-    setTourSteps(steps);
-    setTourIndex(0);
-    setTourOpen(true);
-  };
+    if (steps.length > 0) {
+      tour.start();
+    }
+  }, [setShowAdvanced, tour]);
 
+  // Return backward-compatible API
   return {
-    tourOpen,
-    tourSteps,
-    tourIndex,
-    setTourOpen,
-    setTourSteps,
-    setTourIndex,
-    handleTourNext,
-    handleTourBack,
-    handleTourExit,
+    tourOpen: tour.isOpen,
+    tourSteps: tour.steps,
+    tourIndex: tour.currentIndex,
+    setTourOpen: () => {}, // Not needed with new API, kept for compatibility
+    setTourSteps: () => {}, // Not needed with new API, kept for compatibility
+    setTourIndex: () => {}, // Not needed with new API, kept for compatibility
+    handleTourNext: tour.next,
+    handleTourBack: tour.back,
+    handleTourExit: tour.exit,
     startTour,
     getActiveSteps,
   };

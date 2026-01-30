@@ -7,7 +7,7 @@
  * - Previously uploaded file selection
  */
 
-import type { Locator, Page } from 'playwright';
+import type { Locator, Page } from 'playwright-core';
 import * as path from 'path';
 import * as fs from 'fs';
 import { BaseFieldHandler } from './base-handler';

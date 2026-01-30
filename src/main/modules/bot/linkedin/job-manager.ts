@@ -9,7 +9,7 @@
  * 5. Tracks progress and reports status
  */
 
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from 'playwright-core';
 import * as path from 'path';
 import type { Job, JobSearchConfig, SavedAnswer } from '../types';
 import { createJob, isBlacklisted, setJobDescription } from '../models/job';

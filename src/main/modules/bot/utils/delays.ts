@@ -9,7 +9,7 @@
  * Using randomized delays helps avoid bot detection.
  */
 
-import type { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 
 /**
  * Predefined delay ranges (min, max) in milliseconds
