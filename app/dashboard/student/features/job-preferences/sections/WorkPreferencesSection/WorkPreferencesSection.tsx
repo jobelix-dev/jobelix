@@ -31,6 +31,8 @@ interface WorkPreferencesEditorProps {
 export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: WorkPreferencesEditorProps) {
   const {
     preferences,
+    setPreferences,
+    initialPreferences,
     setInitialPreferences,
     loading,
     setHasUnsavedChanges,
@@ -40,6 +42,14 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
     updateSearchCriteria,
     clearDraft,
   } = useWorkPreferences(onUnsavedChanges);
+
+  // Reset to saved preferences on unmount (when navigating away)
+  useEffect(() => {
+    return () => {
+      clearDraft();
+      // Reset form state will happen naturally on next mount
+    };
+  }, [clearDraft]);
 
   const [showAdvanced, setShowAdvanced] = React.useState(false);
 

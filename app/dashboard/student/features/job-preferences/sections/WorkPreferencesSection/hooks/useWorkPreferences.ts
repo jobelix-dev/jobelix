@@ -25,25 +25,17 @@ export function useWorkPreferences(onUnsavedChanges?: (hasChanges: boolean) => v
           ? { ...defaultPreferences, ...data.preferences }
           : { ...defaultPreferences };
 
-        let draftPrefs: WorkPreferences | null = null;
+        // Always start fresh with saved preferences (no draft restoration)
+        setPreferences(loadedPrefs);
+        setInitialPreferences(loadedPrefs);
+        
+        // Clean up any leftover draft from localStorage
         if (typeof window !== 'undefined') {
           try {
-            const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-            if (rawDraft) {
-              draftPrefs = JSON.parse(rawDraft) as WorkPreferences;
-            }
+            localStorage.removeItem(DRAFT_STORAGE_KEY);
           } catch (error) {
-            console.error('Failed to load draft preferences:', error);
+            console.error('Failed to clear draft preferences:', error);
           }
-        }
-
-        if (draftPrefs) {
-          const mergedDraft = { ...loadedPrefs, ...draftPrefs };
-          setPreferences(mergedDraft);
-          setInitialPreferences(loadedPrefs);
-        } else {
-          setPreferences(loadedPrefs);
-          setInitialPreferences(loadedPrefs);
         }
       } catch (error) {
         console.error('Failed to fetch preferences:', error);

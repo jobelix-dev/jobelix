@@ -26,6 +26,15 @@ export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTa
     }
   }, [hasUnsavedChanges, onUnsavedChanges]);
 
+  // Cleanup: Clear unsaved changes notification when unmounting (navigating away)
+  useEffect(() => {
+    return () => {
+      if (onUnsavedChanges) {
+        onUnsavedChanges(false);
+      }
+    };
+  }, [onUnsavedChanges]);
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}

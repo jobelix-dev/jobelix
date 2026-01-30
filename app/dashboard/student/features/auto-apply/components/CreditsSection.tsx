@@ -19,9 +19,9 @@ interface CreditsSectionProps {
 }
 
 const CREDIT_PLANS = [
-  { id: 'credits_100', credits: 100, price: '$4.99', popular: false },
-  { id: 'credits_300', credits: 300, price: '$9.99', popular: true },
-  { id: 'credits_500', credits: 500, price: '$14.99', popular: false },
+  { id: 'credits_100', credits: 100, price: '$4.99' },
+  { id: 'credits_300', credits: 300, price: '$9.99' },
+  { id: 'credits_500', credits: 500, price: '$14.99' },
 ];
 
 export default function CreditsSection({
@@ -144,17 +144,8 @@ export default function CreditsSection({
                 key={plan.id}
                 onClick={() => handleBuy(plan.id)}
                 disabled={buyingPlan !== null}
-                className={`relative p-4 rounded-lg border-2 transition-all hover:scale-[1.02] ${
-                  plan.popular
-                    ? 'border-primary bg-primary-subtle/10 hover:bg-primary-subtle/30 hover:shadow-md'
-                    : 'border-border hover:border-primary hover:bg-primary-subtle/5'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                className="relative p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary-subtle/5 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {plan.popular && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-primary text-white text-xs font-medium rounded-full">
-                    Popular
-                  </span>
-                )}
                 <p className="text-2xl font-bold text-default">{plan.credits}</p>
                 <p className="text-xs text-muted">credits</p>
                 <p className="text-sm font-semibold text-primary mt-2">{plan.price}</p>
