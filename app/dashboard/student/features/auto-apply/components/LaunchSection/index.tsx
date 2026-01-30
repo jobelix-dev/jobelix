@@ -1,12 +1,13 @@
 /**
- * LaunchSection - Bot Control Component
+ * LaunchSection - Bot Status & Control Component
  *
- * Renders the appropriate UI based on bot state:
- *   - IDLE: Launch button with instructions modal
- *   - LAUNCHING: Progress indicators with stop option
- *   - RUNNING: Live status card with stop button
- *   - STOPPING: Status card with stopping indicator
- *   - STOPPED/COMPLETED/FAILED: Summary with restart option
+ * Always shows a consistent bot status card with:
+ *   - Launch/Stop button in header
+ *   - Activity banner (when running)
+ *   - Stats grid (always visible)
+ *   - Status messages (errors, completion, etc.)
+ *
+ * This design ensures the UI is stable across page reloads.
  */
 
 'use client';
@@ -18,6 +19,8 @@ import {
   Loader2,
   Play,
   AlertCircle,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 import { useSimulatedProgress } from '@/app/hooks';
@@ -29,7 +32,6 @@ import {
   SetupMessageBanner,
   ActivityBanner,
   ProcessInfoBanner,
-  StatusBanner,
   StatsGrid,
   type DisplayStats,
 } from './shared';
@@ -79,7 +81,7 @@ const ACTIVITY_MESSAGES: Record<string, string> = {
 };
 
 // =============================================================================
-// Main Component
+// Main Component - Unified Bot Status Card
 // =============================================================================
 
 export default function LaunchSection({
@@ -96,84 +98,53 @@ export default function LaunchSection({
   onLaunch,
   onStop,
 }: LaunchSectionProps) {
-  // Render based on state machine
-  switch (botState) {
-    case 'idle':
-      return (
-        <IdleState
-          canLaunch={canLaunch}
-          hasCredits={hasCredits}
-          onLaunch={onLaunch}
-          errorMessage={errorMessage}
-        />
-      );
-
-    case 'launching':
-      return (
-        <LaunchingState
-          launchProgress={launchProgress}
-          onStop={onStop}
-        />
-      );
-
-    case 'running':
-    case 'stopping':
-      return (
-        <RunningState
-          botState={botState}
-          sessionStats={sessionStats}
-          historicalTotals={historicalTotals}
-          currentActivity={currentActivity}
-          activityDetails={activityDetails}
-          botPid={botPid}
-          onStop={onStop}
-        />
-      );
-
-    case 'stopped':
-    case 'completed':
-    case 'failed':
-      return (
-        <EndedState
-          botState={botState}
-          sessionStats={sessionStats}
-          historicalTotals={historicalTotals}
-          errorMessage={errorMessage}
-          canLaunch={canLaunch}
-          onLaunch={onLaunch}
-        />
-      );
-
-    default:
-      return null;
-  }
-}
-
-// =============================================================================
-// State Components
-// =============================================================================
-
-/**
- * IDLE State - Show launch button
- */
-interface IdleStateProps {
-  canLaunch: boolean;
-  hasCredits: boolean;
-  onLaunch: () => Promise<{ success: boolean; error?: string }>;
-  errorMessage: string | null;
-}
-
-function IdleState({ canLaunch, hasCredits, onLaunch, errorMessage }: IdleStateProps) {
+  const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
   const [showInstructions, setShowInstructions] = useState(false);
-  const [showWarning, setShowWarning] = useState(false);
   const [launching, setLaunching] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
-  const handleClick = () => {
-    if (!canLaunch) {
-      setShowWarning(true);
-      setTimeout(() => setShowWarning(false), 3000);
-      return;
+  // Simulated progress for installation
+  const progressValue = useSimulatedProgress({
+    isActive: launchProgress?.stage === 'installing',
+    realProgress: launchProgress?.progress,
+  });
+
+  // Derived state
+  const isActive = ['launching', 'running', 'stopping'].includes(botState);
+  const isEnded = ['stopped', 'completed', 'failed'].includes(botState);
+  const canStart = ['idle', 'stopped', 'completed', 'failed'].includes(botState);
+
+  // Combined stats for display
+  const displayStats = useMemo<DisplayStats>(() => {
+    // When ended, historical already includes this session
+    if (isEnded) {
+      return {
+        totals: historicalTotals,
+        current: sessionStats,
+      };
     }
+    // When active, combine historical + current session
+    return {
+      totals: {
+        jobs_found: historicalTotals.jobs_found + sessionStats.jobs_found,
+        jobs_applied: historicalTotals.jobs_applied + sessionStats.jobs_applied,
+        jobs_failed: historicalTotals.jobs_failed + sessionStats.jobs_failed,
+        credits_used: historicalTotals.credits_used + sessionStats.credits_used,
+      },
+      current: sessionStats,
+    };
+  }, [historicalTotals, sessionStats, isEnded]);
+
+  const activityMessage = currentActivity
+    ? ACTIVITY_MESSAGES[currentActivity] || currentActivity
+    : null;
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
+  const handleLaunchClick = () => {
+    if (!canLaunch) return;
 
     // Check desktop app
     if (typeof window !== 'undefined' && !window.electronAPI) {
@@ -192,159 +163,8 @@ function IdleState({ canLaunch, hasCredits, onLaunch, errorMessage }: IdleStateP
     setLaunching(false);
   };
 
-  return (
-    <div className="space-y-3">
-      {/* Instructions Modal */}
-      {showInstructions && (
-        <InstructionsModal
-          onClose={() => setShowInstructions(false)}
-          onConfirm={handleConfirmLaunch}
-        />
-      )}
-
-      {/* Launch Button */}
-      <button
-        onClick={handleClick}
-        disabled={launching}
-        className="w-full px-6 py-4 text-base font-semibold bg-primary hover:bg-primary-hover text-white rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Rocket className="w-6 h-6" />
-        {launching ? 'Launching Bot...' : 'Launch Auto Apply Bot'}
-      </button>
-
-      {/* Desktop Required Banner */}
-      {errorMessage === 'DESKTOP_REQUIRED' && <DesktopRequiredBanner />}
-
-      {/* Error Banner */}
-      {errorMessage && errorMessage !== 'DESKTOP_REQUIRED' && (
-        <div className="p-3 bg-error-subtle/20 border border-error rounded-lg text-sm text-error flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {errorMessage}
-        </div>
-      )}
-
-      {/* Warning Banner */}
-      {showWarning && !canLaunch && (
-        <div className="p-3 bg-warning-subtle/20 border border-warning rounded-lg text-sm text-warning flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {!hasCredits
-            ? 'You need credits to launch the bot'
-            : 'Please complete your profile and job preferences first'}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * LAUNCHING State - Show progress and stop option
- */
-interface LaunchingStateProps {
-  launchProgress: LaunchProgress | null;
-  onStop: () => Promise<{ success: boolean; error?: string }>;
-}
-
-function LaunchingState({ launchProgress, onStop }: LaunchingStateProps) {
-  const [stopping, setStopping] = useState(false);
-
-  // Simulated progress for installation
-  const progressValue = useSimulatedProgress({
-    isActive: launchProgress?.stage === 'installing',
-    realProgress: launchProgress?.progress,
-  });
-
   const handleStop = async () => {
-    setStopping(true);
-    await onStop();
-    setStopping(false);
-  };
-
-  return (
-    <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-default">Starting Bot</h3>
-        <button
-          onClick={handleStop}
-          disabled={stopping}
-          className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {stopping ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Stopping...
-            </>
-          ) : (
-            <>
-              <OctagonX className="w-4 h-4" />
-              Stop Bot
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Progress Indicator */}
-      {launchProgress?.stage === 'installing' ? (
-        <InstallProgressBanner progress={progressValue} />
-      ) : launchProgress?.stage === 'checking' || launchProgress?.stage === 'launching' ? (
-        <SetupMessageBanner message={launchProgress.message} stage={launchProgress.stage} />
-      ) : (
-        <div className="p-3 bg-primary-subtle/15 border border-primary/20 rounded-lg">
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-4 h-4 text-primary animate-spin" />
-            <span className="text-sm text-default">Starting bot...</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * RUNNING/STOPPING State - Live status with stop button
- */
-interface RunningStateProps {
-  botState: 'running' | 'stopping';
-  sessionStats: SessionStats;
-  historicalTotals: HistoricalTotals;
-  currentActivity: string | null;
-  activityDetails: Record<string, unknown> | null;
-  botPid: number | null;
-  onStop: () => Promise<{ success: boolean; error?: string }>;
-}
-
-function RunningState({
-  botState,
-  sessionStats,
-  historicalTotals,
-  currentActivity,
-  activityDetails,
-  botPid,
-  onStop,
-}: RunningStateProps) {
-  const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
-  const isStopping = botState === 'stopping';
-
-  // Combined stats for display
-  const displayStats = useMemo<DisplayStats>(
-    () => ({
-      totals: {
-        jobs_found: historicalTotals.jobs_found + sessionStats.jobs_found,
-        jobs_applied: historicalTotals.jobs_applied + sessionStats.jobs_applied,
-        jobs_failed: historicalTotals.jobs_failed + sessionStats.jobs_failed,
-        credits_used: historicalTotals.credits_used + sessionStats.credits_used,
-      },
-      current: sessionStats,
-    }),
-    [historicalTotals, sessionStats]
-  );
-
-  const activityMessage = currentActivity
-    ? ACTIVITY_MESSAGES[currentActivity] || currentActivity
-    : null;
-
-  const handleStop = async () => {
-    if (isStopping) return;
+    if (stopping) return;
 
     const confirmed = await confirm(
       'Are you sure you want to stop the bot? This will immediately terminate the browser process.',
@@ -352,115 +172,18 @@ function RunningState({
     );
     if (!confirmed) return;
 
+    setStopping(true);
     const result = await onStop();
+    setStopping(false);
+
     if (!result.success && result.error) {
       await alert(`Failed to stop bot: ${result.error}`, { title: 'Error' });
     }
   };
 
-  return (
-    <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-default">Bot Running</h3>
-        <button
-          onClick={handleStop}
-          disabled={isStopping}
-          className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isStopping ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Stopping...
-            </>
-          ) : (
-            <>
-              <OctagonX className="w-4 h-4" />
-              Stop Bot
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Process Info */}
-      {botPid && <ProcessInfoBanner pid={botPid} />}
-
-      {/* Stopping Banner */}
-      {isStopping && (
-        <div className="p-3 bg-warning-subtle/15 border border-warning/20 rounded-lg">
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-4 h-4 text-warning animate-spin" />
-            <span className="text-sm text-default">Stopping bot...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Activity Banner */}
-      {activityMessage && !isStopping && (
-        <ActivityBanner
-          message={activityMessage}
-          company={activityDetails?.company as string | undefined}
-          jobTitle={activityDetails?.job_title as string | undefined}
-        />
-      )}
-
-      {/* Stats Grid */}
-      <StatsGrid stats={displayStats} isActive={true} />
-
-      {ConfirmDialogComponent}
-    </div>
-  );
-}
-
-/**
- * ENDED State (stopped/completed/failed) - Summary with restart
- */
-interface EndedStateProps {
-  botState: 'stopped' | 'completed' | 'failed';
-  sessionStats: SessionStats;
-  historicalTotals: HistoricalTotals;
-  errorMessage: string | null;
-  canLaunch: boolean;
-  onLaunch: () => Promise<{ success: boolean; error?: string }>;
-}
-
-function EndedState({
-  botState,
-  sessionStats,
-  historicalTotals,
-  errorMessage,
-  canLaunch,
-  onLaunch,
-}: EndedStateProps) {
-  const [showInstructions, setShowInstructions] = useState(false);
-  const [launching, setLaunching] = useState(false);
-
-  // Combined stats (historical now includes this session)
-  const displayStats = useMemo<DisplayStats>(
-    () => ({
-      totals: historicalTotals,
-      current: sessionStats,
-    }),
-    [historicalTotals, sessionStats]
-  );
-
-  const handleLaunch = () => {
-    if (!canLaunch) return;
-
-    if (typeof window !== 'undefined' && !window.electronAPI) {
-      onLaunch();
-      return;
-    }
-
-    setShowInstructions(true);
-  };
-
-  const handleConfirmLaunch = async () => {
-    setShowInstructions(false);
-    setLaunching(true);
-    await onLaunch();
-    setLaunching(false);
-  };
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="bg-background rounded-xl p-4 shadow-sm space-y-4">
@@ -472,14 +195,18 @@ function EndedState({
         />
       )}
 
-      {/* Header */}
+      {/* Header with title and action button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-default">Session Summary</h3>
-        {canLaunch && (
+        <h3 className="text-lg font-semibold text-default">
+          {isActive ? 'Bot Running' : 'Auto Apply Bot'}
+        </h3>
+
+        {/* Action Button */}
+        {canStart && !isActive && (
           <button
-            onClick={handleLaunch}
-            disabled={launching}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50"
+            onClick={handleLaunchClick}
+            disabled={launching || !canLaunch}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {launching ? (
               <>
@@ -488,39 +215,141 @@ function EndedState({
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
-                Start Bot
+                {botState === 'idle' ? <Rocket className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {botState === 'idle' ? 'Launch Bot' : 'Start Bot'}
+              </>
+            )}
+          </button>
+        )}
+
+        {isActive && (
+          <button
+            onClick={handleStop}
+            disabled={stopping || botState === 'stopping'}
+            className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {stopping || botState === 'stopping' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Stopping...
+              </>
+            ) : (
+              <>
+                <OctagonX className="w-4 h-4" />
+                Stop Bot
               </>
             )}
           </button>
         )}
       </div>
 
-      {/* Status Banner */}
+      {/* Process Info (when running) */}
+      {botPid && isActive && <ProcessInfoBanner pid={botPid} />}
+
+      {/* Launch Progress (when launching) */}
+      {botState === 'launching' && (
+        <>
+          {launchProgress?.stage === 'installing' ? (
+            <InstallProgressBanner progress={progressValue} />
+          ) : launchProgress?.stage === 'checking' || launchProgress?.stage === 'launching' ? (
+            <SetupMessageBanner message={launchProgress.message} stage={launchProgress.stage} />
+          ) : (
+            <div className="p-3 bg-primary-subtle/15 border border-primary/20 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                <span className="text-sm text-default">Starting bot...</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Stopping Banner */}
+      {botState === 'stopping' && (
+        <div className="p-3 bg-warning-subtle/15 border border-warning/20 rounded-lg">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-4 h-4 text-warning animate-spin" />
+            <span className="text-sm text-default">Stopping bot...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Banner (when running) */}
+      {activityMessage && botState === 'running' && (
+        <ActivityBanner
+          message={activityMessage}
+          company={activityDetails?.company as string | undefined}
+          jobTitle={activityDetails?.job_title as string | undefined}
+        />
+      )}
+
+      {/* Status Messages */}
       {botState === 'stopped' && (
-        <StatusBanner
+        <StatusMessage
           variant="warning"
-          title="Session Stopped"
-          message='Bot was stopped. Click "Start Bot" to begin a new session.'
+          icon={<AlertCircle className="w-4 h-4" />}
+          message="Bot was stopped."
         />
       )}
       {botState === 'completed' && (
-        <StatusBanner
+        <StatusMessage
           variant="success"
-          title="Session Completed"
+          icon={<CheckCircle className="w-4 h-4" />}
           message="Bot finished successfully."
         />
       )}
       {botState === 'failed' && (
-        <StatusBanner
+        <StatusMessage
           variant="error"
-          title="Session Failed"
+          icon={<XCircle className="w-4 h-4" />}
           message={errorMessage || 'Bot encountered an error.'}
         />
       )}
 
-      {/* Stats Grid */}
-      <StatsGrid stats={displayStats} isActive={false} />
+      {/* Desktop Required Banner */}
+      {errorMessage === 'DESKTOP_REQUIRED' && botState === 'idle' && <DesktopRequiredBanner />}
+
+      {/* Permission Warning (idle state only) */}
+      {botState === 'idle' && !canLaunch && (
+        <div className="p-3 bg-warning-subtle/20 border border-warning rounded-lg text-sm text-warning flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {!hasCredits
+            ? 'You need credits to launch the bot'
+            : 'Please complete your profile and job preferences first'}
+        </div>
+      )}
+
+      {/* Stats Grid - Always visible */}
+      <StatsGrid stats={displayStats} isActive={isActive} />
+
+      {ConfirmDialogComponent}
+    </div>
+  );
+}
+
+// =============================================================================
+// Helper Components
+// =============================================================================
+
+interface StatusMessageProps {
+  variant: 'success' | 'warning' | 'error';
+  icon: React.ReactNode;
+  message: string;
+}
+
+function StatusMessage({ variant, icon, message }: StatusMessageProps) {
+  const variantStyles = {
+    success: 'bg-success-subtle/15 border-success/20 text-success',
+    warning: 'bg-warning-subtle/15 border-warning/20 text-warning',
+    error: 'bg-error-subtle/15 border-error/20 text-error',
+  };
+
+  return (
+    <div className={`p-3 border rounded-lg ${variantStyles[variant]}`}>
+      <div className="flex items-center gap-2 text-sm">
+        {icon}
+        <span>{message}</span>
+      </div>
     </div>
   );
 }
