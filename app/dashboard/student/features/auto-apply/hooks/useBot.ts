@@ -22,100 +22,19 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
+import type {
+  BotState,
+  LaunchProgress,
+  SessionStats,
+  HistoricalTotals,
+  BotStatusPayload,
+  UseBotReturn,
+} from './useBot.types';
+import { EMPTY_STATS } from './useBot.types';
 
-// =============================================================================
-// Types
-// =============================================================================
-
-/** Bot state machine states */
-export type BotState =
-  | 'idle'       // No bot running, ready to start
-  | 'launching'  // Bot starting up (checking, installing, launching)
-  | 'running'    // Bot actively processing jobs
-  | 'stopping'   // Stop requested, waiting for confirmation
-  | 'stopped'    // User stopped the bot
-  | 'completed'  // Bot finished successfully
-  | 'failed';    // Bot encountered an error
-
-/** Launch progress info (during 'launching' state) */
-export interface LaunchProgress {
-  stage: 'checking' | 'installing' | 'launching';
-  message?: string;
-  progress?: number; // 0-100 for installation progress
-}
-
-/** Session statistics */
-export interface SessionStats {
-  jobs_found: number;
-  jobs_applied: number;
-  jobs_failed: number;
-  credits_used: number;
-}
-
-/** Historical totals across all sessions */
-export interface HistoricalTotals {
-  jobs_found: number;
-  jobs_applied: number;
-  jobs_failed: number;
-  credits_used: number;
-}
-
-/** Hook return interface */
-export interface UseBotReturn {
-  // State machine (single source of truth)
-  botState: BotState;
-
-  // Launch progress (only meaningful during 'launching')
-  launchProgress: LaunchProgress | null;
-
-  // Session data
-  sessionStats: SessionStats;
-  currentActivity: string | null;
-  activityDetails: Record<string, unknown> | null;
-
-  // Process info
-  botPid: number | null;
-
-  // Error message (when botState === 'failed')
-  errorMessage: string | null;
-
-  // Historical totals
-  historicalTotals: HistoricalTotals;
-
-  // Actions
-  launchBot: () => Promise<{ success: boolean; error?: string }>;
-  stopBot: () => Promise<{ success: boolean; error?: string }>;
-  resetToIdle: () => void;
-
-  // Electron detection
-  isElectron: boolean;
-}
-
-// IPC payload from main process (matches StatusReporter output)
-interface BotStatusPayload {
-  stage: 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped';
-  message?: string;
-  progress?: number;
-  activity?: string;
-  details?: Record<string, unknown>;
-  stats?: {
-    jobs_found?: number;
-    jobs_applied?: number;
-    jobs_failed?: number;
-    credits_used?: number;
-  };
-}
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const EMPTY_STATS: SessionStats = {
-  jobs_found: 0,
-  jobs_applied: 0,
-  jobs_failed: 0,
-  credits_used: 0,
-};
+// Re-export types for consumers
+export type { BotState, LaunchProgress, SessionStats, HistoricalTotals, UseBotReturn };
+export { EMPTY_STATS };
 
 // =============================================================================
 // Hook Implementation
@@ -264,6 +183,18 @@ export function useBot(): UseBotReturn {
           // Bot is running - restore state
           console.log('[useBot] Restoring running bot session');
           setBotPid(status.pid);
+
+          // Restore stats if available (fixes page reload losing stats)
+          if (status.stats) {
+            console.log('[useBot] Restoring stats:', status.stats);
+            setSessionStats({
+              jobs_found: status.stats.jobs_found ?? 0,
+              jobs_applied: status.stats.jobs_applied ?? 0,
+              jobs_failed: status.stats.jobs_failed ?? 0,
+              credits_used: status.stats.credits_used ?? 0,
+            });
+          }
+
           transition('running', 'restored from reload');
           sessionCounted.current = false; // New session context
         }

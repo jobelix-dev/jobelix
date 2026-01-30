@@ -24,6 +24,12 @@ export interface ElectronAPI {
     running: boolean;
     pid: number | null;
     startedAt: number | null;
+    stats?: {
+      jobs_found: number;
+      jobs_applied: number;
+      jobs_failed: number;
+      credits_used: number;
+    } | null;
   }>;
   getBotLogPath: () => Promise<{
     success: boolean;
