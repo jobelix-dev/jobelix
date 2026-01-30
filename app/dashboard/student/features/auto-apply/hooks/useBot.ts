@@ -1,38 +1,99 @@
 /**
- * useBot Hook - Unified Bot Control
- * 
- * Single hook for all bot operations:
- * - Launch bot with token
- * - Stop bot (force kills browser PID)
- * - Receive real-time status updates via IPC
- * - Track session state and stats
- * 
- * Consolidates useBotLauncher + useBotStatus to eliminate duplicate code.
+ * useBot Hook - Bot Control State Machine
+ *
+ * Single source of truth for bot state. Uses a finite state machine
+ * to eliminate conflicting states and simplify UI rendering.
+ *
+ * State Machine:
+ *   IDLE ─────► LAUNCHING ─────► RUNNING ─────► STOPPED/COMPLETED
+ *     ▲              │              │                  │
+ *     │              ▼              ▼                  │
+ *     │           FAILED ◄──── STOPPING               │
+ *     │              │                                │
+ *     └──────────────┴────────────────────────────────┘
+ *
+ * Button Logic:
+ *   - "Start Bot": visible in IDLE, STOPPED, COMPLETED, FAILED
+ *   - "Stop Bot": visible in LAUNCHING, RUNNING
+ *   - "Stopping...": visible in STOPPING (disabled)
  */
 
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
-import { BotLaunchStatus, BotSession, HistoricalTotals } from '@/lib/shared/types';
 
-// Constants
-const ERROR_DISPLAY_DURATION_MS = 5000;
-const BOT_STATUS_POLL_INTERVAL_MS = 2000;
+// =============================================================================
+// Types
+// =============================================================================
 
-// Bot stage type from IPC
-type BotStage = 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped';
+/** Bot state machine states */
+export type BotState =
+  | 'idle'       // No bot running, ready to start
+  | 'launching'  // Bot starting up (checking, installing, launching)
+  | 'running'    // Bot actively processing jobs
+  | 'stopping'   // Stop requested, waiting for confirmation
+  | 'stopped'    // User stopped the bot
+  | 'completed'  // Bot finished successfully
+  | 'failed';    // Bot encountered an error
 
-// Bot process status from main process
-interface BotProcessStatus {
-  running: boolean;
-  pid: number | null;
-  startedAt: number | null;
+/** Launch progress info (during 'launching' state) */
+export interface LaunchProgress {
+  stage: 'checking' | 'installing' | 'launching';
+  message?: string;
+  progress?: number; // 0-100 for installation progress
 }
 
-// IPC payload from main process
+/** Session statistics */
+export interface SessionStats {
+  jobs_found: number;
+  jobs_applied: number;
+  jobs_failed: number;
+  credits_used: number;
+}
+
+/** Historical totals across all sessions */
+export interface HistoricalTotals {
+  jobs_found: number;
+  jobs_applied: number;
+  jobs_failed: number;
+  credits_used: number;
+}
+
+/** Hook return interface */
+export interface UseBotReturn {
+  // State machine (single source of truth)
+  botState: BotState;
+
+  // Launch progress (only meaningful during 'launching')
+  launchProgress: LaunchProgress | null;
+
+  // Session data
+  sessionStats: SessionStats;
+  currentActivity: string | null;
+  activityDetails: Record<string, unknown> | null;
+
+  // Process info
+  botPid: number | null;
+
+  // Error message (when botState === 'failed')
+  errorMessage: string | null;
+
+  // Historical totals
+  historicalTotals: HistoricalTotals;
+
+  // Actions
+  launchBot: () => Promise<{ success: boolean; error?: string }>;
+  stopBot: () => Promise<{ success: boolean; error?: string }>;
+  resetToIdle: () => void;
+
+  // Electron detection
+  isElectron: boolean;
+}
+
+// IPC payload from main process (matches StatusReporter output)
 interface BotStatusPayload {
-  stage: BotStage;
+  stage: 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped';
   message?: string;
   progress?: number;
   activity?: string;
@@ -45,339 +106,271 @@ interface BotStatusPayload {
   };
 }
 
-export interface UseBotReturn {
-  // Launch state
-  launching: boolean;
-  launchStatus: BotLaunchStatus | null;
-  launchBot: () => Promise<{ success: boolean; error?: string }>;
-  
-  // Session state  
-  session: BotSession | null;
-  historicalTotals: HistoricalTotals;
-  
-  // Process state
-  botProcess: BotProcessStatus | null;
-  
-  // Stop control (always force kills PID)
-  stopping: boolean;
-  stopBot: () => Promise<{ success: boolean; error?: string }>;
-  
-  // Error handling
-  error: string | null;
-  clearError: () => void;
-  
-  // Cleanup
-  clearSession: () => void;
-  
-  // Electron detection
-  isElectron: boolean;
-}
+// =============================================================================
+// Constants
+// =============================================================================
 
-/**
- * Unified hook for bot control and status
- */
+const EMPTY_STATS: SessionStats = {
+  jobs_found: 0,
+  jobs_applied: 0,
+  jobs_failed: 0,
+  credits_used: 0,
+};
+
+// =============================================================================
+// Hook Implementation
+// =============================================================================
+
 export function useBot(): UseBotReturn {
-  // Launch state
-  const [launching, setLaunching] = useState(false);
-  const [launchStatus, setLaunchStatus] = useState<BotLaunchStatus | null>(null);
-  
-  // Session state (populated from IPC updates)
-  const [session, setSession] = useState<BotSession | null>(null);
-  const [historicalTotals, setHistoricalTotals] = useState<HistoricalTotals>({
-    jobs_found: 0,
-    jobs_applied: 0,
-    jobs_failed: 0,
-    credits_used: 0,
-  });
-  
-  // Process state
-  const [botProcess, setBotProcess] = useState<BotProcessStatus | null>(null);
-  
-  // Stop state
-  const [stopping, setStopping] = useState(false);
-  
-  // Error state
-  const [error, setError] = useState<string | null>(null);
-  
-  // Refs for cleanup and preventing duplicate listeners
-  const listenerAttachedRef = useRef(false);
-  const launchingRef = useRef(false);
-  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const statusPollRef = useRef<NodeJS.Timeout | null>(null);
-  const sessionCountedRef = useRef<string | null>(null); // Track which session's totals have been counted
-  
-  // Electron detection
+  // ---------------------------------------------------------------------------
+  // State Machine (single source of truth)
+  // ---------------------------------------------------------------------------
+  const [botState, setBotState] = useState<BotState>('idle');
+
+  // ---------------------------------------------------------------------------
+  // Supporting State
+  // ---------------------------------------------------------------------------
+  const [launchProgress, setLaunchProgress] = useState<LaunchProgress | null>(null);
+  const [sessionStats, setSessionStats] = useState<SessionStats>(EMPTY_STATS);
+  const [currentActivity, setCurrentActivity] = useState<string | null>(null);
+  const [activityDetails, setActivityDetails] = useState<Record<string, unknown> | null>(null);
+  const [botPid, setBotPid] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [historicalTotals, setHistoricalTotals] = useState<HistoricalTotals>(EMPTY_STATS);
+
+  // ---------------------------------------------------------------------------
+  // Refs
+  // ---------------------------------------------------------------------------
+  const ipcListenerAttached = useRef(false);
+  const launchInProgress = useRef(false);
+  const sessionCounted = useRef(false); // Prevent double-counting historical totals
+
+  // ---------------------------------------------------------------------------
+  // Electron Detection
+  // ---------------------------------------------------------------------------
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-  // Helper: Set error with auto-clear timeout
-  const setErrorWithTimeout = useCallback((message: string) => {
-    setError(message);
-    if (errorTimeoutRef.current) {
-      clearTimeout(errorTimeoutRef.current);
-    }
-    errorTimeoutRef.current = setTimeout(() => {
-      setError(null);
-      errorTimeoutRef.current = null;
-    }, ERROR_DISPLAY_DURATION_MS);
-  }, []);
-
-  // Clear error manually
-  const clearError = useCallback(() => {
-    setError(null);
-    if (errorTimeoutRef.current) {
-      clearTimeout(errorTimeoutRef.current);
-      errorTimeoutRef.current = null;
-    }
-  }, []);
-
-  // Clear session (for starting fresh)
-  const clearSession = useCallback(() => {
-    setSession(null);
-    setLaunchStatus(null);
-    setLaunching(false);
-    setBotProcess(null);
-    if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
-      window.electronAPI.removeBotStatusListeners();
-      listenerAttachedRef.current = false;
-    }
-  }, []);
-
-  // Handle bot status updates from IPC
-  const handleBotStatus = useCallback((payload: BotStatusPayload) => {
-    console.log('[useBot] Received status:', payload);
-    
-    // Update launch status for UI banners
-    const mappedStage = ['completed', 'failed', 'stopped'].includes(payload.stage)
-      ? 'running' as const
-      : payload.stage as BotLaunchStatus['stage'];
-    
-    setLaunchStatus((prev) => ({
-      stage: mappedStage,
-      message: payload.message ?? payload.activity ?? prev?.message,
-      progress: payload.progress ?? prev?.progress,
-      logs: prev?.logs ?? [],
-    }));
-    
-    // Update session from IPC data
-    setSession((prev) => {
-      const now = new Date().toISOString();
-      const base: BotSession = prev || {
-        id: 'local-session',
-        user_id: 'local',
-        status: 'starting',
-        started_at: now,
-        last_heartbeat_at: now,
-        completed_at: null,
-        current_activity: null,
-        activity_details: null,
-        jobs_found: 0,
-        jobs_applied: 0,
-        jobs_failed: 0,
-        credits_used: 0,
-        error_message: null,
-        error_details: null,
-        bot_version: null,
-        platform: null,
-        created_at: now,
-        updated_at: now,
-      };
-      
-      // Map IPC stage to session status
-      let status: BotSession['status'] = base.status;
-      if (payload.stage === 'running') status = 'running';
-      else if (payload.stage === 'completed') status = 'completed';
-      else if (payload.stage === 'failed') status = 'failed';
-      else if (payload.stage === 'stopped') status = 'stopped';
-      else if (['launching', 'checking', 'installing'].includes(payload.stage)) status = 'starting';
-      
-      return {
-        ...base,
-        status,
-        current_activity: payload.activity || payload.message || base.current_activity,
-        activity_details: payload.details || base.activity_details,
-        jobs_found: payload.stats?.jobs_found ?? base.jobs_found,
-        jobs_applied: payload.stats?.jobs_applied ?? base.jobs_applied,
-        jobs_failed: payload.stats?.jobs_failed ?? base.jobs_failed,
-        credits_used: payload.stats?.credits_used ?? base.credits_used,
-        error_message: payload.stage === 'failed' ? (payload.message || 'Bot failed') : base.error_message,
-        last_heartbeat_at: now,
-        updated_at: now,
-        completed_at: ['completed', 'failed', 'stopped'].includes(status) ? now : base.completed_at,
-      };
+  // ---------------------------------------------------------------------------
+  // State Transition Helper
+  // ---------------------------------------------------------------------------
+  const transition = useCallback((newState: BotState, reason?: string) => {
+    setBotState((prev) => {
+      console.log(`[useBot] State: ${prev} → ${newState}${reason ? ` (${reason})` : ''}`);
+      return newState;
     });
-    
-    // Update historical totals when session ends (prevent double-counting)
-    if (['completed', 'failed', 'stopped'].includes(payload.stage) && payload.stats) {
-      setSession((currentSession) => {
-        // Only count if this session hasn't been counted yet
-        if (currentSession && sessionCountedRef.current !== currentSession.id) {
-          sessionCountedRef.current = currentSession.id;
-          setHistoricalTotals((prev) => ({
-            jobs_found: prev.jobs_found + (payload.stats?.jobs_found || 0),
-            jobs_applied: prev.jobs_applied + (payload.stats?.jobs_applied || 0),
-            jobs_failed: prev.jobs_failed + (payload.stats?.jobs_failed || 0),
-            credits_used: prev.credits_used + (payload.stats?.credits_used || 0),
-          }));
-        }
-        return currentSession;
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // IPC Status Handler
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Add session stats to historical totals (only once per session).
+   * Inlined to avoid circular dependency with handleBotStatus.
+   */
+  const addToHistoricalTotals = (stats?: BotStatusPayload['stats']) => {
+    if (sessionCounted.current || !stats) return;
+    sessionCounted.current = true;
+
+    setHistoricalTotals((prev) => ({
+      jobs_found: prev.jobs_found + (stats.jobs_found ?? 0),
+      jobs_applied: prev.jobs_applied + (stats.jobs_applied ?? 0),
+      jobs_failed: prev.jobs_failed + (stats.jobs_failed ?? 0),
+      credits_used: prev.credits_used + (stats.credits_used ?? 0),
+    }));
+  };
+
+  const handleBotStatus = useCallback((payload: BotStatusPayload) => {
+    console.log('[useBot] IPC status:', payload);
+
+    const { stage, message, progress, activity, details, stats } = payload;
+
+    // Update stats if provided
+    if (stats) {
+      setSessionStats({
+        jobs_found: stats.jobs_found ?? 0,
+        jobs_applied: stats.jobs_applied ?? 0,
+        jobs_failed: stats.jobs_failed ?? 0,
+        credits_used: stats.credits_used ?? 0,
       });
     }
-  }, []);
 
-  // Register IPC listener and restore session on mount
+    // Update activity
+    if (activity) setCurrentActivity(activity);
+    if (details) setActivityDetails(details);
+
+    // State machine transitions based on IPC stage
+    switch (stage) {
+      case 'checking':
+      case 'installing':
+      case 'launching':
+        // These are all 'launching' sub-stages
+        transition('launching', stage);
+        setLaunchProgress({ stage, message, progress });
+        break;
+
+      case 'running':
+        // Bot is now actively running
+        transition('running', 'bot started');
+        setLaunchProgress(null);
+        break;
+
+      case 'stopped':
+        // Bot was stopped (by user or externally)
+        transition('stopped', message || 'user requested');
+        setLaunchProgress(null);
+        addToHistoricalTotals(stats);
+        break;
+
+      case 'completed':
+        // Bot finished successfully
+        transition('completed', message || 'success');
+        setLaunchProgress(null);
+        addToHistoricalTotals(stats);
+        break;
+
+      case 'failed':
+        // Bot encountered an error
+        transition('failed', message || 'error');
+        setLaunchProgress(null);
+        setErrorMessage(message || 'Bot encountered an error');
+        addToHistoricalTotals(stats);
+        break;
+    }
+  }, [transition]);
+
+  // ---------------------------------------------------------------------------
+  // Setup: IPC Listener & Restore State on Mount
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isElectron) {
-      return;
-    }
+    if (!isElectron) return;
 
-    // Register IPC listener (only once)
-    if (!listenerAttachedRef.current && window.electronAPI?.onBotStatus) {
-      console.log('[useBot] Registering bot status listener');
+    // Attach IPC listener (only once)
+    if (!ipcListenerAttached.current && window.electronAPI?.onBotStatus) {
+      console.log('[useBot] Attaching IPC listener');
       window.electronAPI.onBotStatus(handleBotStatus);
-      listenerAttachedRef.current = true;
+      ipcListenerAttached.current = true;
     }
 
-    // Check if bot is already running (e.g., after page reload)
-    const checkExistingBot = async () => {
+    // Check if bot is already running (page reload scenario)
+    const restoreRunningBot = async () => {
       if (!window.electronAPI?.getBotStatus) return;
-      
+
       try {
         const status = await window.electronAPI.getBotStatus();
-        console.log('[useBot] Initial bot status check:', status);
-        
-        if (status.success && status.running) {
-          // Bot is running - restore session state
-          const now = new Date().toISOString();
-          const startedAt = status.startedAt 
-            ? new Date(status.startedAt).toISOString() 
-            : now;
-          
-          setBotProcess({
-            running: true,
-            pid: status.pid,
-            startedAt: status.startedAt,
-          });
-          
-          // Create a session to show the status card
-          setSession((prev) => prev || {
-            id: 'restored-session',
-            user_id: 'local',
-            status: 'running',
-            started_at: startedAt,
-            last_heartbeat_at: now,
-            completed_at: null,
-            current_activity: null,
-            activity_details: null,
-            jobs_found: 0,
-            jobs_applied: 0,
-            jobs_failed: 0,
-            credits_used: 0,
-            error_message: null,
-            error_details: null,
-            bot_version: null,
-            platform: null,
-            created_at: startedAt,
-            updated_at: now,
-          });
-          
-          console.log('[useBot] Restored running bot session');
+        console.log('[useBot] Initial status check:', status);
+
+        if (status.success && status.running && status.pid) {
+          // Bot is running - restore state
+          console.log('[useBot] Restoring running bot session');
+          setBotPid(status.pid);
+          transition('running', 'restored from reload');
+          sessionCounted.current = false; // New session context
         }
       } catch (err) {
-        console.error('[useBot] Failed to check existing bot:', err);
+        console.error('[useBot] Failed to check bot status:', err);
       }
     };
-    
-    checkExistingBot();
 
+    restoreRunningBot();
+
+    // Cleanup
     return () => {
-      if (listenerAttachedRef.current && window.electronAPI?.removeBotStatusListeners) {
-        console.log('[useBot] Removing bot status listener');
+      if (ipcListenerAttached.current && window.electronAPI?.removeBotStatusListeners) {
+        console.log('[useBot] Removing IPC listener');
         window.electronAPI.removeBotStatusListeners();
-        listenerAttachedRef.current = false;
-      }
-      if (errorTimeoutRef.current) {
-        clearTimeout(errorTimeoutRef.current);
-      }
-      if (statusPollRef.current) {
-        clearInterval(statusPollRef.current);
+        ipcListenerAttached.current = false;
       }
     };
-  }, [isElectron, handleBotStatus]);
+  }, [isElectron, handleBotStatus, transition]);
 
-  // Poll bot process status periodically when running
-  const refreshBotStatus = useCallback(async () => {
-    if (!window.electronAPI?.getBotStatus) return;
-    
-    try {
-      const status = await window.electronAPI.getBotStatus();
-      setBotProcess(status.success ? {
-        running: status.running,
-        pid: status.pid,
-        startedAt: status.startedAt,
-      } : null);
-    } catch (err) {
-      console.error('[useBot] Failed to get bot status:', err);
-    }
-  }, []);
-
-  // Start/stop polling based on session state
+  // ---------------------------------------------------------------------------
+  // Periodic Status Check (detects externally closed browser)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    const isActive = session?.status === 'starting' || session?.status === 'running';
-    
-    if (isActive && !statusPollRef.current) {
-      refreshBotStatus(); // Initial fetch
-      statusPollRef.current = setInterval(refreshBotStatus, BOT_STATUS_POLL_INTERVAL_MS);
-    } else if (!isActive && statusPollRef.current) {
-      clearInterval(statusPollRef.current);
-      statusPollRef.current = null;
-    }
-    
-    return () => {
-      if (statusPollRef.current) {
-        clearInterval(statusPollRef.current);
-        statusPollRef.current = null;
+    // Only poll when bot should be running
+    if (!isElectron || !['launching', 'running'].includes(botState)) return;
+
+    const checkStatus = async () => {
+      if (!window.electronAPI?.getBotStatus) return;
+
+      try {
+        const status = await window.electronAPI.getBotStatus();
+
+        // Update PID
+        if (status.pid) setBotPid(status.pid);
+
+        // Detect externally closed browser
+        if (!status.running && botState === 'running') {
+          console.log('[useBot] Bot process no longer running');
+          transition('stopped', 'browser closed externally');
+        }
+      } catch (err) {
+        console.error('[useBot] Status poll failed:', err);
       }
     };
-  }, [session?.status, refreshBotStatus]);
 
-  // Launch bot
+    // Initial check + interval
+    checkStatus();
+    const interval = setInterval(checkStatus, 2000);
+
+    return () => clearInterval(interval);
+  }, [isElectron, botState, transition]);
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Launch the bot
+   * Valid from: idle, stopped, completed, failed
+   */
   const launchBot = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     // Prevent duplicate launches
-    if (launchingRef.current) {
-      console.warn('[useBot] Already launching, ignoring');
+    if (launchInProgress.current) {
       return { success: false, error: 'Launch already in progress' };
     }
 
-    launchingRef.current = true;
-    setLaunching(true);
-    setError(null);
-    setLaunchStatus(null);
-    setSession(null);
-    sessionCountedRef.current = null; // Reset for new session
+    // Validate state
+    if (!['idle', 'stopped', 'completed', 'failed'].includes(botState)) {
+      return { success: false, error: `Cannot launch from state: ${botState}` };
+    }
+
+    // Check Electron
+    if (!window.electronAPI) {
+      setErrorMessage('Desktop app required');
+      transition('failed', 'not in electron');
+      return { success: false, error: 'DESKTOP_REQUIRED' };
+    }
+
+    launchInProgress.current = true;
+
+    // Reset state for new session
+    setSessionStats(EMPTY_STATS);
+    setCurrentActivity(null);
+    setActivityDetails(null);
+    setErrorMessage(null);
+    setBotPid(null);
+    sessionCounted.current = false;
+
+    // Transition to launching
+    transition('launching', 'user initiated');
+    setLaunchProgress({ stage: 'checking', message: 'Checking requirements...' });
 
     try {
-      // Check Electron
-      if (!window.electronAPI) {
-        setError('DESKTOP_REQUIRED');
-        return { success: false, error: 'DESKTOP_REQUIRED' };
-      }
-
-      // Check if profile is published
+      // 1. Check profile is published
       const profileResponse = await fetch('/api/student/profile/published');
       if (!profileResponse.ok) {
-        const message = 'Profile not published. Go to Profile tab and click "Publish Profile".';
-        setErrorWithTimeout(message);
-        return { success: false, error: message };
-      }
-      
-      const profileData = await profileResponse.json();
-      if (!profileData.student?.first_name || !profileData.student?.last_name) {
-        const message = 'Profile not published. Go to Profile tab and click "Publish Profile".';
-        setErrorWithTimeout(message);
-        return { success: false, error: message };
+        throw new Error('Profile not published. Go to Profile tab and click "Publish Profile".');
       }
 
-      // Ensure YAML config exists
+      const profileData = await profileResponse.json();
+      if (!profileData.student?.first_name || !profileData.student?.last_name) {
+        throw new Error('Profile not published. Go to Profile tab and click "Publish Profile".');
+      }
+
+      // 2. Ensure YAML config exists
+      setLaunchProgress({ stage: 'checking', message: 'Preparing configuration...' });
       try {
         const prefsResponse = await fetch('/api/student/work-preferences');
         if (prefsResponse.ok) {
@@ -387,11 +380,12 @@ export function useBot(): UseBotReturn {
           }
         }
       } catch (yamlError) {
-        console.error('[useBot] Failed to ensure YAML config:', yamlError);
+        console.error('[useBot] YAML config error:', yamlError);
         throw new Error('Failed to create local config file.');
       }
 
-      // Get API token
+      // 3. Get API token
+      setLaunchProgress({ stage: 'checking', message: 'Authenticating...' });
       const tokenResponse = await fetch('/api/student/token');
       if (!tokenResponse.ok) {
         throw new Error('Failed to get API token');
@@ -410,100 +404,131 @@ export function useBot(): UseBotReturn {
         ? `${process.env.NEXT_PUBLIC_APP_URL}/api/autoapply/gpt4`
         : undefined; // Let Electron use its fallback
       
+      // 4. Launch via IPC
+      setLaunchProgress({ stage: 'launching', message: 'Starting bot...' });
       console.log('[useBot] Calling electronAPI.launchBot...');
       console.log('[useBot] API URL:', apiUrl || 'Using Electron default');
+
       const result = await window.electronAPI.launchBot(token, apiUrl);
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to launch bot');
       }
-      
-      console.log('[useBot] Bot launched:', result);
+
+      // Success - IPC events will handle further state transitions
+      console.log('[useBot] Launch initiated:', result);
+      if (result.pid) setBotPid(result.pid);
+
       return { success: true };
 
     } catch (err) {
       console.error('[useBot] Launch error:', err);
       const message = err instanceof Error ? err.message : 'Failed to launch bot';
-      setErrorWithTimeout(message);
+
+      setErrorMessage(message);
+      transition('failed', message);
+      setLaunchProgress(null);
+
       return { success: false, error: message };
 
     } finally {
-      setLaunching(false);
-      launchingRef.current = false;
+      launchInProgress.current = false;
     }
-  }, [setErrorWithTimeout]);
+  }, [botState, transition]);
 
-  // Stop bot - ALWAYS force kills browser PID
+  /**
+   * Stop the bot
+   * Valid from: launching, running
+   */
   const stopBot = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    if (!isElectron) {
-      return { success: false, error: 'Not running in Electron' };
+    // Validate state
+    if (!['launching', 'running'].includes(botState)) {
+      return { success: false, error: `Cannot stop from state: ${botState}` };
     }
 
+    // Check Electron
     if (!window.electronAPI?.forceStopBot) {
       return { success: false, error: 'Electron API not available' };
     }
 
-    // Prevent duplicate stop calls
-    if (stopping) {
-      console.log('[useBot] Already stopping, ignoring duplicate call');
-      return { success: false, error: 'Stop already in progress' };
-    }
-
-    setStopping(true);
-    console.log('[useBot] Force stopping bot...');
+    // Transition to stopping
+    transition('stopping', 'user requested');
 
     try {
-      // Always use force stop to kill browser PID
+      console.log('[useBot] Calling forceStopBot...');
       const result = await window.electronAPI.forceStopBot();
       console.log('[useBot] Force stop result:', result);
-      
+
       if (result.success) {
-        setBotProcess(null);
-        // Update session to stopped state immediately (don't wait for IPC)
-        setSession((prev) => prev ? {
-          ...prev,
-          status: 'stopped',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } : null);
+        // IPC 'stopped' event will confirm, but set state immediately for UI
+        transition('stopped', 'force stop successful');
+        setBotPid(null);
+      } else {
+        // Stop failed - return to previous state
+        transition('running', 'stop failed');
       }
-      
+
       return result;
 
     } catch (err) {
       console.error('[useBot] Stop error:', err);
       const message = err instanceof Error ? err.message : 'Failed to stop bot';
+
+      // Return to running state on error
+      transition('running', 'stop error');
       return { success: false, error: message };
-
-    } finally {
-      setStopping(false);
     }
-  }, [isElectron, stopping]);
+  }, [botState, transition]);
 
+  /**
+   * Reset to idle state (clear session data)
+   * Useful for starting fresh
+   */
+  const resetToIdle = useCallback(() => {
+    if (['launching', 'running', 'stopping'].includes(botState)) {
+      console.warn('[useBot] Cannot reset while bot is active');
+      return;
+    }
+
+    transition('idle', 'user reset');
+    setLaunchProgress(null);
+    setSessionStats(EMPTY_STATS);
+    setCurrentActivity(null);
+    setActivityDetails(null);
+    setErrorMessage(null);
+    setBotPid(null);
+    sessionCounted.current = false;
+  }, [botState, transition]);
+
+  // ---------------------------------------------------------------------------
+  // Return Interface
+  // ---------------------------------------------------------------------------
   return {
-    // Launch
-    launching,
-    launchStatus,
-    launchBot,
-    
-    // Session
-    session,
-    historicalTotals,
-    
-    // Process
-    botProcess,
-    
-    // Stop
-    stopping,
-    stopBot,
-    
+    // State machine
+    botState,
+
+    // Launch progress
+    launchProgress,
+
+    // Session data
+    sessionStats,
+    currentActivity,
+    activityDetails,
+
+    // Process info
+    botPid,
+
     // Error
-    error,
-    clearError,
-    
-    // Cleanup
-    clearSession,
-    
+    errorMessage,
+
+    // Historical
+    historicalTotals,
+
+    // Actions
+    launchBot,
+    stopBot,
+    resetToIdle,
+
     // Detection
     isElectron,
   };

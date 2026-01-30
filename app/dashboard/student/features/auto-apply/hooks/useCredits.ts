@@ -45,7 +45,7 @@ export function useCredits() {
         setError(data.error || 'Failed to load credits');
       }
       setLoading(false);
-    } catch (err: any) {
+    } catch {
       setError('Failed to load credits');
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export function useCredits() {
       const response = await fetch('/api/student/credits/can-claim', { credentials: 'include' });
       const data = await response.json();
       if (response.ok) setClaimStatus(data);
-    } catch (err: any) {
+    } catch {
       console.error('Failed to fetch claim status');
     }
   }, []);
@@ -89,7 +89,7 @@ export function useCredits() {
         setError(message);
         return { success: false, message };
       }
-    } catch (err: any) {
+    } catch {
       const message = 'Failed to claim credits';
       setError(message);
       return { success: false, message };
