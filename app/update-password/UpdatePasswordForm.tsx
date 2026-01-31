@@ -53,7 +53,7 @@ export default function UpdatePasswordForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       {success && (
         <div className="rounded-lg bg-success-subtle/30 border border-success px-4 py-3 text-sm text-success">
-          ✓ Password updated successfully! Redirecting...
+          Password updated successfully.
         </div>
       )}
       
