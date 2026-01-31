@@ -54,6 +54,14 @@ const ERROR_SELECTORS = [
   ".fb-form-element__error-text",
   '[role="alert"]'
 ];
+const TOAST_ERROR_SELECTOR = '.artdeco-toast-item--visible[data-test-artdeco-toast-item-type="error"]';
+const TOAST_MESSAGE_SELECTOR = ".artdeco-toast-item__message";
+const JOB_CLOSED_PATTERNS = [
+  "job is now closed",
+  "job has been closed",
+  "no longer accepting applications",
+  "position has been filled"
+];
 const PRIMARY_BUTTONS = [
   "button[data-live-test-easy-apply-next-button]",
   "button[data-live-test-easy-apply-review-button]",
@@ -124,12 +132,15 @@ export {
   EASY_APPLY_BUTTON_SELECTORS,
   ERROR_SELECTORS,
   FORM_SECTIONS,
+  JOB_CLOSED_PATTERNS,
   JOB_DESCRIPTION_SELECTORS,
   MODAL,
   NEXT_BUTTONS,
   PRIMARY_BUTTONS,
   REVIEW_BUTTONS,
   SUBMIT_BUTTONS,
-  TIMEOUTS
+  TIMEOUTS,
+  TOAST_ERROR_SELECTOR,
+  TOAST_MESSAGE_SELECTOR
 };
 //# sourceMappingURL=selectors.js.map
