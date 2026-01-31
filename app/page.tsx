@@ -77,7 +77,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background scroll-smooth">
-      <script
+    <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
@@ -91,7 +91,7 @@ export default function Home() {
       />
 
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-xl sticky top-0 z-[60] shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+      <nav className="bg-white/80 sticky top-0 z-[60] shadow-[0_1px_0_rgba(0,0,0,0.04)]">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
