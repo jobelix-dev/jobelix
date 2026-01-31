@@ -19,9 +19,9 @@ interface CreditsSectionProps {
 }
 
 const CREDIT_PLANS = [
-  { id: 'credits_100', credits: 100, price: '$4.99' },
-  { id: 'credits_300', credits: 300, price: '$9.99' },
-  { id: 'credits_500', credits: 500, price: '$14.99' },
+  { id: 'credits_250', credits: 250, price: '$4.99', popular: false },
+  { id: 'credits_750', credits: 750, price: '$9.99', popular: true },
+  { id: 'credits_1500', credits: 1500, price: '$14.99', popular: false },
 ];
 
 export default function CreditsSection({

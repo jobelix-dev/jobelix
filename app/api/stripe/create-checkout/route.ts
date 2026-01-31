@@ -45,16 +45,16 @@ function getStripe(): Stripe {
 // User can only buy what you list here.
 // Client sends "plan", server decides everything else.
 const PLAN_TO_PRICE_ID: Record<string, string> = {
-  credits_100: process.env.STRIPE_PRICE_CREDITS_100 || '',
-  credits_300: process.env.STRIPE_PRICE_CREDITS_300 || '',
-  credits_500: process.env.STRIPE_PRICE_CREDITS_500 || '',
+  credits_250: process.env.STRIPE_PRICE_CREDITS_250 || '',
+  credits_750: process.env.STRIPE_PRICE_CREDITS_750 || '',
+  credits_1500: process.env.STRIPE_PRICE_CREDITS_1500 || '',
 };
 
 // Plan to credits amount mapping
 const PLAN_TO_CREDITS: Record<string, number> = {
-  credits_100: 100,
-  credits_300: 300,
-  credits_500: 500,
+  credits_250: 250,
+  credits_750: 750,
+  credits_1500: 1500,
 };
 
 // -----------------------------
