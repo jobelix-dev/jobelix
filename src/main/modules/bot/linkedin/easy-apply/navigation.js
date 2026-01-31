@@ -1,5 +1,5 @@
 import { createLogger } from "../../utils/logger.js";
-import { MODAL, ERROR_SELECTORS, TIMEOUTS } from "./selectors.js";
+import { MODAL, ERROR_SELECTORS, TIMEOUTS, TOAST_ERROR_SELECTOR, TOAST_MESSAGE_SELECTOR, JOB_CLOSED_PATTERNS } from "./selectors.js";
 const log = createLogger("Navigation");
 const PRIMARY_BUTTON_SELECTORS = [
   "button[data-live-test-easy-apply-next-button]",
@@ -106,6 +106,16 @@ class NavigationHandler {
    * Check the result after clicking Submit
    */
   async checkSubmitResult() {
+    const toastError = await this.checkToastError();
+    if (toastError) {
+      const isJobClosed = this.isJobClosedError(toastError);
+      if (isJobClosed) {
+        log.error(`\u274C Job is closed or unavailable: "${toastError}"`);
+        return { success: false, submitted: false, error: "Job closed" };
+      }
+      log.error(`\u274C Toast error after submit: "${toastError}"`);
+      return { success: false, submitted: false, error: toastError };
+    }
     const stillOpen = await this.isModalOpen();
     if (!stillOpen) {
       log.info("\u2705 Application submitted successfully!");
@@ -332,6 +342,32 @@ class NavigationHandler {
       await this.page.waitForTimeout(TIMEOUTS.medium);
     } catch {
     }
+  }
+  /**
+   * Check for visible toast error messages (e.g., "This job is now closed")
+   * Returns the error message if found, null otherwise
+   */
+  async checkToastError() {
+    try {
+      const toast = this.page.locator(TOAST_ERROR_SELECTOR);
+      if (await toast.count() === 0 || !await toast.isVisible()) {
+        return null;
+      }
+      const message = await toast.locator(TOAST_MESSAGE_SELECTOR).textContent();
+      const errorText = message?.trim() || "Unknown toast error";
+      log.warn(`Toast error detected: "${errorText}"`);
+      return errorText;
+    } catch (error) {
+      log.debug(`Error checking toast: ${error}`);
+      return null;
+    }
+  }
+  /**
+   * Check if a toast error indicates the job is closed/unavailable
+   */
+  isJobClosedError(errorMessage) {
+    const lowerMessage = errorMessage.toLowerCase();
+    return JOB_CLOSED_PATTERNS.some((pattern) => lowerMessage.includes(pattern));
   }
 }
 export {
