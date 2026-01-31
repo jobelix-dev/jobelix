@@ -28,8 +28,8 @@ export default function UpdatePasswordForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -75,7 +75,7 @@ export default function UpdatePasswordForm() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           placeholder="Enter new password"
-          minLength={6}
+          minLength={8}
         />
       </div>
 
@@ -91,7 +91,7 @@ export default function UpdatePasswordForm() {
           onChange={(e) => setConfirmPassword(e.target.value)}
           className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           placeholder="Confirm new password"
-          minLength={6}
+          minLength={8}
         />
       </div>
 

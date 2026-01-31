@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
      * - Supabase itself has password rules
      * - This check is an EARLY guard to give faster feedback
      */
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
+        { error: 'Password must be at least 8 characters' },
         { status: 400 }
       )
     }

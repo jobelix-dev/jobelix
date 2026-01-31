@@ -100,7 +100,7 @@ export default function ResetPasswordForm() {
 
       <div className="flex justify-center">
         <HCaptcha
-          sitekey="9f186d2a-621c-4b40-b788-ba2e74fcd88a"
+          sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY!}
           onVerify={(token) => {
             console.log('HCaptcha token', token)
             setCaptchaToken(token)

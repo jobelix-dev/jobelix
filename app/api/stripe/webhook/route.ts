@@ -56,14 +56,14 @@ function getWebhookSecret(): string {
 // ✅ Server-side truth: if the paid priceId is not in this mapping, we refuse to credit.
 const PRICE_TO_CREDITS: Record<string, number> = {};
 
-if (process.env.STRIPE_PRICE_CREDITS_100) {
-  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_100] = 100;
+if (process.env.STRIPE_PRICE_CREDITS_250) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_250] = 250;
 }
-if (process.env.STRIPE_PRICE_CREDITS_300) {
-  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_300] = 300;
+if (process.env.STRIPE_PRICE_CREDITS_750) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_750] = 750;
 }
-if (process.env.STRIPE_PRICE_CREDITS_500) {
-  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_500] = 500;
+if (process.env.STRIPE_PRICE_CREDITS_1500) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_1500] = 1500;
 }
 
 
