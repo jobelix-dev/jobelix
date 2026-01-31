@@ -1,29 +1,49 @@
 /**
  * Auth Callback Route Handler
  * 
- * When link in email is clicked
- * // Supabase internally validates the PKCE token
-// Confirms the email address
-// Creates a temporary authorization code and then calls :
-// GET https://www.jobelix.fr/auth/callback?code=temp-auth-code
+ * Handles two authentication flows from Supabase:
  * 
- * Handles email confirmation and password reset redirects from Supabase Auth.
- * When user clicks confirmation/reset link in email, Supabase redirects here with a code.
- * This route exchanges the code for a session and redirects to the appropriate page.
+ * 1. TOKEN-BASED FLOW (Password Reset Emails):
+ *    - Supabase sends: /auth/callback?token=xxx&type=recovery&redirect_to=...
+ *    - Or newer: /auth/callback?token_hash=xxx&type=recovery
+ *    - We verify with: supabase.auth.verifyOtp({ token_hash, type: 'recovery' })
+ * 
+ * 2. CODE-BASED PKCE FLOW (OAuth, Email Confirmation):
+ *    - Supabase sends: /auth/callback?code=xxx
+ *    - We exchange with: supabase.auth.exchangeCodeForSession(code)
+ * 
+ * WHY BOTH FLOWS?
+ * When using resetPasswordForEmail() with service role key (server-side),
+ * Supabase uses the token-based flow (not PKCE). This is actually MORE secure
+ * for cross-browser scenarios (user requests reset in Electron, clicks in Chrome)
+ * because there's no PKCE code_verifier that needs to match.
+ * 
+ * SECURITY:
+ * - verifyOtp() validates token server-side with Supabase
+ * - Token is single-use and expires after otp_expiry (1 hour)
+ * - Session is created and stored in HTTP-only cookies
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
+import type { EmailOtpType } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
+  
+  // Extract all possible auth parameters
   const code = requestUrl.searchParams.get('code')
+  const token = requestUrl.searchParams.get('token')
+  const token_hash = requestUrl.searchParams.get('token_hash')
+  const type = requestUrl.searchParams.get('type') as EmailOtpType | null
   const next = requestUrl.searchParams.get('next') || '/dashboard'
 
   console.log('[Callback] ===== STARTING CALLBACK PROCESS =====')
   console.log('[Callback] Full URL:', requestUrl.toString())
   console.log('[Callback] Code present:', !!code)
-  console.log('[Callback] Code value:', code ? code.substring(0, 10) + '...' : 'null')
+  console.log('[Callback] Token present:', !!token)
+  console.log('[Callback] Token hash present:', !!token_hash)
+  console.log('[Callback] Type:', type)
   console.log('[Callback] Next URL:', next)
   console.log('[Callback] Origin:', requestUrl.origin)
   console.log('[Callback] Host:', request.headers.get('host'))
@@ -53,8 +73,68 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const supabase = await createClient()
+
+  // ===========================================
+  // FLOW 1: Token-based flow (Password Reset)
+  // ===========================================
+  // Supabase password reset emails use token/token_hash with type=recovery
+  const effectiveToken = token_hash || token
+  if (effectiveToken && type) {
+    console.log('[Callback] Using token-based flow for type:', type)
+    
+    // Validate that type is a valid recovery/verification type
+    const validTypes: EmailOtpType[] = ['recovery', 'email', 'signup', 'invite', 'magiclink', 'email_change']
+    if (!validTypes.includes(type)) {
+      console.error('[Callback] Invalid OTP type:', type)
+      return NextResponse.redirect(new URL(`/login?error=Invalid+link+type`, requestUrl.origin))
+    }
+    
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: effectiveToken,
+      type: type,
+    })
+    
+    console.log('[Callback] verifyOtp result - session exists:', !!data?.session)
+    console.log('[Callback] verifyOtp result - user exists:', !!data?.user)
+    
+    if (error) {
+      console.error('[Callback] verifyOtp error:', error.message, error.code)
+      
+      // User-friendly error messages
+      if (error.message?.includes('expired') || error.code === 'otp_expired') {
+        return NextResponse.redirect(
+          new URL(`/login?error=This+link+has+expired.+Please+request+a+new+one.`, requestUrl.origin)
+        )
+      }
+      
+      if (error.message?.includes('invalid') || error.code === 'otp_disabled') {
+        return NextResponse.redirect(
+          new URL(`/login?error=This+link+is+invalid+or+has+already+been+used.`, requestUrl.origin)
+        )
+      }
+      
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message || 'Authentication failed')}`, requestUrl.origin)
+      )
+    }
+    
+    if (!data?.user) {
+      console.error('[Callback] No user after verifyOtp')
+      return NextResponse.redirect(new URL(`/login?error=Authentication+failed`, requestUrl.origin))
+    }
+    
+    console.log('[Callback] Token verified successfully for user:', data.user.email)
+    console.log('[Callback] Redirecting to:', next)
+    return NextResponse.redirect(new URL(next, requestUrl.origin))
+  }
+
+  // ===========================================
+  // FLOW 2: Code-based PKCE flow (OAuth, etc.)
+  // ===========================================
   if (code) {
-    const supabase = await createClient()
+    console.log('[Callback] Using code-based PKCE flow')
+    console.log('[Callback] Code value:', code.substring(0, 10) + '...')
     
     console.log('[Callback] Exchanging code for session...')
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
@@ -68,7 +148,7 @@ export async function GET(request: NextRequest) {
       // Check for expired/invalid code errors
       if (error.message?.includes('expired') || error.message?.includes('invalid') || error.code === 'invalid_grant') {
         console.log('[Callback] Redirecting to login due to expired/invalid code')
-        return NextResponse.redirect(new URL(`/login?error=This+password+reset+link+has+expired.+Please+request+a+new+one.`, requestUrl.origin))
+        return NextResponse.redirect(new URL(`/login?error=This+link+has+expired.+Please+request+a+new+one.`, requestUrl.origin))
       }
       console.log('[Callback] Redirecting to login due to other error')
       return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin))
@@ -98,15 +178,15 @@ export async function GET(request: NextRequest) {
       console.log('[Callback] User email confirmed at:', user.email_confirmed_at)
     }
     
-  } else {
-    console.log('[Callback] No code provided, redirecting to login')
-    // No code provided, redirect with error
-    return NextResponse.redirect(new URL(`/login?error=Invalid+or+expired+link`, requestUrl.origin))
+    console.log('[Callback] Redirecting to:', next)
+    return NextResponse.redirect(new URL(next, requestUrl.origin))
   }
-
-  console.log('[Callback] Redirecting to:', next)
-  // Redirect to the specified next URL (dashboard or update-password)
-  return NextResponse.redirect(new URL(next, requestUrl.origin))
+  
+  // ===========================================
+  // NO VALID AUTH PARAMETERS
+  // ===========================================
+  console.log('[Callback] No valid auth parameters (code, token, or token_hash)')
+  return NextResponse.redirect(new URL(`/login?error=Invalid+or+expired+link`, requestUrl.origin))
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
