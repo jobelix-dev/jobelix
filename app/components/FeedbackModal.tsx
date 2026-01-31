@@ -30,7 +30,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, subject, description }),
+        body: JSON.stringify({ feedback_type: type, subject, description }),
       });
 
       const data = await response.json();
