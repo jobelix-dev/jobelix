@@ -14,12 +14,34 @@ const MAIN_WINDOW_LOAD_TIMEOUT_MS = 30000;
 // Store reference to main window for IPC communication
 let mainWindowRef = null;
 
+// Track if update is being processed (download or install)
+// When true, don't close splash even if main window loads
+let updateInProgress = false;
+
 /**
  * Get the main window reference
  * @returns {BrowserWindow|null} The main window or null if not created
  */
 export function getMainWindow() {
   return mainWindowRef;
+}
+
+/**
+ * Set update in progress flag
+ * Called by update-manager when download starts
+ * @param {boolean} inProgress 
+ */
+export function setUpdateInProgress(inProgress) {
+  updateInProgress = inProgress;
+  logger.debug(`Update in progress: ${inProgress}`);
+}
+
+/**
+ * Check if update is in progress
+ * @returns {boolean}
+ */
+export function isUpdateInProgress() {
+  return updateInProgress;
 }
 
 /**
@@ -149,9 +171,17 @@ export async function createMainWindow() {
   /**
    * Close splash and show main window
    * Called when main window content has loaded or timeout reached
+   * Will NOT close splash if an update is being downloaded/installed
    */
   const showMainWindow = (reason) => {
     if (splashClosed) return;
+    
+    // Don't close splash during update - user should see progress
+    if (updateInProgress) {
+      logger.info(`Main window ready (${reason}), but update in progress - keeping splash visible`);
+      return;
+    }
+    
     splashClosed = true;
     
     logger.info(`Showing main window (reason: ${reason})`);

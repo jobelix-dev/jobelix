@@ -53,4 +53,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('update-downloaded');
     ipcRenderer.removeAllListeners('update-error');
   },
+  
+  // Open external URL (for manual update download on Linux)
+  openReleasesPage: () => ipcRenderer.invoke('open-releases-page'),
 });

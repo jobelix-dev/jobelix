@@ -37,10 +37,47 @@ class ApiClient {
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || 'Request failed')
+      // Handle different error response formats:
+      // 1. { error: "message" } - simple error
+      // 2. { message: "Validation failed", errors: [...] } - validation errors
+      // 3. { error: "message", code: "ERROR_CODE" } - error with code
+      
+      let errorMessage = 'Request failed';
+      
+      if (data.error) {
+        // Simple error message
+        errorMessage = data.error;
+      } else if (data.errors && Array.isArray(data.errors)) {
+        // Validation errors - extract the first one for display
+        // Format: "Field: message" or just "message" if path is empty
+        const firstError = data.errors[0];
+        if (firstError) {
+          errorMessage = firstError.path 
+            ? `${this.formatFieldName(firstError.path)}: ${firstError.message}`
+            : firstError.message;
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+      } else if (data.message) {
+        // Fallback to message field
+        errorMessage = data.message;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     return data
+  }
+
+  /**
+   * Format field names for display (e.g., "password" -> "Password")
+   */
+  private formatFieldName(fieldPath: string): string {
+    // Convert "fieldName" or "field_name" to "Field Name"
+    return fieldPath
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\b\w/g, c => c.toUpperCase());
   }
 
   // ========== AUTH ==========

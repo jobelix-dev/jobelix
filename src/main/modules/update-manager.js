@@ -4,15 +4,25 @@
  * 
  * Flow:
  * 1. On app launch, check GitHub releases for newer version
- * 2. If update available, download it in background (with progress shown to user)
- * 3. Install update when app restarts
+ * 2. On Windows/macOS: Download and install automatically
+ * 3. On Linux: Notify user of available update (don't auto-install due to distro variants)
+ * 
+ * Linux Note:
+ * electron-updater doesn't differentiate between Linux distributions.
+ * We build separate AppImages for Ubuntu and Arch, but the updater would
+ * download whichever is in latest-linux.yml (typically Ubuntu).
+ * To prevent installing the wrong binary, we disable auto-download on Linux
+ * and show a notification directing users to download manually.
  */
 
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import logger from '../utils/logger.js';
-import { updateSplashStatus, getMainWindow } from './window-manager.js';
+import { updateSplashStatus, getMainWindow, setUpdateInProgress } from './window-manager.js';
+
+// GitHub releases page for manual download
+const RELEASES_URL = 'https://github.com/jobelix-dev/jobelix-releases/releases/latest';
 
 /**
  * Send update event to main window renderer process
@@ -22,6 +32,13 @@ function sendToMainWindow(channel, data) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, data);
   }
+}
+
+/**
+ * Check if running on Linux
+ */
+function isLinux() {
+  return process.platform === 'linux';
 }
 
 /**
@@ -37,9 +54,16 @@ export function initAutoUpdater(splashWindow) {
   }
 
   // Configure auto-updater
-  autoUpdater.autoDownload = true;          // Download updates automatically
-  autoUpdater.autoInstallOnAppQuit = true;  // Install when app quits
+  // On Linux: Don't auto-download (we have distro-specific builds)
+  // On Windows/macOS: Auto-download is safe
+  autoUpdater.autoDownload = !isLinux();
+  autoUpdater.autoInstallOnAppQuit = !isLinux();
   autoUpdater.logger = logger.getLogger();
+
+  if (isLinux()) {
+    logger.info('Linux detected: Auto-update disabled (distro-specific builds)');
+    logger.info('Users will be notified of updates and directed to download manually');
+  }
 
   // Event handlers - update splash screen with progress
   autoUpdater.on('checking-for-update', () => {
@@ -49,15 +73,36 @@ export function initAutoUpdater(splashWindow) {
 
   autoUpdater.on('update-available', (info) => {
     logger.info(`Update available: v${info.version}`);
-    logger.info('Downloading update...');
-    updateSplashStatus(splashWindow, 'available', info.version);
     
-    // Also notify main window renderer
-    sendToMainWindow('update-available', {
-      version: info.version,
-      releaseNotes: info.releaseNotes,
-      releaseDate: info.releaseDate,
-    });
+    if (isLinux()) {
+      // On Linux: Don't download, just notify
+      logger.info('Linux: Skipping auto-download, will notify user');
+      updateSplashStatus(splashWindow, 'no-update'); // Continue loading app
+      
+      // Notify renderer after main window loads
+      setTimeout(() => {
+        sendToMainWindow('update-available', {
+          version: info.version,
+          releaseNotes: info.releaseNotes,
+          releaseDate: info.releaseDate,
+          manualDownload: true, // Flag to show "Download manually" UI
+          downloadUrl: RELEASES_URL,
+        });
+      }, 3000); // Delay to ensure main window is ready
+    } else {
+      // On Windows/macOS: Download automatically
+      // Mark update in progress to keep splash visible
+      setUpdateInProgress(true);
+      logger.info('Downloading update...');
+      updateSplashStatus(splashWindow, 'available', info.version);
+      
+      sendToMainWindow('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseDate: info.releaseDate,
+        manualDownload: false,
+      });
+    }
   });
 
   autoUpdater.on('update-not-available', (info) => {
@@ -113,4 +158,12 @@ export function initAutoUpdater(splashWindow) {
     logger.error('Failed to check for updates:', err.message);
     updateSplashStatus(splashWindow, 'error');
   });
+}
+
+/**
+ * Open the releases page for manual download
+ * Called from renderer when user clicks "Download Update" on Linux
+ */
+export function openReleasesPage() {
+  shell.openExternal(RELEASES_URL);
 }
