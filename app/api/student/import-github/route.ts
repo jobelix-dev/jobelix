@@ -22,6 +22,9 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 
 export const runtime = 'nodejs';
 
+// Vercel serverless config: allow longer execution for OpenAI + GitHub API calls
+export const maxDuration = 60; // seconds
+
 // Lazy initialization to avoid build-time errors
 let openaiInstance: OpenAI | null = null;
 function getOpenAI() {
