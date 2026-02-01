@@ -21,6 +21,14 @@ const RESUME_RATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours (1 day)
 const AUTH_RATE_LIMIT = 10; // Max 10 auth attempts per hour
 const AUTH_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
+// Newsletter rate limits
+const NEWSLETTER_HOURLY_LIMIT = 5; // Max 5 subscriptions per hour
+const NEWSLETTER_DAILY_LIMIT = 20; // Max 20 subscriptions per day
+
+// Feedback rate limits
+const FEEDBACK_HOURLY_LIMIT = 10; // Max 10 submissions per hour
+const FEEDBACK_DAILY_LIMIT = 50; // Max 50 submissions per day
+
 // In-memory store for rate limiting
 // Map<IP, { count: number, resetTime: number }>
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -30,6 +38,12 @@ const resumeRateLimitStore = new Map<string, { count: number; resetTime: number 
 
 // Separate store for auth operations (security-focused)
 const authRateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+// Separate stores for newsletter and feedback (hourly + daily windows)
+const newsletterHourlyStore = new Map<string, { count: number; resetTime: number }>();
+const newsletterDailyStore = new Map<string, { count: number; resetTime: number }>();
+const feedbackHourlyStore = new Map<string, { count: number; resetTime: number }>();
+const feedbackDailyStore = new Map<string, { count: number; resetTime: number }>();
 
 // Cleanup old entries every 5 minutes to prevent memory leaks
 setInterval(() => {
@@ -49,6 +63,28 @@ setInterval(() => {
   for (const [ip, data] of authRateLimitStore.entries()) {
     if (data.resetTime < now) {
       authRateLimitStore.delete(ip);
+    }
+  }
+  // Also cleanup newsletter rate limit stores
+  for (const [ip, data] of newsletterHourlyStore.entries()) {
+    if (data.resetTime < now) {
+      newsletterHourlyStore.delete(ip);
+    }
+  }
+  for (const [ip, data] of newsletterDailyStore.entries()) {
+    if (data.resetTime < now) {
+      newsletterDailyStore.delete(ip);
+    }
+  }
+  // Also cleanup feedback rate limit stores
+  for (const [ip, data] of feedbackHourlyStore.entries()) {
+    if (data.resetTime < now) {
+      feedbackHourlyStore.delete(ip);
+    }
+  }
+  for (const [ip, data] of feedbackDailyStore.entries()) {
+    if (data.resetTime < now) {
+      feedbackDailyStore.delete(ip);
     }
   }
 }, 5 * 60 * 1000);
@@ -196,6 +232,82 @@ function checkAuthRateLimit(ip: string): { allowed: boolean; limit: number; rema
   };
 }
 
+/**
+ * Check rate limit for newsletter subscriptions
+ * Uses both hourly (5/hour) and daily (20/day) windows
+ */
+function checkNewsletterRateLimit(ip: string): { allowed: boolean; hourlyRemaining: number; dailyRemaining: number; reset: number } {
+  const now = Date.now();
+  const hourlyWindowMs = 60 * 60 * 1000; // 1 hour
+  const dailyWindowMs = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Check/update hourly store
+  let hourlyData = newsletterHourlyStore.get(ip);
+  if (!hourlyData || hourlyData.resetTime < now) {
+    hourlyData = { count: 1, resetTime: now + hourlyWindowMs };
+    newsletterHourlyStore.set(ip, hourlyData);
+  } else {
+    hourlyData.count++;
+  }
+
+  // Check/update daily store
+  let dailyData = newsletterDailyStore.get(ip);
+  if (!dailyData || dailyData.resetTime < now) {
+    dailyData = { count: 1, resetTime: now + dailyWindowMs };
+    newsletterDailyStore.set(ip, dailyData);
+  } else {
+    dailyData.count++;
+  }
+
+  const hourlyExceeded = hourlyData.count > NEWSLETTER_HOURLY_LIMIT;
+  const dailyExceeded = dailyData.count > NEWSLETTER_DAILY_LIMIT;
+
+  return {
+    allowed: !hourlyExceeded && !dailyExceeded,
+    hourlyRemaining: Math.max(0, NEWSLETTER_HOURLY_LIMIT - hourlyData.count),
+    dailyRemaining: Math.max(0, NEWSLETTER_DAILY_LIMIT - dailyData.count),
+    reset: hourlyExceeded ? hourlyData.resetTime : dailyData.resetTime
+  };
+}
+
+/**
+ * Check rate limit for feedback submissions
+ * Uses both hourly (10/hour) and daily (50/day) windows
+ */
+function checkFeedbackRateLimit(ip: string): { allowed: boolean; hourlyRemaining: number; dailyRemaining: number; reset: number } {
+  const now = Date.now();
+  const hourlyWindowMs = 60 * 60 * 1000; // 1 hour
+  const dailyWindowMs = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Check/update hourly store
+  let hourlyData = feedbackHourlyStore.get(ip);
+  if (!hourlyData || hourlyData.resetTime < now) {
+    hourlyData = { count: 1, resetTime: now + hourlyWindowMs };
+    feedbackHourlyStore.set(ip, hourlyData);
+  } else {
+    hourlyData.count++;
+  }
+
+  // Check/update daily store
+  let dailyData = feedbackDailyStore.get(ip);
+  if (!dailyData || dailyData.resetTime < now) {
+    dailyData = { count: 1, resetTime: now + dailyWindowMs };
+    feedbackDailyStore.set(ip, dailyData);
+  } else {
+    dailyData.count++;
+  }
+
+  const hourlyExceeded = hourlyData.count > FEEDBACK_HOURLY_LIMIT;
+  const dailyExceeded = dailyData.count > FEEDBACK_DAILY_LIMIT;
+
+  return {
+    allowed: !hourlyExceeded && !dailyExceeded,
+    hourlyRemaining: Math.max(0, FEEDBACK_HOURLY_LIMIT - hourlyData.count),
+    dailyRemaining: Math.max(0, FEEDBACK_DAILY_LIMIT - dailyData.count),
+    reset: hourlyExceeded ? hourlyData.resetTime : dailyData.resetTime
+  };
+}
+
 export function proxy(request: NextRequest) {
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
@@ -242,6 +354,40 @@ export function proxy(request: NextRequest) {
       response.headers.set('X-RateLimit-Limit', authCheck.limit.toString());
       response.headers.set('X-RateLimit-Remaining', authCheck.remaining.toString());
       response.headers.set('X-RateLimit-Reset', new Date(authCheck.reset).toISOString());
+      return response;
+    }
+  }
+
+  // Check for newsletter rate limits (5/hour, 20/day)
+  if (pathname === '/api/newsletter' && request.method === 'POST') {
+    const newsletterCheck = checkNewsletterRateLimit(ip);
+    if (!newsletterCheck.allowed) {
+      const response = NextResponse.json(
+        { error: 'Too many subscription attempts. Please try again later.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Hourly-Limit', NEWSLETTER_HOURLY_LIMIT.toString());
+      response.headers.set('X-RateLimit-Daily-Limit', NEWSLETTER_DAILY_LIMIT.toString());
+      response.headers.set('X-RateLimit-Hourly-Remaining', newsletterCheck.hourlyRemaining.toString());
+      response.headers.set('X-RateLimit-Daily-Remaining', newsletterCheck.dailyRemaining.toString());
+      response.headers.set('X-RateLimit-Reset', new Date(newsletterCheck.reset).toISOString());
+      return response;
+    }
+  }
+
+  // Check for feedback rate limits (10/hour, 50/day)
+  if (pathname === '/api/feedback' && request.method === 'POST') {
+    const feedbackCheck = checkFeedbackRateLimit(ip);
+    if (!feedbackCheck.allowed) {
+      const response = NextResponse.json(
+        { error: 'Too many feedback submissions. Please try again later.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Hourly-Limit', FEEDBACK_HOURLY_LIMIT.toString());
+      response.headers.set('X-RateLimit-Daily-Limit', FEEDBACK_DAILY_LIMIT.toString());
+      response.headers.set('X-RateLimit-Hourly-Remaining', feedbackCheck.hourlyRemaining.toString());
+      response.headers.set('X-RateLimit-Daily-Remaining', feedbackCheck.dailyRemaining.toString());
+      response.headers.set('X-RateLimit-Reset', new Date(feedbackCheck.reset).toISOString());
       return response;
     }
   }

@@ -39,7 +39,7 @@ import { loadResume } from './models/resume';
 import { LinkedInAuthenticator } from './linkedin/authenticator';
 import { LinkedInJobManager } from './linkedin/job-manager';
 import { GPTAnswerer } from './ai/gpt-answerer';
-import { StatusReporter, statusReporter } from './utils/status-reporter';
+import { statusReporter } from './utils/status-reporter';
 import { createLogger, logger } from './utils/logger';
 import { getDataFolderPath, getChromiumPath } from './utils/paths';
 

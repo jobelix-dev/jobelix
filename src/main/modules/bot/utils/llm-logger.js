@@ -99,7 +99,7 @@ class LLMLogger {
           byModel[entry.model].calls++;
           byModel[entry.model].tokens += entry.total_tokens;
           byModel[entry.model].cost += entry.total_cost;
-        } catch (parseError) {
+        } catch (_parseError) {
           log.debug(`Skipping malformed log line: ${line.substring(0, 50)}...`);
         }
       }

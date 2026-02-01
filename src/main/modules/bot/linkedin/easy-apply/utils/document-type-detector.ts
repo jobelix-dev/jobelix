@@ -48,7 +48,7 @@ export async function detectDocumentType(
   fileInput: Locator,
   questionText: string
 ): Promise<DocumentTypeResult> {
-  let result: DocumentTypeResult = {
+  const result: DocumentTypeResult = {
     isResumeUpload: true,
     isCoverLetterUpload: false,
     detectedBy: 'default'

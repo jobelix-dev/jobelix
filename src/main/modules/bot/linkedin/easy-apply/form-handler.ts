@@ -23,6 +23,7 @@ import {
   DateHandler,
   FileUploadHandler
 } from './field-handlers';
+import type { GPTAnswererLike } from './field-handlers/base-handler';
 
 const log = createLogger('FormHandler');
 
@@ -41,9 +42,12 @@ export interface FormPageResult {
  */
 export type AnswerRecordCallback = (type: string, question: string, answer: string) => void;
 
+// Re-export GPTAnswererLike for use by other modules
+export type { GPTAnswererLike };
+
 export class FormHandler {
   private page: Page;
-  private gptAnswerer: any;
+  private gptAnswerer: GPTAnswererLike;
   private formUtils: FormUtils;
   private handlers: BaseFieldHandler[];
   private fileUploadHandler: FileUploadHandler;
@@ -61,7 +65,7 @@ export class FormHandler {
    */
   constructor(
     page: Page, 
-    gptAnswerer: any,
+    gptAnswerer: GPTAnswererLike,
     savedAnswers: SavedAnswer[] = [],
     recordCallback?: AnswerRecordCallback,
     resumePath?: string,

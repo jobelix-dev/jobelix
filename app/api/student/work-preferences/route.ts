@@ -31,7 +31,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ preferences })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Work preferences fetch error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     await logApiCall(user.id, 'work-preferences')
 
     return NextResponse.json({ success: true, preferences: data })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Work preferences save error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

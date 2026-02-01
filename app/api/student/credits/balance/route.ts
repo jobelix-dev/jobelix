@@ -7,10 +7,10 @@
 import "server-only";
 
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(userCredits)
-  } catch (err: any) {
-    console.error('Get balance error:', err)
+  } catch {
+    console.error('Get balance error');
     return NextResponse.json({ error: 'Failed to fetch credit balance' }, { status: 500 })
   }
 }

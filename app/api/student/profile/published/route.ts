@@ -3,7 +3,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const auth = await authenticateRequest();
     if (auth.error) return auth.error;
@@ -21,8 +21,7 @@ export async function GET(request: NextRequest) {
     if (studentError) {
       console.error('Error fetching student:', studentError);
       return NextResponse.json({ 
-        error: 'Student profile not found',
-        details: studentError.message 
+        error: 'Student profile not found'
       }, { status: 404 });
     }
 

@@ -201,6 +201,18 @@ export interface ExtractedResumeData {
 }
 
 /**
+ * Draft profile data structure (database row)
+ * Extends ExtractedResumeData with database fields
+ */
+export interface DraftProfileData extends ExtractedResumeData {
+  id: string;
+  status: 'editing' | 'published';
+  student_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
  * API Response type for resume data extraction
  */
 export interface ExtractDataResponse {
@@ -399,13 +411,13 @@ export interface BotSession {
   last_heartbeat_at: string | null;
   completed_at: string | null;
   current_activity: string | null;
-  activity_details: Record<string, any> | null;
+  activity_details: Record<string, unknown> | null;
   jobs_found: number;
   jobs_applied: number;
   jobs_failed: number;
   credits_used: number;
   error_message: string | null;
-  error_details: Record<string, any> | null;
+  error_details: Record<string, unknown> | null;
   bot_version: string | null;
   platform: string | null;
   created_at: string;

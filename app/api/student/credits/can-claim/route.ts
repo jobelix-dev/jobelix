@@ -5,10 +5,10 @@
  */
 import "server-only";
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
       last_claim: grant?.granted_at || null,
       next_claim_available: nextClaimDate,
     })
-  } catch (err: any) {
-    console.error('Check can claim error:', err)
+  } catch {
+    console.error('Check can claim error');
     return NextResponse.json({ error: 'Failed to check daily credit eligibility' }, { status: 500 })
   }
 }

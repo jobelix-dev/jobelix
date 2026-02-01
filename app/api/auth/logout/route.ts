@@ -54,7 +54,7 @@ export async function POST() {
      * Logout succeeded. Cookies are cleared.
      */
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * Catch unexpected server errors and return a generic message.
      * Avoid returning internal error details to the browser.

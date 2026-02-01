@@ -25,7 +25,6 @@ import { authenticateRequest } from '@/lib/server/auth'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { 
-  ResumeExtractionSchema,
   ContactInfoSchema,
   EducationSectionSchema,
   ExperienceSectionSchema,
@@ -50,16 +49,69 @@ import {
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import path from 'path'
 import { pathToFileURL } from 'url'
-import { getGitHubConnection } from '@/lib/server/githubOAuth'
-import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService'
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps'
 import { setExtractionProgress } from '@/lib/server/extractionProgress'
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import type {
+  EducationEntry,
+  ExperienceEntry,
+  ProjectEntry,
+  SkillEntry,
+  LanguageEntry,
+  PublicationEntry,
+  CertificationEntry,
+  SocialLinkEntry,
+} from '@/lib/shared/types'
 
 // Configure worker for Node.js serverless environment
 // Point to the worker file in node_modules
 // Convert to file:// URL for cross-platform ESM loader compatibility
 const workerPath = path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs')
 pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
+
+// PDF.js text content item type
+interface TextContentItem {
+  str: string;
+  transform?: number[];
+}
+
+// Extracted data structure
+interface ExtractedData {
+  student_name: string | null;
+  phone_number: string | null;
+  email: string | null;
+  address: string | null;
+  education: EducationEntry[];
+  experience: ExperienceEntry[];
+  projects: ProjectEntry[];
+  skills: SkillEntry[];
+  languages: LanguageEntry[];
+  publications: PublicationEntry[];
+  certifications: CertificationEntry[];
+  social_links: SocialLinkEntry;
+}
+
+// Section data types
+interface ContactData {
+  student_name?: string | null;
+  phone_number?: string | null;
+  email?: string | null;
+  address?: string | null;
+}
+
+interface SectionDataWithArray {
+  education?: EducationEntry[];
+  experience?: ExperienceEntry[];
+  projects?: ProjectEntry[];
+  skills?: SkillEntry[];
+  languages?: LanguageEntry[];
+  publications?: PublicationEntry[];
+  certifications?: CertificationEntry[];
+}
+
+interface SocialLinksData {
+  social_links?: SocialLinkEntry;
+}
 
 // Lazy initialization to avoid build-time errors
 let openaiInstance: OpenAI | null = null
@@ -73,6 +125,26 @@ function getOpenAI() {
   return openaiInstance
 }
 
+// Type for existing section data passed to extractSection
+type ExistingSectionData = 
+  | EducationEntry[]
+  | ExperienceEntry[]
+  | ProjectEntry[]
+  | SkillEntry[]
+  | LanguageEntry[]
+  | PublicationEntry[]
+  | CertificationEntry[]
+  | SocialLinkEntry
+  | ContactInfo;
+
+// Contact info type for extraction
+interface ContactInfo {
+  student_name: string | null;
+  phone_number: string | null;
+  email: string | null;
+  address: string | null;
+}
+
 /**
  * Helper function to extract a specific section from resume
  * Uses the full resume text but focuses on extracting just one section
@@ -81,11 +153,12 @@ async function extractSection<T>(
   resumeText: string,
   linksInfo: string,
   sectionName: string,
-  existingSectionData: any,
-  schema: any,
+  existingSectionData: ExistingSectionData,
+  schema: Parameters<typeof zodResponseFormat>[0],
   systemPrompt: string
 ): Promise<T> {
   const openai = getOpenAI();
+  const existingCount = Array.isArray(existingSectionData) ? existingSectionData.length : 0;
   
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
@@ -103,10 +176,10 @@ ${resumeText}${linksInfo}
 
 **EXISTING ${sectionName.toUpperCase()} DATA (MUST ALL BE PRESERVED):**
 ${JSON.stringify(existingSectionData, null, 2)}
-${existingSectionData && existingSectionData.length > 0 ? `Count: ${existingSectionData.length} existing entries` : 'No existing data'}
+${existingCount > 0 ? `Count: ${existingCount} existing entries` : 'No existing data'}
 
 Focus ONLY on the ${sectionName} section. PRESERVE all existing entries and ADD new ones from the resume.
-Your output MUST contain AT LEAST ${existingSectionData?.length || 0} entries.`,
+Your output MUST contain AT LEAST ${existingCount} entries.`,
       },
     ],
     response_format: zodResponseFormat(schema, `${sectionName}_extraction`),
@@ -126,13 +199,28 @@ Your output MUST contain AT LEAST ${existingSectionData?.length || 0} entries.`,
  *    - Merge result with existing data
  * 3. Update draft incrementally
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Authenticate user
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
+
+    // Rate limiting: 2 extractions per hour, 5 per day (expensive OpenAI operation)
+    const rateLimitResult = await checkRateLimit(user.id, {
+      endpoint: 'resume-extraction',
+      hourlyLimit: 2,
+      dailyLimit: 5,
+    })
+
+    if (rateLimitResult.error) return rateLimitResult.error
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(
+        { endpoint: 'resume-extraction', hourlyLimit: 2, dailyLimit: 5 },
+        rateLimitResult.data
+      )
+    }
 
     const updateProgress = (stepIndex: number, complete = false) => {
       const step = RESUME_EXTRACTION_STEPS[stepIndex] || 'Processing';
@@ -190,8 +278,8 @@ export async function POST(request: NextRequest) {
       
       // Extract text content (visible text layer)
       const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item: any) => item.str)
+      const pageText = (textContent.items as TextContentItem[])
+        .map((item) => item.str)
         .join(' ')
       resumeText += pageText + '\n\n'
 
@@ -206,7 +294,7 @@ export async function POST(request: NextRequest) {
           
           // Find text items that overlap with the link annotation
           if (rect && textContent.items) {
-            const linkTextItems = textContent.items.filter((item: any) => {
+            const linkTextItems = (textContent.items as TextContentItem[]).filter((item) => {
               if (!item.transform) return false
               const itemX = item.transform[4]
               const itemY = item.transform[5]
@@ -214,7 +302,7 @@ export async function POST(request: NextRequest) {
               return itemX >= rect[0] - 5 && itemX <= rect[2] + 5 &&
                      itemY >= rect[1] - 5 && itemY <= rect[3] + 5
             })
-            linkContext = linkTextItems.map((item: any) => item.str).join(' ').trim()
+            linkContext = linkTextItems.map((item) => item.str).join(' ').trim()
           }
           
           extractedLinks.push({
@@ -261,8 +349,8 @@ export async function POST(request: NextRequest) {
         }).join('\n')}`
       : ''
 
-    // Prepare existing draft data for merging context
-    const existingDataContext = existingDraft ? `
+    // Prepare existing draft data for merging context (used for debug logging)
+    const _existingDataContext = existingDraft ? `
 
 **EXISTING PROFILE DATA (to merge with):**
 ${JSON.stringify({
@@ -302,10 +390,9 @@ ${JSON.stringify({
 ` : '\n**Note:** This is the first resume upload for this user. Extract all data from the resume.\n'
 
     console.log('=== STARTING SECTION-BY-SECTION EXTRACTION ===');
-    const openai = getOpenAI();
     
     // Initialize extracted data with existing data or empty structure
-    const extractedData: any = {
+    const extractedData: ExtractedData = {
       student_name: existingDraft?.student_name || null,
       phone_number: existingDraft?.phone_number || null,
       email: existingDraft?.email || null,
@@ -322,7 +409,7 @@ ${JSON.stringify({
 
     // Section 1: Contact Information
     console.log('Extracting section 1/9: Contact Information...');
-    const contactData: any = await extractSection(
+    const contactData = await extractSection<ContactData>(
       resumeText,
       linksInfo,
       'contact_info',
@@ -344,7 +431,7 @@ ${JSON.stringify({
 
     // Section 2: Education
     console.log(`Extracting section 2/9: Education (${extractedData.education.length} existing)...`);
-    const educationData: any = await extractSection(
+    const educationData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'education',
@@ -353,13 +440,13 @@ ${JSON.stringify({
       educationPrompt(extractedData.education.length)
     );
     const prevEducationCount = extractedData.education.length;
-    extractedData.education = educationData.education;
+    extractedData.education = educationData.education || [];
     console.log(`✓ Education: ${prevEducationCount} → ${extractedData.education.length} entries (+${extractedData.education.length - prevEducationCount})`);
     updateProgress(4);
 
     // Section 3: Experience
     console.log(`Extracting section 3/9: Experience (${extractedData.experience.length} existing)...`);
-    const experienceData: any = await extractSection(
+    const experienceData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'experience',
@@ -368,13 +455,13 @@ ${JSON.stringify({
       experiencePrompt(extractedData.experience.length)
     );
     const prevExperienceCount = extractedData.experience.length;
-    extractedData.experience = experienceData.experience;
+    extractedData.experience = experienceData.experience || [];
     console.log(`✓ Experience: ${prevExperienceCount} → ${extractedData.experience.length} entries (+${extractedData.experience.length - prevExperienceCount})`);
     updateProgress(5);
 
     // Section 4: Projects (CRITICAL - often includes GitHub projects)
     console.log(`Extracting section 4/9: Projects (${extractedData.projects.length} existing)...`);
-    const projectsData: any = await extractSection(
+    const projectsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'projects',
@@ -383,7 +470,7 @@ ${JSON.stringify({
       projectsPrompt(extractedData.projects.length)
     );
     const prevProjectsCount = extractedData.projects.length;
-    extractedData.projects = projectsData.projects;
+    extractedData.projects = projectsData.projects || [];
     console.log(`✓ Projects: ${prevProjectsCount} → ${extractedData.projects.length} entries (+${extractedData.projects.length - prevProjectsCount})`);
     if (extractedData.projects.length < prevProjectsCount) {
       console.error(`⚠️ WARNING: Projects count DECREASED! ${prevProjectsCount} → ${extractedData.projects.length}`);
@@ -392,7 +479,7 @@ ${JSON.stringify({
 
     // Section 5: Skills (CRITICAL - often includes GitHub-derived skills)
     console.log(`Extracting section 5/9: Skills (${extractedData.skills.length} existing)...`);
-    const skillsData: any = await extractSection(
+    const skillsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'skills',
@@ -401,7 +488,7 @@ ${JSON.stringify({
       skillsPrompt(extractedData.skills.length)
     );
     const prevSkillsCount = extractedData.skills.length;
-    extractedData.skills = skillsData.skills;
+    extractedData.skills = skillsData.skills || [];
     console.log(`✓ Skills: ${prevSkillsCount} → ${extractedData.skills.length} entries (+${extractedData.skills.length - prevSkillsCount})`);
     if (extractedData.skills.length < prevSkillsCount) {
       console.error(`⚠️ WARNING: Skills count DECREASED! ${prevSkillsCount} → ${extractedData.skills.length}`);
@@ -410,7 +497,7 @@ ${JSON.stringify({
 
     // Section 6: Languages
     console.log(`Extracting section 6/9: Languages (${extractedData.languages.length} existing)...`);
-    const languagesData: any = await extractSection(
+    const languagesData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'languages',
@@ -419,13 +506,13 @@ ${JSON.stringify({
       languagesPrompt(extractedData.languages.length)
     );
     const prevLanguagesCount = extractedData.languages.length;
-    extractedData.languages = languagesData.languages;
+    extractedData.languages = languagesData.languages || [];
     console.log(`✓ Languages: ${prevLanguagesCount} → ${extractedData.languages.length} entries (+${extractedData.languages.length - prevLanguagesCount})`);
     updateProgress(8);
 
     // Section 7: Publications
     console.log(`Extracting section 7/9: Publications (${extractedData.publications.length} existing)...`);
-    const publicationsData: any = await extractSection(
+    const publicationsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'publications',
@@ -434,13 +521,13 @@ ${JSON.stringify({
       publicationsPrompt(extractedData.publications.length)
     );
     const prevPublicationsCount = extractedData.publications.length;
-    extractedData.publications = publicationsData.publications;
+    extractedData.publications = publicationsData.publications || [];
     console.log(`✓ Publications: ${prevPublicationsCount} → ${extractedData.publications.length} entries (+${extractedData.publications.length - prevPublicationsCount})`);
     updateProgress(9);
 
     // Section 8: Certifications
     console.log(`Extracting section 8/9: Certifications (${extractedData.certifications.length} existing)...`);
-    const certificationsData: any = await extractSection(
+    const certificationsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
       'certifications',
@@ -449,13 +536,13 @@ ${JSON.stringify({
       certificationsPrompt(extractedData.certifications.length)
     );
     const prevCertificationsCount = extractedData.certifications.length;
-    extractedData.certifications = certificationsData.certifications;
+    extractedData.certifications = certificationsData.certifications || [];
     console.log(`✓ Certifications: ${prevCertificationsCount} → ${extractedData.certifications.length} entries (+${extractedData.certifications.length - prevCertificationsCount})`);
     updateProgress(10);
 
     // Section 9: Social Links
     console.log(`Extracting section 9/9: Social Links...`);
-    const socialLinksData: any = await extractSection(
+    const socialLinksData = await extractSection<SocialLinksData>(
       resumeText,
       linksInfo,
       'social_links',
@@ -463,7 +550,7 @@ ${JSON.stringify({
       SocialLinksSectionSchema,
       socialLinksPrompt
     );
-    extractedData.social_links = socialLinksData.social_links;
+    extractedData.social_links = socialLinksData.social_links || {};
     console.log(`✓ Social links extracted`);
     updateProgress(11);
 
@@ -509,13 +596,16 @@ ${JSON.stringify({
     console.log('Extraction complete - data saved to draft')
     updateProgress(13, true);
 
+    // Log successful API call for rate limiting
+    await logApiCall(user.id, 'resume-extraction')
+
     return NextResponse.json({
       success: true,
       draftId: draftData.id, // returns id of created draft
       extracted: extractedData,
       needsReview: false,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Resume extraction error:', error)
     return NextResponse.json(
       { error: 'Failed to extract resume data' },

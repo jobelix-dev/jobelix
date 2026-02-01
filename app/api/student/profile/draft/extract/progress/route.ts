@@ -3,6 +3,8 @@
  * Route: GET /api/student/profile/draft/extract/progress
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { getExtractionProgress, subscribeExtractionProgress } from '@/lib/server/extractionProgress';

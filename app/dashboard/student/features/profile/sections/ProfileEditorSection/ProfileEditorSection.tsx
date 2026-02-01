@@ -56,7 +56,7 @@ export default function ProfileEditorSection({
   onChange, 
   onSave, 
   isSaving = false,
-  canSave = true,
+  canSave: _canSave = true,
   validation,
   disabled = false,
   loadingMessage,

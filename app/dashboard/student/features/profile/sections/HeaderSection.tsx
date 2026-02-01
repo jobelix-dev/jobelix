@@ -7,8 +7,8 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
-import { Github, AlertCircle, CheckCircle, RefreshCw, CloudUpload, ArrowDown } from 'lucide-react';
+import React, { useEffect, useCallback } from 'react';
+import { Github, AlertCircle, RefreshCw, CloudUpload, ArrowDown } from 'lucide-react';
 import StatusAlert from '@/app/components/StatusAlert';
 import { useGitHubConnection } from '../../../hooks';
 import { ProjectEntry, SkillEntry } from '@/lib/shared/types';
@@ -28,7 +28,7 @@ interface HeaderSectionProps {
   currentProjects: ProjectEntry[];
   currentSkills: SkillEntry[];
   onGitHubImportComplete: (projects: ProjectEntry[], skills: SkillEntry[]) => void;
-  onGitHubImport?: (currentProjects: ProjectEntry[], currentSkills: SkillEntry[], onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void) => Promise<any>;
+  onGitHubImport?: (currentProjects: ProjectEntry[], currentSkills: SkillEntry[], onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void) => Promise<{ projects: ProjectEntry[]; skills: SkillEntry[] } | null>;
   importingGitHub?: boolean;
   
   // Draft status
@@ -39,7 +39,7 @@ export default function HeaderSection({
   resumeInfo,
   uploading,
   extracting,
-  uploadSuccess,
+  uploadSuccess: _uploadSuccess,
   uploadError,
   onFileChange,
   onDownload,
@@ -55,6 +55,12 @@ export default function HeaderSection({
 
   const isResumeDisabled = uploading || extracting || importingGitHub;
   const isGitHubDisabled = uploading || extracting;
+
+  const handleGitHubImport = useCallback(async () => {
+    if (onGitHubImport) {
+      await onGitHubImport(currentProjects, currentSkills, onGitHubImportComplete);
+    }
+  }, [onGitHubImport, currentProjects, currentSkills, onGitHubImportComplete]);
 
   // Listen for OAuth popup messages
   useEffect(() => {
@@ -74,7 +80,7 @@ export default function HeaderSection({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentProjects, currentSkills]);
+  }, [handleGitHubImport]);
 
   // Auto-sync after first GitHub connection (fallback for non-popup flow)
   useEffect(() => {
@@ -91,13 +97,9 @@ export default function HeaderSection({
       // Trigger auto-sync
       handleGitHubImport();
     }
-  }, [searchParams, status?.connected, statusLoading, importingGitHub]);
+  }, [searchParams, status?.connected, statusLoading, importingGitHub, handleGitHubImport]);
 
-  const handleGitHubImport = async () => {
-    if (onGitHubImport) {
-      await onGitHubImport(currentProjects, currentSkills, onGitHubImportComplete);
-    }
-  };
+
 
   const handleChangeAccount = async () => {
     const success = await disconnect();
@@ -191,7 +193,7 @@ export default function HeaderSection({
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={handleGitHubImport}
+                      onClick={() => handleGitHubImport()}
                       disabled={importingGitHub || isGitHubDisabled}
                       className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white shadow-sm transition-colors ${
                         importingGitHub || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''

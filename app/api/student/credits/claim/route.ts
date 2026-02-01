@@ -7,11 +7,11 @@
 
 import "server-only";
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
       credits_granted: result.credits_granted,
       balance: result.new_balance,
     })
-  } catch (err: any) {
-    console.error('Claim credits error:', err)
+  } catch {
+    console.error('Claim credits error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

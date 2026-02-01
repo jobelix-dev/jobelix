@@ -92,7 +92,7 @@ export async function GET() {
       publishedOffers: publishedOffers || [],
       unpublishedDrafts: unpublishedDrafts || []
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * 🔐 SECURITY:
      * Don't leak raw error.message to the client.

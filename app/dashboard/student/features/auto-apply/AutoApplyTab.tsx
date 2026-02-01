@@ -17,6 +17,8 @@ import CreditsSection from './components/CreditsSection';
 import LaunchSection from './components/LaunchSection';
 import { usePreferences } from '../job-preferences/hooks';
 import { useBot, useCredits } from './hooks';
+import { useBrowserStatus } from './hooks/useBrowserStatus';
+import { BrowserNotInstalledBanner, BrowserCheckingBanner } from './components/LaunchSection/shared';
 
 export default function AutoApplyTab() {
   const [profilePublished, setProfilePublished] = useState(false);
@@ -26,6 +28,7 @@ export default function AutoApplyTab() {
   const credits = useCredits();
   const preferences = usePreferences();
   const bot = useBot();
+  const browser = useBrowserStatus();
 
   // Check if profile is published on mount
   useEffect(() => {
@@ -50,7 +53,8 @@ export default function AutoApplyTab() {
   // Derived state
   const isLoading = checkingProfile || preferences.checking;
   const hasCredits = credits.credits ? credits.credits.balance > 0 : false;
-  const canLaunch = hasCredits && preferences.preferencesComplete && profilePublished;
+  // Browser must be installed (or not in Electron) to launch
+  const canLaunch = hasCredits && preferences.preferencesComplete && profilePublished && browser.installed;
   const isBlocked = !profilePublished || !preferences.preferencesComplete;
 
   // Handler for buying credits
@@ -122,6 +126,15 @@ export default function AutoApplyTab() {
           <BlockedMessage
             profilePublished={profilePublished}
             preferencesComplete={preferences.preferencesComplete}
+          />
+        ) : browser.checking ? (
+          <BrowserCheckingBanner />
+        ) : !browser.installed ? (
+          <BrowserNotInstalledBanner
+            installing={browser.installing}
+            progress={browser.progress}
+            error={browser.error}
+            onInstall={browser.installBrowser}
           />
         ) : (
           <LaunchSection

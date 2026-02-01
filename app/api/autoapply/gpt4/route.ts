@@ -18,7 +18,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
 import { checkRateLimit, logApiCall, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
-import { Source_Sans_3 } from 'next/font/google'
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -226,7 +225,7 @@ export async function POST(req: NextRequest) {
     addRateLimitHeaders(response, rateLimitConfig, rateLimit)
 
     return response
-  } catch (err: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * Don't return raw err.message to clients (can leak internal details).

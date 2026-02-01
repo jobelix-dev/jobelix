@@ -31,8 +31,8 @@ interface WorkPreferencesEditorProps {
 export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: WorkPreferencesEditorProps) {
   const {
     preferences,
-    setPreferences,
-    initialPreferences,
+    setPreferences: _setPreferences,
+    initialPreferences: _initialPreferences,
     setInitialPreferences,
     loading,
     setHasUnsavedChanges,
@@ -241,13 +241,15 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
 
 // --- Sub-components ---
 
+import type { WorkPreferences } from './types';
+
 interface AdvancedSettingsProps {
-  preferences: any;
+  preferences: WorkPreferences;
   blacklistRef: React.RefObject<BlacklistSectionRef | null>;
   fieldErrors: ValidationErrors | null;
   updateArray: (field: string, value: string[]) => void;
   updateCheckbox: (field: string, checked: boolean) => void;
-  updateField: (field: string, value: any) => void;
+  updateField: (field: string, value: string | number | boolean | string[] | null) => void;
 }
 
 function AdvancedSettings({ preferences, blacklistRef, fieldErrors, updateArray, updateCheckbox, updateField }: AdvancedSettingsProps) {

@@ -9,12 +9,13 @@
 
 import type { Locator, Page } from 'playwright-core';
 import * as path from 'path';
-import * as fs from 'fs';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
 import { detectDocumentType } from '../utils/document-type-detector';
 import { generateCoverLetterPdf, cleanupGeneratedCoverLetter } from '../utils/cover-letter-generator';
 import { TIMEOUTS } from '../selectors';
+import type { GPTAnswererLike } from './base-handler';
+import type { FormUtils } from '../form-utils';
 
 const log = createLogger('FileUploadHandler');
 
@@ -25,8 +26,8 @@ export class FileUploadHandler extends BaseFieldHandler {
 
   constructor(
     page: Page,
-    gptAnswerer: any,
-    formUtils: any,
+    gptAnswerer: GPTAnswererLike,
+    formUtils: FormUtils,
     resumePath: string | null = null,
     coverLetterPath: string | null = null
   ) {
@@ -285,11 +286,17 @@ export class FileUploadHandler extends BaseFieldHandler {
       const radioInput = card.locator('input[type="radio"]').first();
 
       if (await radioLabel.count() > 0) {
-        await this.page.evaluate((el: any) => el.click(), await radioLabel.elementHandle());
+        const handle = await radioLabel.elementHandle();
+        if (handle) {
+          await this.page.evaluate((el) => (el as HTMLElement).click(), handle);
+        }
       } else if (await radioInput.count() > 0) {
         await radioInput.click();
       } else {
-        await this.page.evaluate((el: any) => el.click(), await card.elementHandle());
+        const handle = await card.elementHandle();
+        if (handle) {
+          await this.page.evaluate((el) => (el as HTMLElement).click(), handle);
+        }
       }
 
       log.info(`✅ Selected resume: ${filename}`);

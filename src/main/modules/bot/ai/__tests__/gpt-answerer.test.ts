@@ -125,8 +125,8 @@ describe('GPTAnswerer', () => {
     });
 
     it('should create instance with optional status reporter', () => {
-      const mockReporter = { incrementCreditsUsed: vi.fn() };
-      const answerer = new GPTAnswerer(mockApiToken, mockApiUrl, mockReporter as any);
+      const mockReporter = { incrementCreditsUsed: vi.fn() } as Pick<import('../../utils/status-reporter').StatusReporter, 'incrementCreditsUsed'>;
+      const answerer = new GPTAnswerer(mockApiToken, mockApiUrl, mockReporter as import('../../utils/status-reporter').StatusReporter);
       expect(answerer).toBeInstanceOf(GPTAnswerer);
     });
   });
@@ -290,8 +290,8 @@ describe('GPTAnswerer', () => {
       const mockReporter = { 
         incrementCreditsUsed: vi.fn(),
         reportStatus: vi.fn(),
-      };
-      const answerer = new GPTAnswerer(mockApiToken, mockApiUrl, mockReporter as any);
+      } as Pick<import('../../utils/status-reporter').StatusReporter, 'incrementCreditsUsed'>;
+      const answerer = new GPTAnswerer(mockApiToken, mockApiUrl, mockReporter as import('../../utils/status-reporter').StatusReporter);
       answerer.setResume(mockResume);
       answerer.setJob(mockJob);
 

@@ -3,6 +3,8 @@
  * Route: GET /api/student/import-github/progress
  */
 
+import "server-only";
+
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { getGitHubImportProgress, subscribeGitHubImportProgress } from '@/lib/server/githubImportProgress';

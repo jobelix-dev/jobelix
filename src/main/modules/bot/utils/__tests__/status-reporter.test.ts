@@ -42,7 +42,7 @@ describe('StatusReporter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     reporter = new StatusReporter();
-    reporter.setMainWindow(mockWindow as any);
+    reporter.setMainWindow(mockWindow as unknown as Electron.BrowserWindow);
   });
 
   afterEach(() => {
@@ -59,7 +59,7 @@ describe('StatusReporter', () => {
   describe('setMainWindow', () => {
     it('should set the main window for IPC', () => {
       const newReporter = new StatusReporter();
-      expect(() => newReporter.setMainWindow(mockWindow as any)).not.toThrow();
+      expect(() => newReporter.setMainWindow(mockWindow as unknown as Electron.BrowserWindow)).not.toThrow();
     });
   });
 
@@ -293,7 +293,7 @@ describe('StatusReporter', () => {
       };
       
       const destroyedReporter = new StatusReporter();
-      destroyedReporter.setMainWindow(destroyedWindow as any);
+      destroyedReporter.setMainWindow(destroyedWindow as unknown as Electron.BrowserWindow);
       const activity: BotActivity = 'searching_jobs';
       
       expect(() => destroyedReporter.sendHeartbeat(activity)).not.toThrow();

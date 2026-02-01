@@ -12,7 +12,7 @@ import DatePicker from './DatePicker';
 
 interface EducationFormProps {
   data: EducationEntry;
-  onChange: (field: keyof EducationEntry, value: unknown) => void;
+  onChange: (field: keyof EducationEntry, value: EducationEntry[keyof EducationEntry]) => void;
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;

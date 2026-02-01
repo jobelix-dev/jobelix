@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import type { Page, Locator } from 'playwright';
 
 // Import the class to test
-import { NavigationHandler, ModalState } from '../navigation';
+import { NavigationHandler } from '../navigation';
 
 // Create mock locator
 function createMockLocator(options: { count?: number; visible?: boolean; text?: string; enabled?: boolean } = {}): Locator {

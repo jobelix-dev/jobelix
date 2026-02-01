@@ -12,7 +12,7 @@
 import type { Page, Locator } from 'playwright-core';
 import * as path from 'path';
 import type { Job, JobSearchConfig, SavedAnswer } from '../types';
-import { createJob, isBlacklisted, setJobDescription } from '../models/job';
+import { createJob, isBlacklisted } from '../models/job';
 import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
 import { getOutputFolderPath, getOldQuestionsPath } from '../utils/paths';

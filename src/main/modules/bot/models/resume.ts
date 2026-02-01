@@ -67,7 +67,7 @@ export function parseResumeYaml(content: string): Resume {
   return resume;
 }
 
-function parsePersonalInformation(basics: Record<string, unknown>, root: Record<string, unknown>): PersonalInformation {
+function parsePersonalInformation(basics: Record<string, unknown>, _root: Record<string, unknown>): PersonalInformation {
   const location = (basics.location || {}) as Record<string, unknown>;
   
   return {

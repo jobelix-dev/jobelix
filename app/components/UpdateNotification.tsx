@@ -57,9 +57,7 @@ export default function UpdateNotification() {
 
     // Cleanup listeners on unmount
     return () => {
-      if (window.electronAPI?.removeUpdateListeners) {
-        window.electronAPI.removeUpdateListeners();
-      }
+      window.electronAPI?.removeUpdateListeners();
     };
   }, []);
 

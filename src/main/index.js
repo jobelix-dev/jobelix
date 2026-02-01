@@ -16,7 +16,7 @@ import { waitForNextJs } from './utils/dev-utils.js';
 import logger from './utils/logger.js';
 
 // Store reference to main window
-let mainWindow = null;
+let _mainWindow = null;
 
 /**
  * Initialize the application
@@ -48,11 +48,14 @@ async function initializeApp() {
       logger.success('Next.js server is ready - proceeding with app initialization');
     }
     
-    // Create main window
-    mainWindow = await createMainWindow();
+    // Create main window and splash screen
+    // Splash is returned so update-manager can show progress on it
+    const { mainWindow: window, splash } = await createMainWindow();
+    _mainWindow = window;
     
     // Initialize auto-updater (checks GitHub releases and downloads updates)
-    initAutoUpdater();
+    // Pass splash window so it can display download progress to user
+    initAutoUpdater(splash);
     
   } catch (error) {
     logger.error('Fatal error during app initialization:', error);

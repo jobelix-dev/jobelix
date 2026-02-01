@@ -7,6 +7,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Page, Locator } from 'playwright';
+import type { StatusReporter } from '../../../utils/status-reporter';
+import type { GPTAnswererLike } from '../form-handler';
 
 // Import the class to test
 import { EasyApplier, LinkedInEasyApplier } from '../easy-applier';
@@ -36,18 +38,23 @@ function createMockPage(): Page {
   } as unknown as Page;
 }
 
-// Create mock GPT answerer
-function createMockGptAnswerer() {
+// Create mock GPT answerer that matches GPTAnswererLike interface
+function createMockGptAnswerer(): GPTAnswererLike {
   return {
-    setJobContext: vi.fn().mockResolvedValue(undefined),
+    resume: null,
     answerTextual: vi.fn().mockResolvedValue('test answer'),
-    answerMultiChoice: vi.fn().mockResolvedValue('Option 1'),
+    answerFromOptions: vi.fn().mockResolvedValue('Option 1'),
+    answerNumeric: vi.fn().mockResolvedValue(3),
+    answerCheckboxQuestion: vi.fn().mockResolvedValue('yes'),
+    answerFromOptionsWithRetry: vi.fn().mockResolvedValue('Option 2'),
+    answerTextualWithRetry: vi.fn().mockResolvedValue('retry answer'),
+    answerNumericWithRetry: vi.fn().mockResolvedValue(5),
   };
 }
 
 describe('EasyApplier', () => {
   let page: Page;
-  let gptAnswerer: ReturnType<typeof createMockGptAnswerer>;
+  let gptAnswerer: GPTAnswererLike;
 
   beforeEach(() => {
     page = createMockPage();
@@ -78,7 +85,7 @@ describe('EasyApplier', () => {
         { questionType: 'text', questionText: 'Experience', answer: '5 years' },
       ];
       const recordCallback = vi.fn();
-      const reporter = { sendHeartbeat: vi.fn(), incrementJobsApplied: vi.fn() } as any;
+      const reporter = { sendHeartbeat: vi.fn(), incrementJobsApplied: vi.fn() } as unknown as StatusReporter;
       
       // This signature must match what JobManager uses
       const applier = new EasyApplier(
@@ -114,7 +121,7 @@ describe('EasyApplier', () => {
   describe('hasEasyApply', () => {
     it('should return true when Easy Apply button is visible', async () => {
       const mockLocator = createMockLocator({ count: 1, visible: true });
-      (page.locator as any).mockReturnValue(mockLocator);
+      (page.locator as ReturnType<typeof vi.fn>).mockReturnValue(mockLocator);
       
       const applier = new EasyApplier(page, gptAnswerer);
       const hasEasyApply = await applier.hasEasyApply();
@@ -124,7 +131,7 @@ describe('EasyApplier', () => {
 
     it('should return false when Easy Apply button is not visible', async () => {
       const mockLocator = createMockLocator({ count: 1, visible: false });
-      (page.locator as any).mockReturnValue(mockLocator);
+      (page.locator as ReturnType<typeof vi.fn>).mockReturnValue(mockLocator);
       
       const applier = new EasyApplier(page, gptAnswerer);
       const hasEasyApply = await applier.hasEasyApply();
@@ -134,7 +141,7 @@ describe('EasyApplier', () => {
 
     it('should return false when Easy Apply button does not exist', async () => {
       const mockLocator = createMockLocator({ count: 0 });
-      (page.locator as any).mockReturnValue(mockLocator);
+      (page.locator as ReturnType<typeof vi.fn>).mockReturnValue(mockLocator);
       
       const applier = new EasyApplier(page, gptAnswerer);
       const hasEasyApply = await applier.hasEasyApply();

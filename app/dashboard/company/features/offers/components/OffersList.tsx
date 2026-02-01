@@ -46,7 +46,7 @@ export default function OffersList({
     return (
       <div className="text-center py-12 bg-background/50/30 rounded-lg border-2 border-dashed border-border">
         <p className="text-muted mb-2">No offers created yet</p>
-        <p className="text-sm text-muted">Click "Create New Offer" to get started</p>
+        <p className="text-sm text-muted">Click &quot;Create New Offer&quot; to get started</p>
       </div>
     );
   }

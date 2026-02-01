@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           }),
         });
         console.log('✓ Feedback email sent successfully to', FEEDBACK_EMAIL);
-      } catch (emailError: any) {
+      } catch (emailError: unknown) {
         // Log but don't fail - feedback is stored in DB
         console.error('✗ Email send error:', emailError);
       }
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       feedbackId: feedback.id,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Feedback submission error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

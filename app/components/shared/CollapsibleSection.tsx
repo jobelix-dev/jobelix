@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import { Trash2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface CollapsibleSectionProps {
@@ -31,20 +31,16 @@ export default function CollapsibleSection({
   removeTitle = 'Remove',
   children,
 }: CollapsibleSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    if (forceExpanded) {
-      setIsExpanded(true);
-    }
-  }, [forceExpanded]);
+  // Track internal expanded state separately; derive final state from forceExpanded prop
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = forceExpanded || internalExpanded;
 
   return (
     <div className="rounded-xl border border-border/50 bg-white shadow-sm">
       {/* Header - Always visible */}
       <div className="relative">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => setInternalExpanded(!internalExpanded)}
           className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary-subtle/30 transition-colors text-left rounded-t-xl"
         >
           <div className="flex-1 min-w-0 pr-16">

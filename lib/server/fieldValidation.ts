@@ -14,7 +14,7 @@ import "server-only";
 export interface ValidationResult {
   isValid: boolean
   errorMessage?: string
-  normalizedValue?: any
+  normalizedValue?: string | null
 }
 
 const PHONE_MIN_DIGITS = 10
@@ -317,7 +317,7 @@ export function validateTextField(value: string | null | undefined, fieldName: s
  * @param value - Value to validate
  * @returns Validation result from appropriate validator
  */
-export function validateField(fieldName: string, value: any): ValidationResult {
+export function validateField(fieldName: string, value: string | null | undefined): ValidationResult {
   // Phone number validation
   if (fieldName === 'phone_number') {
     return validatePhoneNumber(value)

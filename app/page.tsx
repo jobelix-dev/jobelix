@@ -23,15 +23,11 @@ import {
 } from "@/lib/seo";
 import {
   HeroSection,
-  StatsSection,
   FeaturesSection,
   StepsSection,
-  TestimonialsSection,
   FAQSection,
-  CTASection,
   Footer,
 } from "./landing/sections";
-import LogoCarousel from "./landing/LogoCarousel";
 import MobileNav from "./landing/MobileNav";
 import NewsletterForm from "./landing/NewsletterForm";
 import ScrollReveal from "./landing/ScrollReveal";

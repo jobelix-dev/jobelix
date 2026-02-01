@@ -5,7 +5,7 @@
  * Tests the date parsing logic without needing browser automation.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Test the date parsing logic directly
 // These functions match the private methods in DateHandler

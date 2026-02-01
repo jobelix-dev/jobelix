@@ -12,8 +12,8 @@
  */
 
 import type { Page, Locator } from 'playwright-core';
-import type { GPTAnswerer } from '../../../ai/gpt-answerer';
 import type { FormUtils } from '../form-utils';
+import type { Resume } from '../../../types';
 import { normalizeText } from '../form-utils';
 import { SmartFieldMatcher } from '../utils/smart-field-matcher';
 import { TIMEOUTS } from '../selectors';
@@ -23,6 +23,21 @@ const log = createLogger('BaseHandler');
 
 /** Validation retry callback signature */
 type RetryCallback = (answer: string) => Promise<void>;
+
+/**
+ * Interface for GPT answerer - allows flexibility with different implementations
+ */
+export interface GPTAnswererLike {
+  resume: Resume | null;
+  answerTextual(question: string): Promise<string>;
+  answerFromOptions(question: string, options: string[]): Promise<string>;
+  answerNumeric(question: string, defaultValue?: number): Promise<number>;
+  answerCheckboxQuestion(prompt: string): Promise<string>;
+  answerFromOptionsWithRetry(question: string, options: string[], previousAnswer: string, errorMessage: string): Promise<string>;
+  answerTextualWithRetry(question: string, previousAnswer: string, errorMessage: string): Promise<string>;
+  answerNumericWithRetry(question: string, previousAnswer: string, errorMessage: string, defaultValue?: number): Promise<number>;
+  tailorResumeToJob?(jobDescription: string, baseResumeYaml: string): Promise<string>;
+}
 
 /**
  * Abstract base class for all field handlers
@@ -42,7 +57,7 @@ export abstract class BaseFieldHandler {
    */
   constructor(
     protected page: Page,
-    protected gptAnswerer: GPTAnswerer,
+    protected gptAnswerer: GPTAnswererLike,
     protected formUtils: FormUtils
   ) {}
 
@@ -109,11 +124,10 @@ export abstract class BaseFieldHandler {
         // - <span class="visually-hidden"> = HIDDEN text (for screen readers only, CSS hidden)
         //
         // We must ONLY remove .visually-hidden and .sr-only elements, NOT [aria-hidden="true"]!
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const text = await locator.evaluate((el: any): string | null => {
-          const clone = el.cloneNode(true);
+        const text = await locator.evaluate((el: Element): string | null => {
+          const clone = el.cloneNode(true) as Element;
           // Remove ONLY screen-reader-only elements (NOT aria-hidden which contains visible text!)
-          clone.querySelectorAll('.visually-hidden, .sr-only').forEach((e: any) => e.remove());
+          clone.querySelectorAll('.visually-hidden, .sr-only').forEach((e) => e.remove());
           return clone.textContent;
         });
         return text?.trim() || null;

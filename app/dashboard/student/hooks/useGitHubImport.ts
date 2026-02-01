@@ -7,13 +7,12 @@
 
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { ProjectEntry, SkillEntry } from '@/lib/shared/types';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import type { ProjectEntry, SkillEntry } from '@/lib/shared/types';
 
-interface ImportGitHubParams {
-  current_projects: ProjectEntry[];
-  current_skills: SkillEntry[];
-}
+// ============================================================================
+// Types
+// ============================================================================
 
 interface ImportGitHubResponse {
   success: boolean;
@@ -24,7 +23,78 @@ interface ImportGitHubResponse {
   message?: string;
 }
 
-export function useGitHubImport() {
+interface ImportProgress {
+  step: string;
+  progress: number;
+  reposProcessed: number;
+  reposTotal: number;
+  batchRepos: string[];
+  complete?: boolean;
+  updatedAt: string;
+}
+
+interface UseGitHubImportOptions {
+  /** Enable SSE progress tracking */
+  enableProgress?: boolean;
+  /** Callback when import completes successfully */
+  onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void;
+}
+
+interface UseGitHubImportReturn {
+  /** Trigger the import process */
+  importGitHubData: (
+    currentProjects: ProjectEntry[],
+    currentSkills: SkillEntry[]
+  ) => Promise<ImportGitHubResponse | null>;
+  /** Whether import is in progress */
+  importing: boolean;
+  /** Error message if import failed */
+  error: string | null;
+  /** Whether last import was successful */
+  success: boolean;
+  /** Current import progress (only available with enableProgress) */
+  progress: ImportProgress | null;
+  /** Reset state */
+  reset: () => void;
+}
+
+// ============================================================================
+// Core import logic (shared between simple and dashboard hooks)
+// ============================================================================
+
+async function fetchGitHubImport(
+  currentProjects: ProjectEntry[],
+  currentSkills: SkillEntry[]
+): Promise<ImportGitHubResponse> {
+  const response = await fetch('/api/student/import-github', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      current_projects: currentProjects,
+      current_skills: currentSkills,
+    }),
+  });
+
+  const data: ImportGitHubResponse = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.error || 'Failed to import GitHub data');
+  }
+
+  return data;
+}
+
+// ============================================================================
+// Simple hook (no progress tracking)
+// ============================================================================
+
+/**
+ * Simple GitHub import hook without progress tracking.
+ * Use this when you don't need real-time progress updates.
+ */
+export function useGitHubImport(): UseGitHubImportReturn {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -38,29 +108,12 @@ export function useGitHubImport() {
       setError(null);
       setSuccess(false);
 
-      const response = await fetch('/api/student/import-github', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          current_projects: currentProjects,
-          current_skills: currentSkills,
-        }),
-      });
-
-      const data: ImportGitHubResponse = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to import GitHub data');
-      }
-
+      const data = await fetchGitHubImport(currentProjects, currentSkills);
       setSuccess(true);
-
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error importing GitHub data:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
       setImporting(false);
@@ -77,60 +130,77 @@ export function useGitHubImport() {
     importing,
     error,
     success,
+    progress: null,
     reset,
   };
 }
 
+// ============================================================================
+// Dashboard hook (with progress tracking)
+// ============================================================================
+
 /**
- * useGitHubImportDashboard Hook
- * 
- * Dashboard-level hook for GitHub import that persists state across tab switches.
- * Similar to useResumeUpload but for GitHub imports.
+ * GitHub import hook with SSE progress tracking.
+ * Persists state across tab switches in the dashboard.
  */
-export function useGitHubImportDashboard() {
-  const [importingGitHub, setImportingGitHub] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importSuccess, setImportSuccess] = useState(false);
-  const [importProgress, setImportProgress] = useState<{
-    step: string;
-    progress: number;
-    reposProcessed: number;
-    reposTotal: number;
-    batchRepos: string[];
-    complete?: boolean;
-    updatedAt: string;
-  } | null>(null);
+export function useGitHubImportDashboard(
+  options: UseGitHubImportOptions = {}
+): UseGitHubImportReturn {
+  const { onComplete } = options;
+  
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
   const progressSourceRef = useRef<EventSource | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Track mounted state for safe state updates
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Cleanup EventSource on unmount
+      if (progressSourceRef.current) {
+        progressSourceRef.current.close();
+        progressSourceRef.current = null;
+      }
+    };
+  }, []);
 
   const importGitHubData = useCallback(async (
     currentProjects: ProjectEntry[],
-    currentSkills: SkillEntry[],
-    onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void
+    currentSkills: SkillEntry[]
   ): Promise<ImportGitHubResponse | null> => {
     try {
-      setImportingGitHub(true);
-      setImportError(null);
-      setImportSuccess(false);
-      setImportProgress(null);
+      setImporting(true);
+      setError(null);
+      setSuccess(false);
+      setProgress(null);
 
+      // Close any existing progress connection
       if (progressSourceRef.current) {
         progressSourceRef.current.close();
         progressSourceRef.current = null;
       }
 
+      // Start SSE for progress tracking
       const progressSource = new EventSource('/api/student/import-github/progress');
       progressSourceRef.current = progressSource;
 
       progressSource.onmessage = (event) => {
+        if (!isMountedRef.current) return;
+        
         try {
-          const data = JSON.parse(event.data);
-          setImportProgress(data);
+          const data = JSON.parse(event.data) as ImportProgress;
+          setProgress(data);
+          
           if (data.complete) {
             progressSource.close();
             progressSourceRef.current = null;
           }
-        } catch (error) {
-          console.warn('Failed to parse GitHub import progress event', error);
+        } catch (parseError) {
+          console.warn('Failed to parse GitHub import progress event', parseError);
         }
       };
 
@@ -139,55 +209,45 @@ export function useGitHubImportDashboard() {
         progressSourceRef.current = null;
       };
 
-      const response = await fetch('/api/student/import-github', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          current_projects: currentProjects,
-          current_skills: currentSkills,
-        }),
-      });
+      // Perform the import
+      const data = await fetchGitHubImport(currentProjects, currentSkills);
 
-      const data: ImportGitHubResponse = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to import GitHub data');
-      }
-
-      setImportSuccess(true);
-
-      if (onComplete) {
-        onComplete(data.projects, data.skills);
+      if (isMountedRef.current) {
+        setSuccess(true);
+        onComplete?.(data.projects, data.skills);
       }
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error importing GitHub data:', err);
-      setImportError(err.message);
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
       return null;
     } finally {
-      setImportingGitHub(false);
+      if (isMountedRef.current) {
+        setImporting(false);
+      }
+      // Ensure progress source is closed
       if (progressSourceRef.current) {
         progressSourceRef.current.close();
         progressSourceRef.current = null;
       }
     }
-  }, []);
+  }, [onComplete]);
 
   const reset = useCallback(() => {
-    setImportError(null);
-    setImportSuccess(false);
-    setImportProgress(null);
+    setError(null);
+    setSuccess(false);
+    setProgress(null);
   }, []);
 
   return {
     importGitHubData,
-    importingGitHub,
-    importError,
-    importSuccess,
-    importProgress,
+    importing,
+    error,
+    success,
+    progress,
     reset,
   };
 }

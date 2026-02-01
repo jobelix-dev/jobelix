@@ -6,6 +6,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
+import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
@@ -183,6 +184,40 @@ export function setupIpcHandlers() {
     }
   });
 
+  // Handler: Check if Playwright browser is installed
+  ipcMain.handle(IPC_CHANNELS.CHECK_BROWSER, async () => {
+    logger.ipc(IPC_CHANNELS.CHECK_BROWSER, 'Checking browser installation');
+    try {
+      const status = checkBrowserInstalled();
+      logger.ipc(IPC_CHANNELS.CHECK_BROWSER, `Browser installed: ${status.installed}`);
+      return { success: true, ...status };
+    } catch (error) {
+      logger.error('Failed to check browser:', error);
+      return { success: false, installed: false, error: error.message };
+    }
+  });
+
+  // Handler: Install Playwright browser
+  ipcMain.handle(IPC_CHANNELS.INSTALL_BROWSER, async (event) => {
+    logger.ipc(IPC_CHANNELS.INSTALL_BROWSER, 'Starting browser installation');
+    try {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (!window) {
+        return { success: false, error: 'No window available' };
+      }
+      const result = await installBrowser(window);
+      if (result.success) {
+        logger.ipc(IPC_CHANNELS.INSTALL_BROWSER, 'Browser installed successfully');
+      } else {
+        logger.ipc(IPC_CHANNELS.INSTALL_BROWSER, `Browser installation failed: ${result.error}`);
+      }
+      return result;
+    } catch (error) {
+      logger.error('Failed to install browser:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Handler: Minimize window
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
@@ -285,6 +320,8 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.FORCE_STOP_BOT);
   ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_STATUS);
   ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_LOG_PATH);
+  ipcMain.removeHandler(IPC_CHANNELS.CHECK_BROWSER);
+  ipcMain.removeHandler(IPC_CHANNELS.INSTALL_BROWSER);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MAXIMIZE);
   ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);

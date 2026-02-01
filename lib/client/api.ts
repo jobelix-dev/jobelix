@@ -17,6 +17,7 @@ import {
   UploadResponse,
   ExtractDataResponse,
   ExtractedResumeData,
+  DraftProfileData,
   FinalizeProfileResponse,
 } from '../shared/types'
 
@@ -135,12 +136,12 @@ class ApiClient {
     })
   }
 
-  async getDraft(): Promise<{ draft: any }> {
-    return this.request<{ draft: any }>('/api/student/profile/draft')
+  async getDraft(): Promise<{ draft: DraftProfileData | null }> {
+    return this.request<{ draft: DraftProfileData | null }>('/api/student/profile/draft')
   }
 
-  async updateDraft(draftId: string, updates: Partial<ExtractedResumeData>): Promise<{ success: boolean; draft: any }> {
-    return this.request<{ success: boolean; draft: any }>('/api/student/profile/draft', {
+  async updateDraft(draftId: string, updates: Partial<ExtractedResumeData>): Promise<{ success: boolean; draft: ExtractedResumeData }> {
+    return this.request<{ success: boolean; draft: ExtractedResumeData }>('/api/student/profile/draft', {
       method: 'PUT',
       body: JSON.stringify({ draftId, updates }),
     })

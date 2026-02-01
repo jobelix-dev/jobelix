@@ -42,7 +42,7 @@ export async function GET() {
         'Content-Disposition': 'attachment; filename="resume.pdf"',
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Resume download error:', error)
     return NextResponse.json(
       { error: 'Failed to download resume' },

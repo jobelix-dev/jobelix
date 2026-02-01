@@ -20,6 +20,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
+import { loginSchema } from '@/lib/server/validation'
 
 
 /**
@@ -32,20 +33,27 @@ export async function POST(request: NextRequest) {
      * Read the JSON body sent by the browser.
      * We expect it to contain an email and a password.
      */
-    const { email, password, captchaToken } = await request.json()
+    const body = await request.json()
 
     /**
-     * Basic validation:
-     * If the user forgot to send the email or password,
-     * we stop immediately and return an error.
+     * Validate input using Zod schema.
+     * If validation fails, return structured error messages.
      */
-
-    if (!email || !password) {
+    const result = loginSchema.safeParse(body)
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { 
+          error: 'Validation failed',
+          errors: result.error.issues.map(e => ({
+            path: e.path.join('.'),
+            message: e.message,
+          })),
+        },
         { status: 400 }
       )
     }
+
+    const { email, password, captchaToken } = result.data
 
 
     /**
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
      * If they are wrong:
      * - Supabase returns an error
      */
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
       options: {
@@ -92,7 +100,7 @@ export async function POST(request: NextRequest) {
      * The actual login state is stored in cookies.
      */
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch {
     /**
      * Catch any unexpected error (bad JSON, server crash, etc.)
      * and return a generic server error.

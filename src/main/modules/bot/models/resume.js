@@ -33,7 +33,7 @@ function parseResumeYaml(content) {
   log.info(`Resume loaded: ${resume.personalInformation.name} ${resume.personalInformation.surname}`);
   return resume;
 }
-function parsePersonalInformation(basics, root) {
+function parsePersonalInformation(basics, _root) {
   const location = basics.location || {};
   return {
     name: basics.name?.split(" ")[0] || "",

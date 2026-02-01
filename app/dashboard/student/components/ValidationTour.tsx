@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { useScrollLock } from '@/app/hooks';
@@ -28,6 +28,19 @@ export interface ValidationTourStep {
   onBefore?: () => void;
 }
 
+// Hydration-safe viewport dimensions hook
+const subscribeNoop = () => () => {};
+const getViewportWidth = () => window.innerWidth;
+const getViewportHeight = () => window.innerHeight;
+const getViewportWidthServer = () => 0;
+const getViewportHeightServer = () => 0;
+
+function useViewportDimensions() {
+  const width = useSyncExternalStore(subscribeNoop, getViewportWidth, getViewportWidthServer);
+  const height = useSyncExternalStore(subscribeNoop, getViewportHeight, getViewportHeightServer);
+  return { width, height };
+}
+
 interface ValidationTourProps {
   isOpen: boolean;
   step: ValidationTourStep | null;
@@ -46,10 +59,15 @@ export default function ValidationTour({
   nextLabel = 'Next',
 }: ValidationTourProps) {
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
-  const [overlayReady, setOverlayReady] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  // Derive overlayReady from targetRect presence - avoids synchronous setState
+  const [stepKey, setStepKey] = useState<string | null>(null);
+  const [popoverHeight, setPopoverHeight] = useState(160);
+  const { width: viewportWidth, height: viewportHeight } = useViewportDimensions();
 
   const { previousOverflow } = useScrollLock({ isActive: isOpen });
+
+  // Track if we're ready to show the overlay (step has been processed)
+  const overlayReady = stepKey === step?.id && targetRect !== null;
 
   const updateRect = useCallback(() => {
     if (!step) return;
@@ -58,30 +76,51 @@ export default function ValidationTour({
     setTargetRect(rect);
   }, [step]);
 
-  useLayoutEffect(() => {
+  // Handle resize/scroll events - use requestAnimationFrame to batch updates
+  useEffect(() => {
     if (!isOpen || !step || !overlayReady) return;
-    updateRect();
-    const handle = () => updateRect();
+    
+    let rafId: number | null = null;
+    const handle = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        updateRect();
+      });
+    };
+    
     window.addEventListener('resize', handle);
     window.addEventListener('scroll', handle, true);
     return () => {
       window.removeEventListener('resize', handle);
       window.removeEventListener('scroll', handle, true);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [isOpen, step, overlayReady, updateRect]);
 
+  // Reset state when step changes or tour closes
+  // Use a key derived from isOpen and step.id to track valid state
+  const currentStepId = isOpen && step ? step.id : null;
+  
   useEffect(() => {
-    if (!isOpen || !step) {
-      setOverlayReady(false);
+    // When tour is not active, nothing to set up
+    if (!currentStepId || !step) {
       return;
     }
-
-    setOverlayReady(false);
-    step.onBefore?.();
+    
+    let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
 
     const begin = async () => {
+      if (cancelled) return;
+      
+      // Reset state for new step at start of async work
+      setStepKey(null);
+      setTargetRect(null);
+      
+      step.onBefore?.();
+      
       const ids = step.targetIds && step.targetIds.length > 0 ? step.targetIds : [step.targetId];
       const target = ids.map((id) => document.getElementById(id)).find((node) => !!node) as HTMLElement | undefined;
       if (!target) {
@@ -101,6 +140,8 @@ export default function ValidationTour({
       await waitForScrollIdle();
       await new Promise((resolve) => setTimeout(resolve, 150));
 
+      if (cancelled) return;
+
       if (document.body.style.overflow !== 'hidden') {
         document.body.style.overflow = 'hidden';
       }
@@ -109,23 +150,36 @@ export default function ValidationTour({
         ? target
         : (target.querySelector('input, select, textarea, button, [tabindex]') as HTMLElement | null);
       focusTarget?.focus({ preventScroll: true });
+      
+      // Update rect and mark this step as ready
       updateRect();
-      setOverlayReady(true);
+      setStepKey(step.id);
     };
 
     timeoutId = setTimeout(begin, 60);
 
     return () => {
+      cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
+      // Reset state on cleanup
+      setStepKey(null);
+      setTargetRect(null);
     };
-  }, [isOpen, step, updateRect, previousOverflow]);
+  }, [currentStepId, step, updateRect, previousOverflow]);
+
+  // Callback ref to measure popover height - called by React when element mounts/unmounts
+  const popoverRefCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const height = node.offsetHeight;
+      if (height > 0 && height !== popoverHeight) {
+        setPopoverHeight(height);
+      }
+    }
+  }, [popoverHeight]);
 
   if (!isOpen || !step || !overlayReady || !targetRect) return null;
 
   const spotlight = calculateSpotlightPosition(targetRect);
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-  const popoverHeight = popoverRef.current?.offsetHeight || 160;
   const popoverPos = calculatePopoverPosition(spotlight, popoverHeight, viewportWidth, viewportHeight);
 
   const content = (
@@ -136,7 +190,7 @@ export default function ValidationTour({
       <DimmingOverlay spotlight={spotlight} viewportWidth={viewportWidth} viewportHeight={viewportHeight} />
       <SpotlightOutline spotlight={spotlight} />
       <TourPopover
-        ref={popoverRef}
+        ref={popoverRefCallback}
         step={step}
         position={popoverPos}
         nextLabel={nextLabel}

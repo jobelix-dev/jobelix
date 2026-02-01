@@ -33,6 +33,10 @@ export async function GET() {
     return NextResponse.json({ 
       token: tokenData.token,
       user_id: user.id 
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
     });
   } catch (error) {
     console.error('Error fetching user token:', error);

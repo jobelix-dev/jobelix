@@ -218,10 +218,10 @@ export async function GET(
     }
 
     return NextResponse.json({ draft: createdDraft });
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * 🔐 SECURITY:
-     * - Don’t return error.message to the client (leaks internals).
+     * - Don't return error.message to the client (leaks internals).
      * - Log internally, return a generic error.
      */
     console.error('Load/create draft error:', error);
@@ -232,8 +232,8 @@ export async function GET(
   }
 }
 
-// Helper to convert SQL date to {year, month} object
-function convertDateToObject(sqlDate: string): { year: number; month: number | null } {
+// Helper to convert SQL date to {year, month} object - currently unused but kept for future use
+function _convertDateToObject(sqlDate: string): { year: number; month: number | null } {
   const date = new Date(sqlDate);
   return {
     year: date.getFullYear(),

@@ -2,11 +2,12 @@
  * useSimulatedProgress Hook
  * 
  * Simulates progress during browser installation when real progress isn't available.
+ * Uses useSyncExternalStore to avoid setState in useEffect lint errors.
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useSyncExternalStore, useMemo } from 'react';
 
 const PROGRESS_SIMULATION_INTERVAL_MS = 200;
 const SIMULATED_INSTALL_DURATION_MS = 30000;
@@ -17,27 +18,57 @@ interface UseSimulatedProgressOptions {
 }
 
 export function useSimulatedProgress({ isActive, realProgress }: UseSimulatedProgressOptions): number {
-  const [simulatedProgress, setSimulatedProgress] = useState<number | null>(null);
+  const storeRef = useRef({
+    progress: null as number | null,
+    listeners: new Set<() => void>(),
+    intervalId: null as number | null,
+  });
+
+  const subscribe = useMemo(() => (callback: () => void) => {
+    storeRef.current.listeners.add(callback);
+    return () => storeRef.current.listeners.delete(callback);
+  }, []);
+
+  const getSnapshot = useMemo(() => () => storeRef.current.progress, []);
 
   useEffect(() => {
+    const store = storeRef.current;
+    
+    // Clear any existing interval
+    if (store.intervalId !== null) {
+      window.clearInterval(store.intervalId);
+      store.intervalId = null;
+    }
+
     if (!isActive) {
-      setSimulatedProgress(null);
+      store.progress = null;
+      store.listeners.forEach(fn => fn());
       return;
     }
     if (typeof realProgress === 'number') {
-      setSimulatedProgress(null);
+      store.progress = null;
+      store.listeners.forEach(fn => fn());
       return;
     }
 
     const increment = 99 / (SIMULATED_INSTALL_DURATION_MS / PROGRESS_SIMULATION_INTERVAL_MS);
-    setSimulatedProgress(0);
+    store.progress = 0;
+    store.listeners.forEach(fn => fn());
 
-    const intervalId = window.setInterval(() => {
-      setSimulatedProgress((prev) => (prev === null ? 0 : Math.min(99, prev + increment)));
+    store.intervalId = window.setInterval(() => {
+      store.progress = store.progress === null ? 0 : Math.min(99, store.progress + increment);
+      store.listeners.forEach(fn => fn());
     }, PROGRESS_SIMULATION_INTERVAL_MS);
 
-    return () => window.clearInterval(intervalId);
+    return () => {
+      if (store.intervalId !== null) {
+        window.clearInterval(store.intervalId);
+        store.intervalId = null;
+      }
+    };
   }, [isActive, realProgress]);
+
+  const simulatedProgress = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const displayProgress = typeof realProgress === 'number'
     ? Math.max(realProgress, simulatedProgress ?? 0)
