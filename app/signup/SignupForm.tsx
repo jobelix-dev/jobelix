@@ -117,9 +117,11 @@ export default function SignupForm({ role }: SignupFormProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
               className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Choose a password"
             />
+            <span className="mt-1 text-xs text-muted">At least 8 characters</span>
           </label>
 
           <div className="flex justify-center">
