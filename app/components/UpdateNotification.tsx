@@ -6,6 +6,8 @@ interface UpdateInfo {
   version: string;
   releaseNotes?: string;
   releaseDate?: string;
+  manualDownload?: boolean; // Linux: user must download manually
+  downloadUrl?: string;
 }
 
 interface DownloadProgress {
@@ -75,6 +77,20 @@ export default function UpdateNotification() {
     return formatBytes(bytesPerSecond) + '/s';
   };
 
+  // Handle click on "Download Update" button (Linux)
+  const handleDownloadClick = () => {
+    if (window.electronAPI?.openReleasesPage) {
+      window.electronAPI.openReleasesPage();
+    }
+    // Dismiss the notification after clicking
+    setUpdateAvailable(null);
+  };
+
+  // Handle dismissing the notification
+  const handleDismiss = () => {
+    setUpdateAvailable(null);
+  };
+
   // Don't render anything if no updates
   if (!updateAvailable && !downloadProgress && !updateDownloaded) {
     return null;
@@ -93,13 +109,45 @@ export default function UpdateNotification() {
             </div>
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium">Update Available</h3>
-              <p className="mt-1 text-sm text-info">
-                Version {updateAvailable.version} is downloading...
-              </p>
-              {updateAvailable.releaseNotes && (
-                <p className="mt-2 text-xs text-info line-clamp-2">
-                  {updateAvailable.releaseNotes}
-                </p>
+              {updateAvailable.manualDownload ? (
+                // Linux: Manual download required
+                <>
+                  <p className="mt-1 text-sm text-info">
+                    Version {updateAvailable.version} is available!
+                  </p>
+                  <p className="mt-1 text-xs text-info/80">
+                    Please download manually from GitHub releases.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={handleDownloadClick}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
+                    >
+                      <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Download Update
+                    </button>
+                    <button
+                      onClick={handleDismiss}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      Later
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // Windows/macOS: Auto-downloading
+                <>
+                  <p className="mt-1 text-sm text-info">
+                    Version {updateAvailable.version} is downloading...
+                  </p>
+                  {updateAvailable.releaseNotes && (
+                    <p className="mt-2 text-xs text-info line-clamp-2">
+                      {updateAvailable.releaseNotes}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

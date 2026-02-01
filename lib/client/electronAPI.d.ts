@@ -83,7 +83,13 @@ export interface ElectronAPI {
   windowIsMaximized: () => Promise<boolean>;
   
   // Auto-updater events
-  onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string; releaseDate?: string }) => void) => void;
+  onUpdateAvailable: (callback: (info: { 
+    version: string; 
+    releaseNotes?: string; 
+    releaseDate?: string;
+    manualDownload?: boolean;
+    downloadUrl?: string;
+  }) => void) => void;
   onUpdateDownloadProgress: (callback: (progress: { 
     bytesPerSecond: number; 
     percent: number; 
@@ -93,6 +99,9 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => void;
   onUpdateError: (callback: (error: { message: string; error?: string }) => void) => void;
   removeUpdateListeners: () => void;
+  
+  // Open releases page for manual update download (Linux)
+  openReleasesPage: () => Promise<{ success: boolean }>;
 
   // Bot status updates (from stdout IPC)
   onBotStatus: (callback: (payload: { 
