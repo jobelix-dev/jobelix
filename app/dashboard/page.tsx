@@ -121,15 +121,19 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Clean Header Bar - z-[60] to be above TitleBar (z-[55]) but below WindowControls (z-[9999]) */}
-      {/* In Electron, add padding-right on sm: and up to avoid overlap with window controls (hidden on mobile) */}
+      {/* Clean Header Bar - z-[60] to be above TitleBar (z-[50]) but below WindowControls (z-[9999]) */}
+      {/* In Electron: outer header is draggable, inner content is not (allows clicking buttons) */}
+      {/* On desktop (sm:+), right padding avoids overlap with window controls */}
       <header 
         className={`sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20 ${
           isElectron ? 'sm:pr-[144px]' : ''
         }`}
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div 
+          className="max-w-5xl mx-auto px-4 sm:px-6"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
           <div className="flex items-center justify-between h-14">
             {/* Logo / Title */}
             <div className="flex items-center gap-3">

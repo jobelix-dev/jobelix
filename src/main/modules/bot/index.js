@@ -227,7 +227,7 @@ import { loadResume as loadResume2, parseResumeYaml } from "./models/resume.js";
 import { LinkedInAuthenticator as LinkedInAuthenticator2 } from "./linkedin/authenticator.js";
 import { LinkedInJobManager as LinkedInJobManager2 } from "./linkedin/job-manager.js";
 import { GPTAnswerer as GPTAnswerer2 } from "./ai/gpt-answerer.js";
-import { StatusReporter as StatusReporter2, statusReporter as statusReporter2 } from "./utils/status-reporter.js";
+import { StatusReporter, statusReporter as statusReporter2 } from "./utils/status-reporter.js";
 import { createLogger as createLogger2, logger as logger2 } from "./utils/logger.js";
 export {
   ConfigError,
@@ -235,7 +235,7 @@ export {
   LinkedInAuthenticator2 as LinkedInAuthenticator,
   LinkedInBot,
   LinkedInJobManager2 as LinkedInJobManager,
-  StatusReporter2 as StatusReporter,
+  StatusReporter,
   createLogger2 as createLogger,
   linkedInBot,
   loadAndValidateConfig2 as loadAndValidateConfig,

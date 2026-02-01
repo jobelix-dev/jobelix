@@ -212,11 +212,17 @@ class FileUploadHandler extends BaseFieldHandler {
       const radioLabel = card.locator("label.jobs-document-upload-redesign-card__toggle-label").first();
       const radioInput = card.locator('input[type="radio"]').first();
       if (await radioLabel.count() > 0) {
-        await this.page.evaluate((el) => el.click(), await radioLabel.elementHandle());
+        const handle = await radioLabel.elementHandle();
+        if (handle) {
+          await this.page.evaluate((el) => el.click(), handle);
+        }
       } else if (await radioInput.count() > 0) {
         await radioInput.click();
       } else {
-        await this.page.evaluate((el) => el.click(), await card.elementHandle());
+        const handle = await card.elementHandle();
+        if (handle) {
+          await this.page.evaluate((el) => el.click(), handle);
+        }
       }
       log.info(`\u2705 Selected resume: ${filename}`);
       await this.page.waitForTimeout(TIMEOUTS.short);

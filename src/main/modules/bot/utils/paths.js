@@ -59,23 +59,23 @@ function getChromiumPath() {
   const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   if (!browsersPath) {
     console.warn("[paths] PLAYWRIGHT_BROWSERS_PATH not set - Playwright will use system browser or download one");
-    return undefined;
+    return void 0;
   }
   if (!fs.existsSync(browsersPath)) {
     console.warn(`[paths] Playwright browsers directory does not exist: ${browsersPath}`);
-    return undefined;
+    return void 0;
   }
   let entries;
   try {
     entries = fs.readdirSync(browsersPath);
   } catch (error) {
     console.warn(`[paths] Failed to read browsers directory: ${error}`);
-    return undefined;
+    return void 0;
   }
   const chromiumDir = entries.find((e) => e.startsWith("chromium-"));
   if (!chromiumDir) {
     console.warn(`[paths] No Chromium installation found in: ${browsersPath}`);
-    return undefined;
+    return void 0;
   }
   const platform = process.platform;
   const arch = process.arch;
@@ -103,7 +103,7 @@ function getChromiumPath() {
     }
   }
   console.warn(`[paths] Chromium executable not found. Checked paths: ${pathCandidates.join(", ")}`);
-  return undefined;
+  return void 0;
 }
 export {
   ensureDirectories,

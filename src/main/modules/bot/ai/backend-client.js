@@ -77,35 +77,36 @@ class BackendAPIClient {
       }
       return response_data;
     } catch (error) {
-      if (error.name === "AbortError") {
+      const err = error;
+      if (err.name === "AbortError") {
         log.error(`Request timeout after ${this.timeout / 1e3} seconds`);
         throw new Error("Backend API request timeout");
       }
       log.error(`\u274C Request failed to ${this.apiUrl}`);
-      log.error(`Error type: ${error.constructor.name}`);
-      log.error(`Error message: ${error.message || error}`);
-      if (error.cause) {
-        log.error(`Underlying cause: ${error.cause.message || error.cause}`);
-        log.error(`Cause code: ${error.cause.code}`);
+      log.error(`Error type: ${err.constructor.name}`);
+      log.error(`Error message: ${err.message || err}`);
+      if (err.cause) {
+        log.error(`Underlying cause: ${err.cause.message || err.cause}`);
+        log.error(`Cause code: ${err.cause.code}`);
       }
-      if (error.message?.includes("ECONNREFUSED")) {
+      if (err.message?.includes("ECONNREFUSED")) {
         log.error("");
         log.error("\u{1F534} CONNECTION REFUSED - Backend is not running!");
         log.error(`Make sure your Next.js backend is running at: ${this.apiUrl}`);
         log.error("Run: cd jobelix && npm run dev");
         log.error("");
-      } else if (error.message?.includes("ENOTFOUND") || error.message?.includes("getaddrinfo")) {
+      } else if (err.message?.includes("ENOTFOUND") || err.message?.includes("getaddrinfo")) {
         log.error("");
         log.error("\u{1F534} DNS/HOST NOT FOUND - Cannot resolve backend URL");
         log.error(`Check if ${this.apiUrl} is accessible`);
         log.error("");
-      } else if (error.message?.includes("certificate") || error.message?.includes("TLS")) {
+      } else if (err.message?.includes("certificate") || err.message?.includes("TLS")) {
         log.error("");
         log.error("\u{1F534} SSL/TLS ERROR - Certificate validation failed");
         log.error("For local development, use http:// instead of https://");
         log.error("");
       }
-      throw error;
+      throw err;
     }
   }
   /**

@@ -202,11 +202,9 @@ class EasyApplier {
    */
   async setJobContext(job) {
     try {
-      const context = `Job Title: ${job.title}
-Company: ${job.company}
-Location: ${job.location}
-Description: ${job.description?.substring(0, 500) || "N/A"}`;
-      await this.gptAnswerer.setJobContext(context);
+      if ("setJob" in this.gptAnswerer && typeof this.gptAnswerer.setJob === "function") {
+        this.gptAnswerer.setJob(job);
+      }
     } catch {
     }
   }
@@ -320,6 +318,10 @@ Description: ${job.description?.substring(0, 500) || "N/A"}`;
       }
       log.info(`\u{1F3AF} Tailoring resume for ${job.company} - ${job.title}`);
       const baseResumeYaml = fs.readFileSync(baseResumePath, "utf-8");
+      if (!this.gptAnswerer.tailorResumeToJob) {
+        log.warn("GPT answerer does not support resume tailoring");
+        return null;
+      }
       const tailoredConfigYaml = await this.gptAnswerer.tailorResumeToJob(jobDescription, baseResumeYaml);
       if (!tailoredConfigYaml || tailoredConfigYaml.length < 100) {
         log.error("Invalid tailored config");

@@ -82,7 +82,7 @@ class ResumeSectionScorer {
           index: idx,
           score: scoreItem.score,
           reasoning: scoreItem.reasoning || "No reasoning provided",
-          originalData: typeof originalData === "object" ? originalData : { value: originalData },
+          originalData: typeof originalData === "object" && originalData !== null ? originalData : { value: originalData },
           name: scoreItem.name
         });
       }
@@ -115,7 +115,7 @@ class ResumeSectionScorer {
     );
     log.info(`Selected ${selectedEducation.length} education items (chronological + score-based)`);
     const otherItemsSorted = [...otherItems].sort((a, b) => b.score - a.score);
-    let aboveThreshold = otherItemsSorted.filter((item) => item.score >= minScore);
+    const aboveThreshold = otherItemsSorted.filter((item) => item.score >= minScore);
     let belowThreshold = otherItemsSorted.filter((item) => item.score < minScore);
     log.debug(`Non-education items above threshold (${minScore}): ${aboveThreshold.length}`);
     log.debug(`Non-education items below threshold: ${belowThreshold.length}`);

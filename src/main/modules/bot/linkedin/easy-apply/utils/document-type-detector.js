@@ -45,7 +45,7 @@ const RESUME_TEXT_KEYWORDS = [
   "curriculum"
 ];
 async function detectDocumentType(fileInput, questionText) {
-  let result = {
+  const result = {
     isResumeUpload: true,
     isCoverLetterUpload: false,
     detectedBy: "default"
