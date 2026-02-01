@@ -17,6 +17,10 @@
 
 import "server-only";
 
+// Vercel serverless config: allow longer execution for OpenAI calls
+// Resume extraction makes 9 sequential OpenAI API calls which can take 30-60s
+export const maxDuration = 60; // seconds
+
 // CRITICAL: Import polyfills BEFORE pdfjs-dist to ensure browser APIs exist
 import '@/lib/server/pdfPolyfills'
 
@@ -47,8 +51,6 @@ import {
   socialLinksPrompt,
 } from '@/lib/server/prompts'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
-import path from 'path'
-import { pathToFileURL } from 'url'
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps'
 import { setExtractionProgress } from '@/lib/server/extractionProgress'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
@@ -63,11 +65,10 @@ import type {
   SocialLinkEntry,
 } from '@/lib/shared/types'
 
-// Configure worker for Node.js serverless environment
-// Point to the worker file in node_modules
-// Convert to file:// URL for cross-platform ESM loader compatibility
-const workerPath = path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs')
-pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
+// Configure PDF.js for Node.js serverless environment
+// Disable worker for serverless - run synchronously in main thread
+// This avoids file path issues in Vercel's serverless functions
+pdfjsLib.GlobalWorkerOptions.workerSrc = ''
 
 // PDF.js text content item type
 interface TextContentItem {
@@ -607,8 +608,41 @@ ${JSON.stringify({
     })
   } catch (error: unknown) {
     console.error('Resume extraction error:', error)
+    
+    // Extract error details for logging
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      type: error?.constructor?.name,
+    })
+    
+    // Check for specific error types
+    if (errorMessage.includes('OPENAI_API_KEY')) {
+      return NextResponse.json(
+        { error: 'AI service not configured' },
+        { status: 503 }
+      )
+    }
+    
+    if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+      return NextResponse.json(
+        { error: 'AI service rate limited, please try again later' },
+        { status: 429 }
+      )
+    }
+    
+    if (errorMessage.includes('Invalid PDF') || errorMessage.includes('password')) {
+      return NextResponse.json(
+        { error: 'Invalid or password-protected PDF file' },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to extract resume data' },
+      { error: 'Failed to extract resume data', details: process.env.NODE_ENV === 'development' ? errorMessage : undefined },
       { status: 500 }
     )
   }
