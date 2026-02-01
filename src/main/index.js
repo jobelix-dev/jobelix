@@ -10,26 +10,21 @@ dotenv.config({ path: '.env.local' });
 import { app } from 'electron';
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { createMainWindow } from './modules/window-manager.js';
-import { checkForUpdates } from './modules/version-manager.js';
-import { setupAutoUpdater, setupAutoUpdaterListeners, showUpdateRequiredWindow } from './modules/update-manager.js';
-import { logPlatformInfo, initializeDataDirectories } from './modules/platform-utils.js';
-import { isMac } from './modules/platform-utils.js';
+import { initAutoUpdater } from './modules/update-manager.js';
+import { logPlatformInfo, initializeDataDirectories, isMac } from './modules/platform-utils.js';
 import { waitForNextJs } from './utils/dev-utils.js';
 import logger from './utils/logger.js';
+
 // Store reference to main window
 let mainWindow = null;
 
 /**
  * Initialize the application
- * Performs version checks and starts the app if compatible
  */
 async function initializeApp() {
   try {
     // Setup IPC handlers first
     setupIpcHandlers();
-    
-    // Setup auto-updater listeners for seamless background updates
-    setupAutoUpdaterListeners();
     
     // Initialize data directories (cross-platform userData folder)
     initializeDataDirectories();
@@ -53,27 +48,12 @@ async function initializeApp() {
       logger.success('Next.js server is ready - proceeding with app initialization');
     }
     
-    // Check for required updates before starting the app
-    logger.info('Performing version compatibility check...');
-    const versionCheck = await checkForUpdates();
+    // Create main window
+    mainWindow = await createMainWindow();
     
-    if (!versionCheck.isCompatible) {
-      // Show update required window and block app
-      logger.warn('Version incompatible - showing update window');
-      showUpdateRequiredWindow(versionCheck);
-      // Do not start Python or create main window
-    } else {
-      // Versions are compatible, proceed normally
-      logger.success('Version check passed - starting application normally');
-      
-      // Create main window
-      mainWindow = await createMainWindow();
-      
-      // Setup auto-updater for seamless updates (only in production)
-      if (app.isPackaged) {
-        setupAutoUpdater();
-      }
-    }
+    // Initialize auto-updater (checks GitHub releases and downloads updates)
+    initAutoUpdater();
+    
   } catch (error) {
     logger.error('Fatal error during app initialization:', error);
     app.quit();
