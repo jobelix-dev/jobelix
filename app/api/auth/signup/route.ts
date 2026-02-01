@@ -3,24 +3,33 @@
  *
  * Route: POST /api/auth/signup
  *
- * What this route does:
- * 1) Receives { email, password, role } from the frontend
- * 2) Rate-limits signups by IP (to reduce abuse/bots)
- * 3) Creates a Supabase Auth user (auth.users)
- * 4) Records the signup IP in a secure table (signup_ip_tracking)
- * 5) Returns success + userId (and sometimes a message about email confirmation)
+ * Sends confirmation email using server-side Supabase client.
  *
- * Important security idea:
- * - The frontend is NOT trusted.
- * - The server validates inputs and enforces rate limiting.
- * - Sensitive tables (like signup_ip_tracking) must be written with a service key
- *   because anonymous users cannot pass RLS safely.
- * 
- *  student or company entry is automatically created via
+ * WHY SERVER-SIDE?
+ * When using client-side Supabase, the PKCE code_verifier is stored in the
+ * initiating client's storage. If the user clicks the confirmation email link
+ * in a different browser/app (e.g., signed up in Electron, clicked in Chrome),
+ * the PKCE verification fails because Chrome doesn't have the code_verifier.
+ *
+ * By using the service role client, we bypass client-side PKCE storage entirely.
+ * The email template uses token_hash directly, and our /auth/callback verifies
+ * it with verifyOtp() - no PKCE needed.
+ *
+ * FLOW:
+ * 1. User submits email/password/role
+ * 2. Server creates user with service role (bypasses PKCE)
+ * 3. Supabase sends confirmation email with token_hash
+ * 4. User clicks link → /auth/callback?token_hash=xxx&type=signup
+ * 5. Callback verifies token with verifyOtp() → session created
+ *
+ * SECURITY:
+ * - IP-based rate limiting (10 signups per IP per 48h)
+ * - Captcha validation (passed to Supabase)
+ * - Input validation (email format, role whitelist)
+ * - Signup IP tracking for abuse detection
  */
 
 import "server-only";
-
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
@@ -31,51 +40,35 @@ const MAX_SIGNUPS_PER_IP = 10  // Maximum signups allowed per IP
 const RATE_LIMIT_HOURS = 48    // Time window in hours
 
 /**
- * getClientIP(request)
- *
- * Beginner note:
- * - When your app runs on Vercel (or most hosting providers),
- *   requests go through a proxy/load balancer first.
- * - The "real" client IP is usually in HTTP headers like x-forwarded-for.
- *
- * WARNING:
- * - Headers can be spoofed in some setups. In practice, on Vercel the platform
- *   sets x-forwarded-for and it is commonly used for rate limiting.
+ * Get client IP from request headers
+ * 
+ * When behind proxies/CDN, the real client IP is in headers like x-forwarded-for.
+ * On Vercel, this header is set by the platform and commonly used for rate limiting.
  */
 function getClientIP(request: NextRequest): string {
-  // Check various headers for the real IP (useful when behind proxies/CDN)
   const forwarded = request.headers.get('x-forwarded-for')
   const realIP = request.headers.get('x-real-ip')
   const cfConnectingIP = request.headers.get('cf-connecting-ip') // Cloudflare
-  
+
   if (forwarded) {
-    // x-forwarded-for can be a comma-separated list, take the first one
+    // x-forwarded-for can be a comma-separated list, take the first (client) IP
     return forwarded.split(',')[0].trim()
   }
-  
+
   if (cfConnectingIP) return cfConnectingIP
   if (realIP) return realIP
-  
-    // If we can't find an IP, return a placeholder.
-  // Your DB function should handle this carefully (e.g. treat 'unknown' as risky).
+
+  // Fallback - treat 'unknown' as potentially risky in rate limiting
   return 'unknown'
 }
 
 export async function POST(request: NextRequest) {
   try {
-    /**
-     * Basic input validation.
-     * Never rely on frontend validation alone.
-     */
-
     // -----------------------------
-    // 1) Read the request body
+    // 1) Parse and validate input
     // -----------------------------
     const { email, password, role, captchaToken } = await request.json()
 
-    // -----------------------------
-    // 2) Validate input (server-side)
-    // -----------------------------
     if (!email || !password || !role) {
       return NextResponse.json(
         { error: 'Email, password, and role are required' },
@@ -83,7 +76,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-      // Only allow expected roles (never accept random strings from the client)
+    // Whitelist allowed roles - never trust client input
     if (role !== 'student' && role !== 'company') {
       return NextResponse.json(
         { error: 'Role must be either "student" or "company"' },
@@ -91,19 +84,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      )
+    }
+
+    // Normalize email for consistent handling
+    const normalizedEmail = email.toLowerCase().trim()
+
     // -----------------------------
-    // 3) Compute the "client fingerprint" for rate limiting
+    // 2) IP-based rate limiting
     // -----------------------------
     const clientIP = getClientIP(request)
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
-    // -----------------------------
-    // 4) Rate limit check (server role)
-    // -----------------------------
-    // Beginner note:
-    // - getServiceSupabase() uses the SERVICE ROLE key.
-    // - That key bypasses RLS, so only use it on the server (never in the browser).
-    // - We need it here because the user is not authenticated yet.
     const { data: signupCount, error: countError } = await getServiceSupabase()
       .rpc('count_recent_signups_from_ip', {
         p_ip_address: clientIP,
@@ -111,15 +109,13 @@ export async function POST(request: NextRequest) {
       })
 
     if (countError) {
-      // If rate-limit check fails, we don't block signup (your current behavior).
-      // This avoids locking out real users if the DB function breaks.
+      // If rate-limit check fails, allow signup but log the error
+      // Failing open is acceptable here - we don't want to lock out real users
       console.error('[Signup] Error checking IP rate limit:', countError)
-      // Don't block signup if rate limit check fails, just log it
     } else if (signupCount >= MAX_SIGNUPS_PER_IP) {
-      // Too many signups from the same IP → block
       console.warn(`[Signup] Rate limit exceeded for IP: ${clientIP} (${signupCount} signups in ${RATE_LIMIT_HOURS}h)`)
       return NextResponse.json(
-        { 
+        {
           error: `Too many signups from this IP address. Please try again in ${RATE_LIMIT_HOURS} hours.`,
           code: 'RATE_LIMIT_EXCEEDED'
         },
@@ -127,7 +123,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Determine the correct base URL for email redirects
+    // -----------------------------
+    // 3) Build redirect URL
+    // -----------------------------
+    // Note: The email template constructs the full URL using {{ .SiteURL }} and {{ .TokenHash }}
+    // This redirectTo is a fallback and ensures Supabase knows where to send users
     let baseUrl = process.env.NEXT_PUBLIC_APP_URL
 
     if (!baseUrl) {
@@ -141,98 +141,89 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // At this point baseUrl is guaranteed to be a string
     baseUrl = baseUrl.replace(/\/+$/, '')
+    const redirectTo = `${baseUrl}/auth/callback?next=/dashboard`
 
-    const redirectTo = `${baseUrl}/auth/callback`
-
-    console.log('[Signup] Determined base URL:', baseUrl)
-    console.log('[Signup] Email redirect URL will be:', redirectTo)
+    console.log('[Signup] Base URL:', baseUrl)
+    console.log('[Signup] Redirect URL:', redirectTo)
 
     // -----------------------------
-    // 5) Create the Auth user (cookie-based client)
+    // 4) Create user with SERVICE ROLE
     // -----------------------------
-    // Beginner note:
-    // - createClient() is your "normal" Supabase client.
-    // - It is meant to behave like a real user session (cookies, RLS, etc.)
-    const supabase = await createClient()
+    // IMPORTANT: We use getServiceSupabase() here, NOT createClient()
+    //
+    // Why? Using the service role client:
+    // - Bypasses PKCE entirely (no code_verifier stored client-side)
+    // - Email contains token_hash which our /auth/callback verifies with verifyOtp()
+    // - Works reliably when user clicks email link in a different browser/app
+    //
+    // This matches the pattern used in /api/auth/reset-password for consistency.
+    const supabaseAdmin = getServiceSupabase()
 
-    // Creates user in Supabase Auth table, hashes and stores password, sends email
-    // data.session is null if email confirmation is required
-    const { data, error } = await supabase.auth.signUp({
-      email,
+    // Use the regular signUp method from service role context
+    // This creates the user AND sends the confirmation email in one call
+    // The captchaToken is validated by Supabase's backend
+    const { data, error } = await supabaseAdmin.auth.signUp({
+      email: normalizedEmail,
       password,
       options: {
-        // This gets saved in auth.users.user_metadata
-        data: {  // This becomes raw_user_meta_data in public.handle_new_user() 
+        data: {
           role,
         },
-        // When the user clicks the email confirmation link, they come back here
-        // Use NEXT_PUBLIC_APP_URL if available, otherwise use request origin
-        emailRedirectTo: redirectTo, // I added preview email in supabase 
-        // authorized callbacks 
+        emailRedirectTo: redirectTo,
         captchaToken: captchaToken ?? undefined,
       },
     })
 
-    console.log('[Signup] Email redirect URL set to:', `${baseUrl}/auth/callback`)
-    console.log('[Signup] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL)
-    console.log('[Signup] request.nextUrl.origin:', request.nextUrl.origin)
-    console.log('[Signup] request.headers.get("host"):', request.headers.get('host'))
-    console.log('[Signup] request.headers.get("x-forwarded-host"):', request.headers.get('x-forwarded-host'))
-    console.log('[Signup] request.headers.get("x-forwarded-proto"):', request.headers.get('x-forwarded-proto'))
-
     // -----------------------------
-    // 6) Handle signup errors safely
+    // 5) Handle signup errors
     // -----------------------------
     if (error) {
-      console.error('[Signup] Supabase signup error:', error)
-      
-      // 🔐 SECURITY BALANCE:
-      // We show "user already exists" for better UX (low security risk)
-      // But hide internal/database errors (high security risk)
-      
-      // Check for weak password error first (status 422 with code 'weak_password')
-      if (error.code === 'weak_password' || error.message?.toLowerCase().includes('password should')) {
+      console.error('[Signup] Supabase signup error:', error.message, error.status)
+
+      // Check for weak password
+      if (error.code === 'weak_password' ||
+          error.message?.toLowerCase().includes('password should')) {
         return NextResponse.json(
-          { 
-            error: 'Password must be at least 8 characters and include uppercase, lowercase, and numbers',
+          {
+            error: 'Password must be at least 8 characters',
             code: 'WEAK_PASSWORD'
           },
           { status: 400 }
         )
       }
-      
-      // Check if user already exists - attempt to login instead
-      if (error.message?.toLowerCase().includes('already registered') || 
+
+      // Check if user already exists
+      if (error.message?.toLowerCase().includes('already registered') ||
           error.message?.toLowerCase().includes('user already exists')) {
-        
+
         // Try to log them in with the provided credentials
+        const supabase = await createClient()
         const { error: loginError } = await supabase.auth.signInWithPassword({
-          email,
+          email: normalizedEmail,
           password,
         })
-        
+
         if (!loginError) {
-          // Login succeeded - return success with flag indicating they were logged in
-          return NextResponse.json({ 
-            success: true, 
+          // Login succeeded - user already had an account with these credentials
+          return NextResponse.json({
+            success: true,
             loggedIn: true,
             message: 'Welcome back! You have been logged in.'
           })
         }
-        
-        // Login failed - credentials don't match existing account
+
+        // Login failed - account exists but wrong password
         return NextResponse.json(
-          { 
+          {
             error: 'An account with this email already exists.',
             code: 'USER_ALREADY_EXISTS'
           },
           { status: 400 }
         )
       }
-      
-      // For any other error, return generic message (security)
+
+      // Generic error for other cases (don't leak internal details)
       return NextResponse.json(
         { error: 'Signup failed. Please try again.' },
         { status: 400 }
@@ -240,12 +231,9 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------
-    // 7) Track signup IP (service role)
+    // 6) Track signup IP
     // -----------------------------
-    // We do this only if a user was created.
     if (data.user) {
-      // This table must NOT be writable by normal users (RLS should block it),
-      // so we insert using the service role.
       await getServiceSupabase()
         .from('signup_ip_tracking')
         .insert({
@@ -255,30 +243,25 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------
-    // 8) Return response to frontend
+    // 7) Return success response
     // -----------------------------
-    // Two possible outcomes:
-    // - data.session exists: user is immediately logged in (usually dev / auto-confirm)
-    // - data.session is null: email confirmation is required
+    // With service role signup, user needs to confirm email
+    // data.session is null when email confirmation is required
     if (data.user && data.session) {
+      // Auto-confirm is enabled (usually local dev)
       return NextResponse.json({ success: true, userId: data.user.id })
     }
 
-    if (data.user && !data.session) { // Email confirmation required
-      return NextResponse.json({
-        success: true,
-        userId: data.user.id,
-        message: 'Please check your email to confirm your account'
-      })
-    }
-    
-    // Fallback (rare): user is null but no error
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    // 🔐 SECURITY:
-    // Don't expose raw error.message  -  it can leak internal info.
+    return NextResponse.json({
+      success: true,
+      userId: data.user?.id,
+      message: 'Please check your email to confirm your account'
+    })
+
+  } catch (error) {
+    console.error('[Signup] Unexpected error:', error)
     return NextResponse.json(
-      { error: 'Signup failed' }, // 🔐
+      { error: 'Signup failed' },
       { status: 500 }
     )
   }
