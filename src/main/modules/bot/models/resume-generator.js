@@ -113,10 +113,10 @@ function generateResumeHtml(config, companyName, jobTitle) {
   const languages = skills.find((s) => s.name === "Languages")?.keywords || [];
   const technicalSkills = skills.filter((s) => s.name !== "Languages");
   const contactItems = [
-    basics.email && { icon: "\u2709", text: basics.email, href: `mailto:${basics.email}` },
-    basics.phone && { icon: "\u{1F4F1}", text: basics.phone },
-    basics.location?.city && { icon: "\u{1F4CD}", text: basics.location.city }
-  ].filter(Boolean);
+    basics.email ? { icon: "\u2709", text: basics.email, href: `mailto:${basics.email}` } : null,
+    basics.phone ? { icon: "\u{1F4F1}", text: basics.phone } : null,
+    basics.location?.city ? { icon: "\u{1F4CD}", text: basics.location.city } : null
+  ].filter((item) => item !== null);
   const profileLinks = (basics.profiles || []).map((p) => ({
     network: p.network,
     url: p.url,
@@ -154,7 +154,7 @@ function generateResumeHtml(config, companyName, jobTitle) {
         </div>
         <div class="experience-company">${escapeHtml(job.company || job.name || "")}</div>
       </div>
-      ${job.summary || job.description ? `<p class="experience-summary">${escapeHtml(job.summary || job.description)}</p>` : ""}
+      ${job.summary || job.description ? `<p class="experience-summary">${escapeHtml(job.summary || job.description || "")}</p>` : ""}
       ${job.highlights && job.highlights.length > 0 ? `
         <ul class="experience-highlights">
           ${job.highlights.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}

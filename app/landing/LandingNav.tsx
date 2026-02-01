@@ -8,9 +8,17 @@ import { useIsElectron } from '@/app/hooks/useClientSide';
 /**
  * Landing page navigation component
  * 
- * Handles Electron window controls overlap by adding padding-right
- * when running in the Electron environment (desktop only, sm: breakpoint).
- * Window controls are hidden on mobile, so no padding needed there.
+ * Electron window drag architecture:
+ * - The outer <nav> has WebkitAppRegion: 'drag' (in Electron) so dragging the
+ *   nav background drags the window
+ * - The inner content div has WebkitAppRegion: 'no-drag' so links/buttons are clickable
+ * - On desktop (sm:+), right padding avoids overlap with window controls
+ * - On mobile, no window controls exist so no padding needed
+ * 
+ * This approach ensures:
+ * - Browser: Normal nav behavior, no drag regions
+ * - Electron Desktop: Drag by nav background, click links normally
+ * - Electron Mobile: No window controls, no padding, normal touch behavior
  */
 export default function LandingNav() {
   const isElectron = useIsElectron();
@@ -20,6 +28,7 @@ export default function LandingNav() {
       className={`bg-white/80 sticky top-0 z-[60] shadow-[0_1px_0_rgba(0,0,0,0.04)] ${
         isElectron ? 'sm:pr-[144px]' : ''
       }`}
+      style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}
     >
       <div 
         className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between" 

@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
+      - dev
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       publish:
@@ -89,7 +87,7 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
             VERSION="${VERSION#v}"  # Strip v prefix if present
           else
-            # Push to main or PR - fetch latest release and increment patch
+            # Push to main - fetch latest release and increment patch
             LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
             VERSION=${LATEST#v}
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
