@@ -7,6 +7,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
 import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
+import { openReleasesPage } from './update-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
@@ -302,6 +303,13 @@ export function setupIpcHandlers() {
     return result;
   });
 
+  // Handler: Open GitHub releases page (for manual update download on Linux)
+  ipcMain.handle(IPC_CHANNELS.OPEN_RELEASES_PAGE, () => {
+    logger.ipc(IPC_CHANNELS.OPEN_RELEASES_PAGE, 'Opening releases page');
+    openReleasesPage();
+    return { success: true };
+  });
+
   logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW') || k.startsWith('SAVE') || k.startsWith('LOAD') || k.startsWith('CLEAR')).length} IPC handlers registered`);
 }
 
@@ -330,6 +338,7 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.SAVE_AUTH_CACHE);
   ipcMain.removeHandler(IPC_CHANNELS.LOAD_AUTH_CACHE);
   ipcMain.removeHandler(IPC_CHANNELS.CLEAR_AUTH_CACHE);
+  ipcMain.removeHandler(IPC_CHANNELS.OPEN_RELEASES_PAGE);
   
   logger.success('IPC handlers removed');
 }

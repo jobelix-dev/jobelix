@@ -109,6 +109,9 @@ export const IPC_CHANNELS = {
   WINDOW_UNMAXIMIZE: 'window-unmaximize',
   WINDOW_CLOSE: 'window-close',
   WINDOW_IS_MAXIMIZED: 'window-is-maximized',
+  
+  // Update management
+  OPEN_RELEASES_PAGE: 'open-releases-page',
 };
 
 // Bot configuration
