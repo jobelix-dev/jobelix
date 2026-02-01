@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     const connection = await getGitHubConnection(user.id);
     if (!connection) {
       return NextResponse.json(
-        { success: false, error: 'GitHub not connected' },
+        { error: 'GitHub not connected' },
         { status: 400 }
       );
     }
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       step: 'Collecting repositories',
       reposProcessed: 0,
       reposTotal: repos.length,
-      batchRepos: repos.slice(0, BATCH_SIZE).map((repo: any) => repo.name || repo.full_name || 'Repository'),
+      batchRepos: repos.slice(0, BATCH_SIZE).map((repo: { name?: string; full_name?: string }) => repo.name || repo.full_name || 'Repository'),
     });
     }
     
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     // Process in batches to avoid overwhelming the LLM
     let mergedProjects = [...currentProjects];
     let mergedSkills = [...currentSkills];
-    let totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
+    const totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
 
     console.log(`Processing ${sortedRepos.length} repos in ${totalBatches} batches of ${BATCH_SIZE}`);
 
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
         step: 'Parsing repositories',
         reposProcessed: i,
         reposTotal: sortedRepos.length,
-        batchRepos: batch.map((repo: any) => repo.name || repo.full_name || 'Repository'),
+        batchRepos: batch.map((repo: { name?: string; full_name?: string }) => repo.name || repo.full_name || 'Repository'),
       });
 
       // Call OpenAI to merge this batch with current merged data
@@ -306,7 +306,7 @@ Process ALL ${batch.length} repositories in this batch.`,
         step: 'Parsing repositories',
         reposProcessed: Math.min(i + batch.length, sortedRepos.length),
         reposTotal: sortedRepos.length,
-        batchRepos: batch.map((repo: any) => repo.name || repo.full_name || 'Repository'),
+        batchRepos: batch.map((repo: { name?: string; full_name?: string }) => repo.name || repo.full_name || 'Repository'),
       });
     }
 
@@ -321,10 +321,10 @@ Process ALL ${batch.length} repositories in this batch.`,
     console.log('Skills added:', mergedSkills.length - currentSkills.length);
     
     if (currentProjects.length > 0) {
-      console.log('Sample current projects:', currentProjects.slice(0, 2).map((p: any) => p.project_name));
+      console.log('Sample current projects:', currentProjects.slice(0, 2).map((p: { project_name?: string }) => p.project_name));
     }
     if (mergedProjects.length > 0) {
-      console.log('Sample merged projects:', mergedProjects.slice(0, 2).map((p: any) => p.project_name));
+      console.log('Sample merged projects:', mergedProjects.slice(0, 2).map((p: { project_name?: string }) => p.project_name));
     }
     
     // Final validation check
@@ -355,7 +355,7 @@ Process ALL ${batch.length} repositories in this batch.`,
     if (updateError) {
       console.error('Failed to update draft with GitHub data:', updateError);
       return NextResponse.json(
-        { success: false, error: 'Failed to save imported data' },
+        { error: 'Failed to save imported data' },
         { status: 500 }
       );
     }
@@ -383,10 +383,10 @@ Process ALL ${batch.length} repositories in this batch.`,
       repos_imported: sortedRepos.length,
       batches_processed: totalBatches,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GitHub import error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to import GitHub data' },
+      { error: 'Failed to import GitHub data' },
       { status: 500 }
     );
   }

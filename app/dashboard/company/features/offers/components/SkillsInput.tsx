@@ -28,11 +28,11 @@ export default function SkillsInput({ skills, onChange }: SkillsInputProps) {
     ]);
   };
 
-  const updateSkill = (index: number, field: keyof OfferSkillEntry, value: any) => {
+  const updateSkill = (index: number, field: keyof OfferSkillEntry, value: OfferSkillEntry[keyof OfferSkillEntry]) => {
     const updated = [...skills];
     updated[index] = { ...updated[index], [field]: value };
     // Auto-generate slug from skill_text if slug is empty
-    if (field === 'skill_text' && !updated[index].skill_slug) {
+    if (field === 'skill_text' && !updated[index].skill_slug && typeof value === 'string') {
       updated[index].skill_slug = value.toLowerCase().replace(/\s+/g, '-');
     }
     onChange(updated);

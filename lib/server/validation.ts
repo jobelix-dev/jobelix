@@ -10,6 +10,32 @@ import "server-only";
 import { z } from 'zod';
 
 // ============================================================================
+// Auth Validation
+// ============================================================================
+
+export const loginSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required'),
+  captchaToken: z.string().optional(),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  captchaToken: z.string().optional(),
+});
+
+export const updatePasswordSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+export const signupSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.enum(['student', 'company'], { message: 'Role must be either "student" or "company"' }),
+  captchaToken: z.string().optional(),
+});
+
+// ============================================================================
 // Work Preferences Validation
 // ============================================================================
 
@@ -179,7 +205,7 @@ export const profileDraftSchema = z.object({
 export function validateRequest<T>(
   data: unknown,
   schema: z.ZodSchema<T>
-): { data: T; error: null } | { data: null; error: { status: number; message: string; errors?: any } } {
+): { data: T; error: null } | { data: null; error: { status: number; message: string; errors?: Array<{ path: string; message: string }> } } {
   try {
     const validated = schema.parse(data);
     return { data: validated, error: null };

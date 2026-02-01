@@ -13,9 +13,21 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
+import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 
-export default function SignupForm({ role }: { role: string }) {
+/** Valid user roles for the platform */
+type UserRole = 'student' | 'company';
+
+interface SignupFormProps {
+  /** The user role - 'student' or 'company' */
+  role: UserRole;
+}
+
+export default function SignupForm({ role }: SignupFormProps) {
   const router = useRouter();
+  const hCaptchaSiteKey = getHCaptchaSiteKey();
+  const hasCaptcha = isHCaptchaConfigured();
+  
   // Display role for UI (talent/employer) vs DB role (student/company)
   const displayRole = role === 'student' ? 'talent' : 'employer';
 
@@ -36,7 +48,7 @@ export default function SignupForm({ role }: { role: string }) {
       const response = await api.signup({
         email,
         password,
-        role: role as 'student' | 'company',
+        role,
         captchaToken: captchaToken || undefined,
       });
 
@@ -54,8 +66,8 @@ export default function SignupForm({ role }: { role: string }) {
           router.push('/dashboard');
         }
       }
-    } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred';
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);
       
       // Don't auto-clear the error for "already exists" - let user read it
@@ -83,7 +95,7 @@ export default function SignupForm({ role }: { role: string }) {
         </div>
       )}
 
-      {/* Le reste du formulaire est identique, sauf qu'on cache les champs si succès */}
+      {/* Hide form fields after successful submission (showing confirmation message) */}
       {!message && (
         <>
           <label className="flex flex-col">
@@ -111,28 +123,20 @@ export default function SignupForm({ role }: { role: string }) {
           </label>
 
           <div className="flex justify-center">
-            <HCaptcha
-              sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY!}
-              onVerify={(token) => {
-                console.log('HCaptcha token', token)
-                setCaptchaToken(token)
-              }}
-              onExpire={() => {
-                console.log('HCaptcha expired')
-                setCaptchaToken(null)
-              }}
-              onError={(err) => {
-                console.error('HCaptcha error', err)
-                setCaptchaToken(null)
-              }}
-              onLoad={() => console.log('HCaptcha loaded')}
-              sentry={false}
-            />
+            {hasCaptcha && (
+              <HCaptcha
+                sitekey={hCaptchaSiteKey}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
+                sentry={false}
+              />
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading || !captchaToken}
+            disabled={loading || (hasCaptcha && !captchaToken)}
             className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
           >
             {loading ? 'Creating account...' : `Sign up as ${displayRole}`}

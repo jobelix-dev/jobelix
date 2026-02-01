@@ -9,12 +9,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
 import { CheckCircle, Rocket, AlertTriangle, Info } from 'lucide-react';
 import DownloadButton from '@/app/components/DownloadButton';
 import type { ReleaseInfo } from '@/lib/client/github-api';
 import { getFallbackDownloadUrl } from '@/lib/client/github-api';
-import { detectPlatform, type Platform } from '@/lib/client/platformDetection';
+import { useIsClient, useIsElectron, usePlatform } from '@/app/hooks/useClientSide';
 import Link from 'next/link';
 
 interface ElectronDetectorProps {
@@ -23,22 +22,15 @@ interface ElectronDetectorProps {
 }
 
 export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDetectorProps) {
-  const [isElectron, setIsElectron] = useState<boolean | null>(null);
-  const [isClient, setIsClient] = useState(false);
-  const [platform, setPlatform] = useState<Platform>('unknown');
-
-  useEffect(() => {
-    setIsClient(true);
-    // Check if window.electronAPI exists (only available in Electron)
-    setIsElectron(typeof window !== 'undefined' && !!(window as any).electronAPI);
-    setPlatform(detectPlatform());
-  }, []);
+  const isClient = useIsClient();
+  const isElectron = useIsElectron();
+  const platform = usePlatform();
 
   const isMacOS = platform.startsWith('mac-');
   const isWindows = platform.startsWith('windows-');
 
-  // Show loading state during hydration
-  if (!isClient || isElectron === null) {
+  // Show loading state during SSR
+  if (!isClient) {
     return (
       <div className="text-center py-12">
         <div className="inline-flex items-center gap-2 text-muted">

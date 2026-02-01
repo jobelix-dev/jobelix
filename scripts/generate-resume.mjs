@@ -21,7 +21,7 @@ import * as yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const _dirname = path.dirname(__filename);
 
 /**
  * Get userData path (same as Electron's app.getPath('userData'))

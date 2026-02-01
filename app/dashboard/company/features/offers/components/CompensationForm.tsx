@@ -21,7 +21,7 @@ interface CompensationFormProps {
 }
 
 export default function CompensationForm({ data, onChange, perks, onPerksChange }: CompensationFormProps) {
-  const handleChange = (field: keyof OfferCompensation, value: any) => {
+  const handleChange = (field: keyof OfferCompensation, value: OfferCompensation[keyof OfferCompensation]) => {
     onChange({ ...data, [field]: value });
   };
 

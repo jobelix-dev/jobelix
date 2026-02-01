@@ -23,7 +23,7 @@ export interface GitHubOAuthConnection {
   expires_at: string | null;
   connected_at: string;
   last_synced_at: string | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
 }
 
 // =============================================================================
@@ -163,7 +163,7 @@ export async function saveGitHubConnection(
   accessToken: string,
   tokenType: string,
   scope: string,
-  metadata?: any
+  metadata?: Record<string, unknown>
 ): Promise<GitHubOAuthConnection | null> {
   const supabase = getServiceSupabase();
 

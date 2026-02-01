@@ -26,16 +26,19 @@ export async function POST(request: Request) {
     const auth = await authenticateRequest();
     if (auth.error) return auth.error;
 
-    const { user, supabase } = auth;
+    const { supabase } = auth;
 
     /**
      * 2) Read draft_id from request body
      * The frontend tells us WHICH draft to publish.
      */
     const { draft_id } = await request.json();
-    if (!draft_id) {
+    
+    // Validate draft_id is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!draft_id || !uuidRegex.test(draft_id)) {
       return NextResponse.json(
-        { error: 'draft_id is required' },
+        { error: 'Invalid ID format' },
         { status: 400 }
       );
     }
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
       message: 'Offer published successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * 🔐 SECURITY:
      * - Do NOT return raw error.message to the client.

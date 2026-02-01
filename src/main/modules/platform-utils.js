@@ -147,11 +147,18 @@ export function logPlatformInfo() {
 
 /**
  * Initialize all data directories for the application
- * Creates: data/, output/, tailored_resumes/, chrome_profile/, debug_html/
+ * Creates: data/, output/, tailored_resumes/, chrome_profile/, debug_html/, playwright-browsers/
+ * Also sets PLAYWRIGHT_BROWSERS_PATH env var for consistent browser location
  * This should be called on app startup to ensure directories exist
  */
 export function initializeDataDirectories() {
   const userData = getResourceRoot();
+  
+  // Set PLAYWRIGHT_BROWSERS_PATH early so it's available throughout the app lifecycle
+  // This ensures bot/utils/paths.ts getChromiumPath() always has the correct path
+  const playwrightBrowsersPath = path.join(userData, 'playwright-browsers');
+  process.env.PLAYWRIGHT_BROWSERS_PATH = playwrightBrowsersPath;
+  logger.debug(`Set PLAYWRIGHT_BROWSERS_PATH=${playwrightBrowsersPath}`);
   
   const directories = [
     path.join(userData, 'data'),
@@ -159,6 +166,7 @@ export function initializeDataDirectories() {
     path.join(userData, 'tailored_resumes'),
     path.join(userData, 'chrome_profile'),
     path.join(userData, 'debug_html'),
+    playwrightBrowsersPath,
   ];
   
   for (const dir of directories) {

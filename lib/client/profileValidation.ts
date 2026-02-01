@@ -6,7 +6,7 @@
  * Used by: StudentDashboard to enable/disable Save button
  */
 
-import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '../shared/types'
+import type { ExtractedResumeData, EducationEntry, ExperienceEntry, SocialLinkEntry } from '../shared/types'
 
 export interface FieldError {
   field: string
@@ -217,7 +217,7 @@ function validateDateRange(
 /**
  * Validates single education entry
  */
-function validateEducation(edu: EducationEntry, index: number): string[] {
+function _validateEducation(edu: EducationEntry, index: number): string[] {
   const errors: string[] = []
   
   const schoolError = validateTextField(edu.school_name, `Education ${index + 1} - School`)
@@ -238,7 +238,7 @@ function validateEducation(edu: EducationEntry, index: number): string[] {
 /**
  * Validates single experience entry
  */
-function validateExperience(exp: ExperienceEntry, index: number): string[] {
+function _validateExperience(exp: ExperienceEntry, index: number): string[] {
   const errors: string[] = []
   
   const companyError = validateTextField(exp.organisation_name, `Experience ${index + 1} - Company`)

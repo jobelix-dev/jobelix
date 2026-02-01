@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useIsElectron } from '@/app/hooks/useClientSide';
 
 /**
  * TitleBar Component
@@ -14,21 +14,15 @@ import { useState, useEffect } from 'react';
  * Only renders when running in Electron environment.
  */
 export default function TitleBar() {
-  const [isElectron, setIsElectron] = useState(false);
+  const isElectron = useIsElectron();
 
-  useEffect(() => {
-    // Check if running in Electron
-    setIsElectron(typeof window !== 'undefined' && window.electronAPI !== undefined);
-  }, []);
-
-  // Don't render if not in Electron
   if (!isElectron) {
     return null;
   }
 
   return (
     <div 
-      className="fixed top-0 left-0 right-[144px] h-12 z-[55] select-none"
+      className="fixed top-0 left-0 right-[144px] h-12 z-[9998] select-none"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Invisible draggable area - excludes window controls on right (3 buttons × 48px = 144px) */}

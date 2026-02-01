@@ -11,7 +11,6 @@
 import type { Locator } from 'playwright-core';
 import type { Resume, PersonalInformation, Education } from '../../../types';
 import { createLogger } from '../../../utils/logger';
-import { normalizeText } from '../form-utils';
 
 const log = createLogger('SmartFieldMatcher');
 

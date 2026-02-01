@@ -17,6 +17,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
+import { updatePasswordSchema } from '@/lib/server/validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,30 +27,27 @@ export async function POST(request: NextRequest) {
      * Expected shape:
      * { password: string }
      */
-    const { password } = await request.json()
+    const body = await request.json()
 
     /**
-     * 2) Basic server-side validation
-     * Never trust frontend validation alone.
+     * 2) Validate input using Zod schema.
+     * If validation fails, return structured error messages.
      */
-    if (!password) {
+    const result = updatePasswordSchema.safeParse(body)
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'Password is required' },
+        { 
+          error: 'Validation failed',
+          errors: result.error.issues.map(e => ({
+            path: e.path.join('.'),
+            message: e.message,
+          })),
+        },
         { status: 400 }
       )
     }
 
-    /**
-     * Beginner note:
-     * - Supabase itself has password rules
-     * - This check is an EARLY guard to give faster feedback
-     */
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      )
-    }
+    const { password } = result.data
 
     /**
      * 3) Create a Supabase client using cookies
@@ -121,7 +119,7 @@ export async function POST(request: NextRequest) {
      * - Supabase invalidates old sessions automatically
      */
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * - Never expose raw server errors to the client

@@ -66,6 +66,62 @@ interface ProfileData {
   socialLinks: SocialLinksData | null;
 }
 
+// Resume YAML structure interfaces
+interface ResumeProfile {
+  network: string;
+  url?: string;
+  username: string;
+}
+
+interface ResumeBasics {
+  email: string;
+  name: string;
+  location?: { city: string };
+  phone?: string;
+  profiles?: ResumeProfile[];
+}
+
+interface ResumeEducationEntry {
+  area: string;
+  institution: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface ResumeProjectEntry {
+  name: string;
+  description?: string;
+  url?: string;
+}
+
+interface ResumeSkillEntry {
+  name: string;
+  keywords: string[];
+}
+
+interface ResumeWorkEntry {
+  name: string;
+  position: string;
+  startDate?: string;
+  endDate?: string;
+  highlights?: string[];
+}
+
+interface ResumeCertificateEntry {
+  name: string;
+  url?: string;
+}
+
+interface ResumeStructure {
+  basics: ResumeBasics;
+  education?: ResumeEducationEntry[];
+  meta?: { breaks_before: { education: boolean } };
+  projects?: ResumeProjectEntry[];
+  skills?: ResumeSkillEntry[];
+  work?: ResumeWorkEntry[];
+  certificates?: ResumeCertificateEntry[];
+}
+
 function extractUsername(url: string | null | undefined, platform: string): string | null {
   if (!url) return null;
   
@@ -115,7 +171,7 @@ function formatDate(year: number | null | undefined, month: number | null | unde
     const monthStr = month ? String(month).padStart(2, '0') : '01';
     // Ensure it's returned as a string, not a date object
     return String(`${year}-${monthStr}-01`);
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -124,7 +180,7 @@ export function generateResumeYaml(data: ProfileData): string {
   const { student, academic, experience, projects, skills, languages, certifications, socialLinks } = data;
   
   // Build the resume object structure
-  const resume: any = {
+  const resume: ResumeStructure = {
     basics: {
       email: student.mail_adress || '',
       name: student.student_name || 'Unknown',
@@ -144,7 +200,7 @@ export function generateResumeYaml(data: ProfileData): string {
 
   // Social links (profiles)
   if (socialLinks) {
-    const profiles = [];
+    const profiles: ResumeProfile[] = [];
     
     const github = extractUsername(socialLinks.github, 'github');
     if (github) {
@@ -199,7 +255,7 @@ export function generateResumeYaml(data: ProfileData): string {
   // Education
   if (academic.length > 0) {
     resume.education = academic.map(edu => {
-      const entry: any = {
+      const entry: ResumeEducationEntry = {
         area: edu.degree || 'Unknown',
         institution: edu.school_name || 'Unknown',
       };
@@ -224,7 +280,7 @@ export function generateResumeYaml(data: ProfileData): string {
   // Projects
   if (projects.length > 0) {
     resume.projects = projects.map(proj => {
-      const entry: any = {
+      const entry: ResumeProjectEntry = {
         name: proj.project_name || 'Unnamed Project',
       };
       
@@ -237,11 +293,11 @@ export function generateResumeYaml(data: ProfileData): string {
 
   // Skills section
   if (skills.length > 0 || languages.length > 0) {
-    resume.skills = [];
+    const skillsList: ResumeSkillEntry[] = [];
     
     // General skills
     if (skills.length > 0) {
-      resume.skills.push({
+      skillsList.push({
         name: 'General',
         keywords: skills.map(skill => skill.skill_name).filter(Boolean)
       });
@@ -249,7 +305,7 @@ export function generateResumeYaml(data: ProfileData): string {
     
     // Languages as a skill category
     if (languages.length > 0) {
-      resume.skills.push({
+      skillsList.push({
         name: 'Languages',
         keywords: languages.map(lang => {
           const langName = lang.language_name || 'Unknown';
@@ -258,12 +314,14 @@ export function generateResumeYaml(data: ProfileData): string {
         })
       });
     }
+    
+    resume.skills = skillsList;
   }
 
   // Work (Experience)
   if (experience.length > 0) {
     resume.work = experience.map(exp => {
-      const entry: any = {
+      const entry: ResumeWorkEntry = {
         name: exp.organisation_name || 'Unknown',
         position: exp.position_name || 'Unknown',
       };
@@ -289,7 +347,7 @@ export function generateResumeYaml(data: ProfileData): string {
   // Certificates (Certifications)
   if (certifications.length > 0) {
     resume.certificates = certifications.map(cert => {
-      const entry: any = {
+      const entry: ResumeCertificateEntry = {
         name: cert.name || 'Unnamed Certification',
       };
       

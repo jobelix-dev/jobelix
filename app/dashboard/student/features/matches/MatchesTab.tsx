@@ -7,7 +7,7 @@
 
 'use client';
 
-import { Briefcase, MapPin, DollarSign } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
 
 export default function MatchesTab() {
   return (
@@ -37,7 +37,7 @@ export default function MatchesTab() {
           Job Matches
         </h3>
         <p className="text-sm text-muted max-w-md mx-auto">
-          We're building a smart matching system to connect you with employers looking for talent like you.
+          We&apos;re building a smart matching system to connect you with employers looking for talent like you.
         </p>
         </div>
       </div>

@@ -10,9 +10,7 @@
 import type { 
   Resume, 
   Job, 
-  ChatMessage, 
-  ChatCompletionRequest, 
-  ChatCompletionResponse 
+  ChatMessage 
 } from '../types';
 import { getResumeSection, resumeToNarrative } from '../models/resume';
 import { tailorResumePipeline } from './resume-tailoring';

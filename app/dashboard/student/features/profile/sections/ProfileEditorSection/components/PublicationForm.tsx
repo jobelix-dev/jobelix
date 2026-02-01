@@ -12,7 +12,7 @@ import DatePicker from './DatePicker';
 
 interface PublicationFormProps {
   data: PublicationEntry;
-  onChange: (field: keyof PublicationEntry, value: unknown) => void;
+  onChange: (field: keyof PublicationEntry, value: PublicationEntry[keyof PublicationEntry]) => void;
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;

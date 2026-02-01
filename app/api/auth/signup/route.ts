@@ -34,6 +34,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
+import { validateRequest, signupSchema } from '@/lib/server/validation'
 
 // Rate limiting configuration
 const MAX_SIGNUPS_PER_IP = 10  // Maximum signups allowed per IP
@@ -67,31 +68,14 @@ export async function POST(request: NextRequest) {
     // -----------------------------
     // 1) Parse and validate input
     // -----------------------------
-    const { email, password, role, captchaToken } = await request.json()
+    const body = await request.json()
+    const validation = validateRequest(body, signupSchema)
 
-    if (!email || !password || !role) {
-      return NextResponse.json(
-        { error: 'Email, password, and role are required' },
-        { status: 400 }
-      )
+    if (validation.error) {
+      return NextResponse.json(validation.error, { status: validation.error.status })
     }
 
-    // Whitelist allowed roles - never trust client input
-    if (role !== 'student' && role !== 'company') {
-      return NextResponse.json(
-        { error: 'Role must be either "student" or "company"' },
-        { status: 400 }
-      )
-    }
-
-    // Basic email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
-    }
+    const { email, password, role, captchaToken } = validation.data
 
     // Normalize email for consistent handling
     const normalizedEmail = email.toLowerCase().trim()

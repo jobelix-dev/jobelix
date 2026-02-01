@@ -14,7 +14,7 @@ export default function Header() {
       <Link 
         href="/" 
         className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
-        style={{ WebkitAppRegion: 'no-drag' } as any}
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <svg 
           xmlns="http://www.w3.org/2000/svg" 

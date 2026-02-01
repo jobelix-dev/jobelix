@@ -15,7 +15,6 @@ interface FormFieldProps {
   label: string;
   error?: string;
   required?: boolean;
-  disabled?: boolean;
   children: ReactNode;
   className?: string;
 }
@@ -25,7 +24,6 @@ export default function FormField({
   label,
   error,
   required,
-  disabled,
   children,
   className = '',
 }: FormFieldProps) {

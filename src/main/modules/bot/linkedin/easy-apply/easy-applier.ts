@@ -9,7 +9,7 @@ import type { SavedAnswer, Job } from '../../types';
 import type { StatusReporter } from '../../utils/status-reporter';
 import { createLogger } from '../../utils/logger';
 import { saveDebugHtml } from '../../utils/debug-html';
-import { FormHandler, AnswerRecordCallback } from './form-handler';
+import { FormHandler, AnswerRecordCallback, GPTAnswererLike } from './form-handler';
 import { NavigationHandler } from './navigation';
 import { EASY_APPLY_BUTTON_SELECTORS, ALREADY_APPLIED_SELECTORS, JOB_DESCRIPTION_SELECTORS, MODAL, TIMEOUTS } from './selectors';
 import { getResumePath, getTailoredResumesPath } from '../../utils/paths';
@@ -55,7 +55,7 @@ export class EasyApplier {
 
   constructor(
     private page: Page,
-    private gptAnswerer: any,
+    private gptAnswerer: GPTAnswererLike,
     savedAnswers: SavedAnswer[] = [],
     resumePath?: string,
     recordCallback?: AnswerRecordCallback,
@@ -287,8 +287,10 @@ export class EasyApplier {
    */
   private async setJobContext(job: Job): Promise<void> {
     try {
-      const context = `Job Title: ${job.title}\nCompany: ${job.company}\nLocation: ${job.location}\nDescription: ${job.description?.substring(0, 500) || 'N/A'}`;
-      await this.gptAnswerer.setJobContext(context);
+      // GPTAnswerer uses setJob(job) method
+      if ('setJob' in this.gptAnswerer && typeof this.gptAnswerer.setJob === 'function') {
+        this.gptAnswerer.setJob(job);
+      }
     } catch {
       // GPT answerer might not support this
     }
@@ -423,6 +425,11 @@ export class EasyApplier {
 
       log.info(`🎯 Tailoring resume for ${job.company} - ${job.title}`);
       const baseResumeYaml = fs.readFileSync(baseResumePath, 'utf-8');
+
+      if (!this.gptAnswerer.tailorResumeToJob) {
+        log.warn('GPT answerer does not support resume tailoring');
+        return null;
+      }
 
       const tailoredConfigYaml = await this.gptAnswerer.tailorResumeToJob(jobDescription, baseResumeYaml);
       if (!tailoredConfigYaml || tailoredConfigYaml.length < 100) {

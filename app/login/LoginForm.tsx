@@ -10,13 +10,17 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { createClient } from '@/lib/client/supabaseClient';
+import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hCaptchaSiteKey = getHCaptchaSiteKey();
+  const hasCaptcha = isHCaptchaConfigured();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,8 +72,8 @@ export default function LoginForm() {
       
       router.refresh();
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setTimeout(() => setError(''), 1500);
     } finally {
       setLoading(false);
@@ -109,37 +113,29 @@ export default function LoginForm() {
       </label>
 
       <div className="flex justify-center">
-        <HCaptcha
-          sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY!}
-          onVerify={(token) => {
-            console.log('HCaptcha token', token)
-            setCaptchaToken(token)
-          }}
-          onExpire={() => {
-            console.log('HCaptcha expired')
-            setCaptchaToken(null)
-          }}
-          onError={(err) => {
-            console.error('HCaptcha error', err)
-            setCaptchaToken(null)
-          }}
-          onLoad={() => console.log('HCaptcha loaded')}
-          sentry={false}
-        />
+        {hasCaptcha && (
+          <HCaptcha
+            sitekey={hCaptchaSiteKey}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            sentry={false}
+          />
+        )}
       </div>
 
       <div className="flex justify-end">
-        <a 
+        <Link 
           href="/reset-password" 
           className="text-xs text-primary hover:underline"
         >
           Forgot password?
-        </a>
+        </Link>
       </div>
 
       <button
         type="submit"
-        disabled={loading || !captchaToken}
+        disabled={loading || (hasCaptcha && !captchaToken)}
         className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
       >
         {loading ? 'Logging in...' : 'Log in'}

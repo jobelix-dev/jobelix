@@ -109,7 +109,7 @@ export async function GET() {
      */
     console.log('[Profile API] No profile found in student or company tables, returning null profile')
     return NextResponse.json({ profile: null })
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * IMPORTANT SECURITY NOTE:
      * - Don't return raw error.message to the client in production.

@@ -58,9 +58,9 @@ export default function OffersManager() {
       
       // Remove from local state
       setPublishedOffers((prev) => prev.filter((o) => o.id !== offerId));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete offer:', err);
-      await alert(err.message || 'Failed to delete offer', { title: 'Error' });
+      await alert(err instanceof Error ? err.message : 'Failed to delete offer', { title: 'Error' });
     }
   }
 
@@ -74,9 +74,9 @@ export default function OffersManager() {
       
       // Remove from local state
       setUnpublishedDrafts((prev) => prev.filter((d) => d.id !== draftId));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete draft:', err);
-      await alert(err.message || 'Failed to delete draft', { title: 'Error' });
+      await alert(err instanceof Error ? err.message : 'Failed to delete draft', { title: 'Error' });
     }
   }
 
@@ -94,9 +94,9 @@ export default function OffersManager() {
       const { draft } = await res.json();
       setEditingDraftId(draft.id);
       setView('editor');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to create new draft:', err);
-      await alert(err.message || 'Failed to create new draft', { title: 'Error' });
+      await alert(err instanceof Error ? err.message : 'Failed to create new draft', { title: 'Error' });
     }
   }
 
@@ -113,9 +113,9 @@ export default function OffersManager() {
       const { draft } = await res.json();
       setEditingDraftId(draft.id);
       setView('editor');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load draft for offer:', err);
-      await alert(err.message || 'Failed to load draft for offer', { title: 'Error' });
+      await alert(err instanceof Error ? err.message : 'Failed to load draft for offer', { title: 'Error' });
     }
   }
 

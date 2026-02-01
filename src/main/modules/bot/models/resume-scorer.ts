@@ -20,7 +20,7 @@ export interface ScoredItem {
   index: number;
   score: number;
   reasoning: string;
-  originalData: Record<string, any>;
+  originalData: Record<string, unknown>;
   name?: string; // For skills only
 }
 
@@ -61,14 +61,14 @@ export interface RawScoreItem {
 export class ResumeSectionScorer {
   private resumeYaml: string;
   private jobDescription: string;
-  private resumeData: Record<string, any>;
+  private resumeData: Record<string, unknown>;
   public scoredItems: ScoredItem[] = [];
   public scoresDict: RawScores | null = null;
 
   constructor(resumeYaml: string, jobDescription: string) {
     this.resumeYaml = resumeYaml;
     this.jobDescription = jobDescription;
-    this.resumeData = yaml.load(resumeYaml) as Record<string, any>;
+    this.resumeData = yaml.load(resumeYaml) as Record<string, unknown>;
     log.debug('ResumeScorer initialized');
   }
 
@@ -129,12 +129,12 @@ export class ResumeSectionScorer {
 
     for (const [category, items] of Object.entries(scoresDict)) {
       // Get original data from resume
-      let originalItems: any[];
+      let originalItems: unknown[];
       
       if (category === 'skills') {
         // Skills are nested in resume structure
         originalItems = [];
-        const skillSections = this.resumeData.skills || [];
+        const skillSections = (this.resumeData.skills || []) as Array<{ name?: string; keywords?: string[] }>;
         for (const skillSection of skillSections) {
           if (skillSection.name === 'Languages') {
             // Skip languages section
@@ -143,7 +143,7 @@ export class ResumeSectionScorer {
           originalItems.push(...(skillSection.keywords || []));
         }
       } else {
-        originalItems = this.resumeData[category] || [];
+        originalItems = (this.resumeData[category] || []) as unknown[];
       }
 
       for (const scoreItem of items) {
@@ -158,11 +158,11 @@ export class ResumeSectionScorer {
         const originalData = originalItems[idx];
 
         scoredItems.push({
-          category: category as any,
+          category: category as ScoredItem['category'],
           index: idx,
           score: scoreItem.score,
           reasoning: scoreItem.reasoning || 'No reasoning provided',
-          originalData: typeof originalData === 'object' ? originalData : { value: originalData },
+          originalData: typeof originalData === 'object' && originalData !== null ? originalData as Record<string, unknown> : { value: originalData },
           name: scoreItem.name,
         });
       }
@@ -214,7 +214,7 @@ export class ResumeSectionScorer {
     const otherItemsSorted = [...otherItems].sort((a, b) => b.score - a.score);
 
     // Step 3: Apply min_score threshold
-    let aboveThreshold = otherItemsSorted.filter(item => item.score >= minScore);
+    const aboveThreshold = otherItemsSorted.filter(item => item.score >= minScore);
     let belowThreshold = otherItemsSorted.filter(item => item.score < minScore);
 
     log.debug(`Non-education items above threshold (${minScore}): ${aboveThreshold.length}`);
@@ -300,7 +300,7 @@ export class ResumeSectionScorer {
     try {
       const getEndDate = (item: ScoredItem): string => {
         const data = item.originalData;
-        const endDate = data.endDate || '';
+        const endDate = (data.endDate as string) || '';
         if (!endDate || ['present', 'current', 'ongoing'].includes(endDate.toLowerCase())) {
           return '9999-12'; // Sort current education first
         }
@@ -435,7 +435,7 @@ export class ResumeSectionScorer {
     log.info('Building filtered resume YAML');
 
     // Deep copy original resume data
-    const filteredData = yaml.load(this.resumeYaml) as Record<string, any>;
+    const filteredData = yaml.load(this.resumeYaml) as Record<string, unknown>;
 
     // Group selected items by category
     const byCategory: Record<string, ScoredItem[]> = {};
@@ -454,8 +454,8 @@ export class ResumeSectionScorer {
         const selectedIndices = new Set(itemsInCat.map(item => item.index));
 
         // Keep only selected items
-        const originalItems = filteredData[category] || [];
-        const filtered = originalItems.filter((_: any, i: number) => selectedIndices.has(i));
+        const originalItems = (filteredData[category] || []) as unknown[];
+        const filtered = originalItems.filter((_: unknown, i: number) => selectedIndices.has(i));
         filteredData[category] = filtered;
 
         log.debug(`Filtered '${category}': ${originalItems.length} → ${filtered.length} items`);
@@ -473,7 +473,7 @@ export class ResumeSectionScorer {
       );
 
       if (filteredData.skills) {
-        for (const skillSection of filteredData.skills) {
+        for (const skillSection of filteredData.skills as Array<{ name?: string; keywords?: string[] }>) {
           if (skillSection.name === 'Languages') {
             // Don't filter language skills
             continue;

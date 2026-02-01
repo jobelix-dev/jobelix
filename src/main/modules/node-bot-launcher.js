@@ -31,7 +31,7 @@ let isRunning = false;
  * Get the data folder path (same as Electron file-system uses)
  * Uses platform-specific resources path
  */
-function getDataFolderPath() {
+function _getDataFolderPath() {
   return getPlatformResourcePath(DIRECTORIES.MAIN, DIRECTORIES.DATA_FOLDER);
 }
 
@@ -137,6 +137,12 @@ async function importBotModule() {
  */
 export async function launchNodeBot(token, sendBotStatus, apiUrl) {
   logger.info('🚀 Launching Node.js bot...');
+
+  // Set PLAYWRIGHT_BROWSERS_PATH for the bot module
+  // This is required by bot/utils/paths.ts getChromiumPath()
+  const playwrightBrowsersPath = path.join(app.getPath('userData'), 'playwright-browsers');
+  process.env.PLAYWRIGHT_BROWSERS_PATH = playwrightBrowsersPath;
+  logger.info(`Set PLAYWRIGHT_BROWSERS_PATH=${playwrightBrowsersPath}`);
 
   // Check if already running
   if (isRunning || (botInstance && botInstance.running)) {

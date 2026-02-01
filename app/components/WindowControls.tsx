@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Minus, Square, X } from 'lucide-react';
+import { useIsElectron } from '@/app/hooks/useClientSide';
 
 /**
  * WindowControls Component
@@ -16,14 +17,12 @@ import { Minus, Square, X } from 'lucide-react';
  * - Only renders when running in Electron environment
  */
 export default function WindowControls() {
+  const isElectron = useIsElectron();
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isElectron, setIsElectron] = useState(false);
 
   useEffect(() => {
-    // Check if running in Electron
-    setIsElectron(typeof window !== 'undefined' && window.electronAPI !== undefined);
-
-    // Get initial maximized state
+    if (!isElectron) return;
+    
     const checkMaximized = async () => {
       if (window.electronAPI?.windowIsMaximized) {
         const maximized = await window.electronAPI.windowIsMaximized();
@@ -32,9 +31,8 @@ export default function WindowControls() {
     };
 
     checkMaximized();
-  }, []);
+  }, [isElectron]);
 
-  // Don't render if not in Electron
   if (!isElectron) {
     return null;
   }
@@ -59,7 +57,7 @@ export default function WindowControls() {
 
   return (
     <div 
-      className="hidden sm:flex fixed top-0 right-0 z-[60] items-center h-12 gap-0 select-none"
+      className="hidden sm:flex fixed top-0 right-0 z-[9999] items-center h-12 gap-0 select-none"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       {/* Minimize Button */}

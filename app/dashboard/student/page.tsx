@@ -8,7 +8,7 @@
  */
 
 'use client';
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
@@ -21,22 +21,25 @@ import { restoreFocusAfterDialog } from '@/lib/client/focusRestore';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
+const VALID_TABS = ['profile', 'matches', 'job-preferences', 'auto-apply'] as const;
+
 // Inner component that uses useSearchParams
 function StudentDashboardContent() {
   const searchParams = useSearchParams();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   
-  // Active tab state - initialize from URL param if present
-  const [activeTab, setActiveTab] = useState<DashboardTab>('profile');
-  const [jobPreferencesUnsaved, setJobPreferencesUnsaved] = useState(false);
-  
-  // Read tab from URL on mount (e.g., after Stripe redirect)
-  useEffect(() => {
+  // Derive initial tab from URL param (computed once on mount via useMemo)
+  const initialTab = useMemo(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'matches', 'job-preferences', 'auto-apply'].includes(tabParam)) {
-      setActiveTab(tabParam as DashboardTab);
+    if (tabParam && VALID_TABS.includes(tabParam as DashboardTab)) {
+      return tabParam as DashboardTab;
     }
+    return 'profile';
   }, [searchParams]);
+  
+  // Active tab state - initialize from URL param if present
+  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
+  const [jobPreferencesUnsaved, setJobPreferencesUnsaved] = useState(false);
   
   // Profile data management (custom hook)
   const profileState = useProfileData();
@@ -114,8 +117,8 @@ function StudentDashboardContent() {
               handleFileChange={resumeState.handleFileChange}
               handleDownload={resumeState.handleDownload}
               handleFinalize={profileState.handleFinalize}
-              importingGitHub={gitHubState.importingGitHub}
-              githubImportProgress={gitHubState.importProgress}
+              importingGitHub={gitHubState.importing}
+              githubImportProgress={gitHubState.progress}
               onGitHubImport={gitHubState.importGitHubData}
             />
           )}

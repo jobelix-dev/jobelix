@@ -89,7 +89,7 @@ export async function GET() {
     }
 
     return Response.json({ draft: newDraft })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get draft error:', error)
     return new Response(JSON.stringify({ error: 'Failed to load draft' }), { 
       status: 500,
@@ -146,7 +146,7 @@ export async function PUT(req: NextRequest) {
       success: true,
       draft,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update draft error:', error)
     return new Response(JSON.stringify({ error: 'Failed to update draft' }), { 
       status: 500,

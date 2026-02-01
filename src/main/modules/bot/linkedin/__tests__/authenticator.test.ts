@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { LinkedInAuthenticator } from '../authenticator';
 import type { Page } from 'playwright';
+import type { StatusReporter } from '../../utils/status-reporter';
 
 // Mock Playwright Page
 function createMockPage(options: {
@@ -58,8 +59,8 @@ describe('LinkedInAuthenticator', () => {
     });
 
     it('should accept optional status reporter', () => {
-      const mockReporter = { sendHeartbeat: vi.fn() };
-      const auth = new LinkedInAuthenticator(mockPage, mockReporter as any);
+      const mockReporter = { sendHeartbeat: vi.fn() } as unknown as StatusReporter;
+      const auth = new LinkedInAuthenticator(mockPage, mockReporter);
       expect(auth).toBeInstanceOf(LinkedInAuthenticator);
     });
   });
@@ -123,7 +124,7 @@ describe('LinkedInAuthenticator', () => {
       
       // The authenticator will try to start login process
       // We just verify it doesn't throw
-      const startPromise = auth.start();
+      const _startPromise = auth.start();
       
       // Resolve the promise after a short delay
       setTimeout(() => {

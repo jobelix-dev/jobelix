@@ -73,7 +73,7 @@ export function useWorkPreferences(onUnsavedChanges?: (hasChanges: boolean) => v
   }, [preferences, initialPreferences, onUnsavedChanges, loading]);
 
   // Generic field updater
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: string | number | boolean | string[] | null) => {
     setPreferences((prev) => ({ ...prev, [field]: value }));
   };
 

@@ -9,8 +9,7 @@
  * 5. Application flow is managed correctly
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import type { Page } from 'playwright';
+import { describe, it, expect } from 'vitest';
 import type { JobSearchConfig } from '../../types';
 
 // Note: These tests focus on the public interface and basic behavior

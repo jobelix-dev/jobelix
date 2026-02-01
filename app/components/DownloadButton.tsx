@@ -18,11 +18,8 @@ import { useEffect, useState } from 'react';
 import { Download, Loader2, ChevronDown } from 'lucide-react';
 import type { ReleaseInfo, Platform, AssetInfo } from '@/lib/client/github-api';
 import { formatFileSize, getFallbackDownloadUrl } from '@/lib/client/github-api';
-import { 
-  detectPlatform, 
-  getPlatformDisplayName, 
-  PLATFORM_OPTIONS 
-} from '@/lib/client/platformDetection';
+import { getPlatformDisplayName, PLATFORM_OPTIONS } from '@/lib/client/platformDetection';
+import { useIsClient, usePlatform } from '@/app/hooks/useClientSide';
 
 interface DownloadButtonProps {
   releaseInfo?: ReleaseInfo;
@@ -61,15 +58,9 @@ export default function DownloadButton({
   className = '',
   variant = 'primary',
 }: DownloadButtonProps) {
-  const [platform, setPlatform] = useState<Platform>('unknown');
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useIsClient();
+  const platform = usePlatform();
   const [showDropdown, setShowDropdown] = useState(false);
-
-  // Detect platform on client-side only (avoid SSR hydration mismatch)
-  useEffect(() => {
-    setIsClient(true);
-    setPlatform(detectPlatform());
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -8,7 +8,7 @@
  * 4. Search URL building works correctly
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { validateConfig, ConfigError, buildSearchUrl } from '../config-validator';
 import type { JobSearchConfig } from '../../types';
 
@@ -65,7 +65,7 @@ describe('ConfigValidator', () => {
     });
 
     it('should throw ConfigError when remote is missing', () => {
-      const { remote, ...configWithoutRemote } = validConfig;
+      const { remote: _remote, ...configWithoutRemote } = validConfig;
       
       expect(() => validateConfig(configWithoutRemote)).toThrow(ConfigError);
     });

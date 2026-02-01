@@ -6,14 +6,50 @@
  * - POST: One-click unsubscribe (for List-Unsubscribe-Post header support)
  * 
  * Updates the contact's unsubscribed status in Resend.
+ * 
+ * Security: Requires HMAC-signed token to prevent unauthorized unsubscriptions.
  */
 
 import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// Secret for signing/verifying unsubscribe tokens
+// Falls back to RESEND_API_KEY if dedicated secret not set
+const UNSUBSCRIBE_SECRET = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET || process.env.RESEND_API_KEY || '';
+
+/**
+ * Generate HMAC signature for unsubscribe token
+ */
+export function generateUnsubscribeToken(email: string): string {
+  return createHmac('sha256', UNSUBSCRIBE_SECRET).update(email.toLowerCase()).digest('hex');
+}
+
+/**
+ * Verify HMAC signature of unsubscribe token
+ */
+function verifyUnsubscribeToken(email: string, token: string): boolean {
+  const expectedToken = generateUnsubscribeToken(email);
+  
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Generate a complete unsubscribe URL with signed token
+ */
+export function generateUnsubscribeUrl(email: string, baseUrl: string = 'https://www.jobelix.fr'): string {
+  const token = generateUnsubscribeToken(email);
+  return `${baseUrl}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+}
 
 async function unsubscribeContact(email: string): Promise<boolean> {
   if (!resend || !email) return false;
@@ -44,9 +80,19 @@ async function unsubscribeContact(email: string): Promise<boolean> {
 // GET: Show unsubscribe confirmation page
 export async function GET(request: NextRequest) {
   const email = request.nextUrl.searchParams.get('email');
+  const token = request.nextUrl.searchParams.get('token');
   
   if (!email) {
     return new NextResponse('Missing email parameter', { status: 400 });
+  }
+
+  if (!token) {
+    return new NextResponse('Missing token parameter', { status: 400 });
+  }
+
+  // Verify the HMAC token before processing
+  if (!verifyUnsubscribeToken(email, token)) {
+    return new NextResponse('Invalid unsubscribe token', { status: 403 });
   }
 
   const success = await unsubscribeContact(email);
@@ -102,9 +148,19 @@ export async function GET(request: NextRequest) {
 // POST: One-click unsubscribe (for email client support)
 export async function POST(request: NextRequest) {
   const email = request.nextUrl.searchParams.get('email');
+  const token = request.nextUrl.searchParams.get('token');
   
   if (!email) {
     return new NextResponse('Missing email parameter', { status: 400 });
+  }
+
+  if (!token) {
+    return new NextResponse('Missing token parameter', { status: 400 });
+  }
+
+  // Verify the HMAC token before processing
+  if (!verifyUnsubscribeToken(email, token)) {
+    return new NextResponse('Invalid unsubscribe token', { status: 403 });
   }
 
   await unsubscribeContact(email);

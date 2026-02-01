@@ -21,6 +21,9 @@ import "server-only";
 import { NextRequest } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 
+/** UUID validation regex */
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * SECURITY: Whitelist of allowed fields for draft updates.
  * This prevents mass assignment attacks where a malicious client
@@ -65,6 +68,14 @@ export async function GET(
      */
     const { id: draftId } = await context.params;
 
+    // Validate draftId is a valid UUID
+    if (!draftId || !uuidRegex.test(draftId)) {
+      return new Response(JSON.stringify({ error: 'Invalid ID format' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     /**
      * 3) Fetch the draft.
      *
@@ -87,12 +98,12 @@ export async function GET(
     }
 
     return Response.json({ draft });
-  } catch (error: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * Don't send raw error.message to the client (can leak internals).
      */
-    console.error('Get draft error:', error);
+    console.error('Get draft error');
     return new Response(JSON.stringify({ error: 'Failed to get draft' }), { // 🔐
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -113,6 +124,14 @@ export async function PUT(
     
     const { user, supabase } = auth;
     const { id: draftId } = await context.params;
+
+    // Validate draftId is a valid UUID
+    if (!draftId || !uuidRegex.test(draftId)) {
+      return new Response(JSON.stringify({ error: 'Invalid ID format' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     /**
      * Updates are sent by the frontend (auto-save).
@@ -179,7 +198,7 @@ export async function PUT(
       success: true,
       draft,
     });
-  } catch (error: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * Don't leak raw error.message to the client.
@@ -205,6 +224,14 @@ export async function DELETE(
     const { user, supabase } = auth;
     const { id: draftId } = await context.params;
 
+    // Validate draftId is a valid UUID
+    if (!draftId || !uuidRegex.test(draftId)) {
+      return new Response(JSON.stringify({ error: 'Invalid ID format' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     /**
      * Delete the draft.
      * We filter by company_id so a company cannot delete another company's draft.
@@ -220,7 +247,7 @@ export async function DELETE(
     }
 
     return Response.json({ success: true });
-  } catch (error: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * Don't leak raw error.message to the client.

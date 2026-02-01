@@ -8,7 +8,7 @@
  * 4. Helper functions work as expected
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { parseResumeYaml, getResumeSection, resumeToNarrative } from '../resume';
 import type { Resume } from '../../types';
 
@@ -293,7 +293,7 @@ education:
 
     it('should return something for unknown sections', () => {
       // Unknown sections may return a default or the full resume
-      const section = getResumeSection(resume, 'unknown' as any);
+      const section = getResumeSection(resume, 'unknown');
       
       // Just verify it doesn't throw and returns a string
       expect(typeof section).toBe('string');

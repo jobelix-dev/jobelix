@@ -17,9 +17,23 @@ import * as fs from 'fs';
 import { LinkedInBot, BotOptions } from './bot/index';
 import logger from '../utils/logger.js';
 
+// Status payload type for bot updates
+interface BotStatusPayload {
+  stage: string;
+  message?: string;
+  activity?: string;
+  details?: Record<string, unknown>;
+  stats?: {
+    jobs_found: number;
+    jobs_applied: number;
+    jobs_failed: number;
+    credits_used: number;
+  };
+}
+
 // Single bot instance
 let botInstance: LinkedInBot | null = null;
-let statusCallback: ((payload: any) => void) | null = null;
+let statusCallback: ((payload: BotStatusPayload) => void) | null = null;
 let isRunning = false;
 
 /**
@@ -100,7 +114,7 @@ function getApiUrl(): string {
 /**
  * Emit status update to renderer
  */
-function emitStatus(payload: any): void {
+function emitStatus(payload: BotStatusPayload): void {
   if (statusCallback) {
     try {
       statusCallback(payload);
@@ -119,7 +133,7 @@ function emitStatus(payload: any): void {
  */
 export async function launchNodeBot(
   token: string,
-  sendBotStatus: (payload: any) => void
+  sendBotStatus: (payload: BotStatusPayload) => void
 ): Promise<{ success: boolean; error?: string }> {
   logger.info('🚀 Launching Node.js bot...');
 

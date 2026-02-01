@@ -12,7 +12,7 @@
 import { useState, Dispatch, SetStateAction, Suspense } from 'react';
 import ProfileEditorSection from './sections/ProfileEditorSection';
 import HeaderSection from './sections/HeaderSection';
-import type { ExtractedResumeData } from '@/lib/shared/types';
+import type { ExtractedResumeData, ProjectEntry, SkillEntry } from '@/lib/shared/types';
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
@@ -52,14 +52,14 @@ interface ProfileTabProps {
   handleDownload: () => void;
   handleFinalize: () => void;
   importingGitHub: boolean;
-  onGitHubImport: (currentProjects: any[], currentSkills: any[], onComplete?: (projects: any[], skills: any[]) => void) => Promise<any>;
+  onGitHubImport: (currentProjects: ProjectEntry[], currentSkills: SkillEntry[], onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void) => Promise<{ projects: ProjectEntry[]; skills: SkillEntry[] } | null>;
 }
 
 export default function ProfileTab({
   profileData,
   setProfileData,
   validation,
-  draftId,
+  draftId: _draftId,
   draftStatus,
   resumeInfo,
   uploading,
@@ -86,7 +86,7 @@ export default function ProfileTab({
 
   const resumeExtractionSteps = RESUME_EXTRACTION_STEPS;
 
-  const githubImportSteps = ['Analyzing repositories'];
+  const _githubImportSteps = ['Analyzing repositories'];
 
   const loadingEstimatedMs = extracting ? 45000 : uploading ? 7000 : importingGitHub ? 12000 : undefined;
   const extractionStepIndex = extractionProgress?.stepIndex;
@@ -146,7 +146,7 @@ export default function ProfileTab({
   const isProfileCompletionStep = profileTourSteps[0]?.id === 'complete';
 
   // Handler for GitHub import completion - ONLY update projects and skills
-  const handleGitHubImport = (projects: any[], skills: any[]) => {
+  const handleGitHubImport = (projects: ProjectEntry[], skills: SkillEntry[]) => {
     // Preserve ALL existing profile data, only update projects and skills
     // Using functional update to avoid stale closure issues
     setProfileData((prevData) => ({

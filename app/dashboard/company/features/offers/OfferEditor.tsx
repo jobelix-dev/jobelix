@@ -28,11 +28,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Load the specific draft by ID
-  useEffect(() => {
-    loadDraft();
-  }, [draftId]);
-
-  const loadDraft = async () => {
+  const loadDraft = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -54,13 +50,17 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
         questions: loadedDraft.questions || [],
         perks: loadedDraft.perks || [],
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load draft');
       console.error('Load draft error:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [draftId]);
+
+  useEffect(() => {
+    loadDraft();
+  }, [loadDraft]);
 
   // Auto-save function
   const saveDraft = useCallback(async (updatedData: OfferDraftData) => {
@@ -77,7 +77,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
       if (!res.ok) throw new Error('Failed to save draft');
 
       setLastSaved(new Date());
-    } catch (err: any) {
+    } catch (err) {
       console.error('Save error:', err);
       setError('Failed to save changes');
     } finally {
@@ -111,7 +111,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
       setSaving(true);
       await saveDraft(data);
       onClose();
-    } catch (err: any) {
+    } catch {
       setError('Failed to save draft');
       setSaving(false);
     }
@@ -152,9 +152,9 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
 
       // Close editor and return to list (which will show published offer)
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Publish error:', err);
-      setError(err.message || 'Failed to publish offer');
+      setError(err instanceof Error ? err.message : 'Failed to publish offer');
       setSaving(false);
     }
   };

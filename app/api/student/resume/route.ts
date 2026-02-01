@@ -41,7 +41,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ data })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Unexpected error fetching resume:', error)
     return NextResponse.json(
       { error: 'Failed to fetch resume' },
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Resume Upload] Unexpected error:', error)
     return NextResponse.json(
       { error: 'Failed to upload resume' },

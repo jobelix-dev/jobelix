@@ -9,8 +9,12 @@
 'use client';
 import { useState } from 'react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 
 export default function ResetPasswordForm() {
+  const hCaptchaSiteKey = getHCaptchaSiteKey();
+  const hasCaptcha = isHCaptchaConfigured();
+  
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -46,8 +50,8 @@ export default function ResetPasswordForm() {
 
       setSuccess(true);
       setEmail('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset email');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset email');
     } finally {
       setLoading(false);
     }
@@ -62,7 +66,7 @@ export default function ResetPasswordForm() {
         <div>
           <h3 className="text-xl font-semibold text-default mb-2">Check your email</h3>
           <p className="text-sm text-muted">
-            We've sent you a password reset link. Please check your inbox.
+            We&apos;ve sent you a password reset link. Please check your inbox.
           </p>
         </div>
         <button
@@ -99,28 +103,20 @@ export default function ResetPasswordForm() {
       </div>
 
       <div className="flex justify-center">
-        <HCaptcha
-          sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY!}
-          onVerify={(token) => {
-            console.log('HCaptcha token', token)
-            setCaptchaToken(token)
-          }}
-          onExpire={() => {
-            console.log('HCaptcha expired')
-            setCaptchaToken(null)
-          }}
-          onError={(err) => {
-            console.error('HCaptcha error', err)
-            setCaptchaToken(null)
-          }}
-          onLoad={() => console.log('HCaptcha loaded')}
-          sentry={false}
-        />
+        {hasCaptcha && (
+          <HCaptcha
+            sitekey={hCaptchaSiteKey}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            sentry={false}
+          />
+        )}
       </div>
 
       <button
         type="submit"
-        disabled={loading || !captchaToken}
+        disabled={loading || (hasCaptcha && !captchaToken)}
         className="w-full rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? 'Sending...' : 'Send reset link'}

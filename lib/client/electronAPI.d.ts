@@ -1,3 +1,17 @@
+export interface BrowserInstallProgress {
+  stage: 'downloading' | 'completed' | 'failed';
+  progress: number;
+  message: string;
+}
+
+export interface BrowserStatus {
+  success: boolean;
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+  error?: string;
+}
+
 export interface ElectronAPI {
   readConfigFile: () => Promise<{ success: boolean; content: string }>;
   writeConfigFile: (content: string) => Promise<{ success: boolean; error?: string }>;
@@ -36,6 +50,17 @@ export interface ElectronAPI {
     path?: string;
     error?: string;
   }>;
+  
+  // Browser management
+  checkBrowser: () => Promise<BrowserStatus>;
+  installBrowser: () => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
+  }>;
+  onBrowserInstallProgress: (callback: (progress: BrowserInstallProgress) => void) => void;
+  removeBrowserInstallProgressListeners: () => void;
+  
   saveAuthCache: (tokens: {
     access_token: string;
     refresh_token: string;
@@ -75,7 +100,7 @@ export interface ElectronAPI {
     message?: string; 
     progress?: number; 
     activity?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
     stats?: {
       jobs_found: number;
       jobs_applied: number;

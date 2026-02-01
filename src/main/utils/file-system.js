@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { FILES, DIRECTORIES, VERSION } from '../config/constants.js';
+import { FILES, VERSION } from '../config/constants.js';
 import { getPlatformResourcePath } from '../modules/platform-utils.js';
 import logger from './logger.js';
 

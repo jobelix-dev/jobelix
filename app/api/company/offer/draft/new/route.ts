@@ -97,7 +97,7 @@ export async function POST() {
       success: true,
       draft: newDraft 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * 🔐 SECURITY:
      * - Do NOT return error.message to the client (can leak internals).

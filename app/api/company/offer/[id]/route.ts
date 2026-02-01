@@ -20,6 +20,9 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 
+/** UUID validation regex */
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // DELETE - Delete a published offer
 export async function DELETE(
   req: NextRequest,
@@ -48,6 +51,14 @@ export async function DELETE(
      * - But if your setup uses a Promise, awaiting is fine.
      */
     const { id: offerId } = await context.params;
+
+    // Validate offerId is a valid UUID
+    if (!offerId || !uuidRegex.test(offerId)) {
+      return NextResponse.json(
+        { error: 'Invalid ID format' },
+        { status: 400 }
+      );
+    }
 
     /**
      * 3) Delete the offer
@@ -87,7 +98,7 @@ export async function DELETE(
      *   make sure the database handles cleanup (ON DELETE CASCADE) or you do it explicitly.
      */
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * - Never expose raw server error messages to clients.

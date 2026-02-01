@@ -12,7 +12,7 @@ import DatePicker from './DatePicker';
 
 interface ExperienceFormProps {
   data: ExperienceEntry;
-  onChange: (field: keyof ExperienceEntry, value: unknown) => void;
+  onChange: (field: keyof ExperienceEntry, value: ExperienceEntry[keyof ExperienceEntry]) => void;
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;

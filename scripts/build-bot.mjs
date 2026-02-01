@@ -121,7 +121,7 @@ async function build() {
     }
 
     // Build all bot TypeScript files
-    const result = await esbuild.build({
+    const _result = await esbuild.build({
       entryPoints: tsFiles,
       bundle: false, // Don't bundle - keep individual files
       outdir: botDir,

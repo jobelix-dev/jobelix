@@ -18,7 +18,7 @@ export default function BackToDashboardLink() {
         const response = await api.getProfile();
         if (!isMounted) return;
         setHref(response.profile ? '/dashboard' : FALLBACK_HREF);
-      } catch (error) {
+      } catch {
         if (!isMounted) return;
         setHref(FALLBACK_HREF);
       }

@@ -32,11 +32,16 @@ let stripeInstance: Stripe | null = null;
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+  if (stripeInstance) {
+    return stripeInstance;
+  }
 
-  // One instance is enough; no need to recreate every time.
-  return new Stripe(key);
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+
+  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return stripeInstance;
 }
 
 // -----------------------------
@@ -120,7 +125,7 @@ export async function POST(request: NextRequest) {
     // This is not strictly required, but it helps catch env misconfig.
     try {
       await getStripe().prices.retrieve(priceId);
-    } catch (err: any) {
+    } catch {
       console.error('[Stripe Checkout] Price verification failed');
       return NextResponse.json(
         { error: 'Invalid payment configuration' },
@@ -147,7 +152,7 @@ export async function POST(request: NextRequest) {
       const priceObject = await getStripe().prices.retrieve(priceId);
       priceCents = priceObject.unit_amount || 0;
       currency = priceObject.currency || 'usd';
-    } catch (err: any) {
+    } catch {
       console.error('[Stripe Checkout] Failed to fetch price details');
       // Continue with defaults - webhook will update with actual values
     }
@@ -226,7 +231,7 @@ export async function POST(request: NextRequest) {
 
     // 8) Return checkout URL to client
     return NextResponse.json({ sessionId: session.id, url: session.url });
-  } catch (err: any) {
+  } catch {
     console.error('[Stripe Checkout] Checkout error occurred');
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }

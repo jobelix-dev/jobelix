@@ -23,6 +23,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/server/supabaseService';
+import { resetPasswordSchema } from '@/lib/server/validation';
 
 /**
  * IP-based rate limiting using database
@@ -101,24 +102,26 @@ function getClientIp(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, captchaToken } = body;
 
-    // Validate email
-    if (!email || typeof email !== 'string') {
+    /**
+     * Validate input using Zod schema.
+     * If validation fails, return structured error messages.
+     */
+    const result = resetPasswordSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'Email is required' },
+        { 
+          error: 'Validation failed',
+          errors: result.error.issues.map(e => ({
+            path: e.path.join('.'),
+            message: e.message,
+          })),
+        },
         { status: 400 }
       );
     }
 
-    // Basic email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
+    const { email, captchaToken } = result.data;
 
     // Normalize email for consistent handling
     const normalizedEmail = email.toLowerCase().trim();
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
       message: 'If an account exists with this email, a reset link has been sent.',
     });
 
-  } catch (error) {
+  } catch {
     console.error('[ResetPassword] Unexpected error');
     return NextResponse.json(
       { error: 'Failed to process request' },

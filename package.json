@@ -52,7 +52,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "license": "build/license.txt"
+      "license": "build/license.txt",
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": "dmg",

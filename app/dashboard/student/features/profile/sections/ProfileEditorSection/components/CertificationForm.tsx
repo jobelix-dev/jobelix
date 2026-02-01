@@ -11,7 +11,7 @@ import { CollapsibleSection, FormField, inputClassName } from '@/app/components/
 
 interface CertificationFormProps {
   data: CertificationEntry;
-  onChange: (field: keyof CertificationEntry, value: unknown) => void;
+  onChange: (field: keyof CertificationEntry, value: CertificationEntry[keyof CertificationEntry]) => void;
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;

@@ -16,6 +16,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { z } from 'zod';
+import { generateUnsubscribeUrl } from './unsubscribe/route';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Send welcome email with List-Unsubscribe header
-    const unsubscribeUrl = `https://www.jobelix.fr/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}`;
+    const unsubscribeUrl = generateUnsubscribeUrl(email);
     
     try {
       await resend.emails.send({

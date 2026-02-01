@@ -10,7 +10,7 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background-color: #ffffff; /* Couleur de fond */
+      background-color: #ffffff;
       font-family: sans-serif;
       color: #333;
     }
@@ -18,7 +18,7 @@
       width: 50px;
       height: 50px;
       border: 5px solid #f3f3f3;
-      border-top: 5px solid #3498db; /* Couleur de votre marque */
+      border-top: 5px solid #3498db;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin-bottom: 20px;
@@ -27,11 +27,94 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    h2 { font-size: 18px; font-weight: normal; }
+    h2 { 
+      font-size: 18px; 
+      font-weight: normal;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .progress-container {
+      width: 250px;
+      height: 6px;
+      background-color: #f3f3f3;
+      border-radius: 3px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #3498db;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .version {
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
   <div class="spinner"></div>
-  <h2>Connexion à Jobelix...</h2>
+  <h2 id="status">Connexion à Jobelix...</h2>
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="version" id="version"></div>
+  
+  <script>
+    /**
+     * Update the splash screen status
+     * Called from main process via webContents.executeJavaScript()
+     * 
+     * @param {string} stage - One of: 'checking', 'available', 'downloading', 'ready', 'loading', 'no-update', 'error'
+     * @param {string|number} data - Version string or progress percentage
+     */
+    function updateStatus(stage, data) {
+      const statusEl = document.getElementById('status');
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('progressBar');
+      const versionEl = document.getElementById('version');
+      
+      switch (stage) {
+        case 'checking':
+          statusEl.textContent = 'Vérification des mises à jour...';
+          progressContainer.style.display = 'none';
+          break;
+        case 'available':
+          statusEl.textContent = 'Mise à jour disponible : v' + data;
+          versionEl.textContent = 'Préparation du téléchargement...';
+          progressContainer.style.display = 'none';
+          break;
+        case 'downloading':
+          statusEl.textContent = 'Téléchargement de la mise à jour... ' + data + '%';
+          versionEl.textContent = '';
+          progressContainer.style.display = 'block';
+          progressBar.style.width = data + '%';
+          break;
+        case 'ready':
+          statusEl.textContent = 'Installation de la mise à jour...';
+          versionEl.textContent = 'L\'application va redémarrer';
+          progressContainer.style.display = 'none';
+          break;
+        case 'loading':
+          statusEl.textContent = 'Chargement de l\'application...';
+          versionEl.textContent = '';
+          progressContainer.style.display = 'none';
+          break;
+        case 'no-update':
+          statusEl.textContent = 'Connexion à Jobelix...';
+          versionEl.textContent = '';
+          progressContainer.style.display = 'none';
+          break;
+        case 'error':
+          // On error, just continue loading normally
+          statusEl.textContent = 'Connexion à Jobelix...';
+          versionEl.textContent = '';
+          progressContainer.style.display = 'none';
+          break;
+      }
+    }
+  </script>
 </body>
 </html>

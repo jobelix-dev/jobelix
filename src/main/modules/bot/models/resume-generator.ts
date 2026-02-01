@@ -16,6 +16,86 @@ import { RESUME_CSS } from './resume-styles';
 const log = createLogger('ResumeGenerator');
 
 /**
+ * Type definitions for resume config structures
+ */
+interface Location {
+  city?: string;
+  countryCode?: string;
+}
+
+interface ProfileLink {
+  network: string;
+  url: string;
+}
+
+interface BasicsSection {
+  name?: string;
+  label?: string;
+  email?: string;
+  phone?: string;
+  summary?: string;
+  location?: Location;
+  profiles?: ProfileLink[];
+}
+
+interface WorkItem {
+  name?: string;
+  company?: string;
+  position?: string;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  summary?: string;
+  description?: string;
+  highlights?: string[];
+  location?: string;
+}
+
+interface EducationItem {
+  institution?: string;
+  studyType?: string;
+  area?: string;
+  startDate?: string;
+  endDate?: string;
+  score?: string;
+}
+
+interface ProjectItem {
+  name?: string;
+  description?: string;
+  url?: string;
+}
+
+interface CertificateItem {
+  name?: string;
+  title?: string;
+  issuer?: string;
+}
+
+interface SkillSection {
+  name?: string;
+  keywords?: string[];
+}
+
+interface ContactItem {
+  icon: string;
+  text: string;
+  href?: string;
+}
+
+interface ResumeConfig {
+  basics?: BasicsSection;
+  personal_information?: BasicsSection;
+  work?: WorkItem[];
+  experience_details?: WorkItem[];
+  education?: EducationItem[];
+  education_details?: EducationItem[];
+  projects?: ProjectItem[];
+  skills?: SkillSection[];
+  certificates?: CertificateItem[];
+}
+
+/**
  * Options for resume generation
  */
 export interface ResumeGenerationOptions {
@@ -139,7 +219,7 @@ async function generatePdfWithPlaywright(
   companyName: string,
   jobTitle: string
 ): Promise<void> {
-  const config = yaml.load(yamlContent) as any;
+  const config = yaml.load(yamlContent) as ResumeConfig;
   const html = generateResumeHtml(config, companyName, jobTitle);
 
   // Create a NEW page for PDF generation to avoid Trusted Types policy from LinkedIn
@@ -183,7 +263,7 @@ async function generatePdfWithHtml(
   companyName: string,
   jobTitle: string
 ): Promise<void> {
-  const config = yaml.load(yamlContent) as any;
+  const config = yaml.load(yamlContent) as ResumeConfig;
   const html = generateResumeHtml(config, companyName, jobTitle);
 
   // Save HTML temporarily (for debugging or external PDF generation)
@@ -205,32 +285,32 @@ async function generatePdfWithHtml(
  * - Consistent spacing system
  * - ATS-friendly structure
  */
-function generateResumeHtml(config: any, companyName: string, jobTitle: string): string {
+function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle: string): string {
   const basics = config.basics || config.personal_information || {};
   const work = config.work || config.experience_details || [];
   const education = config.education || config.education_details || [];
   const projects = config.projects || [];
   const skills = config.skills || [];
   const certificates = config.certificates || [];
-  const languages = skills.find((s: any) => s.name === 'Languages')?.keywords || [];
-  const technicalSkills = skills.filter((s: any) => s.name !== 'Languages');
+  const languages = skills.find((s: SkillSection) => s.name === 'Languages')?.keywords || [];
+  const technicalSkills = skills.filter((s: SkillSection) => s.name !== 'Languages');
 
   // Build contact items for sidebar
-  const contactItems = [
-    basics.email && { icon: '✉', text: basics.email, href: `mailto:${basics.email}` },
-    basics.phone && { icon: '📱', text: basics.phone },
-    basics.location?.city && { icon: '📍', text: basics.location.city },
-  ].filter(Boolean);
+  const contactItems: ContactItem[] = [
+    basics.email ? { icon: '✉', text: basics.email, href: `mailto:${basics.email}` } : null,
+    basics.phone ? { icon: '📱', text: basics.phone } : null,
+    basics.location?.city ? { icon: '📍', text: basics.location.city } : null,
+  ].filter((item): item is ContactItem => item !== null);
 
   // Build profile links
-  const profileLinks = (basics.profiles || []).map((p: any) => ({
+  const profileLinks = (basics.profiles || []).map((p: ProfileLink) => ({
     network: p.network,
     url: p.url,
     icon: getNetworkIcon(p.network),
   }));
 
   // Build skills HTML for sidebar
-  const skillsHtml = technicalSkills.map((skillGroup: any) => {
+  const skillsHtml = technicalSkills.map((skillGroup: SkillSection) => {
     const keywords = skillGroup.keywords || [];
     if (keywords.length === 0) return '';
     return `
@@ -257,7 +337,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
   ` : '';
 
   // Build work experience HTML
-  const workHtml = work.map((job: any, index: number) => `
+  const workHtml = work.map((job: WorkItem, index: number) => `
     <div class="experience-item${index > 0 ? ' mt-item' : ''}">
       <div class="experience-header">
         <div class="experience-title-row">
@@ -266,7 +346,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
         </div>
         <div class="experience-company">${escapeHtml(job.company || job.name || '')}</div>
       </div>
-      ${job.summary || job.description ? `<p class="experience-summary">${escapeHtml(job.summary || job.description)}</p>` : ''}
+      ${job.summary || job.description ? `<p class="experience-summary">${escapeHtml(job.summary || job.description || '')}</p>` : ''}
       ${job.highlights && job.highlights.length > 0 ? `
         <ul class="experience-highlights">
           ${job.highlights.map((h: string) => `<li>${escapeHtml(h)}</li>`).join('')}
@@ -276,7 +356,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
   `).join('');
 
   // Build education HTML
-  const educationHtml = education.map((edu: any, index: number) => `
+  const educationHtml = education.map((edu: EducationItem, index: number) => `
     <div class="education-item${index > 0 ? ' mt-item' : ''}">
       <div class="education-header">
         <div class="education-title-row">
@@ -290,7 +370,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
   `).join('');
 
   // Build projects HTML (compact, 2 per row visual feel)
-  const projectsHtml = projects.slice(0, 6).map((proj: any, index: number) => `
+  const projectsHtml = projects.slice(0, 6).map((proj: ProjectItem, index: number) => `
     <div class="project-item${index > 0 ? ' mt-item-sm' : ''}">
       <div class="project-header">
         <h3 class="project-title">${escapeHtml(proj.name || '')}</h3>
@@ -308,7 +388,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
         Certifications
       </h3>
       <div class="certifications-list">
-        ${certificates.slice(0, 4).map((cert: any) => `
+        ${certificates.slice(0, 4).map((cert: CertificateItem) => `
           <div class="certification-item">
             <div class="cert-name">${escapeHtml(cert.name || cert.title || '')}</div>
             ${cert.issuer ? `<div class="cert-issuer">${escapeHtml(cert.issuer)}</div>` : ''}
@@ -341,7 +421,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
           Contact
         </h3>
         <div class="contact-list">
-          ${contactItems.map((item: any) => `
+          ${contactItems.map((item: ContactItem) => `
             <div class="contact-item">
               <span class="contact-icon">${item.icon}</span>
               ${item.href ? `<a href="${escapeHtml(item.href)}">${escapeHtml(item.text)}</a>` : `<span>${escapeHtml(item.text)}</span>`}
@@ -358,7 +438,7 @@ function generateResumeHtml(config: any, companyName: string, jobTitle: string):
             Profiles
           </h3>
           <div class="profile-links">
-            ${profileLinks.map((link: any) => `
+            ${profileLinks.map((link: { network: string; url: string; icon: string }) => `
               <a href="${escapeHtml(link.url)}" class="profile-link">
                 <span>${link.icon}</span>
                 <span>${escapeHtml(link.network)}</span>

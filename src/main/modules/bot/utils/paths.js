@@ -58,12 +58,24 @@ function ensureDirectories() {
 function getChromiumPath() {
   const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   if (!browsersPath) {
-    throw new Error("PLAYWRIGHT_BROWSERS_PATH is not set. The Electron app must provide the Playwright browsers path.");
+    console.warn("[paths] PLAYWRIGHT_BROWSERS_PATH not set - Playwright will use system browser or download one");
+    return undefined;
   }
-  const entries = fs.readdirSync(browsersPath);
+  if (!fs.existsSync(browsersPath)) {
+    console.warn(`[paths] Playwright browsers directory does not exist: ${browsersPath}`);
+    return undefined;
+  }
+  let entries;
+  try {
+    entries = fs.readdirSync(browsersPath);
+  } catch (error) {
+    console.warn(`[paths] Failed to read browsers directory: ${error}`);
+    return undefined;
+  }
   const chromiumDir = entries.find((e) => e.startsWith("chromium-"));
   if (!chromiumDir) {
-    throw new Error(`No Chromium installation found in: ${browsersPath}`);
+    console.warn(`[paths] No Chromium installation found in: ${browsersPath}`);
+    return undefined;
   }
   const platform = process.platform;
   const arch = process.arch;
@@ -90,7 +102,8 @@ function getChromiumPath() {
       return execPath;
     }
   }
-  throw new Error(`Chromium executable not found. Checked paths: ${pathCandidates.join(", ")}`);
+  console.warn(`[paths] Chromium executable not found. Checked paths: ${pathCandidates.join(", ")}`);
+  return undefined;
 }
 export {
   ensureDirectories,

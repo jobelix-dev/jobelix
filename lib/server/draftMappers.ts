@@ -12,7 +12,105 @@
 
 import "server-only";
 
-import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '../shared/types'
+import type { SocialLinkEntry } from '../shared/types'
+
+/**
+ * Draft data structure from student_profile_draft table
+ * The draft stores JSON data from resume extraction
+ */
+interface DraftData {
+  student_name?: string | null
+  phone_number?: string | null
+  email?: string | null
+  address?: string | null
+  education?: DraftEducationEntry[]
+  experience?: DraftExperienceEntry[]
+  projects?: DraftProjectEntry[]
+  skills?: DraftSkillEntry[]
+  languages?: DraftLanguageEntry[]
+  publications?: DraftPublicationEntry[]
+  certifications?: DraftCertificationEntry[]
+  social_links?: SocialLinkEntry | null
+}
+
+interface DraftEducationEntry {
+  school_name?: string
+  degree?: string
+  description?: string | null
+  start_year?: number
+  start_month?: number
+  end_year?: number | null
+  end_month?: number | null
+}
+
+interface ValidEducationEntry {
+  school_name: string
+  degree: string
+  description?: string | null
+  start_year: number
+  start_month: number
+  end_year?: number | null
+  end_month?: number | null
+}
+
+interface DraftExperienceEntry {
+  organisation_name?: string
+  position_name?: string
+  description?: string | null
+  start_year?: number
+  start_month?: number
+  end_year?: number | null
+  end_month?: number | null
+}
+
+interface ValidExperienceEntry {
+  organisation_name: string
+  position_name: string
+  description?: string | null
+  start_year: number
+  start_month: number
+  end_year?: number | null
+  end_month?: number | null
+}
+
+function isValidEducationEntry(edu: DraftEducationEntry): edu is ValidEducationEntry {
+  return Boolean(edu.school_name && edu.degree && edu.start_year && edu.start_month)
+}
+
+function isValidExperienceEntry(exp: DraftExperienceEntry): exp is ValidExperienceEntry {
+  return Boolean(exp.organisation_name && exp.position_name && exp.start_year && exp.start_month)
+}
+
+interface DraftProjectEntry {
+  project_name?: string
+  description?: string | null
+  link?: string | null
+}
+
+interface DraftSkillEntry {
+  skill_name?: string
+  skill_slug?: string
+}
+
+interface DraftLanguageEntry {
+  language_name?: string
+  proficiency_level?: string
+}
+
+interface DraftPublicationEntry {
+  title?: string
+  journal_name?: string | null
+  description?: string | null
+  publication_year?: number | null
+  publication_month?: number | null
+  link?: string | null
+}
+
+interface DraftCertificationEntry {
+  name?: string
+  issuing_organization?: string | null
+  url?: string | null
+}
 
 /**
  * Parse full name into first and last name components
@@ -37,7 +135,7 @@ function parseName(fullName: string | null | undefined): { firstName: string | n
 /**
  * Map draft data to student table record
  */
-export function mapDraftToStudent(draft: any, userId: string) {
+export function mapDraftToStudent(draft: DraftData, userId: string) {
   const { firstName, lastName } = parseName(draft.student_name)
   
   return {
@@ -54,7 +152,7 @@ export function mapDraftToStudent(draft: any, userId: string) {
 /**
  * Map draft education entries to academic table records
  */
-export function mapDraftToAcademic(draft: any, userId: string): Array<{
+export function mapDraftToAcademic(draft: DraftData, userId: string): Array<{
   student_id: string
   school_name: string
   degree: string
@@ -69,12 +167,8 @@ export function mapDraftToAcademic(draft: any, userId: string): Array<{
   }
   
   // Filter out invalid entries and log warnings
-  const validEducation = draft.education.filter((edu: any) => {
-    const isValid = 
-      edu.school_name && 
-      edu.degree && 
-      edu.start_year && 
-      edu.start_month
+  const validEducation = draft.education.filter((edu: DraftEducationEntry): edu is ValidEducationEntry => {
+    const isValid = isValidEducationEntry(edu)
     
     if (!isValid) {
       console.warn('[mapDraftToAcademic] Filtering out invalid education entry:', {
@@ -88,7 +182,7 @@ export function mapDraftToAcademic(draft: any, userId: string): Array<{
     return isValid
   })
   
-  return validEducation.map((edu: any) => ({
+  return validEducation.map((edu: ValidEducationEntry) => ({
     student_id: userId,
     school_name: edu.school_name,
     degree: edu.degree,
@@ -103,7 +197,7 @@ export function mapDraftToAcademic(draft: any, userId: string): Array<{
 /**
  * Map draft experience entries to experience table records
  */
-export function mapDraftToExperience(draft: any, userId: string): Array<{
+export function mapDraftToExperience(draft: DraftData, userId: string): Array<{
   student_id: string
   organisation_name: string
   position_name: string
@@ -118,12 +212,8 @@ export function mapDraftToExperience(draft: any, userId: string): Array<{
   }
   
   // Filter out invalid entries and log warnings
-  const validExperience = draft.experience.filter((exp: any) => {
-    const isValid = 
-      exp.organisation_name && 
-      exp.position_name && 
-      exp.start_year &&
-      exp.start_month
+  const validExperience = draft.experience.filter((exp: DraftExperienceEntry): exp is ValidExperienceEntry => {
+    const isValid = isValidExperienceEntry(exp)
     
     if (!isValid) {
       console.warn('[mapDraftToExperience] Filtering out invalid experience entry:', {
@@ -137,7 +227,7 @@ export function mapDraftToExperience(draft: any, userId: string): Array<{
     return isValid
   })
   
-  return validExperience.map((exp: any) => ({
+  return validExperience.map((exp: ValidExperienceEntry) => ({
     student_id: userId,
     organisation_name: exp.organisation_name,
     position_name: exp.position_name,
@@ -152,14 +242,14 @@ export function mapDraftToExperience(draft: any, userId: string): Array<{
 /**
  * Map draft project entries to project table records
  */
-export function mapDraftToProjects(draft: any, userId: string) {
+export function mapDraftToProjects(draft: DraftData, userId: string) {
   if (!draft.projects || !Array.isArray(draft.projects) || draft.projects.length === 0) {
     return []
   }
   
   return draft.projects
-    .filter((proj: any) => proj.project_name?.trim())
-    .map((proj: any) => ({
+    .filter((proj: DraftProjectEntry) => proj.project_name?.trim())
+    .map((proj: DraftProjectEntry) => ({
       student_id: userId,
       project_name: proj.project_name,
       description: proj.description || null,
@@ -170,14 +260,14 @@ export function mapDraftToProjects(draft: any, userId: string) {
 /**
  * Map draft skill entries to skill table records
  */
-export function mapDraftToSkills(draft: any, userId: string) {
+export function mapDraftToSkills(draft: DraftData, userId: string) {
   if (!draft.skills || !Array.isArray(draft.skills) || draft.skills.length === 0) {
     return []
   }
   
   return draft.skills
-    .filter((skill: any) => skill.skill_name?.trim())
-    .map((skill: any) => ({
+    .filter((skill: DraftSkillEntry) => skill.skill_name?.trim())
+    .map((skill: DraftSkillEntry) => ({
       student_id: userId,
       skill_name: skill.skill_name,
       skill_slug: skill.skill_slug,
@@ -187,14 +277,14 @@ export function mapDraftToSkills(draft: any, userId: string) {
 /**
  * Map draft language entries to language table records
  */
-export function mapDraftToLanguages(draft: any, userId: string) {
+export function mapDraftToLanguages(draft: DraftData, userId: string) {
   if (!draft.languages || !Array.isArray(draft.languages) || draft.languages.length === 0) {
     return []
   }
   
   return draft.languages
-    .filter((lang: any) => lang.language_name?.trim())
-    .map((lang: any) => ({
+    .filter((lang: DraftLanguageEntry) => lang.language_name?.trim())
+    .map((lang: DraftLanguageEntry) => ({
       student_id: userId,
       language_name: lang.language_name,
       proficiency_level: lang.proficiency_level,
@@ -204,14 +294,14 @@ export function mapDraftToLanguages(draft: any, userId: string) {
 /**
  * Map draft publication entries to publication table records
  */
-export function mapDraftToPublications(draft: any, userId: string) {
+export function mapDraftToPublications(draft: DraftData, userId: string) {
   if (!draft.publications || !Array.isArray(draft.publications) || draft.publications.length === 0) {
     return []
   }
   
   return draft.publications
-    .filter((pub: any) => pub.title?.trim())
-    .map((pub: any) => ({
+    .filter((pub: DraftPublicationEntry) => pub.title?.trim())
+    .map((pub: DraftPublicationEntry) => ({
       student_id: userId,
       title: pub.title,
       journal_name: pub.journal_name || null,
@@ -225,14 +315,14 @@ export function mapDraftToPublications(draft: any, userId: string) {
 /**
  * Map draft certification entries to certification table records
  */
-export function mapDraftToCertifications(draft: any, userId: string) {
+export function mapDraftToCertifications(draft: DraftData, userId: string) {
   if (!draft.certifications || !Array.isArray(draft.certifications) || draft.certifications.length === 0) {
     return []
   }
   
   return draft.certifications
-    .filter((cert: any) => cert.name?.trim())
-    .map((cert: any) => ({
+    .filter((cert: DraftCertificationEntry) => cert.name?.trim())
+    .map((cert: DraftCertificationEntry) => ({
       student_id: userId,
       name: cert.name,
       issuing_organization: cert.issuing_organization || null,
@@ -244,7 +334,7 @@ export function mapDraftToCertifications(draft: any, userId: string) {
  * Map draft social links object to social_link table record
  * Now returns a single object with platform-specific columns instead of array
  */
-export function mapDraftToSocialLinks(draft: any, userId: string) {
+export function mapDraftToSocialLinks(draft: DraftData, userId: string) {
   if (!draft.social_links || typeof draft.social_links !== 'object') {
     return null
   }

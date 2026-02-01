@@ -10,7 +10,7 @@ import { ProjectEntry } from '@/lib/shared/types';
 
 interface ProjectModalProps {
   data: ProjectEntry;
-  onChange: (field: keyof ProjectEntry, value: any) => void;
+  onChange: (field: keyof ProjectEntry, value: string | null) => void;
   onClose: () => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;

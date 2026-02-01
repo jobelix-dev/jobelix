@@ -17,6 +17,12 @@ export const FILES = {
   PACKAGE_JSON: 'package.json',
   CONFIG_YAML: 'config.yaml',
   RESUME_YAML: 'resume.yaml',
+  VERSION_TXT: 'version.txt',
+};
+
+// Version defaults
+export const VERSION = {
+  DEFAULT: '0.0.0',
 };
 
 // Directory paths (relative to resources)
@@ -74,8 +80,9 @@ export const TIMING = {
 
 // IPC channel names
 export const IPC_CHANNELS = {
-  // Main → Renderer
+  // Main → Renderer (push events)
   BOT_STATUS: 'bot-status',
+  BROWSER_INSTALL_PROGRESS: 'browser-install-progress',
   
   // Renderer → Main (handlers)
   READ_CONFIG: 'read-config',
@@ -86,6 +93,10 @@ export const IPC_CHANNELS = {
   FORCE_STOP_BOT: 'force-stop-bot',
   GET_BOT_STATUS: 'get-bot-status',
   GET_BOT_LOG_PATH: 'get-bot-log-path',
+  
+  // Browser management
+  CHECK_BROWSER: 'check-browser',
+  INSTALL_BROWSER: 'install-browser',
   
   // Auth cache
   SAVE_AUTH_CACHE: 'save-auth-cache',

@@ -28,7 +28,7 @@ export async function waitForNextJs(
         logger.success(`Next.js is ready after ${i * delayMs}ms`);
         return true;
       }
-    } catch (err) {
+    } catch (_err) {
       logger.debug(`Waiting for Next.js... (attempt ${i + 1}/${maxAttempts})`);
     }
     await new Promise(resolve => setTimeout(resolve, delayMs));
