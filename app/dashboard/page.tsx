@@ -17,6 +17,7 @@ import { Shield, X, MessageSquare, LogOut, MoreHorizontal } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
+import { useIsElectron } from '@/app/hooks/useClientSide';
 
 // Map DB role to display role
 function getDisplayRole(dbRole: string): string {
@@ -27,6 +28,7 @@ function getDisplayRole(dbRole: string): string {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const isElectron = useIsElectron();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -119,9 +121,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Clean Header Bar - z-[60] to be above TitleBar (z-[55]) */}
+      {/* Clean Header Bar - z-[60] to be above TitleBar (z-[55]) but below WindowControls (z-[9999]) */}
+      {/* In Electron, add padding-right on sm: and up to avoid overlap with window controls (hidden on mobile) */}
       <header 
-        className="sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20"
+        className={`sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20 ${
+          isElectron ? 'sm:pr-[144px]' : ''
+        }`}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-6">

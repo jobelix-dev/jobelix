@@ -57,7 +57,7 @@ export default function WindowControls() {
 
   return (
     <div 
-      className="hidden sm:flex fixed top-0 right-0 z-[9999] items-center h-12 gap-0 select-none"
+      className="hidden sm:flex fixed top-0 right-0 z-[9999] items-center h-12 gap-0 select-none pointer-events-auto"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       {/* Minimize Button */}
