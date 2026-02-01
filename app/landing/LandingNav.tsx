@@ -30,10 +30,12 @@ export default function LandingNav() {
       }`}
       style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}
     >
+      {/* Full-width no-drag container ensures all content is clickable */}
       <div 
-        className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between" 
+        className="w-full"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <Image 
@@ -76,6 +78,7 @@ export default function LandingNav() {
           {/* Mobile menu - always at the right edge */}
           <MobileNav />
         </div>
+      </div>
       </div>
     </nav>
   );

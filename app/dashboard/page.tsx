@@ -121,8 +121,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Clean Header Bar - z-[60] to be above TitleBar (z-[50]) but below WindowControls (z-[9999]) */}
-      {/* In Electron: outer header is draggable, inner content is not (allows clicking buttons) */}
+      {/* Clean Header Bar */}
+      {/* In Electron: outer header is draggable for window movement */}
+      {/* Inner container is no-drag to allow button clicks */}
       {/* On desktop (sm:+), right padding avoids overlap with window controls */}
       <header 
         className={`sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20 ${
@@ -130,11 +131,13 @@ export default function DashboardPage() {
         }`}
         style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}
       >
+        {/* Full-width no-drag container ensures all content is clickable */}
         <div 
-          className="max-w-5xl mx-auto px-4 sm:px-6"
+          className="w-full"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          <div className="flex items-center justify-between h-14">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <div className="flex items-center justify-between h-14">
             {/* Logo / Title */}
             <div className="flex items-center gap-3">
               <h1 className="text-lg sm:text-xl font-bold text-default">Jobelix</h1>
@@ -144,7 +147,7 @@ export default function DashboardPage() {
             </div>
             
             {/* Desktop Actions */}
-            <div className="hidden sm:flex items-center gap-2 relative z-[60]">
+            <div className="hidden sm:flex items-center gap-2">
               <button
                 onClick={() => setShowFeedbackModal(true)}
                 className="p-2 rounded-lg text-muted hover:text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
@@ -205,6 +208,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
