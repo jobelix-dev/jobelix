@@ -20,22 +20,31 @@ export type AuthResult =
 
 /**
  * In-memory cache for authenticated users to reduce auth.getUser() calls
- * Key: user.id, Value: { user, timestamp }
+ * Key: access_token, Value: { user, timestamp }
+ * 
+ * NOTE: This cache is per-process and short-lived (3s TTL).
+ * In serverless environments, it provides benefit during request bursts
+ * but doesn't persist across cold starts (which is fine for auth).
  */
 const userCache = new Map<string, { user: User; timestamp: number }>();
 const CACHE_TTL_MS = 3_000; // 3 second cache to balance freshness vs. performance
+const CACHE_MAX_SIZE = 1000; // Prevent unbounded memory growth
 
 /**
- * Clean up expired cache entries periodically
+ * Clean up expired cache entries lazily (on access)
+ * No setInterval needed - avoids memory leaks in serverless
  */
-setInterval(() => {
+function cleanupCache(): void {
   const now = Date.now();
-  for (const [key, value] of userCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL_MS) {
-      userCache.delete(key);
+  // Only clean if cache is getting large
+  if (userCache.size > CACHE_MAX_SIZE / 2) {
+    for (const [key, value] of userCache.entries()) {
+      if (now - value.timestamp > CACHE_TTL_MS) {
+        userCache.delete(key);
+      }
     }
   }
-}, 10_000); // Clean every 10 seconds
+}
 
 /**
  * Authenticate the current request and return the authenticated user.
@@ -58,6 +67,9 @@ setInterval(() => {
  * ```
  */
 export async function authenticateRequest(): Promise<AuthResult> {
+  // Lazy cleanup on each request (lightweight - only runs if cache is large)
+  cleanupCache();
+  
   const supabase = await createClient()
   
   // Try to get session from Supabase client to use as cache key

@@ -1,6 +1,19 @@
 /**
  * In-memory GitHub import progress emitter (per user).
  * Used to stream progress via SSE during GitHub sync.
+ * 
+ * ARCHITECTURE NOTE:
+ * This uses in-memory state which works because:
+ * 1. SSE streaming happens within a single long-running request
+ * 2. The import POST and progress SSE requests hit the same serverless instance
+ *    during the same import operation (within seconds of each other)
+ * 
+ * LIMITATIONS:
+ * - Progress state is lost on serverless cold start (acceptable - user retries)
+ * - Multi-instance deployments won't share progress (rare edge case)
+ * 
+ * For production at scale, consider using Redis pub/sub instead.
+ * For current use case (single-user imports), in-memory is sufficient.
  */
 
 import { EventEmitter } from 'events';
