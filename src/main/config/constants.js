@@ -7,21 +7,16 @@
 export const URLS = {
   PRODUCTION: 'https://www.jobelix.fr',
   DEVELOPMENT: 'http://localhost:3000',
-  API: {
-    REQUIRED_VERSIONS: '/api/required-versions',
-  },
 };
 
 // File and directory names
 export const FILES = {
   LOADER: 'loader.html',
-  UPDATE_REQUIRED: 'update-required.html',
   PRELOAD: 'preload.js',
   ICON: 'icon.png',
   PACKAGE_JSON: 'package.json',
   CONFIG_YAML: 'config.yaml',
   RESUME_YAML: 'resume.yaml',
-  VERSION_TXT: 'version.txt',
 };
 
 // Directory paths (relative to resources)
@@ -58,13 +53,6 @@ export const WINDOW_CONFIG = {
     alwaysOnTop: true,
     center: true,
   },
-  UPDATE: {
-    width: 600,
-    height: 700,
-    resizable: false,
-    autoHideMenuBar: true,
-    title: 'Update Required - Jobelix',
-  },
   MAIN: {
     width: 1200,
     height: 800,
@@ -82,16 +70,11 @@ export const TIMING = {
     MAX_ATTEMPTS: 30,
     DELAY_MS: 500,
   },
-  AUTO_INSTALL_DELAY_MS: 2000,
 };
 
 // IPC channel names
 export const IPC_CHANNELS = {
   // Main → Renderer
-  UPDATE_AVAILABLE: 'update-available',
-  UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
-  UPDATE_DOWNLOADED: 'update-downloaded',
-  UPDATE_ERROR: 'update-error',
   BOT_STATUS: 'bot-status',
   
   // Renderer → Main (handlers)
@@ -115,11 +98,6 @@ export const IPC_CHANNELS = {
   WINDOW_UNMAXIMIZE: 'window-unmaximize',
   WINDOW_CLOSE: 'window-close',
   WINDOW_IS_MAXIMIZED: 'window-is-maximized',
-};
-
-// Version management
-export const VERSION = {
-  DEFAULT: '0.0.0',
 };
 
 // Bot configuration

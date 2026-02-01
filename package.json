@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
@@ -28,7 +28,8 @@
       {
         "provider": "github",
         "owner": "jobelix-dev",
-        "repo": "jobelix-releases"
+        "repo": "jobelix-releases",
+        "releaseType": "release"
       }
     ],
     "directories": {
@@ -40,7 +41,6 @@
       "!src/main/**/__tests__/**/*",
       "preload.js",
       "loader.html",
-      "update-required.html",
       "package.json",
       "build/license.txt"
     ],

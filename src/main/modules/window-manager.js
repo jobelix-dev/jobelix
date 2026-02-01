@@ -115,50 +115,6 @@ export async function createMainWindow() {
 }
 
 /**
- * Create update required window
- * Displayed when app version is incompatible with server requirements
- * @param {Object} details - Version check details
- * @param {string} details.currentAppVersion - Current app version
- * @param {string} details.requiredAppVersion - Required app version
- * @param {string} details.currentEngineVersion - Current engine version
- * @param {string} details.requiredEngineVersion - Required engine version
- * @param {string} details.downloadUrl - URL to download update
- * @returns {BrowserWindow} The update window instance
- */
-export function createUpdateWindow(details) {
-  logger.info('Creating update required window');
-  
-  // Use app.getAppPath() for packaged app, process.cwd() for dev
-  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
-  
-  const updateWindow = new BrowserWindow({
-    ...WINDOW_CONFIG.UPDATE,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(basePath, FILES.PRELOAD),
-    },
-    icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
-  });
-
-  // Build URL parameters
-  const params = new URLSearchParams({
-    currentApp: details.currentAppVersion,
-    requiredApp: details.requiredAppVersion,
-    currentEngine: details.currentEngineVersion,
-    requiredEngine: details.requiredEngineVersion,
-    downloadUrl: details.downloadUrl,
-    useAutoUpdater: app.isPackaged ? 'true' : 'false'
-  });
-
-  const updatePagePath = path.join(basePath, FILES.UPDATE_REQUIRED);
-  updateWindow.loadFile(updatePagePath, { query: Object.fromEntries(params) });
-
-  logger.success('Update window created');
-  return updateWindow;
-}
-
-/**
  * Get the appropriate URL for the current environment
  * @returns {string} URL to load
  */
