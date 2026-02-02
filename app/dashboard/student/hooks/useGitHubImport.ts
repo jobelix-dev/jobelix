@@ -40,11 +40,15 @@ interface UseGitHubImportOptions {
   onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void;
 }
 
+/** Callback for when import completes */
+type ImportCompleteCallback = (projects: ProjectEntry[], skills: SkillEntry[]) => void;
+
 interface UseGitHubImportReturn {
   /** Trigger the import process */
   importGitHubData: (
     currentProjects: ProjectEntry[],
-    currentSkills: SkillEntry[]
+    currentSkills: SkillEntry[],
+    onComplete?: ImportCompleteCallback
   ) => Promise<ImportGitHubResponse | null>;
   /** Whether import is in progress */
   importing: boolean;
@@ -101,7 +105,8 @@ export function useGitHubImport(): UseGitHubImportReturn {
 
   const importGitHubData = useCallback(async (
     currentProjects: ProjectEntry[],
-    currentSkills: SkillEntry[]
+    currentSkills: SkillEntry[],
+    onComplete?: ImportCompleteCallback
   ): Promise<ImportGitHubResponse | null> => {
     try {
       setImporting(true);
@@ -110,6 +115,7 @@ export function useGitHubImport(): UseGitHubImportReturn {
 
       const data = await fetchGitHubImport(currentProjects, currentSkills);
       setSuccess(true);
+      onComplete?.(data.projects, data.skills);
       return data;
     } catch (err: unknown) {
       console.error('Error importing GitHub data:', err);
@@ -146,8 +152,6 @@ export function useGitHubImport(): UseGitHubImportReturn {
 export function useGitHubImportDashboard(
   options: UseGitHubImportOptions = {}
 ): UseGitHubImportReturn {
-  const { onComplete } = options;
-  
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -170,7 +174,8 @@ export function useGitHubImportDashboard(
 
   const importGitHubData = useCallback(async (
     currentProjects: ProjectEntry[],
-    currentSkills: SkillEntry[]
+    currentSkills: SkillEntry[],
+    onComplete?: ImportCompleteCallback
   ): Promise<ImportGitHubResponse | null> => {
     try {
       setImporting(true);
@@ -214,7 +219,10 @@ export function useGitHubImportDashboard(
 
       if (isMountedRef.current) {
         setSuccess(true);
+        // Call the per-call callback first (for immediate UI update)
         onComplete?.(data.projects, data.skills);
+        // Then call the hook-level callback (for other side effects)
+        options.onComplete?.(data.projects, data.skills);
       }
 
       return data;
@@ -234,7 +242,7 @@ export function useGitHubImportDashboard(
         progressSourceRef.current = null;
       }
     }
-  }, [onComplete]);
+  }, [options]);
 
   const reset = useCallback(() => {
     setError(null);
