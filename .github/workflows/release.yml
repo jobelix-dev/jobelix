@@ -1,5 +1,14 @@
 name: Build & Release
 
+# Triggers:
+# 1. Push to dev     → Always build artifacts (no release)
+# 2. Push to main    → Build + Release IF bot files changed OR commit contains [release]
+# 3. Tag push (v*)   → Always build + release
+# 4. Manual dispatch → Build, optionally release
+#
+# NOTE: Website-only changes on main do NOT trigger builds (Vercel handles those)
+# unless the commit/PR title contains [release]
+
 on:
   push:
     branches:
@@ -20,7 +29,98 @@ on:
         type: string
 
 jobs:
+  # Determine if we should build and/or release
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      should_release: ${{ steps.check.outputs.should_release }}
+      force_release: ${{ steps.check.outputs.force_release }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check build conditions
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHOULD_BUILD="false"
+          SHOULD_RELEASE="false"
+          FORCE_RELEASE="false"
+          
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          # Get commit message (or PR title for squash merges)
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+          
+          # Check for [release] tag in commit message
+          if echo "$COMMIT_MSG" | grep -qi '\[release\]'; then
+            echo "Found [release] tag in commit message"
+            FORCE_RELEASE="true"
+          fi
+          
+          # Manual dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SHOULD_BUILD="true"
+            if [[ "${{ github.event.inputs.publish }}" == "true" ]]; then
+              SHOULD_RELEASE="true"
+            fi
+            echo "Manual dispatch: build=$SHOULD_BUILD, release=$SHOULD_RELEASE"
+          
+          # Tag push - always build and release
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            SHOULD_BUILD="true"
+            SHOULD_RELEASE="true"
+            echo "Tag push: always build and release"
+          
+          # Push to dev - always build, never release
+          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            SHOULD_BUILD="true"
+            SHOULD_RELEASE="false"
+            echo "Dev branch: always build, no release"
+          
+          # Push to main - check if bot files changed OR [release] tag
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # Check what files changed
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+            
+            # Check if any desktop app files changed
+            BOT_CHANGED="false"
+            if echo "$CHANGED_FILES" | grep -qE '^(src/main/|preload\.js|package\.json|package-lock\.json|build/|scripts/(build-bot|after-pack|release)\.mjs)'; then
+              BOT_CHANGED="true"
+              echo "Desktop app files changed"
+            fi
+            
+            # Build and release if bot changed OR [release] tag
+            if [[ "$BOT_CHANGED" == "true" ]] || [[ "$FORCE_RELEASE" == "true" ]]; then
+              SHOULD_BUILD="true"
+              SHOULD_RELEASE="true"
+              echo "Main branch: bot changed=$BOT_CHANGED, force_release=$FORCE_RELEASE → build and release"
+            else
+              echo "Main branch: no bot changes and no [release] tag → skip (Vercel handles website)"
+            fi
+          fi
+          
+          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+          echo "force_release=$FORCE_RELEASE" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=== Summary ==="
+          echo "Should build: $SHOULD_BUILD"
+          echo "Should release: $SHOULD_RELEASE"
+          echo "Force release: $FORCE_RELEASE"
+
   build:
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -87,7 +187,7 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
             VERSION="${VERSION#v}"  # Strip v prefix if present
           else
-            # Push to main - fetch latest release and increment patch
+            # Push to main/dev - fetch latest release and increment patch
             LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
             VERSION=${LATEST#v}
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
@@ -175,14 +275,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # Release job - runs on push to main, tags, or manual trigger with publish=true
+  # Release job - only runs when should_release is true
   # Publishes to jobelix-dev/jobelix-releases (separate repo for releases)
   release:
-    needs: build
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    needs: [check, build]
+    if: needs.check.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     
     steps:
