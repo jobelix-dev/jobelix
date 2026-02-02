@@ -1,6 +1,11 @@
 /**
  * Window Manager
  * Handles creation and management of all Electron windows
+ * 
+ * PERFORMANCE NOTE:
+ * With the APPIMAGE_EXTRACT_AND_RUN optimization on Linux, startup is now
+ * ~100ms instead of ~50 seconds. We no longer need a splash screen - the
+ * main window shows immediately with a brief loading state while content loads.
  */
 
 import { BrowserWindow, app } from 'electron';
@@ -8,15 +13,11 @@ import path from 'path';
 import { URLS, FILES, WINDOW_CONFIG, TIMING, DIRECTORIES } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
-// Timeout for main window to load content (30 seconds)
-const MAIN_WINDOW_LOAD_TIMEOUT_MS = 30000;
-
 // Store reference to main window for IPC communication
 let mainWindowRef = null;
 
-// Track if update is being processed (download or install)
-// When true, don't close splash even if main window loads
-let updateInProgress = false;
+// Callback to be called when main window is ready (for deferred operations like update check)
+let onMainWindowReadyCallback = null;
 
 /**
  * Get the main window reference
@@ -27,21 +28,12 @@ export function getMainWindow() {
 }
 
 /**
- * Set update in progress flag
- * Called by update-manager when download starts
- * @param {boolean} inProgress 
+ * Set a callback to be called when main window content has loaded
+ * Used by update-manager to defer update checks until after window is visible
+ * @param {Function} callback 
  */
-export function setUpdateInProgress(inProgress) {
-  updateInProgress = inProgress;
-  logger.debug(`Update in progress: ${inProgress}`);
-}
-
-/**
- * Check if update is in progress
- * @returns {boolean}
- */
-export function isUpdateInProgress() {
-  return updateInProgress;
+export function onMainWindowReady(callback) {
+  onMainWindowReadyCallback = callback;
 }
 
 /**
@@ -77,85 +69,28 @@ async function waitForNextJs(
 }
 
 /**
- * Create a splash/loader window
- * Displays while the main application loads
- * @returns {BrowserWindow} The splash window instance
- */
-export function createSplashWindow() {
-  const splashStartTime = Date.now();
-  logger.info('Creating splash window...');
-  
-  const splash = new BrowserWindow({
-    ...WINDOW_CONFIG.SPLASH,
-    // Show immediately with background color to avoid blank/white flash
-    backgroundColor: '#ffffff',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-  
-  logger.debug(`⏱️ BrowserWindow constructor took ${Date.now() - splashStartTime}ms`);
-  
-  // Use app.getAppPath() for packaged app, process.cwd() for dev
-  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
-  const loaderPath = path.join(basePath, FILES.LOADER);
-  
-  const loadStartTime = Date.now();
-  splash.loadFile(loaderPath);
-  logger.debug(`⏱️ loadFile() initiated (async) after ${Date.now() - loadStartTime}ms`);
-  
-  // Log when splash content actually loads and set app version
-  splash.webContents.once('did-finish-load', () => {
-    logger.success(`Splash window content loaded in ${Date.now() - splashStartTime}ms total`);
-    // Display current app version on splash
-    try {
-      const version = app.getVersion();
-      splash.webContents.executeJavaScript(`setAppVersion('${version}')`);
-    } catch (error) {
-      logger.warn('Failed to set app version on splash:', error.message);
-    }
-  });
-  
-  logger.success(`Splash window created in ${Date.now() - splashStartTime}ms`);
-  return splash;
-}
-
-/**
- * Send status update to splash window
- * @param {BrowserWindow} splash - The splash window
- * @param {string} stage - Status stage (checking, available, downloading, ready, loading, no-update, error)
- * @param {string|number} data - Additional data (version or progress percentage)
- */
-export function updateSplashStatus(splash, stage, data = '') {
-  if (splash && !splash.isDestroyed()) {
-    try {
-      const dataArg = typeof data === 'string' ? `'${data}'` : data;
-      splash.webContents.executeJavaScript(`updateStatus('${stage}', ${dataArg})`);
-    } catch (error) {
-      logger.warn('Failed to update splash status:', error.message);
-    }
-  }
-}
-
-/**
  * Create the main application window
- * @returns {Promise<{mainWindow: BrowserWindow, splash: BrowserWindow}>} The main window and splash window instances
+ * 
+ * CHANGES FROM PREVIOUS VERSION:
+ * - No splash screen - main window shows immediately (startup is now fast)
+ * - Window shown right away with background color as brief loading state
+ * - Content loads asynchronously while user sees the window
+ * - Update check is deferred until after content loads (via onMainWindowReady callback)
+ * 
+ * @returns {Promise<BrowserWindow>} The main window instance
  */
 export async function createMainWindow() {
+  const createStartTime = Date.now();
   logger.info('Creating main window...');
   
-  // Create splash screen
-  const splash = createSplashWindow();
-
-  // Create main window (hidden initially)
   // Use app.getAppPath() for packaged app, process.cwd() for dev
   const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
   
   const mainWindow = new BrowserWindow({
     ...WINDOW_CONFIG.MAIN,
-    // Set background color to prevent white flash during load
-    backgroundColor: '#f8fafc', // Light background matching app theme
+    show: false, // Initially hidden, show after ready-to-show
+    // Set background color matching app theme - user sees this while content loads
+    backgroundColor: '#f8fafc',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -163,6 +98,8 @@ export async function createMainWindow() {
     },
     icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
   });
+
+  logger.debug(`⏱️ BrowserWindow created in ${Date.now() - createStartTime}ms`);
 
   // Store reference for IPC communication
   mainWindowRef = mainWindow;
@@ -187,64 +124,43 @@ export async function createMainWindow() {
     }
   }
 
-  // Track if splash has been closed
-  let splashClosed = false;
-  
-  /**
-   * Close splash and show main window
-   * Called when main window content has loaded or timeout reached
-   * Will NOT close splash if an update is being downloaded/installed
-   */
-  const showMainWindow = (reason) => {
-    if (splashClosed) return;
-    
-    // Don't close splash during update - user should see progress
-    if (updateInProgress) {
-      logger.info(`Main window ready (${reason}), but update in progress - keeping splash visible`);
-      return;
-    }
-    
-    splashClosed = true;
-    
-    logger.info(`Showing main window (reason: ${reason})`);
-    
-    if (!splash.isDestroyed()) {
-      splash.destroy();
-    }
-    
-    mainWindow.maximize(); // Start maximized
+  // Show window as soon as the renderer is ready to paint
+  // This provides fast perceived startup - user sees window immediately
+  mainWindow.once('ready-to-show', () => {
+    logger.debug(`⏱️ Window ready-to-show at ${Date.now() - createStartTime}ms`);
+    mainWindow.maximize();
     mainWindow.show();
-  };
-
-  // Wait for actual content to load (not just ready-to-show)
-  // This ensures user doesn't see a blank white window
-  mainWindow.webContents.once('did-finish-load', () => {
-    logger.success('Main window content loaded');
-    showMainWindow('content-loaded');
+    logger.success('Main window visible');
   });
 
-  // Fallback timeout in case loading takes too long or fails
-  // This prevents user from being stuck on splash forever
-  setTimeout(() => {
-    if (!splashClosed) {
-      logger.warn(`Main window load timeout after ${MAIN_WINDOW_LOAD_TIMEOUT_MS}ms`);
-      showMainWindow('timeout');
+  // When content fully loads, trigger deferred operations (like update check)
+  mainWindow.webContents.once('did-finish-load', () => {
+    const loadTime = Date.now() - createStartTime;
+    logger.success(`Main window content loaded in ${loadTime}ms`);
+    
+    // Trigger any deferred callbacks (e.g., update check)
+    if (onMainWindowReadyCallback) {
+      logger.debug('Triggering onMainWindowReady callback');
+      onMainWindowReadyCallback();
+      onMainWindowReadyCallback = null;
     }
-  }, MAIN_WINDOW_LOAD_TIMEOUT_MS);
+  });
 
   // Handle load failures
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     logger.error(`Main window failed to load: ${errorDescription} (code: ${errorCode})`);
-    // Don't immediately show - let the timeout handle it or retry logic could be added
+    // Still show the window so user isn't stuck
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
   });
 
   logger.info(`Loading URL: ${startUrl}`);
-  mainWindow.loadURL(startUrl); // Don't await - let it load asynchronously
+  mainWindow.loadURL(startUrl);
 
   logger.success('Main window created');
   
-  // Return both windows so update-manager can access splash
-  return { mainWindow, splash };
+  return mainWindow;
 }
 
 /**
@@ -254,3 +170,18 @@ export async function createMainWindow() {
 export function getStartUrl() {
   return app.isPackaged ? URLS.PRODUCTION : URLS.DEVELOPMENT;
 }
+
+// ============================================================================
+// REMOVED: Splash screen functionality
+// ============================================================================
+// The following functions have been removed because startup is now fast
+// (~100ms with APPIMAGE_EXTRACT_AND_RUN) and splash screen is no longer needed:
+//
+// - createSplashWindow() - No longer used
+// - updateSplashStatus() - No longer used  
+// - setUpdateInProgress() - No longer needed (no splash to keep visible)
+// - isUpdateInProgress() - No longer needed
+//
+// Update progress is now shown entirely through UpdateNotification.tsx in the
+// main window's renderer process.
+// ============================================================================

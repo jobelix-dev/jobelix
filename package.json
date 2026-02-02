@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.8",
+  "version": "0.0.12",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
@@ -41,7 +41,6 @@
       "!src/main/**/*.ts",
       "!src/main/**/__tests__/**/*",
       "preload.js",
-      "loader.html",
       "package.json",
       "build/license.txt",
       "!node_modules/playwright-core/bin/**/*",
@@ -55,7 +54,10 @@
     ],
     "asarUnpack": [],
     "extraResources": [],
-    "electronLanguages": ["en-US", "en-GB"],
+    "electronLanguages": [
+      "en-US",
+      "en-GB"
+    ],
     "removePackageScripts": true,
     "win": {
       "target": "nsis",
@@ -69,7 +71,10 @@
       "include": "build/installer.nsh"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/icon.icns",
       "category": "public.app-category.utilities",
       "hardenedRuntime": true,
@@ -94,7 +99,9 @@
       "icon": "build/icon.png",
       "category": "Utility",
       "artifactName": "${productName}-${version}-${env.JOBELIX_LINUX_LABEL}.${ext}",
-      "executableArgs": ["--no-sandbox"]
+      "executableArgs": [
+        "--no-sandbox"
+      ]
     },
     "afterPack": "./scripts/after-pack.mjs"
   },

@@ -1,6 +1,11 @@
 /**
  * Jobelix - Electron Main Process Entry Point
  * Orchestrates all modules and manages application lifecycle
+ * 
+ * STARTUP OPTIMIZATION:
+ * With APPIMAGE_EXTRACT_AND_RUN on Linux, startup is now ~100ms instead of ~50s.
+ * We no longer use a splash screen - the main window shows immediately.
+ * Auto-update check is deferred until after the main window content loads.
  */
 
 // Load environment variables from .env.local (for Electron main process)
@@ -9,7 +14,7 @@ dotenv.config({ path: '.env.local' });
 
 import { app } from 'electron';
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
-import { createMainWindow } from './modules/window-manager.js';
+import { createMainWindow, onMainWindowReady } from './modules/window-manager.js';
 import { initAutoUpdater } from './modules/update-manager.js';
 import { logPlatformInfo, initializeDataDirectories, isMac } from './modules/platform-utils.js';
 import { waitForNextJs } from './utils/dev-utils.js';
@@ -24,9 +29,7 @@ const startupTimings = {
   appReady: 0,
   ipcSetup: 0,
   dataDirs: 0,
-  splashCreated: 0,
   mainWindowCreated: 0,
-  autoUpdaterInit: 0,
   mainContentLoaded: 0,
 };
 
@@ -73,16 +76,20 @@ async function initializeApp() {
       logger.success('Next.js server is ready - proceeding with app initialization');
     }
     
-    // Create main window and splash screen
-    // Splash is returned so update-manager can show progress on it
-    const { mainWindow: window, splash } = await createMainWindow();
-    _mainWindow = window;
-    logTiming('mainWindowCreated', 'Main window and splash created');
+    // Register callback for when main window content loads
+    // This defers non-critical operations (like update check) until after window is visible
+    onMainWindowReady(() => {
+      logTiming('mainContentLoaded', 'Main window content loaded, starting deferred operations');
+      
+      // Initialize auto-updater AFTER window is visible
+      // This ensures user sees the app immediately, update check happens in background
+      initAutoUpdater();
+      logger.info('Auto-updater initialized (deferred)');
+    });
     
-    // Initialize auto-updater (checks GitHub releases and downloads updates)
-    // Pass splash window so it can display download progress to user
-    initAutoUpdater(splash);
-    logTiming('autoUpdaterInit', 'Auto-updater initialized');
+    // Create main window (no splash screen - startup is now fast)
+    _mainWindow = await createMainWindow();
+    logTiming('mainWindowCreated', 'Main window created');
     
     // Log timing summary
     logger.info('='.repeat(50));

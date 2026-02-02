@@ -8,42 +8,24 @@
  * It uses electron-updater which checks GitHub Releases for new versions.
  * 
  * ============================================================================
- * UPDATE FLOW
+ * UPDATE FLOW (REVISED - NO SPLASH SCREEN)
  * ============================================================================
- * 1. App launches → initAutoUpdater() called from src/main/index.js
- * 2. Checks GitHub releases (jobelix-dev/jobelix-releases) for newer version
- * 3. If update available:
- *    - Windows/macOS: Auto-downloads, shows dialog asking to install now or later
+ * 1. App launches → main window shown immediately (startup is now fast)
+ * 2. After content loads → initAutoUpdater() called (deferred)
+ * 3. Checks GitHub releases for newer version
+ * 4. If update available:
+ *    - Windows/macOS: Auto-downloads, shows progress in UpdateNotification.tsx,
+ *      then shows native dialog asking to install now or later
  *    - Linux: Detects distro (Arch/Ubuntu), shows notification with direct download link
- * 4. User chooses when to install (no forced restarts)
- * 
- * ============================================================================
- * ARCHITECTURE
- * ============================================================================
- * 
- *   ┌─────────────────┐     IPC Events      ┌──────────────────────────┐
- *   │  update-manager │ ─────────────────►  │  UpdateNotification.tsx  │
- *   │  (main process) │                     │  (renderer process)      │
- *   └────────┬────────┘                     └──────────────────────────┘
- *            │                                         │
- *            │ updateSplashStatus()                    │ User sees notification
- *            ▼                                         │ in app UI
- *   ┌─────────────────┐                               │
- *   │   loader.html   │                               │
- *   │ (splash screen) │                               │
- *   └─────────────────┘                               │
- *            │                                         │
- *            │ Shows download progress                 │
- *            ▼                                         ▼
- *   User sees "Downloading update 45%..."    User sees toast notification
+ * 5. User chooses when to install (no forced restarts)
  * 
  * ============================================================================
  * IPC EVENTS SENT TO RENDERER
  * ============================================================================
- * - 'update-available'       → New version found (version, releaseNotes, manualDownload flag)
+ * - 'update-available'         → New version found (version, releaseNotes, manualDownload flag)
  * - 'update-download-progress' → Download progress (percent, bytesPerSecond, etc.)
- * - 'update-downloaded'      → Ready to install (version)
- * - 'update-error'           → Update failed (message)
+ * - 'update-downloaded'        → Ready to install (version)
+ * - 'update-error'             → Update failed (message)
  * 
  * ============================================================================
  * LINUX DISTRO DETECTION
@@ -60,17 +42,9 @@
  * FILES INVOLVED
  * ============================================================================
  * - src/main/modules/update-manager.js   → This file (main process logic)
- * - src/main/modules/window-manager.js   → Splash window status updates
  * - app/components/UpdateNotification.tsx → React UI for update notifications
  * - preload.js                           → IPC bridge for update events
  * - lib/client/electronAPI.d.ts          → TypeScript types for electronAPI
- * - loader.html                          → Splash screen with progress bar
- * 
- * ============================================================================
- * RELATED CONFIGURATION
- * ============================================================================
- * - electron-builder.yml → publish config points to jobelix-releases repo
- * - package.json → electron-updater dependency
  */
 
 import { app, shell, dialog } from 'electron';
@@ -78,7 +52,7 @@ import fs from 'fs';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import logger from '../utils/logger.js';
-import { updateSplashStatus, getMainWindow, setUpdateInProgress } from './window-manager.js';
+import { getMainWindow } from './window-manager.js';
 
 /**
  * GitHub repository info for releases
@@ -198,7 +172,7 @@ async function showInstallDialog(version) {
 /**
  * Initialize the auto-updater and begin checking for updates
  * 
- * Called once from src/main/index.js when the app is ready.
+ * CALLED AFTER main window content loads (deferred for faster perceived startup).
  * Only runs in packaged mode (skipped in development).
  * 
  * Flow:
@@ -207,10 +181,8 @@ async function showInstallDialog(version) {
  * 3. Check GitHub releases for new version
  * 4. If update found: download (Win/Mac) or notify with direct link (Linux)
  * 5. After download: show dialog asking user to install now or later
- * 
- * @param {BrowserWindow} splashWindow - The splash window to show progress on
  */
-export function initAutoUpdater(splashWindow) {
+export function initAutoUpdater() {
   // Skip auto-updater in development mode (no packaged app to update)
   if (!app.isPackaged) {
     logger.info('Skipping auto-updater in development mode');
@@ -245,7 +217,7 @@ export function initAutoUpdater(splashWindow) {
    */
   autoUpdater.on('checking-for-update', () => {
     logger.info('Checking for updates...');
-    updateSplashStatus(splashWindow, 'checking');
+    // No splash screen - user sees main app while checking happens in background
   });
 
   /**
@@ -266,32 +238,23 @@ export function initAutoUpdater(splashWindow) {
       const directUrl = getDirectDownloadUrl(info.version, distro);
       
       logger.info(`Linux: Detected ${label}, direct download: ${directUrl}`);
-      updateSplashStatus(splashWindow, 'no-update'); // Continue loading app normally
       
-      // Send notification to renderer after main window loads
-      // Delay ensures UpdateNotification component is mounted
-      logger.info('Linux: Scheduling update notification to renderer in 3s...');
-      setTimeout(() => {
-        logger.info('Linux: Sending update-available IPC to renderer now');
-        sendToMainWindow('update-available', {
-          version: info.version,
-          releaseNotes: info.releaseNotes,
-          releaseDate: info.releaseDate,
-          manualDownload: true,
-          downloadUrl: directUrl, // Direct link to correct AppImage
-          distroLabel: label,     // For UI: "Download for Arch Linux"
-        });
-        logger.info('Linux: update-available IPC sent');
-      }, 3000);
+      // Send notification to renderer immediately (window is already loaded)
+      sendToMainWindow('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseDate: info.releaseDate,
+        manualDownload: true,
+        downloadUrl: directUrl, // Direct link to correct AppImage
+        distroLabel: label,     // For UI: "Download for Arch Linux"
+      });
     } else {
       // ========================================================================
-      // WINDOWS/MACOS: Automatic download
+      // WINDOWS/MACOS: Automatic download with progress
       // ========================================================================
-      setUpdateInProgress(true);
       logger.info('Downloading update...');
-      updateSplashStatus(splashWindow, 'available', info.version);
       
-      // Also notify renderer (in case main window is already visible)
+      // Notify renderer to show progress UI
       sendToMainWindow('update-available', {
         version: info.version,
         releaseNotes: info.releaseNotes,
@@ -307,22 +270,19 @@ export function initAutoUpdater(splashWindow) {
    */
   autoUpdater.on('update-not-available', (info) => {
     logger.info(`App is up to date (v${info.version})`);
-    updateSplashStatus(splashWindow, 'no-update');
+    // No action needed - user doesn't need to know if already up to date
   });
 
   /**
    * Event: Download progress
    * Triggered periodically during update download (Windows/macOS only)
-   * Updates both splash screen and renderer notification
+   * Sends progress to renderer for UpdateNotification component
    */
   autoUpdater.on('download-progress', (progress) => {
     const percent = Math.round(progress.percent);
     logger.debug(`Download progress: ${percent}%`);
     
-    // Update splash screen progress bar
-    updateSplashStatus(splashWindow, 'downloading', percent);
-    
-    // Also send to renderer for UpdateNotification component
+    // Send to renderer for UpdateNotification progress bar
     sendToMainWindow('update-download-progress', {
       bytesPerSecond: progress.bytesPerSecond,
       percent: progress.percent,
@@ -338,31 +298,23 @@ export function initAutoUpdater(splashWindow) {
    */
   autoUpdater.on('update-downloaded', (info) => {
     logger.success(`Update v${info.version} downloaded.`);
-    updateSplashStatus(splashWindow, 'ready');
-    setUpdateInProgress(false); // Allow splash to close now
     
     // Notify renderer
     sendToMainWindow('update-downloaded', {
       version: info.version,
     });
     
-    // Show dialog asking user to install now or later
-    // Small delay to ensure main window is visible
-    setTimeout(() => {
-      showInstallDialog(info.version);
-    }, 500);
+    // Show native dialog asking user to install now or later
+    showInstallDialog(info.version);
   });
 
   /**
    * Event: Error
    * Triggered when update check or download fails
-   * On error, we just continue loading the app normally
+   * Non-blocking - app continues normally
    */
   autoUpdater.on('error', (err) => {
     logger.error('Auto-updater error:', err.message);
-    // Don't block app startup on update errors - just continue
-    updateSplashStatus(splashWindow, 'error');
-    setUpdateInProgress(false); // Allow splash to close
     
     // Notify renderer so they can show error toast
     sendToMainWindow('update-error', {
@@ -377,7 +329,6 @@ export function initAutoUpdater(splashWindow) {
   logger.info('Checking GitHub releases for updates...');
   autoUpdater.checkForUpdates().catch((err) => {
     logger.error('Failed to check for updates:', err.message);
-    updateSplashStatus(splashWindow, 'error');
   });
 }
 
