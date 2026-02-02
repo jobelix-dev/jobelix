@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["index.ts"],
+  "sourcesContent": ["/**\n * AI Module - Barrel Export\n */\n\nexport * from './gpt-answerer';\nexport * from './backend-client';\nexport * from './prompts';\n"],
+  "mappings": "AAIA,cAAc;AACd,cAAc;AACd,cAAc;",
+  "names": []
+}

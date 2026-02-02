@@ -6,7 +6,7 @@
  * Used by: StudentDashboard to enable/disable Save button
  */
 
-import type { ExtractedResumeData, EducationEntry, ExperienceEntry, ProjectEntry, SkillEntry, LanguageEntry, PublicationEntry, CertificationEntry, SocialLinkEntry } from '../shared/types'
+import type { ExtractedResumeData, EducationEntry, ExperienceEntry, SocialLinkEntry } from '../shared/types'
 
 export interface FieldError {
   field: string
@@ -217,7 +217,7 @@ function validateDateRange(
 /**
  * Validates single education entry
  */
-function validateEducation(edu: EducationEntry, index: number): string[] {
+function _validateEducation(edu: EducationEntry, index: number): string[] {
   const errors: string[] = []
   
   const schoolError = validateTextField(edu.school_name, `Education ${index + 1} - School`)
@@ -238,7 +238,7 @@ function validateEducation(edu: EducationEntry, index: number): string[] {
 /**
  * Validates single experience entry
  */
-function validateExperience(exp: ExperienceEntry, index: number): string[] {
+function _validateExperience(exp: ExperienceEntry, index: number): string[] {
   const errors: string[] = []
   
   const companyError = validateTextField(exp.organisation_name, `Experience ${index + 1} - Company`)
@@ -389,13 +389,11 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
   // Validate projects (optional, but if provided must have a name)
   if (data.projects && data.projects.length > 0) {
     data.projects.forEach((project, index) => {
-      if (!fieldErrors.projects) fieldErrors.projects = {}
-      fieldErrors.projects[index] = {}
-      
       const nameError = validateTextField(project.project_name, `Project ${index + 1} - Name`)
       if (nameError) {
+        if (!fieldErrors.projects) fieldErrors.projects = {}
+        fieldErrors.projects[index] = { project_name: 'Required' }
         errors.push(nameError)
-        fieldErrors.projects[index].project_name = 'Required'
       }
     })
   }
@@ -403,33 +401,25 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
   // Validate skills (optional, but if provided must have a name)
   if (data.skills && data.skills.length > 0) {
     data.skills.forEach((skill, index) => {
-      if (!fieldErrors.skills) fieldErrors.skills = {}
-      fieldErrors.skills[index] = {}
-      
       const nameError = validateTextField(skill.skill_name, `Skill ${index + 1} - Name`)
       if (nameError) {
+        if (!fieldErrors.skills) fieldErrors.skills = {}
+        fieldErrors.skills[index] = { skill_name: 'Required' }
         errors.push(nameError)
-        fieldErrors.skills[index].skill_name = 'Required'
       }
       
-      const slugError = validateTextField(skill.skill_slug, `Skill ${index + 1} - Slug`)
-      if (slugError) {
-        errors.push(slugError)
-        fieldErrors.skills[index].skill_slug = 'Required'
-      }
+      // Slug is optional, skip validation
     })
   }
   
   // Validate languages (optional, but if provided must have a name)
   if (data.languages && data.languages.length > 0) {
     data.languages.forEach((language, index) => {
-      if (!fieldErrors.languages) fieldErrors.languages = {}
-      fieldErrors.languages[index] = {}
-      
       const nameError = validateTextField(language.language_name, `Language ${index + 1} - Name`)
       if (nameError) {
+        if (!fieldErrors.languages) fieldErrors.languages = {}
+        fieldErrors.languages[index] = { language_name: 'Required' }
         errors.push(nameError)
-        fieldErrors.languages[index].language_name = 'Required'
       }
     })
   }
@@ -437,13 +427,11 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
   // Validate publications (optional, but if provided must have a title)
   if (data.publications && data.publications.length > 0) {
     data.publications.forEach((pub, index) => {
-      if (!fieldErrors.publications) fieldErrors.publications = {}
-      fieldErrors.publications[index] = {}
-      
       const titleError = validateTextField(pub.title, `Publication ${index + 1} - Title`)
       if (titleError) {
+        if (!fieldErrors.publications) fieldErrors.publications = {}
+        fieldErrors.publications[index] = { title: 'Required' }
         errors.push(titleError)
-        fieldErrors.publications[index].title = 'Required'
       }
     })
   }
@@ -451,13 +439,11 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
   // Validate certifications (optional, but if provided must have a name)
   if (data.certifications && data.certifications.length > 0) {
     data.certifications.forEach((cert, index) => {
-      if (!fieldErrors.certifications) fieldErrors.certifications = {}
-      fieldErrors.certifications[index] = {}
-      
       const nameError = validateTextField(cert.name, `Certification ${index + 1} - Name`)
       if (nameError) {
+        if (!fieldErrors.certifications) fieldErrors.certifications = {}
+        fieldErrors.certifications[index] = { name: 'Required' }
         errors.push(nameError)
-        fieldErrors.certifications[index].name = 'Required'
       }
     })
   }

@@ -7,10 +7,10 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
-import { Github, AlertCircle, CheckCircle, RefreshCw, CloudUpload, ArrowDown } from 'lucide-react';
+import React, { useEffect, useCallback } from 'react';
+import { Github, AlertCircle, RefreshCw, CloudUpload, ArrowDown } from 'lucide-react';
 import StatusAlert from '@/app/components/StatusAlert';
-import { useGitHubConnection, useGitHubImport } from '../../../hooks';
+import { useGitHubConnection } from '../../../hooks';
 import { ProjectEntry, SkillEntry } from '@/lib/shared/types';
 import { useSearchParams } from 'next/navigation';
 
@@ -28,7 +28,8 @@ interface HeaderSectionProps {
   currentProjects: ProjectEntry[];
   currentSkills: SkillEntry[];
   onGitHubImportComplete: (projects: ProjectEntry[], skills: SkillEntry[]) => void;
-  onImportingChange?: (importing: boolean) => void;
+  onGitHubImport?: (currentProjects: ProjectEntry[], currentSkills: SkillEntry[], onComplete?: (projects: ProjectEntry[], skills: SkillEntry[]) => void) => Promise<{ projects: ProjectEntry[]; skills: SkillEntry[] } | null>;
+  importingGitHub?: boolean;
   
   // Draft status
   draftStatus?: 'editing' | 'published';
@@ -38,33 +39,34 @@ export default function HeaderSection({
   resumeInfo,
   uploading,
   extracting,
-  uploadSuccess,
+  uploadSuccess: _uploadSuccess,
   uploadError,
   onFileChange,
   onDownload,
   currentProjects,
   currentSkills,
   onGitHubImportComplete,
-  onImportingChange,
+  onGitHubImport,
+  importingGitHub = false,
   draftStatus = 'editing',
 }: HeaderSectionProps) {
   const searchParams = useSearchParams();
   const { status, loading: statusLoading, error: connectionError, connect, disconnect } = useGitHubConnection();
-  const { importGitHubData, importing, error: importError, success: importSuccess } = useGitHubImport();
 
-  const isResumeDisabled = uploading || extracting || importing;
+  const isResumeDisabled = uploading || extracting || importingGitHub;
   const isGitHubDisabled = uploading || extracting;
 
-  // Notify parent when importing state changes
-  React.useEffect(() => {
-    onImportingChange?.(importing);
-  }, [importing, onImportingChange]);
+  const handleGitHubImport = useCallback(async () => {
+    if (onGitHubImport) {
+      await onGitHubImport(currentProjects, currentSkills, onGitHubImportComplete);
+    }
+  }, [onGitHubImport, currentProjects, currentSkills, onGitHubImportComplete]);
 
   // Listen for OAuth popup messages
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Verify origin for security
-      if (event.origin !== window.location.origin) return;
+      if (event.origin !== process.env.NEXT_PUBLIC_APP_URL) return;
       
       if (event.data.type === 'github-oauth-success') {
         // GitHub connected successfully via popup, trigger auto-sync
@@ -78,14 +80,14 @@ export default function HeaderSection({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentProjects, currentSkills]);
+  }, [handleGitHubImport]);
 
   // Auto-sync after first GitHub connection (fallback for non-popup flow)
   useEffect(() => {
     const shouldAutoSync = searchParams.get('auto_sync') === 'true';
     const isConnected = status?.connected;
     
-    if (shouldAutoSync && isConnected && !statusLoading && !importing) {
+    if (shouldAutoSync && isConnected && !statusLoading && !importingGitHub) {
       // Clear the URL parameter
       const url = new URL(window.location.href);
       url.searchParams.delete('auto_sync');
@@ -95,14 +97,9 @@ export default function HeaderSection({
       // Trigger auto-sync
       handleGitHubImport();
     }
-  }, [searchParams, status?.connected, statusLoading, importing]);
+  }, [searchParams, status?.connected, statusLoading, importingGitHub, handleGitHubImport]);
 
-  const handleGitHubImport = async () => {
-    const result = await importGitHubData(currentProjects, currentSkills);
-    if (result) {
-      onGitHubImportComplete(result.projects, result.skills);
-    }
-  };
+
 
   const handleChangeAccount = async () => {
     const success = await disconnect();
@@ -114,13 +111,13 @@ export default function HeaderSection({
   };
 
   return (
-    <section className="max-w-2xl mx-auto">
+    <section className="max-w-2xl mx-auto px-1 sm:px-0">
       {/* Page Header with Status */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-2">
         <div>
-          <h1 className="text-2xl font-bold">Complete Your Profile</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-            Set and publish your profile to receive better startup matches <br /> and enable the LinkedIn Auto-Apply bot
+          <h1 className="text-xl sm:text-2xl font-bold">Complete Your Profile</h1>
+          <p className="text-sm text-muted mt-1">
+            Set and save your profile to receive better employer matches <br className="hidden sm:block" /> and enable the LinkedIn Auto-Apply bot
           </p>
         </div>
         
@@ -131,34 +128,34 @@ export default function HeaderSection({
               const publishButton = document.getElementById('publish-profile-button');
               publishButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer flex-shrink-0"
+            className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0 w-full sm:w-auto"
           >
-            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Unpublished Changes
+            <span className="text-sm font-medium text-warning">
+              Unsaved Changes
             </span>
-            <ArrowDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <ArrowDown className="w-4 h-4 text-warning" />
           </button>
         )}
         
         {draftStatus === 'published' && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 flex-shrink-0">
-            <CloudUpload className="w-4 h-4 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-              Published
+          <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0 w-full sm:w-auto">
+            <CloudUpload className="w-4 h-4 text-success" />
+            <span className="text-sm font-medium text-success">
+              Saved
             </span>
           </div>
         )}
       </div>
       
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6 mb-4 sm:mb-6">
         {/* Resume Upload Card */}
-        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="p-4 rounded-lg border border-primary-subtle bg-surface">
           <h3 className="font-semibold mb-2 flex items-center gap-2">
             <span className="text-lg">📄</span>
             Upload PDF Resume
           </h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+          <p className="text-sm text-muted mb-3">
             Auto-fill your profile with AI assistance
           </p>
           <div className="relative">
@@ -171,7 +168,7 @@ export default function HeaderSection({
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
             />
             <button
-              className={`w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-colors ${
+              className={`w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white shadow-sm transition-colors ${
                 isResumeDisabled ? 'opacity-50 cursor-not-allowed' : ''
               }`}
               disabled={isResumeDisabled}
@@ -182,7 +179,7 @@ export default function HeaderSection({
         </div>
 
         {/* GitHub Sync Card */}
-        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="p-4 rounded-lg border border-primary-subtle bg-surface">
           <h3 className="font-semibold mb-2 flex items-center gap-2">
             <Github className="w-5 h-5" />
             GitHub Sync
@@ -191,18 +188,18 @@ export default function HeaderSection({
             <>
               {status?.connected ? (
                 <>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                    Logged in as <span className="font-medium text-zinc-900 dark:text-zinc-100">@{status.metadata?.username || 'connected'}</span>
+                  <p className="text-sm text-muted mb-3">
+                    Logged in as <span className="font-medium text-default">@{status.metadata?.username || 'connected'}</span>
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={handleGitHubImport}
-                      disabled={importing || isGitHubDisabled}
-                      className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-colors ${
-                        importing || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                      onClick={() => handleGitHubImport()}
+                      disabled={importingGitHub || isGitHubDisabled}
+                      className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white shadow-sm transition-colors ${
+                        importingGitHub || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
-                      {importing ? (
+                      {importingGitHub ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin mr-2" />
                           Syncing...
@@ -213,9 +210,9 @@ export default function HeaderSection({
                     </button>
                     <button
                       onClick={handleChangeAccount}
-                      disabled={importing || isGitHubDisabled}
-                      className={`px-3 py-2.5 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${
-                        importing || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                      disabled={importingGitHub || isGitHubDisabled}
+                      className={`px-3 py-2.5 text-sm font-medium rounded-lg border border-border hover:bg-primary-subtle transition-colors ${
+                        importingGitHub || isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                       title="Change GitHub account"
                     >
@@ -225,13 +222,13 @@ export default function HeaderSection({
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                  <p className="text-sm text-muted mb-3">
                     Auto-fill your projects and skills from GitHub
                   </p>
                   <button
                     onClick={connect}
                     disabled={isGitHubDisabled}
-                    className={`w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-colors ${
+                    className={`w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white shadow-sm transition-colors ${
                       isGitHubDisabled ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -245,35 +242,33 @@ export default function HeaderSection({
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-zinc-200 dark:border-zinc-800 mb-6"></div>
 
       {/* Status Messages */}
       {uploadError && (
         <StatusAlert variant="error">{uploadError}</StatusAlert>
       )}
 
-      {(connectionError || importError) && (
-        <div className="mb-4 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-red-700 dark:text-red-400">
-            {connectionError || importError}
+      {connectionError && (
+        <div className="mb-4 flex items-start gap-2 p-3 bg-error-subtle/20 border border-error rounded-lg">
+          <AlertCircle className="w-4 h-4 text-error mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-error">
+            {connectionError}
           </p>
         </div>
       )}
 
       {/* Compact Resume Info */}
       {resumeInfo && (
-        <div className="flex items-center gap-4 p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-900/10">
-          <div className="flex-1">
-            <p className="font-medium text-sm">{resumeInfo.filename}</p>
-            <p className="text-xs text-zinc-500">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 rounded-lg bg-primary-subtle/10">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{resumeInfo.filename}</p>
+            <p className="text-xs text-muted">
               Uploaded {resumeInfo.uploaded_at ? new Date(resumeInfo.uploaded_at).toLocaleDateString() : 'N/A'}
             </p>
           </div>
           <button
             onClick={onDownload}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-primary hover:bg-primary-hover text-white transition-colors w-full sm:w-auto"
           >
             Download
           </button>

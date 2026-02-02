@@ -12,6 +12,7 @@ interface SocialLinksInputProps {
   onChange: (social_links: SocialLinkEntry) => void;
   fieldErrors?: Record<string, string>;
   disabled?: boolean;
+  idPrefix?: string;
 }
 
 const platforms = [
@@ -22,7 +23,13 @@ const platforms = [
   { key: 'leetcode' as const, label: 'LeetCode', icon: Code, placeholder: 'https://leetcode.com/username' },
 ];
 
-export default function SocialLinksInput({ social_links, onChange, fieldErrors = {}, disabled = false }: SocialLinksInputProps) {
+export default function SocialLinksInput({
+  social_links,
+  onChange,
+  fieldErrors = {},
+  disabled = false,
+  idPrefix = 'profile-social'
+}: SocialLinksInputProps) {
   const updatePlatform = (platform: keyof SocialLinkEntry, value: string) => {
     onChange({
       ...social_links,
@@ -38,28 +45,29 @@ export default function SocialLinksInput({ social_links, onChange, fieldErrors =
         
         return (
           <div key={key} className="space-y-1">
-            <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="flex items-center gap-2 text-sm font-medium text-muted">
               <Icon className="w-4 h-4" />
               {label}
             </label>
             <div
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border ${
+              className={`flex items-center gap-2 px-3 py-2 rounded border transition-colors ${
                 errorMessage
-                  ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50'
-                  : 'border-purple-200 dark:border-purple-800'
-              } bg-white dark:bg-zinc-900/50`}
+                  ? 'border-warning ring-1 ring-warning/50'
+                  : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30'
+              } bg-white`}
             >
               <input
+                id={`${idPrefix}-${key}`}
                 type="url"
                 value={value}
                 onChange={(e) => updatePlatform(key, e.target.value)}
                 placeholder={placeholder}
                 disabled={disabled}
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 bg-transparent border-none outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
             {errorMessage && (
-              <p className="text-xs text-amber-600 dark:text-amber-500 px-1">
+              <p className="text-xs text-warning px-1">
                 {errorMessage}
               </p>
             )}

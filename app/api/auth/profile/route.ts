@@ -19,33 +19,29 @@
 import "server-only";
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/server/supabaseServer'
+import { authenticateRequest } from '@/lib/server/auth'
 
 export async function GET() {
   try {
-    /**
-     * Create a Supabase client for SERVER use.
-     * This client reads the user's login cookies automatically.
-     * (So we can know who is logged in.)
-     */
-    const supabase = await createClient()
-
-    /**
-     * SECURITY: Identify the user by asking Supabase Auth.
-     * We do NOT trust the frontend to tell us the user id.
-     *
-     * If the user is logged in, `user` contains their id (UUID).
-     */    
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
+    console.log('[Profile API] Starting profile fetch')
     
     /**
-     * If there is no logged-in user, we return profile: null.
-     * The frontend can then redirect to login.
+     * Authenticate using cached helper - reduces duplicate auth.getUser() calls
      */
-    if (authError || !user) {
+    const auth = await authenticateRequest()
+    
+    // If not authenticated, return null profile (not an error - just not logged in)
+    if (auth.error) {
+      console.log('[Profile API] No authenticated user, returning null profile')
       return NextResponse.json({ profile: null })
     }
+
+    const { user, supabase } = auth
+
+    console.log('[Profile API] Auth check result:', {
+      userId: user.id,
+      hasUser: true
+    })
 
     /**
      * Now we look in the "student" table to see if this user has a student profile.
@@ -53,19 +49,26 @@ export async function GET() {
      * We search for a row where `id = user.id`.
      * (In your DB design, the student's primary key is the same as the auth user id.)
      */    
-    const { data: studentData } = await supabase
+    const { data: studentData, error: studentError } = await supabase
       .from('student')
       .select('id, created_at')
       .eq('id', user.id)
       .maybeSingle()
 
+    console.log('[Profile API] Student query result:', {
+      studentData: studentData ? { id: studentData.id, created_at: studentData.created_at } : null,
+      studentError: studentError?.message
+    })
+
     /**
      * If a student row exists, we say the user is a student.
      */
     if (studentData) {
+      console.log('[Profile API] Found student profile, returning student role')
       return NextResponse.json({
         profile: {
           id: studentData.id,
+          email: user.email ?? '',
           role: 'student' as const,
           created_at: studentData.created_at,
         },
@@ -76,19 +79,26 @@ export async function GET() {
      * If the user is not a student, we check the "company" table.
      * Same logic: a company row exists if `id = user.id`.
      */
-    const { data: companyData } = await supabase
+    const { data: companyData, error: companyError } = await supabase
       .from('company')
       .select('id, created_at')
       .eq('id', user.id)
       .maybeSingle()
 
+    console.log('[Profile API] Company query result:', {
+      companyData: companyData ? { id: companyData.id, created_at: companyData.created_at } : null,
+      companyError: companyError?.message
+    })
+
     /**
      * If a company row exists, we say the user is a company.
      */
     if (companyData) {
+      console.log('[Profile API] Found company profile, returning company role')
       return NextResponse.json({
         profile: {
           id: companyData.id,
+          email: user.email ?? '',
           role: 'company' as const,
           created_at: companyData.created_at,
         },
@@ -99,8 +109,9 @@ export async function GET() {
      * Logged in, but no student row and no company row.
      * This can happen if onboarding is not finished yet.
      */
+    console.log('[Profile API] No profile found in student or company tables, returning null profile')
     return NextResponse.json({ profile: null })
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * IMPORTANT SECURITY NOTE:
      * - Don't return raw error.message to the client in production.

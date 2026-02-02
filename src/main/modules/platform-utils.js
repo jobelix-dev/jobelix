@@ -4,6 +4,7 @@
  */
 
 import { app } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import { PLATFORM_FOLDERS, EXECUTABLES, DIRECTORIES } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -22,7 +23,7 @@ export function getPlatformFolder() {
     case 'darwin':
       return PLATFORM_FOLDERS.MAC;
     case 'linux':
-      return PLATFORM_FOLDERS.LINUX;
+      return isArchLinux() ? PLATFORM_FOLDERS.LINUX_ARCH : PLATFORM_FOLDERS.LINUX;
     default:
       const error = `Unsupported operating system: ${platform}`;
       logger.error(error);
@@ -31,24 +32,31 @@ export function getPlatformFolder() {
 }
 
 /**
- * Get the root resources directory path
- * Returns different paths for packaged vs development mode
- * @returns {string} Absolute path to resources directory
+ * Detect Arch-based Linux distributions via /etc/os-release
+ * @returns {boolean}
  */
-export function getResourceRoot() {
-  return app.isPackaged 
-    ? process.resourcesPath 
-    : path.join(process.cwd(), DIRECTORIES.RESOURCES);
+export function isArchLinux() {
+  try {
+    if (!fs.existsSync('/etc/os-release')) return false;
+    const content = fs.readFileSync('/etc/os-release', 'utf-8');
+    const idMatch = content.match(/^ID=(.+)$/m);
+    const likeMatch = content.match(/^ID_LIKE=(.+)$/m);
+    const id = idMatch ? idMatch[1].replace(/\"/g, '').toLowerCase() : '';
+    const like = likeMatch ? likeMatch[1].replace(/\"/g, '').toLowerCase() : '';
+    return id === 'arch' || like.includes('arch');
+  } catch (error) {
+    logger.warn('Failed to detect Linux distribution via /etc/os-release:', error);
+    return false;
+  }
 }
 
 /**
- * Get platform-specific executable name for the engine
- * @returns {string} Executable filename (e.g., 'engine.exe' on Windows, 'engine' on Unix)
+ * Get the root data directory path
+ * Uses Electron's userData folder for persistent storage
+ * @returns {string} Absolute path to userData directory
  */
-export function getEngineExecutableName() {
-  return process.platform === 'win32' 
-    ? EXECUTABLES.ENGINE.WINDOWS 
-    : EXECUTABLES.ENGINE.BASE;
+export function getResourceRoot() {
+  return app.getPath('userData');
 }
 
 /**
@@ -62,29 +70,16 @@ export function getBotExecutableName() {
 }
 
 /**
- * Build path to platform-specific resource
- * @param {...string} pathSegments - Path segments to join (after platform folder)
+ * Build path to resource in userData
+ * @param {...string} pathSegments - Path segments to join
  * @returns {string} Absolute path to the resource
  * @example
- * // Returns: /path/to/resources/win/engine.exe
- * getPlatformResourcePath('engine.exe')
- * 
- * // Returns: /path/to/resources/linux/main/data_folder/config.yaml
- * getPlatformResourcePath('main', 'data_folder', 'config.yaml')
+ * // Returns: ~/.config/jobelix/data/config.yaml
+ * getPlatformResourcePath('data', 'config.yaml')
  */
 export function getPlatformResourcePath(...pathSegments) {
   const resourceRoot = getResourceRoot();
-  const platformFolder = getPlatformFolder();
-  return path.join(resourceRoot, platformFolder, ...pathSegments);
-}
-
-/**
- * Get the full path to the engine executable
- * @returns {string} Absolute path to engine executable
- */
-export function getEnginePath() {
-  const execName = getEngineExecutableName();
-  return getPlatformResourcePath(execName);
+  return path.join(resourceRoot, ...pathSegments);
 }
 
 /**
@@ -148,4 +143,38 @@ export function logPlatformInfo() {
   logger.info(`  Packaged: ${app.isPackaged}`);
   logger.info(`  Resource Root: ${getResourceRoot()}`);
   logger.info(`  Platform Folder: ${getPlatformFolder()}`);
+}
+
+/**
+ * Initialize all data directories for the application
+ * Creates: data/, output/, tailored_resumes/, chrome_profile/, debug_html/, playwright-browsers/
+ * Also sets PLAYWRIGHT_BROWSERS_PATH env var for consistent browser location
+ * This should be called on app startup to ensure directories exist
+ */
+export function initializeDataDirectories() {
+  const userData = getResourceRoot();
+  
+  // Set PLAYWRIGHT_BROWSERS_PATH early so it's available throughout the app lifecycle
+  // This ensures bot/utils/paths.ts getChromiumPath() always has the correct path
+  const playwrightBrowsersPath = path.join(userData, 'playwright-browsers');
+  process.env.PLAYWRIGHT_BROWSERS_PATH = playwrightBrowsersPath;
+  logger.debug(`Set PLAYWRIGHT_BROWSERS_PATH=${playwrightBrowsersPath}`);
+  
+  const directories = [
+    path.join(userData, 'data'),
+    path.join(userData, 'output'),
+    path.join(userData, 'tailored_resumes'),
+    path.join(userData, 'chrome_profile'),
+    path.join(userData, 'debug_html'),
+    playwrightBrowsersPath,
+  ];
+  
+  for (const dir of directories) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      logger.debug(`Created directory: ${dir}`);
+    }
+  }
+  
+  logger.info(`Data directories initialized at: ${userData}`);
 }

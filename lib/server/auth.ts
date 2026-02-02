@@ -19,7 +19,36 @@ export type AuthResult =
   | { user: null; supabase: null; error: NextResponse }
 
 /**
+ * In-memory cache for authenticated users to reduce auth.getUser() calls
+ * Key: access_token, Value: { user, timestamp }
+ * 
+ * NOTE: This cache is per-process and short-lived (3s TTL).
+ * In serverless environments, it provides benefit during request bursts
+ * but doesn't persist across cold starts (which is fine for auth).
+ */
+const userCache = new Map<string, { user: User; timestamp: number }>();
+const CACHE_TTL_MS = 3_000; // 3 second cache to balance freshness vs. performance
+const CACHE_MAX_SIZE = 1000; // Prevent unbounded memory growth
+
+/**
+ * Clean up expired cache entries lazily (on access)
+ * No setInterval needed - avoids memory leaks in serverless
+ */
+function cleanupCache(): void {
+  const now = Date.now();
+  // Only clean if cache is getting large
+  if (userCache.size > CACHE_MAX_SIZE / 2) {
+    for (const [key, value] of userCache.entries()) {
+      if (now - value.timestamp > CACHE_TTL_MS) {
+        userCache.delete(key);
+      }
+    }
+  }
+}
+
+/**
  * Authenticate the current request and return the authenticated user.
+ * Uses in-memory cache (3s TTL) to reduce repeated auth.getUser() calls.
  * 
  * @returns Object containing user and supabase client, or error response
  * 
@@ -38,9 +67,30 @@ export type AuthResult =
  * ```
  */
 export async function authenticateRequest(): Promise<AuthResult> {
+  // Lazy cleanup on each request (lightweight - only runs if cache is large)
+  cleanupCache();
+  
   const supabase = await createClient()
   
+  // Try to get session from Supabase client to use as cache key
+  const { data: { session } } = await supabase.auth.getSession()
+  const cacheKey = session?.access_token
+  
+  // Check cache if we have a session token
+  if (cacheKey) {
+    const cached = userCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      // Return cached user (still need fresh supabase client)
+      return { user: cached.user, supabase, error: null }
+    }
+  }
+  
   const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  // Cache the user if authenticated
+  if (user && cacheKey) {
+    userCache.set(cacheKey, { user, timestamp: Date.now() })
+  }
   
   if (authError || !user) {
     return {

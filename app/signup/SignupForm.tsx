@@ -4,23 +4,39 @@
  * Client-side registration form with role selection.
  * Used by: app/signup/page.tsx
  * Calls: lib/api.ts -> app/api/auth/signup/route.ts
- * Creates user account and initializes student/company profile.
+ * Creates user account and initializes talent/employer profile.
+ * Note: DB stores role as student/company, UI displays as talent/employer
  */
 
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
+import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 
-export default function SignupForm({ role }: { role: string }) {
+/** Valid user roles for the platform */
+type UserRole = 'student' | 'company';
+
+interface SignupFormProps {
+  /** The user role - 'student' or 'company' */
+  role: UserRole;
+}
+
+export default function SignupForm({ role }: SignupFormProps) {
   const router = useRouter();
+  const hCaptchaSiteKey = getHCaptchaSiteKey();
+  const hasCaptcha = isHCaptchaConfigured();
+  
+  // Display role for UI (talent/employer) vs DB role (student/company)
+  const displayRole = role === 'student' ? 'talent' : 'employer';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [errorType, setErrorType] = useState<'generic' | 'user_exists' | 'rate_limit'>('generic');
   const [message, setMessage] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,11 +48,16 @@ export default function SignupForm({ role }: { role: string }) {
       const response = await api.signup({
         email,
         password,
-        role: role as 'student' | 'company',
+        role,
+        captchaToken: captchaToken || undefined,
       });
 
       if (response.success) {
-        if (response.message) {
+        if (response.loggedIn) {
+          // User already existed and was logged in with provided credentials
+          router.refresh();
+          router.push('/dashboard');
+        } else if (response.message) {
           // Email confirmation required
           setMessage(response.message);
         } else {
@@ -45,15 +66,9 @@ export default function SignupForm({ role }: { role: string }) {
           router.push('/dashboard');
         }
       }
-    } catch (err: any) {
-      // Check if error is about existing user
-      const errorMessage = err.message || 'An unexpected error occurred';
-      
-      if (errorMessage.toLowerCase().includes('already exists')) {
-        setError('An account with this email already exists. Try logging in instead.');
-      } else {
-        setError(errorMessage);
-      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
       
       // Don't auto-clear the error for "already exists" - let user read it
       if (!errorMessage.toLowerCase().includes('already exists')) {
@@ -66,53 +81,67 @@ export default function SignupForm({ role }: { role: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Gestion des erreurs */}
+      {/* Error message */}
       {error && (
-        <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error border border-error/20">
           {error}
         </div>
       )}
 
-      {/* Message de succès (Check your email) */}
+      {/* Success message (Check your email) */}
       {message && (
-        <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-600 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+        <div className="rounded bg-success-subtle px-3 py-2 text-sm text-success border border-success/20">
           {message}
         </div>
       )}
 
-      {/* Le reste du formulaire est identique, sauf qu'on cache les champs si succès */}
+      {/* Hide form fields after successful submission (showing confirmation message) */}
       {!message && (
         <>
           <label className="flex flex-col">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">Email</span>
+            <span className="text-sm text-muted">Email</span>
             <input
               required
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="you@example.com"
             />
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">Password</span>
+            <span className="text-sm text-muted">Password</span>
             <input
               required
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 rounded border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              minLength={8}
+              className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Choose a password"
             />
+            <span className="mt-1 text-xs text-muted">At least 8 characters</span>
           </label>
+
+          <div className="flex justify-center">
+            {hasCaptcha && (
+              <HCaptcha
+                sitekey={hCaptchaSiteKey}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
+                sentry={false}
+              />
+            )}
+          </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="mt-2 rounded bg-purple-600 hover:bg-purple-700 px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
+            disabled={loading || (hasCaptcha && !captchaToken)}
+            className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
           >
-            {loading ? 'Creating account...' : 'Sign up as student'}
+            {loading ? 'Creating account...' : `Sign up as ${displayRole}`}
           </button>
         </>
       )}

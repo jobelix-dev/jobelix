@@ -37,8 +37,10 @@ export async function POST(request: NextRequest) {
     const { user, supabase } = auth
     const { draftId } = await request.json()
     
-    if (!draftId) {
-      return NextResponse.json({ error: 'Draft ID required' }, { status: 400 })
+    // Validate draftId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!draftId || !uuidRegex.test(draftId)) {
+      return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 })
     }
 
     // Fetch draft
@@ -109,10 +111,10 @@ export async function POST(request: NextRequest) {
       message: 'Profile data saved successfully',
       data: result
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Finalize profile error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to finalize profile' },
+      { error: 'Failed to finalize profile' },
       { status: 500 }
     )
   }

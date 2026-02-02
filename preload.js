@@ -1,12 +1,37 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  // App info (exposed synchronously at preload time)
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
+
+  // Config files
   readConfigFile: () => ipcRenderer.invoke('read-config'),
   writeConfigFile: (content) => ipcRenderer.invoke('write-config', content),
   writeResumeFile: (content) => ipcRenderer.invoke('write-resume', content),
-  launchBot: (token) => ipcRenderer.invoke('launch-bot', token),
+  
+  // Bot controls
+  launchBot: (token, apiUrl) => ipcRenderer.invoke('launch-bot', { token, apiUrl }),
+  stopBot: () => ipcRenderer.invoke('stop-bot'),
+  forceStopBot: () => ipcRenderer.invoke('force-stop-bot'),
+  getBotStatus: () => ipcRenderer.invoke('get-bot-status'),
+  getBotLogPath: () => ipcRenderer.invoke('get-bot-log-path'),
+  
+  // Browser management
+  checkBrowser: () => ipcRenderer.invoke('check-browser'),
+  installBrowser: () => ipcRenderer.invoke('install-browser'),
+  onBrowserInstallProgress: (callback) => ipcRenderer.on('browser-install-progress', (event, data) => callback(data)),
+  removeBrowserInstallProgressListeners: () => {
+    ipcRenderer.removeAllListeners('browser-install-progress');
+  },
+  
+  // Auth cache
+  saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),
+  loadAuthCache: () => ipcRenderer.invoke('load-auth-cache'),
+  clearAuthCache: () => ipcRenderer.invoke('clear-auth-cache'),
   
   // Window controls
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
@@ -15,17 +40,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowClose: () => ipcRenderer.invoke('window-close'),
   windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   
-  // Auto-updater listeners
-  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
-  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (event, progress) => callback(progress)),
-  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info)),
-  onUpdateError: (callback) => ipcRenderer.on('update-error', (event, error) => callback(error)),
+  // Bot status updates (main -> renderer)
+  onBotStatus: (callback) => ipcRenderer.on('bot-status', (event, data) => callback(data)),
+  removeBotStatusListeners: () => {
+    ipcRenderer.removeAllListeners('bot-status');
+  },
   
-  // Remove listeners
+  // Auto-updater events
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, data) => callback(data)),
+  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (event, data) => callback(data)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, data) => callback(data)),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', (event, data) => callback(data)),
   removeUpdateListeners: () => {
     ipcRenderer.removeAllListeners('update-available');
     ipcRenderer.removeAllListeners('update-download-progress');
     ipcRenderer.removeAllListeners('update-downloaded');
     ipcRenderer.removeAllListeners('update-error');
-  }
+  },
+  
+  // Open external URL (for manual update download on Linux)
+  openReleasesPage: () => ipcRenderer.invoke('open-releases-page'),
+  openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
 });

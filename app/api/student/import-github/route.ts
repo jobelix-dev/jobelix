@@ -12,11 +12,18 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { getGitHubConnection, updateLastSynced } from '@/lib/server/githubOAuth';
 import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService';
+import { setGitHubImportProgress } from '@/lib/server/githubImportProgress';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
+
+export const runtime = 'nodejs';
+
+// Vercel serverless config: allow longer execution for OpenAI + GitHub API calls
+export const maxDuration = 60; // seconds
 
 // Lazy initialization to avoid build-time errors
 let openaiInstance: OpenAI | null = null;
@@ -55,6 +62,58 @@ export async function POST(request: NextRequest) {
     
     const { user, supabase } = auth;
 
+    let lastBatchRepos: string[] = [];
+    let lastReposTotal = 0;
+
+    const updateProgress = (params: {
+      step: string;
+      reposProcessed: number;
+      reposTotal: number;
+      batchRepos: string[];
+      complete?: boolean;
+    }) => {
+      if (params.batchRepos && params.batchRepos.length > 0) {
+        lastBatchRepos = params.batchRepos;
+      }
+      if (params.reposTotal && params.reposTotal > 0) {
+        lastReposTotal = params.reposTotal;
+      }
+      const effectiveTotal = params.reposTotal > 0 ? params.reposTotal : lastReposTotal;
+      const progress = effectiveTotal > 0
+        ? Math.round((params.reposProcessed / effectiveTotal) * 100)
+        : 0;
+      setGitHubImportProgress(user.id, {
+        step: params.step,
+        progress,
+        reposProcessed: params.reposProcessed,
+        reposTotal: effectiveTotal,
+        batchRepos: lastBatchRepos,
+        complete: params.complete,
+      });
+    };
+
+    updateProgress({
+      step: 'Connecting to GitHub',
+      reposProcessed: 0,
+      reposTotal: 0,
+      batchRepos: [],
+    });
+
+    // Rate limiting: 3 imports per hour, 6 per day (this is expensive with OpenAI)
+    const rateLimitResult = await checkRateLimit(user.id, {
+      endpoint: 'github-import',
+      hourlyLimit: 15,
+      dailyLimit: 15,
+    })
+
+    if (rateLimitResult.error) return rateLimitResult.error
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(
+        { endpoint: 'github-import', hourlyLimit: 15, dailyLimit: 15 },
+        rateLimitResult.data
+      )
+    }
+
     // Get request body
     const body = await request.json();
     const currentProjects = body.current_projects || [];
@@ -64,16 +123,38 @@ export async function POST(request: NextRequest) {
     const connection = await getGitHubConnection(user.id);
     if (!connection) {
       return NextResponse.json(
-        { success: false, error: 'GitHub not connected' },
+        { error: 'GitHub not connected' },
         { status: 400 }
       );
     }
 
+    const BATCH_SIZE = 10;
+
     // Fetch GitHub repositories with README excerpts for better descriptions
     console.log('Fetching GitHub repositories with README content...');
-    const repos = await fetchGitHubRepos(connection.access_token, true, 50);
+    updateProgress({
+      step: 'Fetching repositories',
+      reposProcessed: 0,
+      reposTotal: 0,
+      batchRepos: [],
+    });
+    const repos = await fetchGitHubRepos(connection.access_token, false, 50);
+    if (repos.length > 0) {
+    updateProgress({
+      step: 'Collecting repositories',
+      reposProcessed: 0,
+      reposTotal: repos.length,
+      batchRepos: repos.slice(0, BATCH_SIZE).map((repo: { name?: string; full_name?: string }) => repo.name || repo.full_name || 'Repository'),
+    });
+    }
     
     console.log(`Processing ${repos.length} repositories (fetching languages + READMEs)...`);
+    updateProgress({
+      step: 'Preparing repository analysis',
+      reposProcessed: 0,
+      reposTotal: repos.length,
+      batchRepos: [],
+    });
     const transformedRepos = await transformReposForLLM(connection.access_token, repos, true); // Enable README fetching
 
     const reposWithReadme = transformedRepos.filter(r => r.readme_summary).length;
@@ -106,11 +187,10 @@ export async function POST(request: NextRequest) {
       return scoreB - scoreA;
     });
 
-    // Process in batches of 10 repos to avoid overwhelming the LLM
-    const BATCH_SIZE = 10;
+    // Process in batches to avoid overwhelming the LLM
     let mergedProjects = [...currentProjects];
     let mergedSkills = [...currentSkills];
-    let totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
+    const totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
 
     console.log(`Processing ${sortedRepos.length} repos in ${totalBatches} batches of ${BATCH_SIZE}`);
 
@@ -119,6 +199,12 @@ export async function POST(request: NextRequest) {
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
       
       console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} repos)...`);
+      updateProgress({
+        step: 'Parsing repositories',
+        reposProcessed: i,
+        reposTotal: sortedRepos.length,
+        batchRepos: batch.map((repo: { name?: string; full_name?: string }) => repo.name || repo.full_name || 'Repository'),
+      });
 
       // Call OpenAI to merge this batch with current merged data
       const openai = getOpenAI();
@@ -130,6 +216,8 @@ export async function POST(request: NextRequest) {
             content: `You are a profile data merge expert. Your task is to intelligently merge GitHub repository data with existing profile data.
 
 ⚠️ CRITICAL: This is an ADDITIVE merge ONLY. You must PRESERVE ALL existing data and only ADD new items.
+
+⚠️ IMPORTANT: ALL output text MUST be in English. If repository descriptions, README content, or any text is in another language, translate it to English.
 
 This is batch ${batchNum} of ${totalBatches}. Process EVERY repository in this batch - do not skip any.
 
@@ -148,8 +236,15 @@ RULES FOR MERGING PROJECTS:
    - ❌ NEVER remove or modify existing projects
 
 3. **New Project Fields from GitHub:**
-   - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly)
-   - description: Generate from README summary if available, otherwise use repo description + primary language
+   - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly) - translate to English if needed
+   - description: Generate comprehensive, professional project descriptions using ALL available data:
+     * Use README summary and repo description as foundation
+     * Include project timeline: "Developed [created_at] - [pushed_at]" showing duration and recency
+     * Analyze language_bytes to determine expertise levels: "Built with [primary_language] (primary) and [other_languages] - [X] lines of code total"
+     * Use topics for categorization: Identify project type (web app, API, library, mobile app, data analysis, etc.)
+     * Infer advanced skills from topics, languages, and README: frameworks (React, Django), tools (Docker, AWS), methodologies (TDD, CI/CD)
+     * Focus on achievements, technologies used, and outcomes in resume-style language
+     * Example: "Full-stack web application built with React and Node.js, featuring user authentication and real-time data visualization. Developed over 18 months with 15,000+ lines of code across 8 programming languages."
    - link: Use repository URL (url field)
 
 RULES FOR MERGING SKILLS:
@@ -157,6 +252,9 @@ RULES FOR MERGING SKILLS:
 1. **Skill Extraction from GitHub:**
    - Extract programming languages from all_languages field
    - Extract frameworks/tools from topics field
+   - Analyze language_bytes to determine expertise levels: languages with higher byte counts indicate stronger proficiency
+   - Infer advanced skills from topics, README content, and project patterns (e.g., testing frameworks, deployment tools, cloud services)
+   - Extract technologies mentioned in README summaries and descriptions
 
 2. **Merging Strategy - PRESERVE EXISTING:**
    - ✅ KEEP all existing skills exactly as they are
@@ -164,7 +262,8 @@ RULES FOR MERGING SKILLS:
    - ❌ NEVER remove existing skills
 
 OUTPUT:
-Return the MERGED projects and skills arrays. YOUR OUTPUT MUST HAVE AT LEAST AS MANY ITEMS AS THE INPUT.`,
+Return the MERGED projects and skills arrays. YOUR OUTPUT MUST HAVE AT LEAST AS MANY ITEMS AS THE INPUT.
+ALL text content must be in English.`,
           },
           {
             role: 'user',
@@ -205,6 +304,13 @@ Process ALL ${batch.length} repositories in this batch.`,
       // Update merged data for next iteration
       mergedProjects = batchResult.projects;
       mergedSkills = batchResult.skills;
+
+      updateProgress({
+        step: 'Parsing repositories',
+        reposProcessed: Math.min(i + batch.length, sortedRepos.length),
+        reposTotal: sortedRepos.length,
+        batchRepos: batch.map((repo: { name?: string; full_name?: string }) => repo.name || repo.full_name || 'Repository'),
+      });
     }
 
     // Final debug logging
@@ -218,10 +324,10 @@ Process ALL ${batch.length} repositories in this batch.`,
     console.log('Skills added:', mergedSkills.length - currentSkills.length);
     
     if (currentProjects.length > 0) {
-      console.log('Sample current projects:', currentProjects.slice(0, 2).map((p: any) => p.project_name));
+      console.log('Sample current projects:', currentProjects.slice(0, 2).map((p: { project_name?: string }) => p.project_name));
     }
     if (mergedProjects.length > 0) {
-      console.log('Sample merged projects:', mergedProjects.slice(0, 2).map((p: any) => p.project_name));
+      console.log('Sample merged projects:', mergedProjects.slice(0, 2).map((p: { project_name?: string }) => p.project_name));
     }
     
     // Final validation check
@@ -234,6 +340,12 @@ Process ALL ${batch.length} repositories in this batch.`,
     console.log('==========================================');
 
     // Update the draft with merged projects and skills
+    updateProgress({
+      step: 'Saving imported data',
+      reposProcessed: sortedRepos.length,
+      reposTotal: sortedRepos.length,
+      batchRepos: [],
+    });
     const { error: updateError } = await supabase
       .from('student_profile_draft')
       .update({
@@ -246,7 +358,7 @@ Process ALL ${batch.length} repositories in this batch.`,
     if (updateError) {
       console.error('Failed to update draft with GitHub data:', updateError);
       return NextResponse.json(
-        { success: false, error: 'Failed to save imported data' },
+        { error: 'Failed to save imported data' },
         { status: 500 }
       );
     }
@@ -254,7 +366,18 @@ Process ALL ${batch.length} repositories in this batch.`,
     // Update last_synced_at timestamp
     await updateLastSynced(user.id, 'github');
 
+    // Log the API call for rate limiting
+    await logApiCall(user.id, 'github-import')
+
     console.log(`GitHub import successful: Total added ${mergedProjects.length - currentProjects.length} projects, ${mergedSkills.length - currentSkills.length} skills`);
+
+    updateProgress({
+      step: 'Import complete',
+      reposProcessed: sortedRepos.length,
+      reposTotal: sortedRepos.length,
+      batchRepos: [],
+      complete: true,
+    });
 
     return NextResponse.json({
       success: true,
@@ -263,10 +386,10 @@ Process ALL ${batch.length} repositories in this batch.`,
       repos_imported: sortedRepos.length,
       batches_processed: totalBatches,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GitHub import error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to import GitHub data' },
+      { error: 'Failed to import GitHub data' },
       { status: 500 }
     );
   }

@@ -7,12 +7,14 @@
 'use client';
 
 import React from 'react';
-import { FileText } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 
 interface JobTypesSectionProps {
   values: Record<string, boolean>;
   onChange: (key: string, value: boolean) => void;
+  hasError?: boolean;
+  tourId?: string;
 }
 
 const JOB_TYPE_OPTIONS = [
@@ -28,12 +30,15 @@ const JOB_TYPE_OPTIONS = [
 export default function JobTypesSection({
   values,
   onChange,
+  hasError = false,
+  tourId,
 }: JobTypesSectionProps) {
   return (
-    <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+    <div className="space-y-3" id={tourId}>
+      <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <FileText className="w-4 h-4" />
         Contract Type
+        {hasError && <AlertCircle className="w-4 h-4 text-warning" />}
       </h4>
 
       <CheckboxGroup
@@ -42,6 +47,7 @@ export default function JobTypesSection({
         values={values}
         onChange={onChange}
         columns={2}
+        hasError={hasError}
       />
     </div>
   );

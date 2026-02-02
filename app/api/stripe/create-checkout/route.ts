@@ -32,11 +32,16 @@ let stripeInstance: Stripe | null = null;
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+  if (stripeInstance) {
+    return stripeInstance;
+  }
 
-  // One instance is enough; no need to recreate every time.
-  return new Stripe(key);
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+
+  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return stripeInstance;
 }
 
 // -----------------------------
@@ -45,12 +50,16 @@ function getStripe(): Stripe {
 // User can only buy what you list here.
 // Client sends "plan", server decides everything else.
 const PLAN_TO_PRICE_ID: Record<string, string> = {
-  credits_1000: process.env.STRIPE_PRICE_CREDITS_1000 || '',
+  credits_250: process.env.STRIPE_PRICE_CREDITS_250 || '',
+  credits_750: process.env.STRIPE_PRICE_CREDITS_750 || '',
+  credits_1500: process.env.STRIPE_PRICE_CREDITS_1500 || '',
 };
 
 // Plan to credits amount mapping
 const PLAN_TO_CREDITS: Record<string, number> = {
-  credits_1000: 1000,
+  credits_250: 250,
+  credits_750: 750,
+  credits_1500: 1500,
 };
 
 // -----------------------------
@@ -91,15 +100,19 @@ export async function POST(request: NextRequest) {
       plan, 
       hasPriceId: !!priceId, 
       creditsAmount,
-      hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
+      hasEnvVar: !!process.env[`STRIPE_PRICE_CREDITS_${creditsAmount}`]
     });
     
+    console.log('[Stripe Checkout] priceId =', priceId);
+
     if (!priceId || !creditsAmount) {
       console.error('[Stripe Checkout] Invalid plan configuration:', { 
         plan, 
         hasPriceId: !!priceId, 
         hasCreditsAmount: !!creditsAmount,
-        hasEnvVar: !!process.env.STRIPE_PRICE_CREDITS_1000
+        hasEnvVar100: !!process.env.STRIPE_PRICE_CREDITS_100,
+        hasEnvVar300: !!process.env.STRIPE_PRICE_CREDITS_300,
+        hasEnvVar500: !!process.env.STRIPE_PRICE_CREDITS_500,
       });
       return NextResponse.json(
         { error: 'Invalid plan configuration - check environment variables' },
@@ -107,11 +120,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
     // 4) (Optional extra check) Verify the price exists in Stripe
     // This is not strictly required, but it helps catch env misconfig.
     try {
       await getStripe().prices.retrieve(priceId);
-    } catch (err: any) {
+    } catch {
       console.error('[Stripe Checkout] Price verification failed');
       return NextResponse.json(
         { error: 'Invalid payment configuration' },
@@ -119,6 +133,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    
     /**
      * 5) Create a database record FIRST (idempotency)
      *
@@ -137,7 +152,7 @@ export async function POST(request: NextRequest) {
       const priceObject = await getStripe().prices.retrieve(priceId);
       priceCents = priceObject.unit_amount || 0;
       currency = priceObject.currency || 'usd';
-    } catch (err: any) {
+    } catch {
       console.error('[Stripe Checkout] Failed to fetch price details');
       // Continue with defaults - webhook will update with actual values
     }
@@ -181,8 +196,8 @@ export async function POST(request: NextRequest) {
         locale: "en",
         line_items: [{ price: priceId, quantity: 1 }],
 
-        success_url: `${APP_ORIGIN}/dashboard/student?success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${APP_ORIGIN}/dashboard/student?canceled=true`,
+        success_url: `${APP_ORIGIN}/dashboard?tab=auto-apply&success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${APP_ORIGIN}/dashboard?tab=auto-apply&canceled=true`,
 
         metadata: {
           purchase_id: String(purchaseId),
@@ -216,7 +231,7 @@ export async function POST(request: NextRequest) {
 
     // 8) Return checkout URL to client
     return NextResponse.json({ sessionId: session.id, url: session.url });
-  } catch (err: any) {
+  } catch {
     console.error('[Stripe Checkout] Checkout error occurred');
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }

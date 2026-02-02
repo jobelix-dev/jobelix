@@ -9,7 +9,7 @@
  * - Download functionality
  */
 
-import { useEffect, useState, useCallback, Dispatch, SetStateAction } from 'react';
+import { useEffect, useState, useCallback, Dispatch, SetStateAction, useRef } from 'react';
 import { api } from '@/lib/client/api';
 import type { ExtractedResumeData } from '@/lib/shared/types';
 
@@ -24,6 +24,14 @@ interface UseResumeUploadProps {
   setIsDataLoaded: (loaded: boolean) => void;
 }
 
+interface ExtractionProgress {
+  stepIndex: number;
+  step: string;
+  progress: number;
+  complete?: boolean;
+  updatedAt: string;
+}
+
 export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }: UseResumeUploadProps) {
   // State
   const [file, setFile] = useState<File | null>(null);
@@ -32,6 +40,8 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
   const [extracting, setExtracting] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
+  const progressSourceRef = useRef<EventSource | null>(null);
 
   // Load existing resume metadata on mount
   useEffect(() => {
@@ -45,13 +55,76 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
             uploaded_at: response.data.created_at,
           });
         }
-      } catch (error) {
+      } catch (_error) {
         // No resume found, that's okay
         console.log('No resume found');
       }
     }
     loadResumeInfo();
   }, []);
+
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (progressSourceRef.current) {
+        progressSourceRef.current.close();
+        progressSourceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Extract data from uploaded resume using AI
+  const extractResumeData = useCallback(async () => {
+    setExtracting(true);
+    setUploadError('');
+    setExtractionProgress(null);
+
+    if (progressSourceRef.current) {
+      progressSourceRef.current.close();
+      progressSourceRef.current = null;
+    }
+
+    const progressSource = new EventSource('/api/student/profile/draft/extract/progress');
+    progressSourceRef.current = progressSource;
+
+    progressSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as ExtractionProgress;
+        setExtractionProgress(data);
+        if (data.complete) {
+          progressSource.close();
+          progressSourceRef.current = null;
+        }
+      } catch (error) {
+        console.warn('Failed to parse extraction progress event', error);
+      }
+    };
+
+    progressSource.onerror = () => {
+      progressSource.close();
+      progressSourceRef.current = null;
+    };
+
+    try {
+      const response = await api.extractResumeData();
+      
+      // Replace profile data with freshly extracted data (no merging)
+      setProfileData({
+        ...response.extracted,
+      });
+      
+      setDraftId(response.draftId);
+      setIsDataLoaded(true);
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to extract resume data');
+    } finally {
+      setExtracting(false);
+      if (progressSourceRef.current) {
+        progressSourceRef.current.close();
+        progressSourceRef.current = null;
+      }
+    }
+  }, [setProfileData, setDraftId, setIsDataLoaded]);
 
   // Upload file to storage
   const uploadFile = useCallback(async (fileToUpload: File) => {
@@ -71,36 +144,17 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
       // Clear success message after 1.5 seconds
       setTimeout(() => setUploadSuccess(false), 1500);
 
+      // Upload is complete; allow extraction to control the UI state.
+      setUploading(false);
+
       // Auto-trigger extraction after successful upload
       await extractResumeData();
-    } catch (err: any) {
-      setUploadError(err.message || 'Upload failed. Please try again.');
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
-  }, []);
-
-  // Extract data from uploaded resume using AI
-  const extractResumeData = useCallback(async () => {
-    setExtracting(true);
-    setUploadError('');
-
-    try {
-      const response = await api.extractResumeData();
-      
-      // Replace profile data with freshly extracted data (no merging)
-      setProfileData({
-        ...response.extracted,
-      });
-      
-      setDraftId(response.draftId);
-      setIsDataLoaded(true);
-    } catch (err: any) {
-      setUploadError(err.message || 'Failed to extract resume data');
-    } finally {
-      setExtracting(false);
-    }
-  }, [setProfileData, setDraftId, setIsDataLoaded]);
+  }, [extractResumeData]);
 
   // Handle file selection and validation
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,8 +203,8 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setUploadError(err.message || 'Failed to download resume');
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to download resume');
     }
   }, [resumeInfo?.filename]);
 
@@ -162,6 +216,7 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
     extracting,
     uploadSuccess,
     uploadError,
+    extractionProgress,
     
     // Actions
     handleFileChange,

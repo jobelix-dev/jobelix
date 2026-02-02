@@ -7,15 +7,31 @@
 
 import "server-only";
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
 
     const { user, supabase } = auth
+
+    // Rate limiting: 10 attempts per hour (generous since it's once per day anyway)
+    const rateLimitResult = await checkRateLimit(user.id, {
+      endpoint: 'credits-claim',
+      hourlyLimit: 10,
+      dailyLimit: 50,
+    })
+
+    if (rateLimitResult.error) return rateLimitResult.error
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(
+        { endpoint: 'credits-claim', hourlyLimit: 10, dailyLimit: 50 },
+        rateLimitResult.data
+      )
+    }
 
     // Call grant_daily_credits function
     const { data, error } = await supabase.rpc('grant_daily_credits', {
@@ -28,10 +44,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (!data || data.length === 0) {
-      return NextResponse.json({ error: 'No data returned' }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     const result = data[0]
+
+    // Log the API call for rate limiting (even if already claimed)
+    await logApiCall(user.id, 'credits-claim')
 
     if (!result.success) {
       // User already claimed today
@@ -51,8 +70,8 @@ export async function POST(req: NextRequest) {
       credits_granted: result.credits_granted,
       balance: result.new_balance,
     })
-  } catch (err: any) {
-    console.error('Claim credits error:', err)
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })
+  } catch {
+    console.error('Claim credits error');
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

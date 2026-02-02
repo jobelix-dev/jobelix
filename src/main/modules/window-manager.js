@@ -1,80 +1,41 @@
 /**
- * Window Manager
- * Handles creation and management of all Electron windows
+ * Window Manager - Handles Electron window creation and lifecycle
  */
 
 import { BrowserWindow, app } from 'electron';
 import path from 'path';
-import { URLS, FILES, WINDOW_CONFIG, TIMING, DIRECTORIES } from '../config/constants.js';
+import { URLS, FILES, WINDOW_CONFIG, DIRECTORIES } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
-/**
- * Wait for Next.js development server to be ready
- * Polls the server until it responds or max attempts reached
- * @param {string} url - URL to check
- * @param {number} maxAttempts - Maximum number of retry attempts
- * @param {number} delayMs - Delay between attempts in milliseconds
- * @returns {Promise<boolean>} True if server is ready, false otherwise
- */
-async function waitForNextJs(
-  url, 
-  maxAttempts = TIMING.NEXT_JS_WAIT.MAX_ATTEMPTS, 
-  delayMs = TIMING.NEXT_JS_WAIT.DELAY_MS
-) {
-  logger.info(`Waiting for Next.js server at ${url}...`);
-  
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        logger.success(`Next.js is ready after ${i * delayMs}ms`);
-        return true;
-      }
-    } catch (err) {
-      logger.debug(`Waiting for Next.js... (attempt ${i + 1}/${maxAttempts})`);
-    }
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-  }
-  
-  logger.error('Next.js failed to start in time');
-  return false;
+let mainWindowRef = null;
+let onMainWindowReadyCallback = null;
+
+/** Get the main window reference */
+export function getMainWindow() {
+  return mainWindowRef;
 }
 
-/**
- * Create a splash/loader window
- * Displays while the main application loads
- * @returns {BrowserWindow} The splash window instance
- */
-export function createSplashWindow() {
-  logger.info('Creating splash window...');
-  
-  const splash = new BrowserWindow(WINDOW_CONFIG.SPLASH);
-  
-  // Use app.getAppPath() for packaged app, process.cwd() for dev
-  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
-  const loaderPath = path.join(basePath, FILES.LOADER);
-  splash.loadFile(loaderPath);
-  
-  logger.success('Splash window created');
-  return splash;
+/** Register callback for when main window content loads (used for deferred operations) */
+export function onMainWindowReady(callback) {
+  onMainWindowReadyCallback = callback;
 }
 
 /**
  * Create the main application window
- * @returns {Promise<BrowserWindow>} The main window instance
+ * 
+ * Production: Loads local loading.html instantly, then navigates to remote URL
+ * Development: Loads localhost:3000 directly (index.js waits for Next.js first)
  */
 export async function createMainWindow() {
+  const startTime = Date.now();
   logger.info('Creating main window...');
   
-  // Create splash screen
-  const splash = createSplashWindow();
-
-  // Create main window (hidden initially)
-  // Use app.getAppPath() for packaged app, process.cwd() for dev
   const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
   
   const mainWindow = new BrowserWindow({
     ...WINDOW_CONFIG.MAIN,
+    show: false,
+    backgroundColor: '#667eea',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -83,85 +44,78 @@ export async function createMainWindow() {
     icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
   });
 
-  // Determine URL based on environment
-  const startUrl = app.isPackaged 
-    ? URLS.PRODUCTION
-    : URLS.DEVELOPMENT;
+  mainWindowRef = mainWindow;
+  mainWindow.on('closed', () => { mainWindowRef = null; });
+  
+  // Maximize immediately - this persists through page navigations
+  mainWindow.maximize();
 
-  // Wait for Next.js in development mode
-  if (!app.isPackaged) {
-    logger.info('Development mode: Waiting for Next.js server...');
-    const isReady = await waitForNextJs(startUrl);
-    
-    if (!isReady) {
-      logger.error('Next.js server did not start in time. Starting app anyway...');
-    }
-  }
-
-  // Show main window and destroy splash when ready
-  // IMPORTANT: Set up event handler BEFORE loading URL
+  // Show window once first paint is ready
   mainWindow.once('ready-to-show', () => {
-    logger.success('Main window ready to show');
-    splash.destroy();
-    mainWindow.maximize(); // Start maximized
+    logger.debug(`⏱️ Window ready-to-show at ${Date.now() - startTime}ms`);
     mainWindow.show();
+    logger.success('Main window visible');
   });
 
-  logger.info(`Loading URL: ${startUrl}`);
-  mainWindow.loadURL(startUrl); // Don't await - let it load asynchronously
+  if (app.isPackaged) {
+    await loadProductionContent(mainWindow, basePath, startTime);
+  } else {
+    loadDevelopmentContent(mainWindow, startTime);
+  }
 
-  logger.success('Main window created');
+  logger.debug(`⏱️ Window setup complete in ${Date.now() - startTime}ms`);
   return mainWindow;
 }
 
-/**
- * Create update required window
- * Displayed when app version is incompatible with server requirements
- * @param {Object} details - Version check details
- * @param {string} details.currentAppVersion - Current app version
- * @param {string} details.requiredAppVersion - Required app version
- * @param {string} details.currentEngineVersion - Current engine version
- * @param {string} details.requiredEngineVersion - Required engine version
- * @param {string} details.downloadUrl - URL to download update
- * @returns {BrowserWindow} The update window instance
- */
-export function createUpdateWindow(details) {
-  logger.info('Creating update required window');
+/** Production: Load local loading screen, then navigate to remote URL */
+async function loadProductionContent(window, basePath, startTime) {
+  const loadingPath = path.join(basePath, DIRECTORIES.BUILD, FILES.LOADING_HTML);
   
-  // Use app.getAppPath() for packaged app, process.cwd() for dev
-  const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
+  // Load local loading screen for instant feedback
+  await window.loadFile(loadingPath);
+  logger.debug(`⏱️ Loading screen shown in ${Date.now() - startTime}ms`);
   
-  const updateWindow = new BrowserWindow({
-    ...WINDOW_CONFIG.UPDATE,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(basePath, FILES.PRELOAD),
-    },
-    icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
+  // Setup handler for when remote content loads
+  window.webContents.once('did-finish-load', () => {
+    const url = window.webContents.getURL();
+    if (url.startsWith('https://')) {
+      logger.success(`Remote content loaded in ${Date.now() - startTime}ms`);
+      triggerReadyCallback();
+    }
   });
-
-  // Build URL parameters
-  const params = new URLSearchParams({
-    currentApp: details.currentAppVersion,
-    requiredApp: details.requiredAppVersion,
-    currentEngine: details.currentEngineVersion,
-    requiredEngine: details.requiredEngineVersion,
-    downloadUrl: details.downloadUrl,
-    useAutoUpdater: app.isPackaged ? 'true' : 'false'
+  
+  window.webContents.once('did-fail-load', (_, code, desc, url) => {
+    if (url?.startsWith('https://')) {
+      logger.error(`Failed to load remote URL: ${desc} (code: ${code})`);
+    }
   });
-
-  const updatePagePath = path.join(basePath, FILES.UPDATE_REQUIRED);
-  updateWindow.loadFile(updatePagePath, { query: Object.fromEntries(params) });
-
-  logger.success('Update window created');
-  return updateWindow;
+  
+  // Navigate to remote URL (loading screen stays visible until this loads)
+  logger.info(`Navigating to: ${URLS.PRODUCTION}`);
+  window.loadURL(URLS.PRODUCTION);
 }
 
-/**
- * Get the appropriate URL for the current environment
- * @returns {string} URL to load
- */
-export function getStartUrl() {
-  return app.isPackaged ? URLS.PRODUCTION : URLS.DEVELOPMENT;
+/** Development: Load localhost directly */
+function loadDevelopmentContent(window, startTime) {
+  window.webContents.once('did-finish-load', () => {
+    logger.success(`Dev content loaded in ${Date.now() - startTime}ms`);
+    triggerReadyCallback();
+  });
+
+  window.webContents.on('did-fail-load', (_, code, desc) => {
+    logger.error(`Failed to load: ${desc} (code: ${code})`);
+    if (!window.isVisible()) window.show();
+  });
+  
+  logger.info(`Loading: ${URLS.DEVELOPMENT}`);
+  window.loadURL(URLS.DEVELOPMENT);
+}
+
+/** Trigger the ready callback (for deferred operations like update check) */
+function triggerReadyCallback() {
+  if (onMainWindowReadyCallback) {
+    logger.debug('Triggering onMainWindowReady callback');
+    onMainWindowReadyCallback();
+    onMainWindowReadyCallback = null;
+  }
 }

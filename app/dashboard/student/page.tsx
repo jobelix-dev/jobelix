@@ -1,25 +1,45 @@
 /**
- * Student Dashboard Component
+ * Talent Dashboard Component
  * 
- * Main interface for students to manage their profile.
+ * Main interface for talents to manage their profile.
  * Features: Manual profile editing, PDF upload with AI extraction.
  * ProfileEditor always visible - allows manual entry or displays AI-extracted data.
+ * Note: Component/folder uses "student" for DB compatibility, UI shows "talent"
  */
 
 'use client';
-import { useState } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
 import { MatchesTab } from './features/matches';
 import { JobPreferencesTab } from './features/job-preferences';
 import { AutoApplyTab } from './features/auto-apply';
-import { useProfileData, useResumeUpload } from './hooks';
+import { useProfileData, useResumeUpload, useGitHubImportDashboard } from './hooks';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
+import { restoreFocusAfterDialog } from '@/lib/client/focusRestore';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
-export default function StudentDashboard() {
-  // Active tab state
-  const [activeTab, setActiveTab] = useState<DashboardTab>('profile');
+const VALID_TABS = ['profile', 'matches', 'job-preferences', 'auto-apply'] as const;
+
+// Inner component that uses useSearchParams
+function StudentDashboardContent() {
+  const searchParams = useSearchParams();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  
+  // Derive initial tab from URL param (computed once on mount via useMemo)
+  const initialTab = useMemo(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && VALID_TABS.includes(tabParam as DashboardTab)) {
+      return tabParam as DashboardTab;
+    }
+    return 'profile';
+  }, [searchParams]);
+  
+  // Active tab state - initialize from URL param if present
+  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
+  const [jobPreferencesUnsaved, setJobPreferencesUnsaved] = useState(false);
   
   // Profile data management (custom hook)
   const profileState = useProfileData();
@@ -31,21 +51,59 @@ export default function StudentDashboard() {
     setIsDataLoaded: profileState.setIsDataLoaded,
   });
 
-  return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Dashboard Navigation */}
-        <DashboardNav activeTab={activeTab} onTabChange={setActiveTab} />
+  // GitHub import management (custom hook)
+  const gitHubState = useGitHubImportDashboard();
 
-        {/* Tab Content */}
-        <div className="space-y-8">
-          {activeTab === 'profile' && (
+  useEffect(() => {
+    if (!jobPreferencesUnsaved) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handleWindowFocus = () => {
+      restoreFocusAfterDialog();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('focus', handleWindowFocus);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [jobPreferencesUnsaved]);
+
+  const handleTabChange = async (nextTab: DashboardTab) => {
+    if (activeTab === 'job-preferences' && nextTab !== 'job-preferences' && jobPreferencesUnsaved) {
+      const shouldLeave = await confirm('You have unsaved job preferences. Leave without saving?', {
+        title: 'Unsaved Changes',
+        confirmText: 'Leave',
+        cancelText: 'Stay',
+        variant: 'danger'
+      });
+      if (!shouldLeave) {
+        return;
+      }
+      // User confirmed leaving, reset the unsaved flag
+      setJobPreferencesUnsaved(false);
+    }
+
+    setActiveTab(nextTab);
+  };
+
+  return (
+    <div>
+      {/* Dashboard Navigation */}
+      <DashboardNav activeTab={activeTab} onTabChange={handleTabChange} />
+
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {activeTab === 'profile' && (
             <ProfileTab
               profileData={profileState.profileData}
               setProfileData={profileState.setProfileData}
               validation={profileState.validation}
-              showValidationErrors={profileState.showValidationErrors}
-              showValidationMessage={profileState.showValidationMessage}
               draftId={profileState.draftId}
               draftStatus={profileState.draftStatus}
               resumeInfo={resumeState.resumeInfo}
@@ -53,21 +111,40 @@ export default function StudentDashboard() {
               extracting={resumeState.extracting}
               uploadSuccess={resumeState.uploadSuccess}
               uploadError={resumeState.uploadError}
+              extractionProgress={resumeState.extractionProgress}
               finalizing={profileState.finalizing}
               saveSuccess={profileState.saveSuccess}
               handleFileChange={resumeState.handleFileChange}
               handleDownload={resumeState.handleDownload}
               handleFinalize={profileState.handleFinalize}
+              importingGitHub={gitHubState.importing}
+              githubImportProgress={gitHubState.progress}
+              onGitHubImport={gitHubState.importGitHubData}
             />
           )}
 
           {activeTab === 'matches' && <MatchesTab />}
 
-          {activeTab === 'job-preferences' && <JobPreferencesTab />}
+          {activeTab === 'job-preferences' && (
+            <JobPreferencesTab onUnsavedChanges={setJobPreferencesUnsaved} />
+          )}
 
           {activeTab === 'auto-apply' && <AutoApplyTab />}
         </div>
-      </div>
+      {ConfirmDialogComponent}
     </div>
+  );
+}
+
+// Wrapper component with Suspense boundary for useSearchParams
+export default function StudentDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted">Loading dashboard...</p>
+      </div>
+    }>
+      <StudentDashboardContent />
+    </Suspense>
   );
 }

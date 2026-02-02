@@ -23,7 +23,7 @@ export interface GitHubOAuthConnection {
   expires_at: string | null;
   connected_at: string;
   last_synced_at: string | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
 }
 
 // =============================================================================
@@ -79,6 +79,9 @@ export function getGitHubAuthUrl(state: string, forceAccountSelection: boolean =
 
 /**
  * Exchange GitHub OAuth code for access token
+ * @param code - The authorization code from GitHub
+ * @returns Token data with access_token, token_type, scope, or null on failure
+ * @throws Error if returned scopes don't match required scopes
  */
 export async function exchangeGitHubCode(code: string): Promise<{
   access_token: string;
@@ -114,6 +117,29 @@ export async function exchangeGitHubCode(code: string): Promise<{
       return null;
     }
 
+    // SECURITY: Validate that we received the required scopes
+    // GitHub returns scopes as space-separated string
+    const returnedScopes = (data.scope || '').split(/[,\s]+/).filter(Boolean);
+    const requiredScopes = config.scopes;
+    
+    // Check if all required scopes are present
+    const missingScopes = requiredScopes.filter(
+      required => !returnedScopes.some(
+        (returned: string) => returned === required || returned.startsWith(`${required}:`)
+      )
+    );
+
+    if (missingScopes.length > 0) {
+      console.error(
+        'GitHub OAuth scope mismatch. Required:', requiredScopes,
+        'Returned:', returnedScopes,
+        'Missing:', missingScopes
+      );
+      // Don't throw - return null to handle gracefully
+      // The user may have revoked some scopes during authorization
+      return null;
+    }
+
     return {
       access_token: data.access_token,
       token_type: data.token_type || 'bearer',
@@ -137,7 +163,7 @@ export async function saveGitHubConnection(
   accessToken: string,
   tokenType: string,
   scope: string,
-  metadata?: any
+  metadata?: Record<string, unknown>
 ): Promise<GitHubOAuthConnection | null> {
   const supabase = getServiceSupabase();
 

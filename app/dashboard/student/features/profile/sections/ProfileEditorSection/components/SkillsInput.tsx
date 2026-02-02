@@ -12,9 +12,18 @@ interface SkillsInputProps {
   onChange: (skills: SkillEntry[]) => void;
   fieldErrors?: Record<number, { skill_name?: string; skill_slug?: string }>;
   disabled?: boolean;
+  inputId?: string;
+  addButtonId?: string;
 }
 
-export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabled = false }: SkillsInputProps) {
+export default function SkillsInput({
+  skills,
+  onChange,
+  fieldErrors = {},
+  disabled = false,
+  inputId = 'profile-skills-input',
+  addButtonId = 'profile-skills-add'
+}: SkillsInputProps) {
   const [input, setInput] = useState('');
 
   const addSkill = () => {
@@ -47,7 +56,7 @@ export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabl
     <div className="space-y-3">
       {/* Error messages */}
       {hasErrors && (
-        <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+        <div className="flex items-center gap-1 text-xs text-warning">
           <AlertCircle className="w-3 h-3" />
           <span>Some skills have validation errors</span>
         </div>
@@ -64,15 +73,15 @@ export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabl
                 key={index}
                 className={`group flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all ${
                   errorMessage
-                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/50'
-                    : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                    ? 'bg-warning/30 text-warning ring-1 ring-warning/50'
+                    : 'bg-primary-subtle/30 text-primary-hover'
                 }`}
               >
                 <span className="font-medium">{skill.skill_name}</span>
                 <button
                   onClick={() => removeSkill(index)}
                   disabled={disabled}
-                  className="p-0.5 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="p-0.5 hover:bg-primary-subtle rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   title={`Remove ${skill.skill_name}`}
                   type="button"
                 >
@@ -87,6 +96,7 @@ export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabl
       {/* Input field with Add button - at the bottom */}
       <div className="flex gap-2">
         <input
+          id={inputId}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -95,14 +105,15 @@ export default function SkillsInput({ skills, onChange, fieldErrors = {}, disabl
           disabled={disabled}
           className={`flex-1 px-3 py-2 text-sm rounded border ${
             hasErrors
-              ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50'
-              : 'border-purple-200 dark:border-purple-800'
-          } bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed`}
+              ? 'border-warning ring-1 ring-warning/50/50'
+              : 'border-border'
+          } bg-white border focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
         />
         <button
+          id={addButtonId}
           onClick={addSkill}
           disabled={disabled || !input.trim()}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
           type="button"
         >
           <Plus className="w-4 h-4" />

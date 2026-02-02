@@ -6,7 +6,8 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 interface ArrayInputFieldProps {
   label: string;
@@ -15,16 +16,30 @@ interface ArrayInputFieldProps {
   onChange: (value: string[]) => void;
   icon?: React.ReactNode;
   tagColorClass?: string;
+  hasError?: boolean;
+  inputId?: string;
+  addButtonId?: string;
 }
 
-export default function ArrayInputField({
-  label,
-  placeholder,
-  value,
-  onChange,
-  icon,
-  tagColorClass = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
-}: ArrayInputFieldProps) {
+export interface ArrayInputFieldRef {
+  flushPendingInput: () => void;
+  getPendingInput: () => string;
+}
+
+const ArrayInputField = forwardRef<ArrayInputFieldRef, ArrayInputFieldProps>((
+  {
+    label,
+    placeholder,
+    value,
+    onChange,
+    icon,
+    tagColorClass = 'bg-primary-subtle/30 text-primary-hover',
+    hasError = false,
+    inputId,
+    addButtonId,
+  },
+  ref
+) => {
   const [input, setInput] = useState('');
 
   const handleAdd = () => {
@@ -32,6 +47,16 @@ export default function ArrayInputField({
     onChange([...value, input.trim()]);
     setInput('');
   };
+
+  // Expose flush and get methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    flushPendingInput: () => {
+      handleAdd();
+    },
+    getPendingInput: () => {
+      return input;
+    },
+  }));
 
   const handleRemove = (index: number) => {
     onChange(value.filter((_, i) => i !== index));
@@ -46,22 +71,29 @@ export default function ArrayInputField({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {icon && <span className="inline-flex items-center mr-1">{icon}</span>}
+      <label className="text-sm font-semibold text-primary-hover flex items-center gap-2">
+        {icon}
         {label}
+        {hasError && <AlertCircle className="w-4 h-4 text-warning" />}
       </label>
       <div className="flex gap-2">
         <input
+          id={inputId}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="flex-1 px-3 py-2 text-sm border border-purple-200 dark:border-purple-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-colors"
+          className={`flex-1 px-3 py-2 text-sm bg-white border rounded-lg text-default focus:ring-2 focus:outline-none transition-colors ${
+            hasError
+              ? 'border-warning focus:border-warning focus:ring-warning/30'
+              : 'border-border focus:border-primary focus:ring-primary/30'
+          }`}
         />
         <button
+          id={addButtonId}
           onClick={handleAdd}
-          className="px-4 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
           type="button"
         >
           Add
@@ -86,4 +118,8 @@ export default function ArrayInputField({
       </div>
     </div>
   );
-}
+});
+
+ArrayInputField.displayName = 'ArrayInputField';
+
+export default ArrayInputField;

@@ -1,184 +1,194 @@
 /**
- * Update Manager
- * Handles automatic updates using electron-updater and update UI
+ * Update Manager - Handles automatic updates via electron-updater
+ * 
+ * IPC Events sent to renderer:
+ * - 'update-available' → New version found
+ * - 'update-download-progress' → Download progress (Win/Mac)
+ * - 'update-downloaded' → Ready to install
+ * - 'update-error' → Update failed
  */
 
 import { app, shell, dialog } from 'electron';
-import pkg from 'electron-updater';
-const { autoUpdater } = pkg;
-import { createUpdateWindow } from './window-manager.js';
-import { IPC_CHANNELS, TIMING } from '../config/constants.js';
+import fs from 'fs';
 import logger from '../utils/logger.js';
+import { getMainWindow } from './window-manager.js';
 
-let isUpdateDownloaded = false;
-let updateWindow = null;
+// Dynamically imported to avoid 1.4MB load at startup
+let autoUpdater = null;
 
-/**
- * Configure electron-updater settings
- */
-export function setupAutoUpdater() {
-  // Configure auto-updater
-  autoUpdater.autoDownload = false; // Don't auto-download, ask user first
-  autoUpdater.autoInstallOnAppQuit = true; // Auto-install when app quits
-  
-  // Set logger
-  autoUpdater.logger = logger.getLogger();
-  
-  logger.info('Auto-updater configured');
-  
-  // Check for updates (will use GitHub releases based on package.json config)
-  if (app.isPackaged) {
-    logger.info('Checking for updates from GitHub releases...');
-    autoUpdater.checkForUpdates();
+const GITHUB_OWNER = 'jobelix-dev';
+const GITHUB_REPO = 'jobelix-releases';
+const ARCH_DISTROS = ['arch', 'manjaro', 'endeavouros', 'garuda', 'arco', 'artix', 'cachyos'];
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+function sendToRenderer(channel, data) {
+  const win = getMainWindow();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send(channel, data);
   }
 }
 
-/**
- * Setup auto-updater event listeners for seamless background updates
- */
-export function setupAutoUpdaterListeners() {
+function isLinux() {
+  return process.platform === 'linux';
+}
+
+/** Detect Linux distro from /etc/os-release */
+function getLinuxDistro() {
+  try {
+    if (!fs.existsSync('/etc/os-release')) {
+      return { distro: 'ubuntu-22.04', label: 'Linux' };
+    }
+
+    const content = fs.readFileSync('/etc/os-release', 'utf-8');
+    const id = content.match(/^ID=(.*)$/m)?.[1]?.replace(/"/g, '') || '';
+    const idLike = content.match(/^ID_LIKE=(.*)$/m)?.[1]?.replace(/"/g, '') || '';
+    const prettyName = content.match(/^PRETTY_NAME=(.*)$/m)?.[1]?.replace(/"/g, '') || '';
+
+    const isArch = ARCH_DISTROS.includes(id) || ARCH_DISTROS.some(d => idLike.includes(d));
+    
+    if (isArch) {
+      logger.info(`Detected Arch-based distro: ${prettyName || id}`);
+      return { distro: 'arch', label: prettyName || 'Arch Linux' };
+    }
+
+    logger.info(`Detected distro: ${prettyName || id} (using Ubuntu build)`);
+    return { distro: 'ubuntu-22.04', label: prettyName || 'Ubuntu' };
+  } catch (error) {
+    logger.error('Failed to detect Linux distro:', error.message);
+    return { distro: 'ubuntu-22.04', label: 'Linux' };
+  }
+}
+
+function getDownloadUrl(version, distro) {
+  return `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/v${version}/Jobelix-${version}-${distro}.AppImage`;
+}
+
+async function showInstallDialog(version) {
+  const result = await dialog.showMessageBox(getMainWindow(), {
+    type: 'info',
+    title: 'Update Ready',
+    message: `Jobelix v${version} has been downloaded.`,
+    detail: 'Would you like to install it now? The app will restart.',
+    buttons: ['Install Now', 'Install Later'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+
+  if (result.response === 0) {
+    logger.info('User chose to install update now');
+    autoUpdater.quitAndInstall();
+  } else {
+    logger.info('User chose to install update later');
+  }
+}
+
+// ============================================================================
+// Event Handlers
+// ============================================================================
+
+function setupUpdateEvents() {
   autoUpdater.on('checking-for-update', () => {
-    logger.info('Checking for update...');
+    logger.info('Checking for updates...');
   });
 
   autoUpdater.on('update-available', (info) => {
-    logger.info('Update available:', info.version);
+    logger.info(`Update available: v${info.version}`);
     
-    // Auto-download the update
-    logger.info('Downloading update...');
-    autoUpdater.downloadUpdate();
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    logger.info('Update not available. Current version is', info.version);
-  });
-
-  autoUpdater.on('error', (err) => {
-    logger.error('Error in auto-updater:', err);
-  });
-
-  autoUpdater.on('download-progress', (progressObj) => {
-    const logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
-    logger.debug(logMessage);
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    logger.success('Update downloaded. Version:', info.version);
-    // Install update on next restart (or immediately if user confirms)
-    // autoUpdater.quitAndInstall(); // Uncomment to force immediate restart
-  });
-}
-
-/**
- * Show update required window with auto-updater integration
- * Blocks app launch until update is installed or user quits
- * @param {Object} details - Version check details
- * @returns {BrowserWindow} Update window instance
- */
-export function showUpdateRequiredWindow(details) {
-  logger.info('Showing update required window');
-  
-  updateWindow = createUpdateWindow(details);
-  
-  // Open external links in browser
-  updateWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  // Setup close handler with update awareness
-  updateWindow.on('close', (e) => {
-    logger.debug(`Close handler triggered. isUpdateDownloaded: ${isUpdateDownloaded}, isPackaged: ${app.isPackaged}`);
-    
-    if (isUpdateDownloaded) {
-      // Update is ready - quit and install
-      logger.info('Installing update and quitting...');
-      autoUpdater.quitAndInstall(false, true);
-    } else if (app.isPackaged) {
-      // Still downloading - confirm with user (only in packaged mode)
-      e.preventDefault();
+    if (isLinux()) {
+      const { distro, label } = getLinuxDistro();
+      const downloadUrl = getDownloadUrl(info.version, distro);
+      logger.info(`Linux: Direct download URL: ${downloadUrl}`);
       
-      dialog.showMessageBox(updateWindow, {
-        type: 'warning',
-        buttons: ['Cancel Download & Quit', 'Continue Download'],
-        defaultId: 1,
-        title: 'Update in Progress',
-        message: 'An update is being downloaded.',
-        detail: 'If you quit now, you\'ll need to download it again next time. Continue?'
-      }).then(result => {
-        if (result.response === 0) {
-          // User chose to quit
-          logger.info('User chose to quit during update');
-          isUpdateDownloaded = false;
-          app.quit();
-        } else {
-          logger.info('User chose to continue download');
-        }
-      }).catch(err => {
-        logger.error('Dialog error:', err);
-        app.quit(); // Fallback: just quit if dialog fails
+      sendToRenderer('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        manualDownload: true,
+        downloadUrl,
+        distroLabel: label,
       });
     } else {
-      // Development mode or auto-updater not active - allow closing
-      logger.info('Allowing close (dev mode or no auto-updater)');
-      app.quit();
+      sendToRenderer('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        manualDownload: false,
+      });
     }
   });
 
-  // If in packaged mode, use autoUpdater to download and install
-  if (app.isPackaged) {
-    logger.info('Starting automatic update download...');
-    
-    // Setup listeners specifically for required update
-    autoUpdater.on('update-available', (info) => {
-      logger.info('Required update available:', info.version);
-      updateWindow.webContents.send(IPC_CHANNELS.UPDATE_AVAILABLE, {
-        version: info.version,
-        releaseNotes: info.releaseNotes,
-        releaseDate: info.releaseDate
-      });
-      autoUpdater.downloadUpdate();
+  autoUpdater.on('update-not-available', (info) => {
+    logger.info(`App is up to date (v${info.version})`);
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    logger.debug(`Download progress: ${Math.round(progress.percent)}%`);
+    sendToRenderer('update-download-progress', {
+      bytesPerSecond: progress.bytesPerSecond,
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
     });
+  });
 
-    autoUpdater.on('download-progress', (progressObj) => {
-      updateWindow.webContents.send(IPC_CHANNELS.UPDATE_DOWNLOAD_PROGRESS, progressObj);
-    });
+  autoUpdater.on('update-downloaded', (info) => {
+    logger.success(`Update v${info.version} downloaded`);
+    sendToRenderer('update-downloaded', { version: info.version });
+    showInstallDialog(info.version);
+  });
 
-    autoUpdater.on('update-downloaded', (info) => {
-      logger.success('Required update downloaded. Installing...');
-      isUpdateDownloaded = true;
-      updateWindow.webContents.send(IPC_CHANNELS.UPDATE_DOWNLOADED, {
-        version: info.version
-      });
-      
-      // Wait 2 seconds then force install
-      setTimeout(() => {
-        autoUpdater.quitAndInstall(false, true);
-      }, TIMING.AUTO_INSTALL_DELAY_MS);
-    });
-
-    autoUpdater.on('error', (err) => {
-      logger.error('Auto-updater error:', err);
-      // Fallback to manual download if auto-update fails
-      updateWindow.webContents.send(IPC_CHANNELS.UPDATE_ERROR, {
-        message: 'Automatic update failed. Please download manually.',
-        error: err.message
-      });
-    });
-
-    // Start checking for updates
-    autoUpdater.checkForUpdates();
-  }
-
-  return updateWindow;
+  autoUpdater.on('error', (err) => {
+    logger.error('Auto-updater error:', err.message);
+    sendToRenderer('update-error', { message: err.message });
+  });
 }
 
-/**
- * Get update manager state
- * @returns {{isUpdateDownloaded: boolean}}
- */
-export function getUpdateState() {
-  return {
-    isUpdateDownloaded
-  };
+// ============================================================================
+// Public API
+// ============================================================================
+
+/** Initialize auto-updater (called after main window loads) */
+export async function initAutoUpdater() {
+  if (!app.isPackaged) {
+    logger.info('Skipping auto-updater in development mode');
+    return;
+  }
+
+  // Dynamic import to avoid slowing startup
+  try {
+    const pkg = await import('electron-updater');
+    autoUpdater = pkg.default.autoUpdater;
+    logger.debug('electron-updater loaded');
+  } catch (err) {
+    logger.error('Failed to load electron-updater:', err.message);
+    return;
+  }
+
+  // Configure based on platform
+  // Linux: Manual download (we have distro-specific builds)
+  // Win/Mac: Auto-download and install
+  autoUpdater.autoDownload = !isLinux();
+  autoUpdater.autoInstallOnAppQuit = !isLinux();
+  autoUpdater.allowDowngrade = false;
+  autoUpdater.logger = logger.getLogger();
+
+  if (isLinux()) {
+    const { label, distro } = getLinuxDistro();
+    logger.info(`Linux detected: ${label} (${distro}) - manual download mode`);
+  }
+
+  setupUpdateEvents();
+
+  logger.info('Checking for updates...');
+  autoUpdater.checkForUpdates().catch(err => {
+    logger.error('Failed to check for updates:', err.message);
+  });
+}
+
+/** Open URL in default browser */
+export function openExternalUrl(url) {
+  logger.info(`Opening: ${url}`);
+  shell.openExternal(url);
 }

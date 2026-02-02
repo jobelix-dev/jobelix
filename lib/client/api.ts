@@ -17,6 +17,7 @@ import {
   UploadResponse,
   ExtractDataResponse,
   ExtractedResumeData,
+  DraftProfileData,
   FinalizeProfileResponse,
 } from '../shared/types'
 
@@ -36,10 +37,47 @@ class ApiClient {
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || 'Request failed')
+      // Handle different error response formats:
+      // 1. { error: "message" } - simple error
+      // 2. { message: "Validation failed", errors: [...] } - validation errors
+      // 3. { error: "message", code: "ERROR_CODE" } - error with code
+      
+      let errorMessage = 'Request failed';
+      
+      if (data.error) {
+        // Simple error message
+        errorMessage = data.error;
+      } else if (data.errors && Array.isArray(data.errors)) {
+        // Validation errors - extract the first one for display
+        // Format: "Field: message" or just "message" if path is empty
+        const firstError = data.errors[0];
+        if (firstError) {
+          errorMessage = firstError.path 
+            ? `${this.formatFieldName(firstError.path)}: ${firstError.message}`
+            : firstError.message;
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+      } else if (data.message) {
+        // Fallback to message field
+        errorMessage = data.message;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     return data
+  }
+
+  /**
+   * Format field names for display (e.g., "password" -> "Password")
+   */
+  private formatFieldName(fieldPath: string): string {
+    // Convert "fieldName" or "field_name" to "Field Name"
+    return fieldPath
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\b\w/g, c => c.toUpperCase());
   }
 
   // ========== AUTH ==========
@@ -58,9 +96,21 @@ class ApiClient {
   }
 
   async logout(): Promise<{ success: boolean }> {
-    return this.request('/api/auth/logout', {
+    const result = await this.request<{ success: boolean }>('/api/auth/logout', {
       method: 'POST',
-    })
+    });
+
+    // Clear auth cache on logout
+    if (result.success && typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+      try {
+        await window.electronAPI.clearAuthCache();
+      } catch (error) {
+        console.warn('Failed to clear auth cache on logout:', error);
+        // Don't fail logout if cache clear fails
+      }
+    }
+
+    return result;
   }
 
   // DEPRECATED: Use Supabase client directly from the client side for proper PKCE flow
@@ -76,6 +126,23 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ password }),
     })
+  }
+
+  async deleteAccount(): Promise<{ success: boolean }> {
+    const result = await this.request<{ success: boolean }>('/api/auth/account', {
+      method: 'DELETE',
+    });
+
+    // Clear auth cache after account deletion
+    if (result.success && typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+      try {
+        await window.electronAPI.clearAuthCache();
+      } catch (error) {
+        console.warn('Failed to clear auth cache after account deletion:', error);
+      }
+    }
+
+    return result;
   }
 
   async getProfile(): Promise<ProfileResponse> {
@@ -123,12 +190,12 @@ class ApiClient {
     })
   }
 
-  async getDraft(): Promise<{ draft: any }> {
-    return this.request<{ draft: any }>('/api/student/profile/draft')
+  async getDraft(): Promise<{ draft: DraftProfileData | null }> {
+    return this.request<{ draft: DraftProfileData | null }>('/api/student/profile/draft')
   }
 
-  async updateDraft(draftId: string, updates: Partial<ExtractedResumeData>): Promise<{ success: boolean; draft: any }> {
-    return this.request<{ success: boolean; draft: any }>('/api/student/profile/draft', {
+  async updateDraft(draftId: string, updates: Partial<ExtractedResumeData>): Promise<{ success: boolean; draft: ExtractedResumeData }> {
+    return this.request<{ success: boolean; draft: ExtractedResumeData }>('/api/student/profile/draft', {
       method: 'PUT',
       body: JSON.stringify({ draftId, updates }),
     })

@@ -13,9 +13,10 @@ interface ProjectCardProps {
   onClick: () => void;
   onRemove: () => void;
   fieldErrors?: Record<string, string>;
+  onConfirmDelete?: (message: string) => Promise<boolean>;
 }
 
-export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} }: ProjectCardProps) {
+export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {}, onConfirmDelete }: ProjectCardProps) {
   const projectName = data.project_name?.trim() || 'Untitled Project';
   const hasErrors = Object.keys(fieldErrors).length > 0;
   
@@ -35,9 +36,15 @@ export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} 
     }
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    if (confirm(`Delete "${projectName}"?`)) {
+    if (onConfirmDelete) {
+      const confirmed = await onConfirmDelete(`Delete "${projectName}"?`);
+      if (confirmed) {
+        onRemove();
+      }
+    } else {
+      // Fallback to immediate removal if no confirm dialog provided
       onRemove();
     }
   };
@@ -45,38 +52,38 @@ export default function ProjectCard({ data, onClick, onRemove, fieldErrors = {} 
   return (
     <div
       onClick={onClick}
-      className="group relative p-4 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-zinc-900/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer"
+      className="group relative p-4 rounded-lg border border-border bg-primary-subtle/10 hover:bg-primary-subtle/30 hover:border-primary transition-all cursor-pointer"
     >
-      {/* Delete button - shows on hover */}
+      {/* Delete button - shows on hover, always visible on touch */}
       <button
         onClick={handleDelete}
-        className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 bg-white dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-zinc-400 hover:text-red-600 dark:hover:text-red-500 rounded transition-all shadow-sm z-10"
+        className="absolute top-2 right-2 p-2 sm:p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 bg-surface hover:bg-error-subtle text-muted hover:text-error rounded transition-all shadow-sm z-10"
         title="Delete project"
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
       </button>
 
       {/* Error indicator */}
       {hasErrors && (
         <div className="absolute top-2 right-10">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+          <AlertCircle className="w-4 h-4 text-warning" />
         </div>
       )}
       
       {/* Project name */}
-      <h4 className="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate pr-6 mb-2">
+      <h4 className="font-medium text-sm text-default truncate pr-6 mb-2">
         {projectName}
       </h4>
       
       {/* Tech/description preview */}
-      <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
+      <p className="text-xs text-muted line-clamp-2">
         {techPreview}
       </p>
       
       {/* Link indicator */}
       {linkHostname && (
-        <div className="mt-2 pt-2 border-t border-purple-100 dark:border-purple-900">
-          <span className="text-xs text-purple-600 dark:text-purple-400 truncate block">
+        <div className="mt-2 pt-2 border-t border-primary-subtle">
+          <span className="text-xs text-primary truncate block">
             🔗 {linkHostname}
           </span>
         </div>

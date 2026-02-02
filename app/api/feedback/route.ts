@@ -8,6 +8,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { getServiceSupabase } from '@/lib/server/supabaseService';
+import { validateRequest, feedbackSchema } from '@/lib/server/validation';
 import { Resend } from 'resend';
 import { generateFeedbackEmail, getFeedbackEmailSubject } from '@/lib/server/emailTemplates';
 
@@ -25,53 +26,31 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Parse request body
+    // Parse and validate request body
     const body = await request.json();
-    const { type, subject, description } = body;
-
-    // Validate input
-    if (!type || !['bug', 'feature'].includes(type)) {
-      return NextResponse.json(
-        { error: 'Invalid feedback type. Must be "bug" or "feature"' },
-        { status: 400 }
-      );
+    
+    // Get user info for validation
+    const userAgent = request.headers.get('user-agent') || undefined;
+    const referer = request.headers.get('referer') || undefined;
+    
+    // Add context to body for validation
+    const validationBody = {
+      ...body,
+      user_agent: userAgent,
+      page_url: referer,
+    };
+    
+    const validation = validateRequest(validationBody, feedbackSchema);
+    
+    if (validation.error) {
+      return NextResponse.json(validation.error, { status: validation.error.status });
     }
 
-    if (!subject || subject.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Subject is required' },
-        { status: 400 }
-      );
-    }
+    const { feedback_type, subject, description, user_email } = validation.data;
 
-    if (!description || description.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Description is required' },
-        { status: 400 }
-      );
-    }
-
-    if (subject.length > 200) {
-      return NextResponse.json(
-        { error: 'Subject must be 200 characters or less' },
-        { status: 400 }
-      );
-    }
-
-    if (description.length > 5000) {
-      return NextResponse.json(
-        { error: 'Description must be 5000 characters or less' },
-        { status: 400 }
-      );
-    }
-
-    // Get user info for context
-    const userAgent = request.headers.get('user-agent') || 'Unknown';
-    const referer = request.headers.get('referer') || 'Unknown';
-
-    // Fetch user email if authenticated
-    let userEmail = null;
-    if (user) {
+    // Fetch user email if authenticated and not provided
+    let finalUserEmail = user_email;
+    if (user && !finalUserEmail) {
       const serviceClient = getServiceSupabase();
       const { data: userData } = await serviceClient
         .from('student')
@@ -85,9 +64,9 @@ export async function POST(request: NextRequest) {
           .select('email')
           .eq('user_id', user.id)
           .maybeSingle();
-        userEmail = companyData?.email;
+        finalUserEmail = companyData?.email;
       } else {
-        userEmail = userData?.email;
+        finalUserEmail = userData?.email;
       }
     }
 
@@ -97,10 +76,10 @@ export async function POST(request: NextRequest) {
       .from('user_feedback')
       .insert({
         user_id: user?.id || null,
-        feedback_type: type,
-        subject: subject.trim(),
-        description: description.trim(),
-        user_email: userEmail,
+        feedback_type,
+        subject,
+        description,
+        user_email: finalUserEmail,
         user_agent: userAgent,
         page_url: referer,
         status: 'new',
@@ -122,23 +101,23 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: 'Acme <report@jobelix.fr>',
           to: FEEDBACK_EMAIL,
-          subject: getFeedbackEmailSubject(type, subject),
+          subject: getFeedbackEmailSubject(feedback_type, subject),
           html: generateFeedbackEmail({
-            type,
-            subject: subject.trim(),
-            description: description.trim(),
-            userEmail,
+            type: feedback_type,
+            subject,
+            description,
+            userEmail: finalUserEmail || null,
             userId: user?.id || null,
             feedbackId: feedback.id,
             createdAt: feedback.created_at,
-            pageUrl: referer,
-            userAgent,
+            pageUrl: referer || '',
+            userAgent: userAgent || '',
           }),
         });
         console.log('✓ Feedback email sent successfully to', FEEDBACK_EMAIL);
-      } catch (emailError: any) {
+      } catch (emailError: unknown) {
         // Log but don't fail - feedback is stored in DB
-        console.error('✗ Email send error:', emailError.message || emailError);
+        console.error('✗ Email send error:', emailError);
       }
     }
 
@@ -148,10 +127,10 @@ export async function POST(request: NextRequest) {
       feedbackId: feedback.id,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Feedback submission error:', error);
     return NextResponse.json(
-      { error: 'Failed to submit feedback' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -14,6 +14,28 @@ import { NextRequest } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 
 /**
+ * SECURITY: Whitelist of allowed fields for draft updates.
+ * This prevents mass assignment attacks where a malicious client
+ * could attempt to set arbitrary database columns.
+ */
+const ALLOWED_DRAFT_FIELDS = [
+  'student_name',
+  'phone_number',
+  'email',
+  'address',
+  'education',
+  'experience',
+  'projects',
+  'skills',
+  'languages',
+  'publications',
+  'certifications',
+  'social_links',
+  'chat_history',
+  'raw_resume_text',
+] as const;
+
+/**
  * GET - Retrieve or create the current draft for logged-in user
  */
 export async function GET() {
@@ -67,9 +89,9 @@ export async function GET() {
     }
 
     return Response.json({ draft: newDraft })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get draft error:', error)
-    return new Response(JSON.stringify({ error: error.message }), { 
+    return new Response(JSON.stringify({ error: 'Failed to load draft' }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
@@ -93,12 +115,20 @@ export async function PUT(req: NextRequest) {
       return new Response('Draft ID required', { status: 400 })
     }
 
+    // SECURITY FIX: Sanitize updates to only allow whitelisted fields
+    // This prevents mass assignment attacks
+    const sanitizedUpdates = Object.fromEntries(
+      Object.entries(updates || {}).filter(
+        ([key]) => ALLOWED_DRAFT_FIELDS.includes(key as typeof ALLOWED_DRAFT_FIELDS[number])
+      )
+    )
+
     // Update the draft with new data
     // Always reset status to 'editing' when any changes are made
     const { data: draft, error: updateError } = await supabase
       .from('student_profile_draft')
       .update({
-        ...updates,
+        ...sanitizedUpdates,
         status: 'editing', // Mark as having unpublished changes
         updated_at: new Date().toISOString(),
       })
@@ -116,9 +146,9 @@ export async function PUT(req: NextRequest) {
       success: true,
       draft,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update draft error:', error)
-    return new Response(JSON.stringify({ error: error.message }), { 
+    return new Response(JSON.stringify({ error: 'Failed to update draft' }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })

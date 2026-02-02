@@ -2,13 +2,36 @@
  * GitHub OAuth - Callback Endpoint
  * 
  * Handles the OAuth callback from GitHub.
- * Exchanges authorization code for access token and saves connection to database.
+ * Verifies HMAC-signed state parameter and exchanges code for access token.
  */
+
+import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { exchangeGitHubCode, saveGitHubConnection } from '@/lib/server/githubOAuth';
 import { fetchGitHubUser } from '@/lib/server/githubService';
+import { createHmac, timingSafeEqual } from 'crypto';
+
+// Secret for verifying OAuth state - must match authorize route
+const STATE_SECRET = process.env.GITHUB_STATE_SECRET || process.env.GITHUB_CLIENT_SECRET || '';
+
+// State expires after 10 minutes
+const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+
+/**
+ * Verify HMAC signature of OAuth state data
+ */
+function verifyState(data: string, signature: string): boolean {
+  const expectedSig = createHmac('sha256', STATE_SECRET).update(data).digest('hex');
+  
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig));
+  } catch {
+    return false;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,10 +54,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Decode and verify state
+    // Decode and verify signed state
     let userId: string;
     try {
-      const stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
+      const decodedState = JSON.parse(Buffer.from(state, 'base64url').toString());
+      const { data: stateDataStr, sig } = decodedState;
+      
+      // Verify HMAC signature
+      if (!sig || !verifyState(stateDataStr, sig)) {
+        console.error('Invalid state signature');
+        return NextResponse.redirect(
+          new URL('/oauth/github/callback-success?github_error=invalid_state', request.url)
+        );
+      }
+      
+      const stateData = JSON.parse(stateDataStr);
+      
+      // Check state expiry (10 minutes)
+      if (stateData.ts && Date.now() - stateData.ts > STATE_MAX_AGE_MS) {
+        console.error('OAuth state expired');
+        return NextResponse.redirect(
+          new URL('/oauth/github/callback-success?github_error=state_expired', request.url)
+        );
+      }
+      
       userId = stateData.userId;
     } catch (err) {
       console.error('Invalid state parameter:', err);
@@ -43,7 +86,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify user is authenticated
+    // Verify user is authenticated and matches state
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 

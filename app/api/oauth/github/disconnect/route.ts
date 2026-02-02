@@ -5,11 +5,13 @@
  * User can reconnect later if needed.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import "server-only";
+
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { deleteGitHubConnection } from '@/lib/server/githubOAuth';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Get authenticated user
     const supabase = await createClient();
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     if (!success) {
       return NextResponse.json(
-        { success: false, error: 'Failed to disconnect GitHub' },
+        { error: 'Failed to disconnect GitHub' },
         { status: 500 }
       );
     }
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in GitHub disconnect endpoint:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

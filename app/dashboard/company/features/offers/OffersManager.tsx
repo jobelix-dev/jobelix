@@ -13,10 +13,12 @@ import { Plus } from 'lucide-react';
 import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
+import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 
 type ViewState = 'list' | 'editor';
 
 export default function OffersManager() {
+  const { confirm, alert, ConfirmDialogComponent } = useConfirmDialog();
   const [publishedOffers, setPublishedOffers] = useState<CompanyOffer[]>([]);
   const [unpublishedDrafts, setUnpublishedDrafts] = useState<CompanyOfferDraft[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,9 +58,9 @@ export default function OffersManager() {
       
       // Remove from local state
       setPublishedOffers((prev) => prev.filter((o) => o.id !== offerId));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete offer:', err);
-      alert(err.message || 'Failed to delete offer');
+      await alert(err instanceof Error ? err.message : 'Failed to delete offer', { title: 'Error' });
     }
   }
 
@@ -72,9 +74,9 @@ export default function OffersManager() {
       
       // Remove from local state
       setUnpublishedDrafts((prev) => prev.filter((d) => d.id !== draftId));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete draft:', err);
-      alert(err.message || 'Failed to delete draft');
+      await alert(err instanceof Error ? err.message : 'Failed to delete draft', { title: 'Error' });
     }
   }
 
@@ -92,9 +94,9 @@ export default function OffersManager() {
       const { draft } = await res.json();
       setEditingDraftId(draft.id);
       setView('editor');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to create new draft:', err);
-      alert(err.message || 'Failed to create new draft');
+      await alert(err instanceof Error ? err.message : 'Failed to create new draft', { title: 'Error' });
     }
   }
 
@@ -111,9 +113,9 @@ export default function OffersManager() {
       const { draft } = await res.json();
       setEditingDraftId(draft.id);
       setView('editor');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load draft for offer:', err);
-      alert(err.message || 'Failed to load draft for offer');
+      await alert(err instanceof Error ? err.message : 'Failed to load draft for offer', { title: 'Error' });
     }
   }
 
@@ -142,12 +144,12 @@ export default function OffersManager() {
 
   // Show list view
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Job Offers</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-default">Job Offers</h1>
         <button
           onClick={handleCreateNew}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-colors font-medium"
+          className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-surface hover:bg-primary-subtle rounded-lg transition-colors font-medium w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           Create New Offer
@@ -162,7 +164,10 @@ export default function OffersManager() {
         onEditDraft={handleEditDraft}
         onDeleteOffer={handleDeleteOffer}
         onDeleteDraft={handleDeleteDraft}
+        onConfirm={(message) => confirm(message, { title: 'Confirm Delete', variant: 'danger', confirmText: 'Delete', cancelText: 'Cancel' })}
       />
+      
+      {ConfirmDialogComponent}
     </div>
   );
 }

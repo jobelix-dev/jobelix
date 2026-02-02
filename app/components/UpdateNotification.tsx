@@ -2,12 +2,21 @@
 
 import { useEffect, useState } from 'react';
 
+/**
+ * Update info received from main process when a new version is available
+ */
 interface UpdateInfo {
   version: string;
   releaseNotes?: string;
   releaseDate?: string;
+  manualDownload?: boolean;  // Linux: user must download manually
+  downloadUrl?: string;      // Direct download URL (Linux: distro-specific AppImage)
+  distroLabel?: string;      // Linux: human-readable distro name (e.g., "Arch Linux")
 }
 
+/**
+ * Download progress info received during update download
+ */
 interface DownloadProgress {
   bytesPerSecond: number;
   percent: number;
@@ -16,54 +25,110 @@ interface DownloadProgress {
 }
 
 /**
+ * Error info received when update fails
+ */
+interface UpdateError {
+  message: string;
+  error?: string;
+}
+
+/**
  * UpdateNotification Component
  * 
- * Displays auto-updater notifications and progress in Electron app
- * - Shows when new update is available
- * - Displays download progress
- * - Notifies when update is ready to install
+ * ============================================================================
+ * OVERVIEW
+ * ============================================================================
+ * Displays auto-updater notifications in the Electron app's renderer process.
+ * Receives IPC events from update-manager.js (main process) via preload.js bridge.
+ * 
+ * ============================================================================
+ * WHEN THIS COMPONENT SHOWS
+ * ============================================================================
+ * 1. Update Available (Linux): Toast with "Download for {distro}" button → opens direct AppImage URL
+ * 2. Update Available (Win/Mac): Toast showing "Downloading..." with version
+ * 3. Download Progress: Progress bar with percentage, bytes, speed
+ * 4. Update Ready: Success toast (dialog shown in main process asks to install)
+ * 5. Update Error: Error toast with dismiss option
+ * 
+ * ============================================================================
+ * IPC EVENTS LISTENED TO (from preload.js → update-manager.js)
+ * ============================================================================
+ * - 'update-available'        → setUpdateAvailable() - show available toast
+ * - 'update-download-progress' → setDownloadProgress() - update progress bar
+ * - 'update-downloaded'       → setUpdateDownloaded() - show ready toast
+ * - 'update-error'            → setUpdateError() - show error toast
+ * 
+ * ============================================================================
+ * USED IN
+ * ============================================================================
+ * app/layout.tsx → Rendered at root level so it appears on all pages
  */
 export default function UpdateNotification() {
   const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [updateDownloaded, setUpdateDownloaded] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<UpdateError | null>(null);
 
+  /**
+   * Set up IPC event listeners for update notifications
+   * Only runs in Electron environment (window.electronAPI exists)
+   */
   useEffect(() => {
-    // Only run in Electron environment
+    // Guard: Only run in Electron environment
     if (typeof window === 'undefined' || !window.electronAPI) {
+      console.log('[UpdateNotification] Not in Electron environment, skipping listener setup');
       return;
     }
 
-    // Listen for update available
+    console.log('[UpdateNotification] Setting up update listeners (Electron detected)');
+
+    // Listen for 'update-available' IPC event
     window.electronAPI.onUpdateAvailable((info) => {
-      console.log('[UpdateNotification] Update available:', info);
+      console.log('[UpdateNotification] 📦 UPDATE AVAILABLE:', info);
+      console.log('[UpdateNotification] manualDownload:', info.manualDownload);
+      if (info.distroLabel) {
+        console.log('[UpdateNotification] Detected distro:', info.distroLabel);
+      }
       setUpdateAvailable(info);
-      setDownloadProgress(null); // Reset progress when new update detected
-      setUpdateDownloaded(null); // Reset download complete state
+      setDownloadProgress(null);
+      setUpdateDownloaded(null);
+      setUpdateError(null);
     });
 
-    // Listen for download progress
+    // Listen for 'update-download-progress' IPC event
     window.electronAPI.onUpdateDownloadProgress((progress) => {
       console.log('[UpdateNotification] Download progress:', progress.percent.toFixed(1) + '%');
       setDownloadProgress(progress);
     });
 
-    // Listen for update downloaded
+    // Listen for 'update-downloaded' IPC event
     window.electronAPI.onUpdateDownloaded((info) => {
-      console.log('[UpdateNotification] Update downloaded:', info);
+      console.log('[UpdateNotification] ✅ Update downloaded:', info);
       setUpdateDownloaded(info.version);
-      setDownloadProgress(null); // Clear progress when download completes
+      setDownloadProgress(null);
+    });
+    
+    // Listen for update errors
+    window.electronAPI.onUpdateError?.((error) => {
+      console.error('[UpdateNotification] ❌ Update error:', error);
+      setUpdateError(error);
+      setDownloadProgress(null);
+      // Auto-dismiss error after 15 seconds
+      setTimeout(() => setUpdateError(null), 15000);
     });
 
-    // Cleanup listeners on unmount
+    console.log('[UpdateNotification] All listeners registered');
+
+    // Cleanup: Remove all update listeners when component unmounts
     return () => {
-      if (window.electronAPI?.removeUpdateListeners) {
-        window.electronAPI.removeUpdateListeners();
-      }
+      console.log('[UpdateNotification] Cleaning up listeners');
+      window.electronAPI?.removeUpdateListeners();
     };
   }, []);
 
-  // Format bytes to human-readable size
+  /**
+   * Format bytes to human-readable size (KB, MB, GB)
+   */
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -72,36 +137,128 @@ export default function UpdateNotification() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  // Format speed to human-readable
+  /**
+   * Format download speed to human-readable (KB/s, MB/s)
+   */
   const formatSpeed = (bytesPerSecond: number): string => {
     return formatBytes(bytesPerSecond) + '/s';
   };
 
-  // Don't render anything if no updates
-  if (!updateAvailable && !downloadProgress && !updateDownloaded) {
+  /**
+   * Handle "Download Update" button click (Linux only)
+   * Opens direct download URL in browser
+   */
+  const handleDownloadClick = () => {
+    if (updateAvailable?.downloadUrl && window.electronAPI?.openExternalUrl) {
+      console.log('[UpdateNotification] Opening direct download:', updateAvailable.downloadUrl);
+      window.electronAPI.openExternalUrl(updateAvailable.downloadUrl);
+    } else if (window.electronAPI?.openReleasesPage) {
+      // Fallback to releases page
+      console.log('[UpdateNotification] Fallback: Opening releases page');
+      window.electronAPI.openReleasesPage();
+    }
+    // Dismiss the notification after clicking
+    setUpdateAvailable(null);
+  };
+
+  /**
+   * Handle "Later" button click - dismiss the notification
+   */
+  const handleDismiss = () => {
+    setUpdateAvailable(null);
+  };
+
+  /**
+   * Handle error dismiss
+   */
+  const handleErrorDismiss = () => {
+    setUpdateError(null);
+  };
+
+  // Don't render if no update notifications to show
+  if (!updateAvailable && !downloadProgress && !updateDownloaded && !updateError) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-md">
-      {/* Update Available Notification */}
-      {updateAvailable && !updateDownloaded && (
-        <div className="bg-blue-600 text-white rounded-lg shadow-lg p-4 mb-2 animate-slide-in">
+    <div className="fixed bottom-4 right-4 z-50 max-w-md space-y-2">
+      {/* Update Error Notification */}
+      {updateError && (
+        <div className="bg-error text-white rounded-lg shadow-lg p-4 animate-slide-in">
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium">Update Check Failed</h3>
+              <p className="mt-1 text-sm opacity-90">
+                {updateError.message || 'Could not check for updates. Please try again later.'}
+              </p>
+              <button
+                onClick={handleErrorDismiss}
+                className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update Available Notification */}
+      {updateAvailable && !updateDownloaded && (
+        <div className="bg-info text-white rounded-lg shadow-lg p-4 animate-slide-in">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
             </div>
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium">Update Available</h3>
-              <p className="mt-1 text-sm text-blue-100">
-                Version {updateAvailable.version} is downloading...
-              </p>
-              {updateAvailable.releaseNotes && (
-                <p className="mt-2 text-xs text-blue-200 line-clamp-2">
-                  {updateAvailable.releaseNotes}
-                </p>
+              {updateAvailable.manualDownload ? (
+                // Linux: Manual download with direct link
+                <>
+                  <p className="mt-1 text-sm opacity-90">
+                    Version {updateAvailable.version} is available!
+                  </p>
+                  {updateAvailable.distroLabel && (
+                    <p className="mt-1 text-xs opacity-75">
+                      Detected: {updateAvailable.distroLabel}
+                    </p>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={handleDownloadClick}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
+                    >
+                      <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download Update
+                    </button>
+                    <button
+                      onClick={handleDismiss}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      Later
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // Windows/macOS: Auto-downloading
+                <>
+                  <p className="mt-1 text-sm opacity-90">
+                    Version {updateAvailable.version} is downloading...
+                  </p>
+                  {updateAvailable.releaseNotes && (
+                    <p className="mt-2 text-xs opacity-75 line-clamp-2">
+                      {updateAvailable.releaseNotes}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -110,25 +267,25 @@ export default function UpdateNotification() {
 
       {/* Download Progress */}
       {downloadProgress && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-2 border border-gray-200 dark:border-gray-700">
+        <div className="bg-surface rounded-lg shadow-lg p-4 border border-border">
           <div className="flex items-center mb-2">
-            <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-5 w-5 text-info mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="text-sm font-medium text-default">
               Downloading Update
             </h3>
           </div>
           
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-2">
+          <div className="w-full bg-border rounded-full h-2.5 mb-2">
             <div 
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+              className="bg-info h-2.5 rounded-full transition-all duration-300"
               style={{ width: `${downloadProgress.percent}%` }}
             ></div>
           </div>
           
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex justify-between text-xs text-muted">
             <span>{downloadProgress.percent.toFixed(1)}%</span>
             <span>
               {formatBytes(downloadProgress.transferred)} / {formatBytes(downloadProgress.total)}
@@ -140,17 +297,17 @@ export default function UpdateNotification() {
 
       {/* Update Downloaded - Ready to Install */}
       {updateDownloaded && (
-        <div className="bg-green-600 text-white rounded-lg shadow-lg p-4 animate-slide-in">
+        <div className="bg-success text-white rounded-lg shadow-lg p-4 animate-slide-in">
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-green-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium">Update Ready</h3>
-              <p className="mt-1 text-sm text-green-100">
-                Version {updateDownloaded} has been downloaded and will be installed when you restart the app.
+              <p className="mt-1 text-sm opacity-90">
+                Version {updateDownloaded} is ready to install.
               </p>
             </div>
           </div>

@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["index.ts"],
+  "sourcesContent": ["/**\n * Prompts Module - Barrel Export\n * \n * Split into logical categories for maintainability:\n * - section-prompts: Resume section-specific prompts (personal info, experience, etc.)\n * - form-prompts: Question answering prompts (options, numeric, cover letter)\n * - tailoring-prompts: Resume tailoring pipeline prompts (4 stages)\n */\n\nexport * from './section-prompts';\nexport * from './form-prompts';\nexport * from './tailoring-prompts';\n"],
+  "mappings": "AASA,cAAc;AACd,cAAc;AACd,cAAc;",
+  "names": []
+}

@@ -9,11 +9,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CheckCircle, Rocket } from 'lucide-react';
+import { CheckCircle, Rocket, AlertTriangle, Info } from 'lucide-react';
 import DownloadButton from '@/app/components/DownloadButton';
 import type { ReleaseInfo } from '@/lib/client/github-api';
 import { getFallbackDownloadUrl } from '@/lib/client/github-api';
+import { useIsClient, useIsElectron, usePlatform } from '@/app/hooks/useClientSide';
 import Link from 'next/link';
 
 interface ElectronDetectorProps {
@@ -22,21 +22,19 @@ interface ElectronDetectorProps {
 }
 
 export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDetectorProps) {
-  const [isElectron, setIsElectron] = useState<boolean | null>(null);
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useIsClient();
+  const isElectron = useIsElectron();
+  const platform = usePlatform();
 
-  useEffect(() => {
-    setIsClient(true);
-    // Check if window.electronAPI exists (only available in Electron)
-    setIsElectron(typeof window !== 'undefined' && !!(window as any).electronAPI);
-  }, []);
+  const isMacOS = platform.startsWith('mac-');
+  const isWindows = platform.startsWith('windows-');
 
-  // Show loading state during hydration
-  if (!isClient || isElectron === null) {
+  // Show loading state during SSR
+  if (!isClient) {
     return (
       <div className="text-center py-12">
-        <div className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-          <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 border-t-purple-600 rounded-full animate-spin" />
+        <div className="inline-flex items-center gap-2 text-muted">
+          <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
           <span>Loading...</span>
         </div>
       </div>
@@ -47,29 +45,29 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
   if (isElectron) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 rounded-lg p-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+        <div className="bg-gradient-to-r from-success-subtle to-success-subtle/20/20 border-2 border-success rounded-lg p-4 sm:p-6 md:p-8 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-success/40 rounded-full mb-4">
+            <CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-success" />
           </div>
           
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-            You're Already Using the Desktop App! 🎉
+          <h2 className="text-xl sm:text-2xl font-bold text-default mb-2">
+            You&apos;re Already Using the Desktop App!
           </h2>
           
-          <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-            No download needed. You're all set to use Jobelix's automation features.
+          <p className="text-muted mb-6">
+            No download needed. Sign in to access your dashboard and start automating your job applications.
           </p>
 
           <Link
-            href="/dashboard/student"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors shadow-md"
+            href="/login"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white font-medium rounded-lg transition-colors shadow-md"
           >
             <Rocket className="w-5 h-5" />
-            Go to Dashboard
+            Sign In to Your Account
           </Link>
 
           {releaseInfo && (
-            <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-4 text-xs text-muted">
               Latest version: {releaseInfo.version}
             </p>
           )}
@@ -81,21 +79,21 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
   // User is in browser - show download button
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-8 text-center">
+      <div className="bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 border border-primary-subtle rounded-lg p-4 sm:p-6 md:p-8 text-center">
         {fetchError ? (
           // Error state - show fallback link
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-default mb-4">
               Download Jobelix Desktop App
             </h2>
-            <p className="text-zinc-600 dark:text-zinc-400 mb-6">
+            <p className="text-muted mb-6">
               Unable to fetch release information. Please download directly from GitHub.
             </p>
             <a
               href={getFallbackDownloadUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors shadow-md"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white font-medium rounded-lg transition-colors shadow-md"
             >
               <Rocket className="w-5 h-5" />
               Download from GitHub
@@ -104,10 +102,10 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
         ) : (
           // Success state - show download button
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-default mb-4">
               Ready to Get Started?
             </h2>
-            <p className="text-zinc-600 dark:text-zinc-400 mb-6">
+            <p className="text-muted mb-6">
               Download the desktop app and start automating your job applications today.
             </p>
             <DownloadButton 
@@ -116,13 +114,45 @@ export default function ElectronDetector({ releaseInfo, fetchError }: ElectronDe
               variant="primary"
             />
             
-            <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
+            {/* Platform-specific notices */}
+            {isMacOS && (
+              <div className="mt-6 p-4 bg-warning-subtle/30 border border-warning/30 rounded-lg text-left">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-default">macOS Support Coming Soon</p>
+                    <p className="text-xs text-muted mt-1">
+                      The macOS version is currently unsigned and will not run due to Gatekeeper restrictions. 
+                      We are actively working on code signing and expect to have a fully functional macOS release available shortly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {isWindows && (
+              <div className="mt-6 p-4 bg-info-subtle/30 border border-info/30 rounded-lg text-left">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-default">Beta Notice for Windows</p>
+                    <p className="text-xs text-muted mt-1">
+                      Jobelix is currently in beta. When installing, Windows may display a security warning because the app is from an unknown publisher. 
+                      To proceed, click <span className="font-medium text-default">&quot;More info&quot;</span> and then select <span className="font-medium text-default">&quot;Run anyway&quot;</span>. 
+                      Code signing is in progress and this step will not be required in future releases.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <p className="mt-6 text-sm text-muted">
               Already have an account?{' '}
-              <Link href="/login" className="text-purple-600 dark:text-purple-400 hover:underline font-medium">
+              <Link href="/login" className="text-primary hover:underline font-medium">
                 Sign in
               </Link>
               {' '}or{' '}
-              <Link href="/signup" className="text-purple-600 dark:text-purple-400 hover:underline font-medium">
+              <Link href="/signup" className="text-primary hover:underline font-medium">
                 create one
               </Link>
             </p>

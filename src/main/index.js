@@ -1,123 +1,83 @@
 /**
  * Jobelix - Electron Main Process Entry Point
- * Orchestrates all modules and manages application lifecycle
+ * 
+ * Startup optimizations:
+ * - GPU acceleration disabled (fixes 10-30s delay on some systems)
+ * - Auto-updater deferred until after window loads
+ * - Local loading screen for instant feedback
  */
 
+// CRITICAL: Must disable GPU before any other Electron imports
 import { app } from 'electron';
+app.disableHardwareAcceleration();
+
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
-import { startPython, stopPython } from './modules/process-manager.js';
-import { createMainWindow } from './modules/window-manager.js';
-import { checkForUpdates } from './modules/version-manager.js';
-import { setupAutoUpdater, setupAutoUpdaterListeners, showUpdateRequiredWindow } from './modules/update-manager.js';
-import { logPlatformInfo } from './modules/platform-utils.js';
-import { isMac } from './modules/platform-utils.js';
+import { createMainWindow, onMainWindowReady } from './modules/window-manager.js';
+import { initAutoUpdater } from './modules/update-manager.js';
+import { logPlatformInfo, initializeDataDirectories, isMac } from './modules/platform-utils.js';
 import { waitForNextJs } from './utils/dev-utils.js';
 import logger from './utils/logger.js';
-// Store reference to main window
-let mainWindow = null;
 
-/**
- * Initialize the application
- * Performs version checks and starts the app if compatible
- */
+const startTime = Date.now();
+const elapsed = () => Date.now() - startTime;
+
 async function initializeApp() {
   try {
-    // Setup IPC handlers first
+    logger.info(`⏱️ [${elapsed()}ms] App ready, starting initialization`);
+    
     setupIpcHandlers();
+    logger.info(`⏱️ [${elapsed()}ms] IPC handlers registered`);
     
-    // Setup auto-updater listeners for seamless background updates
-    setupAutoUpdaterListeners();
+    initializeDataDirectories();
+    logger.info(`⏱️ [${elapsed()}ms] Data directories initialized`);
     
-    // Log platform information for debugging
     logPlatformInfo();
     
-    // In development mode, wait for Next.js to be ready before proceeding
+    // In dev mode, wait for Next.js server
     if (!app.isPackaged) {
-      logger.info('Development mode detected - waiting for Next.js server...');
-      const isNextReady = await waitForNextJs();
-      
-      if (!isNextReady) {
-        logger.error('Next.js server is not responding. Please ensure Next.js is running:');
-        logger.error('  Run: npm start (in another terminal)');
-        logger.error('  Or: npm run dev (to start both Next.js and Electron together)');
+      logger.info('Development mode - waiting for Next.js...');
+      if (!await waitForNextJs()) {
+        logger.error('Next.js not responding. Run: npm run dev');
         app.quit();
         return;
       }
-      
-      logger.success('Next.js server is ready - proceeding with app initialization');
+      logger.success('Next.js ready');
     }
     
-    // Check for required updates before starting the app
-    logger.info('Performing version compatibility check...');
-    const versionCheck = await checkForUpdates();
+    // Defer auto-updater until after window content loads
+    onMainWindowReady(() => {
+      logger.info(`⏱️ [${elapsed()}ms] Content loaded, starting auto-updater`);
+      initAutoUpdater();
+    });
     
-    if (!versionCheck.isCompatible) {
-      // Show update required window and block app
-      logger.warn('Version incompatible - showing update window');
-      showUpdateRequiredWindow(versionCheck);
-      // Do not start Python or create main window
-    } else {
-      // Versions are compatible, proceed normally
-      logger.success('Version check passed - starting application normally');
-      
-      // Start Python engine
-      const pythonStarted = startPython();
-      if (!pythonStarted) {
-        logger.error('Failed to start Python engine, but continuing anyway');
-      }
-      
-      // Create main window
-      mainWindow = await createMainWindow();
-      
-      // Setup auto-updater for seamless updates (only in production)
-      if (app.isPackaged) {
-        setupAutoUpdater();
-      }
-    }
+    await createMainWindow();
+    logger.info(`⏱️ [${elapsed()}ms] Main window created`);
+    
   } catch (error) {
-    logger.error('Fatal error during app initialization:', error);
+    logger.error('Fatal error:', error);
     app.quit();
   }
 }
 
-/**
- * App lifecycle event handlers
- */
-
-// When Electron is ready, initialize the app
+// App lifecycle
 app.whenReady().then(() => {
-  logger.info('='.repeat(60));
-  logger.info('Jobelix Application Starting');
-  logger.info('='.repeat(60));
-  
+  logger.info('='.repeat(50));
+  logger.info('Jobelix Starting');
+  logger.info('='.repeat(50));
   initializeApp();
 });
 
-// Before app quits, clean up processes
-app.on('will-quit', () => {
-  logger.info('Application shutting down...');
-  stopPython();
-  logger.info('Cleanup complete');
-});
-
-// When all windows are closed
 app.on('window-all-closed', () => {
-  // On macOS, apps typically stay open until explicitly quit
   if (!isMac()) {
-    logger.info('All windows closed - quitting application');
     app.quit();
-  } else {
-    logger.info('All windows closed - keeping app running (macOS)');
   }
 });
 
-// Handle unhandled errors
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-});
+// Error handlers
+process.on('uncaughtException', (err) => logger.error('Uncaught Exception:', err));
+process.on('unhandledRejection', (reason) => logger.error('Unhandled Rejection:', reason));
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-logger.info('Main process module loaded');
+logger.info('Main process loaded');

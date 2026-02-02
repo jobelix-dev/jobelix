@@ -6,54 +6,93 @@
 
 'use client';
 
-import React from 'react';
+import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import { Target, MapPin } from 'lucide-react';
-import ArrayInputField from './ArrayInputField';
+import ArrayInputField, { ArrayInputFieldRef } from './ArrayInputField';
 
 interface SearchCriteriaSectionProps {
   positions: string[];
   locations: string[];
-  remoteWork: boolean;
+  remoteWork?: boolean; // Deprecated - kept for backward compatibility but no longer used
   onChange: (field: string, value: string[] | boolean) => void;
+  errors?: {
+    positions?: boolean;
+    locations?: boolean;
+  };
+  positionsInputId?: string;
+  locationsInputId?: string;
+  positionsAddButtonId?: string;
+  locationsAddButtonId?: string;
 }
 
-export default function SearchCriteriaSection({
-  positions,
-  locations,
-  remoteWork,
-  onChange,
-}: SearchCriteriaSectionProps) {
+export interface SearchCriteriaSectionRef {
+  flushAllPendingInputs: () => void;
+  getPendingInputs: () => { positions: string; locations: string };
+}
+
+const SearchCriteriaSection = forwardRef<SearchCriteriaSectionRef, SearchCriteriaSectionProps>((
+  {
+    positions,
+    locations,
+    // remoteWork is no longer used - remote filter disabled
+    onChange,
+    errors,
+    positionsInputId,
+    locationsInputId,
+    positionsAddButtonId,
+    locationsAddButtonId,
+  },
+  ref
+) => {
+  const positionsRef = useRef<ArrayInputFieldRef>(null);
+  const locationsRef = useRef<ArrayInputFieldRef>(null);
+
+  // Expose flush and get methods to parent
+  useImperativeHandle(ref, () => ({
+    flushAllPendingInputs: () => {
+      positionsRef.current?.flushPendingInput();
+      locationsRef.current?.flushPendingInput();
+    },
+    getPendingInputs: () => ({
+      positions: positionsRef.current?.getPendingInput() || '',
+      locations: locationsRef.current?.getPendingInput() || '',
+    }),
+  }));
+
   return (
     <div className="space-y-4">
       <ArrayInputField
+        ref={positionsRef}
         label="Target Positions"
         placeholder="e.g., Software Engineer, Data Analyst"
         value={positions}
         onChange={(val) => onChange('positions', val)}
         icon={<Target className="w-4 h-4" />}
-        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+        tagColorClass="bg-primary-subtle/30 text-primary-hover"
+        hasError={errors?.positions}
+        inputId={positionsInputId}
+        addButtonId={positionsAddButtonId}
       />
 
       <ArrayInputField
+        ref={locationsRef}
         label="Locations"
         placeholder="e.g., San Francisco, Remote, United States"
         value={locations}
         onChange={(val) => onChange('locations', val)}
         icon={<MapPin className="w-4 h-4" />}
-        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+        tagColorClass="bg-primary-subtle/30 text-primary-hover"
+        hasError={errors?.locations}
+        inputId={locationsInputId}
+        addButtonId={locationsAddButtonId}
       />
 
-      <label className="flex items-center gap-2 cursor-pointer group">
-        <input
-          type="checkbox"
-          checked={remoteWork}
-          onChange={(e) => onChange('remote_work', e.target.checked)}
-          className="w-4 h-4 text-purple-600 dark:text-purple-400 bg-white dark:bg-zinc-900 border-purple-200 dark:border-purple-800 rounded focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer"
-        />
-        <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
-          Include remote opportunities
-        </span>
-      </label>
+      {/* Remote filter removed - it limits job results too much.
+          Bot now searches all jobs (on-site, hybrid, remote) by default. */}
     </div>
   );
-}
+});
+
+SearchCriteriaSection.displayName = 'SearchCriteriaSection';
+
+export default SearchCriteriaSection;

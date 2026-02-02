@@ -2,7 +2,7 @@
  * useProfileEditor Hook
  * 
  * Manages all state manipulation logic for the profile editor.
- * Provides handlers for adding, updating, and removing entries.
+ * Uses factory pattern for DRY CRUD operations.
  */
 
 import { 
@@ -22,271 +22,143 @@ interface UseProfileEditorProps {
   onChange: (data: ExtractedResumeData) => void;
 }
 
+// Factory for creating array CRUD handlers
+function createArrayHandlers<T>(
+  data: ExtractedResumeData,
+  onChange: (data: ExtractedResumeData) => void,
+  key: keyof ExtractedResumeData,
+  defaultItem: T
+) {
+  return {
+    add: () => {
+      const currentArray = data[key] as T[];
+      onChange({ ...data, [key]: [...currentArray, defaultItem] });
+    },
+    update: (index: number, field: keyof T, value: unknown) => {
+      const currentArray = [...(data[key] as T[])];
+      currentArray[index] = { ...currentArray[index], [field]: value };
+      onChange({ ...data, [key]: currentArray });
+    },
+    remove: (index: number) => {
+      const currentArray = data[key] as T[];
+      onChange({ ...data, [key]: currentArray.filter((_, i) => i !== index) });
+    },
+    set: (items: T[]) => {
+      onChange({ ...data, [key]: items });
+    },
+  };
+}
+
+// Default items for each entry type
+const defaultEducation: EducationEntry = {
+  school_name: '',
+  degree: '',
+  description: null,
+  start_year: null,
+  start_month: null,
+  end_year: null,
+  end_month: null,
+  confidence: 'high',
+};
+
+const defaultExperience: ExperienceEntry = {
+  organisation_name: '',
+  position_name: '',
+  description: null,
+  start_year: null,
+  start_month: null,
+  end_year: null,
+  end_month: null,
+  confidence: 'high',
+};
+
+const defaultProject: ProjectEntry = {
+  project_name: '',
+  description: null,
+  link: null,
+};
+
+const defaultPublication: PublicationEntry = {
+  title: '',
+  journal_name: null,
+  description: null,
+  publication_year: null,
+  publication_month: null,
+  link: null,
+};
+
+const defaultCertification: CertificationEntry = {
+  name: '',
+  issuing_organization: null,
+  url: null,
+};
+
+const defaultLanguage: LanguageEntry = {
+  language_name: '',
+  proficiency_level: 'Intermediate',
+};
+
+const defaultSkill: SkillEntry = {
+  skill_name: '',
+  skill_slug: '',
+};
+
 export function useProfileEditor({ data, onChange }: UseProfileEditorProps) {
-  
-  // =====================================================================
-  // BASIC FIELDS
-  // =====================================================================
-  
-  const updateField = (field: keyof ExtractedResumeData, value: any) => {
+  // Basic field update
+  const updateField = (field: keyof ExtractedResumeData, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
-  // =====================================================================
-  // EDUCATION
-  // =====================================================================
-  
-  const addEducation = () => {
-    onChange({
-      ...data,
-      education: [
-        ...data.education,
-        {
-          school_name: '',
-          degree: '',
-          description: null,
-          start_year: null,
-          start_month: null,
-          end_year: null,
-          end_month: null,
-          confidence: 'high' as const,
-        }
-      ]
-    });
-  };
+  // Create handlers for each array type
+  const education = createArrayHandlers<EducationEntry>(data, onChange, 'education', defaultEducation);
+  const experience = createArrayHandlers<ExperienceEntry>(data, onChange, 'experience', defaultExperience);
+  const projects = createArrayHandlers<ProjectEntry>(data, onChange, 'projects', defaultProject);
+  const publications = createArrayHandlers<PublicationEntry>(data, onChange, 'publications', defaultPublication);
+  const certifications = createArrayHandlers<CertificationEntry>(data, onChange, 'certifications', defaultCertification);
+  const languages = createArrayHandlers<LanguageEntry>(data, onChange, 'languages', defaultLanguage);
+  const skills = createArrayHandlers<SkillEntry>(data, onChange, 'skills', defaultSkill);
 
-  const updateEducation = (index: number, field: keyof EducationEntry, value: any) => {
-    const updated = [...data.education];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, education: updated });
-  };
-
-  const removeEducation = (index: number) => {
-    onChange({
-      ...data,
-      education: data.education.filter((_, i) => i !== index)
-    });
-  };
-
-  // =====================================================================
-  // EXPERIENCE
-  // =====================================================================
-  
-  const addExperience = () => {
-    onChange({
-      ...data,
-      experience: [
-        ...data.experience,
-        {
-          organisation_name: '',
-          position_name: '',
-          description: null,
-          start_year: null,
-          start_month: null,
-          end_year: null,
-          end_month: null,
-          confidence: 'high' as const,
-        }
-      ]
-    });
-  };
-
-  const updateExperience = (index: number, field: keyof ExperienceEntry, value: any) => {
-    const updated = [...data.experience];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, experience: updated });
-  };
-
-  const removeExperience = (index: number) => {
-    onChange({
-      ...data,
-      experience: data.experience.filter((_, i) => i !== index)
-    });
-  };
-
-  // =====================================================================
-  // PROJECTS
-  // =====================================================================
-  
-  const addProject = () => {
-    onChange({
-      ...data,
-      projects: [
-        ...data.projects,
-        {
-          project_name: '',
-          description: null,
-          link: null,
-        }
-      ]
-    });
-  };
-
-  const updateProject = (index: number, field: keyof ProjectEntry, value: any) => {
-    const updated = [...data.projects];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, projects: updated });
-  };
-
-  const removeProject = (index: number) => {
-    onChange({
-      ...data,
-      projects: data.projects.filter((_, i) => i !== index)
-    });
-  };
-
-  // =====================================================================
-  // SKILLS
-  // =====================================================================
-  
-  const updateSkills = (skills: SkillEntry[]) => {
-    onChange({ ...data, skills });
-  };
-
-  const addSkill = () => {
-    onChange({
-      ...data,
-      skills: [
-        ...data.skills,
-        { skill_name: '', skill_slug: '' }
-      ]
-    });
-  };
-
-  // =====================================================================
-  // LANGUAGES
-  // =====================================================================
-  
-  const addLanguage = () => {
-    onChange({
-      ...data,
-      languages: [
-        ...data.languages,
-        {
-          language_name: '',
-          proficiency_level: 'Intermediate' as const,
-        }
-      ]
-    });
-  };
-
-  const updateLanguages = (languages: LanguageEntry[]) => {
-    onChange({ ...data, languages });
-  };
-
-  // =====================================================================
-  // PUBLICATIONS
-  // =====================================================================
-  
-  const addPublication = () => {
-    onChange({
-      ...data,
-      publications: [
-        ...data.publications,
-        {
-          title: '',
-          journal_name: null,
-          description: null,
-          publication_year: null,
-          publication_month: null,
-          link: null,
-        }
-      ]
-    });
-  };
-
-  const updatePublication = (index: number, field: keyof PublicationEntry, value: any) => {
-    const updated = [...data.publications];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, publications: updated });
-  };
-
-  const removePublication = (index: number) => {
-    onChange({
-      ...data,
-      publications: data.publications.filter((_, i) => i !== index)
-    });
-  };
-
-  // =====================================================================
-  // CERTIFICATIONS
-  // =====================================================================
-  
-  const addCertification = () => {
-    onChange({
-      ...data,
-      certifications: [
-        ...data.certifications,
-        {
-          name: '',
-          issuing_organization: null,
-          url: null,
-        }
-      ]
-    });
-  };
-
-  const updateCertification = (index: number, field: keyof CertificationEntry, value: any) => {
-    const updated = [...data.certifications];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...data, certifications: updated });
-  };
-
-  const removeCertification = (index: number) => {
-    onChange({
-      ...data,
-      certifications: data.certifications.filter((_, i) => i !== index)
-    });
-  };
-
-  // =====================================================================
-  // SOCIAL LINKS
-  // =====================================================================
-  
+  // Social links (single object, not array)
   const updateSocialLinks = (social_links: SocialLinkEntry) => {
     onChange({ ...data, social_links });
   };
 
-  // =====================================================================
-  // RETURN ALL HANDLERS
-  // =====================================================================
-  
   return {
     // Basic fields
     updateField,
     
     // Education
-    addEducation,
-    updateEducation,
-    removeEducation,
+    addEducation: education.add,
+    updateEducation: education.update,
+    removeEducation: education.remove,
     
     // Experience
-    addExperience,
-    updateExperience,
-    removeExperience,
+    addExperience: experience.add,
+    updateExperience: experience.update,
+    removeExperience: experience.remove,
     
     // Projects
-    addProject,
-    updateProject,
-    removeProject,
+    addProject: projects.add,
+    updateProject: projects.update,
+    removeProject: projects.remove,
     
     // Skills
-    updateSkills,
-    addSkill,
+    updateSkills: skills.set,
+    addSkill: skills.add,
     
     // Languages
-    addLanguage,
-    updateLanguages,
+    addLanguage: languages.add,
+    updateLanguages: languages.set,
     
     // Publications
-    addPublication,
-    updatePublication,
-    removePublication,
+    addPublication: publications.add,
+    updatePublication: publications.update,
+    removePublication: publications.remove,
     
     // Certifications
-    addCertification,
-    updateCertification,
-    removeCertification,
+    addCertification: certifications.add,
+    updateCertification: certifications.update,
+    removeCertification: certifications.remove,
     
     // Social Links
     updateSocialLinks,

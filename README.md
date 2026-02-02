@@ -1,251 +1,408 @@
-# Jobelix - Job Application Platform
+<a id="readme-top"></a>
 
-Jobelix is a modern job application platform built with Next.js that connects students with companies. It features AI-powered resume parsing, real-time chat validation, and a comprehensive application tracking system.
+<!-- PROJECT SHIELDS -->
+<div align="center">
 
-## 🎯 What is Jobelix?
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![CC BY-NC 4.0 License][license-shield]][license-url]
 
-Jobelix helps students:
-- Upload their resume (PDF) and have it automatically parsed by AI
-- Complete their profile through an intelligent chat interface
-- Browse and apply for job offers from companies
-- Track their application status
+[![Vercel][vercel-shield]][vercel-url]
+[![CI][ci-shield]][ci-url]
 
-For companies:
-- Post job offers
-- Review student applications
-- Manage hiring pipeline
+</div>
 
-## 🏗️ Technology Stack
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/jobelix-dev/nextjs-app">
+    <img src="build/icon.png" alt="Jobelix Logo" width="120" height="120">
+  </a>
 
-- **Framework**: Next.js 16.1.0 (React, App Router, Turbopack)
-- **Database**: Supabase (PostgreSQL)
-- **AI**: OpenAI GPT-4o for resume parsing
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Authentication**: Supabase Auth
+  <h1 align="center">Jobelix</h1>
 
-## 📚 Documentation Structure
+  <p align="center">
+    <strong>Automate your LinkedIn job applications with AI</strong>
+    <br />
+    Apply to hundreds of jobs while you sleep.
+    <br />
+    <br />
+    <a href="https://www.jobelix.fr"><strong>Visit Website »</strong></a>
+    <br />
+    <br />
+    <a href="https://www.jobelix.fr/download">Download App</a>
+    ·
+    <a href="https://github.com/jobelix-dev/nextjs-app/issues/new?labels=bug&template=bug-report.md">Report Bug</a>
+    ·
+    <a href="https://github.com/jobelix-dev/nextjs-app/issues/new?labels=enhancement&template=feature-request.md">Request Feature</a>
+  </p>
+</div>
 
-**Start here if you're new:**
-1. [Complete Beginner's Guide](docs/BEGINNERS_GUIDE.md) - Start here if you've never used TypeScript or Next.js
-2. [Project Setup Guide](docs/SETUP.md) - How to install and run the project
-3. [Project Architecture](docs/ARCHITECTURE.md) - How the codebase is organized
-4. [Resume Validation System](docs/RESUME_VALIDATION.md) - How the AI validation works
-5. [API Reference](docs/API_REFERENCE.md) - All API endpoints explained
-6. [Database Schema](docs/DATABASE.md) - Database tables and relationships
+<!-- HERO IMAGE -->
+<div align="center">
+  <img src="public/hero-screenshot.png" alt="Jobelix Screenshot" width="800">
+</div>
 
-## ⚡ Quick Start (5 minutes)
+<br />
 
-### Prerequisites
-You need these installed on your computer:
-- [Node.js](https://nodejs.org/) version 18 or higher
-- npm (comes with Node.js)
-- A code editor like [VS Code](https://code.visualstudio.com/)
-
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd jobelix
-```
-
-2. **Install dependencies**
-```bash
-npm install
-```
-
-3. **Set up environment variables**
-Create a `.env.local` file in the root directory:
-```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# OpenAI
-OPENAI_API_KEY=your_openai_api_key
-```
-
-4. **Run the development server**
-```bash
-npm run dev
-```
-
-5. **Open your browser**
-Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 🎓 For Complete Beginners
-
-If you're new to web development or TypeScript, don't worry! We've created detailed guides:
-
-- **Never used TypeScript?** Read our [TypeScript Basics Guide](docs/BEGINNERS_GUIDE.md#typescript-basics)
-- **Never used Next.js?** Read our [Next.js Basics Guide](docs/BEGINNERS_GUIDE.md#nextjs-basics)
-- **Never used React?** Read our [React Basics Guide](docs/BEGINNERS_GUIDE.md#react-basics)
-
-## 📖 Key Concepts
-
-### Resume Validation Flow
-1. Student uploads PDF resume
-2. OpenAI GPT-4o extracts information
-3. Backend validates all fields with hard checks
-4. Chat interface asks for missing/invalid fields
-5. Student provides answers one by one
-6. Backend validates each answer immediately
-7. Profile is saved when all fields are valid
-
-### Three-Category Validation System
-- **Invalid**: Fields that failed validation (wrong format, vague answers)
-- **Missing**: Fields not found in the resume
-- **Uncertain**: Fields extracted with low confidence
-
-### Security Features
-- Server-side validation (no client bypass possible)
-- Vague answer rejection ("idk", "none", "skip", etc.)
-- Format validation (phone numbers, emails, dates)
-- Anti-bypass measures
-
-## 🗂️ Project Structure
-
-```
-jobelix/
-├── app/                      # Next.js App Router pages
-│   ├── api/                  # API routes (backend)
-│   │   ├── auth/            # Authentication endpoints
-│   │   ├── offers/          # Job offers endpoints
-│   │   └── resume/          # Resume processing endpoints
-│   ├── dashboard/           # Student/Company dashboards
-│   ├── login/               # Login page
-│   └── signup/              # Signup page
-├── components/              # Reusable React components
-├── lib/                     # Utility functions and helpers
-│   ├── api.ts              # API client functions
-│   ├── fieldValidation.ts  # Server-side validation logic
-│   ├── supabaseClient.ts   # Supabase browser client
-│   ├── supabaseServer.ts   # Supabase server client
-│   └── types.ts            # TypeScript type definitions
-├── supabase/               # Database migrations and config
-│   └── migrations/         # SQL migration files
-├── docs/                   # Documentation
-└── public/                 # Static files
-```
-
-## 🔑 Important Files to Know
-
-- `app/api/resume/extract-data/route.ts` - AI resume parsing
-- `app/api/resume/chat/route.ts` - Validation chat logic
-- `app/api/resume/finalize/route.ts` - Save validated data
-- `lib/fieldValidation.ts` - All validation rules
-- `components/ResumeChat.tsx` - Chat UI component
-
-## 🐛 Common Issues
-
-### "Module not found" errors
-```bash
-npm install
-```
-
-### "Supabase error" or "401 Unauthorized"
-Check your `.env.local` file has the correct Supabase credentials
-
-### "OpenAI API error"
-Verify your `OPENAI_API_KEY` in `.env.local`
-
-### Build errors
-```bash
-npm run build
-```
-This will show all TypeScript errors
-
-## 🧪 Testing
-
-```bash
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-## 📝 Contributing
-
-1. Create a new branch
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
-
-## 🆘 Getting Help
-
-- Read the [Beginner's Guide](docs/BEGINNERS_GUIDE.md)
-- Check the [API Reference](docs/API_REFERENCE.md)
-- Review the [Architecture](docs/ARCHITECTURE.md)
-
-## 📄 License
-
-[Add your license here]
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#-about-the-project">About The Project</a></li>
+    <li><a href="#-features">Features</a></li>
+    <li><a href="#-built-with">Built With</a></li>
+    <li><a href="#-getting-started">Getting Started</a></li>
+    <li><a href="#-installation">Installation</a></li>
+    <li><a href="#-project-structure">Project Structure</a></li>
+    <li><a href="#-contributing">Contributing</a></li>
+    <li><a href="#-rewards-for-contributors">Rewards for Contributors</a></li>
+    <li><a href="#-roadmap">Roadmap</a></li>
+    <li><a href="#-license">License</a></li>
+    <li><a href="#-contact">Contact</a></li>
+  </ol>
+</details>
 
 ---
 
-**Ready to dive in?** Start with the [Complete Beginner's Guide](docs/BEGINNERS_GUIDE.md)!
+## 🎯 About The Project
 
-Test
+**Jobelix** is an open-source job application automation platform that helps job seekers apply to hundreds of LinkedIn jobs automatically using AI.
 
-# Backend: 
+The platform consists of:
+- **Web App** — Build your profile, upload your resume, manage credits
+- **Desktop App** — Electron-based automation bot that applies to jobs on LinkedIn
+- **AI Engine** — GPT-4o powered resume parsing and question answering
 
-## Etapes setup: 
-- Installer docker (https://www.docker.com/products/docker-desktop/) et start (`sudo systemctl start docker` sur linux)
-- Installer supabase CLI (https://supabase.com/docs/guides/local-development/cli/getting-started?queryGroups=platform&platform=linux)
-- (ne faire que si le dossier supabase n'existe pas) 'supabase login' puis 'supabase init' puis 'supabase link --project-ref project_id_sur_supabase'
-- 'supabase start' permet de lancer le client supabase sur: http://localhost:54323
-- dans .env.local rajouter les champs : 
+### The Problem
+
+Applying for jobs is time-consuming and repetitive. Most job applications ask the same questions, require the same information, and follow the same patterns. Job seekers spend hours every day copy-pasting their information into forms.
+
+### The Solution
+
+Jobelix automates the entire process:
+1. **Upload your resume** — AI extracts all your information
+2. **Set your preferences** — Target roles, locations, salary expectations
+3. **Start the bot** — It applies to matching jobs 24/7
+4. **Track applications** — See every job you've applied to
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🤖 **AI Resume Parsing** | GPT-4o extracts your experience, education, skills from PDF |
+| 🔄 **Auto-Apply Bot** | Playwright-based bot fills forms and submits applications |
+| 💬 **Smart Q&A** | AI answers screening questions based on your profile |
+| 🎯 **Job Matching** | Filter by title, location, salary, company size |
+| 📊 **Application Tracking** | Dashboard shows all your applications |
+| 🔐 **Secure Auth** | Supabase authentication with RLS policies |
+| 💳 **Credit System** | Pay-per-application with Stripe integration |
+| 🖥️ **Cross-Platform** | Windows, macOS, Ubuntu, Arch Linux |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 🛠️ Built With
+
+<div align="center">
+
+[![Next.js][Next.js]][Next-url]
+[![React][React.js]][React-url]
+[![TypeScript][TypeScript]][TypeScript-url]
+[![Tailwind CSS][TailwindCSS]][TailwindCSS-url]
+[![Supabase][Supabase]][Supabase-url]
+[![Electron][Electron]][Electron-url]
+[![Playwright][Playwright]][Playwright-url]
+[![OpenAI][OpenAI]][OpenAI-url]
+[![Stripe][Stripe]][Stripe-url]
+
+</div>
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 16 (App Router), React 19, Tailwind CSS 4 |
+| **Backend** | Next.js API Routes, Supabase (PostgreSQL + Auth) |
+| **Desktop** | Electron 39, electron-builder |
+| **Bot** | Playwright (Chromium), Python runtime |
+| **AI** | OpenAI GPT-4o |
+| **Payments** | Stripe |
+| **Deployment** | Vercel (web), GitHub Actions (desktop builds) |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js** 20+ ([Download](https://nodejs.org/))
+- **Docker** (for local Supabase) ([Download](https://www.docker.com/products/docker-desktop/))
+- **Supabase CLI** ([Install Guide](https://supabase.com/docs/guides/cli))
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/jobelix-dev/nextjs-app.git
+cd nextjs-app
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your keys (see Configuration section)
+
+# Start local Supabase
+supabase start
+
+# Run the development server
+npm run dev
 ```
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=#récupérer ANON KEY depuis supabase status -o env | grep -E "(ANON_KEY|SERVICE_ROLE_KEY)"
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 📦 Installation
+
+### Download Desktop App
+
+#### Linux (Ubuntu, Arch, Manjaro, etc.)
+```bash
+curl -fsSL https://jobelix.fr/install.sh | bash
 ```
 
-## Commandes supabase utiles:
-### Lancement env et arret
-Commandes:
+#### Windows / macOS
+Download from the [Releases Page](https://github.com/jobelix-dev/jobelix-releases/releases/latest).
 
-supabase stop --project-id Jobelix && supabase start
+---
 
-supabase start -> lance le venv (il faut que docker soit activé)
-supabase stop -> stop le venv (pas besoin de le stop normalement il consomme pas trop)
-supabase stop --no-backup -> reset le venv à la dernière migration (supprime les nouvelles tables/fonctions/trigers)
+### Configuration
 
-### Sauvegarde, pull et pushs - DB:
-Commandes:
-supabase db pull -> recupére ce qui est sur le site (s'il y a eu des migration faites directement dessus)
-supabase db reset -> update la db supabase après une migration (supprime toutes les mocks datas. Voir plus bas pour les sauvegarder)
-supabase db diff --use-migra -f nom_de_la_migration -> rajoute le code EQL entre l'ancienne version et la nouvelle. 
-supabase db push -> update la version du site web. 
+Create a `.env.local` file with the following variables:
 
-### A propos des mocks datas:
-Les mocks datas sont regénérés à partir du fichier seed.sql. On peut quand même extraire des vrais datas de notre base de données au besoin (en utilisant un csv téléchargeable sur le site de la db de prod (supabase.com)). 
+```bash
+# Supabase (Required)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-Commande:
-supabase db dump --local --data-only > supabase/nom.sql -> Permet de sauvegarder les données actuelles dans le fichier "nom.sql" (comme ca elles sont sauvegardées quelquepart avant un reset)
+# OpenAI (Required for AI features)
+OPENAI_API_KEY=sk-...
 
+# Stripe (Required for payments)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_CREDITS_250=price_...
+STRIPE_PRICE_CREDITS_750=price_...
+STRIPE_PRICE_CREDITS_1500=price_...
 
-Remarque: Si le seed.sql ne marche pas à cause du auth, on peut rajouter les lignes de la table auth à la main:
-"""
-INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at)
-VALUES 
-  ('le-uuid-que-tu-utilises-dans-students', 'moi@test.com', crypt('password123', gen_salt('bf')), now())
-ON CONFLICT (id) DO NOTHING;
-"""
+# GitHub OAuth (Optional)
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
 
+# App URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-# guide for testing stripe locally
-Choose sandbox in stripe dashboard and get STRIPE_SECRET_KEY
-set it in .env important!
-then stripe login
+See `.env.example` for all available options.
 
-verify sandbox matches with stripe config --list
-create product in that dashboard and get price id, set it in .env
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Start webhook
-./stripe listen --forward-to localhost:3000/api/stripe/webhook
-set it in .env
+---
+
+## 📁 Project Structure
+
+```
+jobelix/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes (server-side)
+│   │   ├── auth/         # Authentication endpoints
+│   │   ├── student/      # Student profile, resume, applications
+│   │   ├── company/      # Company dashboard endpoints
+│   │   └── stripe/       # Payment webhooks
+│   ├── dashboard/        # Protected dashboard pages
+│   ├── components/       # React components
+│   └── landing/          # Public landing page
+├── lib/
+│   ├── client/           # Browser-only code (hooks, API calls)
+│   ├── server/           # Server-only code (DB, Stripe, OpenAI)
+│   └── shared/           # Shared types and schemas
+├── src/main/             # Electron main process
+│   └── modules/          # Window, IPC, update managers
+├── supabase/
+│   └── migrations/       # Database migrations (SQL)
+├── scripts/              # Build and release scripts
+├── resources/            # Platform-specific bot runtimes
+└── build/                # Electron build assets
+```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+### How to Contribute
+
+1. **Fork the Project**
+2. **Create your Feature Branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Make your Changes**
+4. **Run Quality Checks**
+   ```bash
+   npm run lint
+   npx tsc --noEmit
+   npm run build
+   ```
+5. **Commit your Changes**
+   ```bash
+   git commit -m 'Add amazing feature'
+   ```
+6. **Push to the Branch**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+7. **Open a Pull Request**
+
+### Development Guidelines
+
+- Read [`AGENTS.md`](AGENTS.md) for codebase conventions
+- Follow existing code patterns
+- Add TypeScript types for new code
+- Test your changes locally before submitting
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 🎁 Rewards for Contributors
+
+**We reward contributors with free Jobelix credits!**
+
+| Contribution Type | Reward |
+|-------------------|--------|
+| 🐛 Bug fix (minor) | 50 credits |
+| 🐛 Bug fix (major) | 150 credits |
+| ✨ New feature (small) | 100 credits |
+| ✨ New feature (medium) | 300 credits |
+| ✨ New feature (large) | 500+ credits |
+| 📚 Documentation improvement | 25-100 credits |
+| 🔒 Security vulnerability report | 200-500 credits |
+
+**How it works:**
+1. Submit a PR or report an issue
+2. Once merged/validated, we'll credit your Jobelix account
+3. Use credits to auto-apply to jobs!
+
+> 💡 **Note:** Create an account on [jobelix.fr](https://www.jobelix.fr) with the same email as your GitHub account to receive credits automatically.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 🗺️ Roadmap
+
+- [x] AI-powered resume parsing
+- [x] LinkedIn auto-apply bot
+- [x] Cross-platform desktop app
+- [x] Stripe payment integration
+- [x] GitHub OAuth for developer profiles
+- [ ] Indeed job board support
+- [ ] Chrome extension
+- [ ] Mobile app (React Native)
+- [ ] Company dashboard for recruiters
+- [ ] Interview scheduling integration
+- [ ] Multi-language support
+
+See the [open issues](https://github.com/jobelix-dev/nextjs-app/issues) for a full list of proposed features and known issues.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 📄 License
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License** (CC BY-NC 4.0).
+
+You are free to share and adapt this work for non-commercial purposes with attribution. See [`LICENSE`](LICENSE) for details.
+
+[![CC BY-NC 4.0](https://licensebuttons.net/l/by-nc/4.0/88x31.png)](https://creativecommons.org/licenses/by-nc/4.0/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 📧 Contact
+
+**Jobelix Team** — [jobelix.contact@gmail.com](mailto:jobelix.contact@gmail.com)
+
+- Website: [https://www.jobelix.fr](https://www.jobelix.fr)
+- GitHub: [@jobelix-dev](https://github.com/jobelix-dev)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## 🙏 Acknowledgments
+
+- [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+- [Shields.io](https://shields.io)
+- [Lucide Icons](https://lucide.dev)
+- [Vercel](https://vercel.com) for hosting
+- [Supabase](https://supabase.com) for backend infrastructure
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[contributors-shield]: https://img.shields.io/github/contributors/jobelix-dev/nextjs-app.svg?style=for-the-badge
+[contributors-url]: https://github.com/jobelix-dev/nextjs-app/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/jobelix-dev/nextjs-app.svg?style=for-the-badge
+[forks-url]: https://github.com/jobelix-dev/nextjs-app/network/members
+[stars-shield]: https://img.shields.io/github/stars/jobelix-dev/nextjs-app.svg?style=for-the-badge
+[stars-url]: https://github.com/jobelix-dev/nextjs-app/stargazers
+[issues-shield]: https://img.shields.io/github/issues/jobelix-dev/nextjs-app.svg?style=for-the-badge
+[issues-url]: https://github.com/jobelix-dev/nextjs-app/issues
+[license-shield]: https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg?style=for-the-badge
+[license-url]: https://creativecommons.org/licenses/by-nc/4.0/
+
+[vercel-shield]: https://img.shields.io/badge/Vercel-Deployed-black?style=for-the-badge&logo=vercel
+[vercel-url]: https://www.jobelix.fr
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/jobelix-dev/nextjs-app/release.yml?style=for-the-badge&logo=github&label=Build
+[ci-url]: https://github.com/jobelix-dev/nextjs-app/actions/workflows/release.yml
+
+[Next.js]: https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
+[Next-url]: https://nextjs.org/
+[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
+[React-url]: https://reactjs.org/
+[TypeScript]: https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white
+[TypeScript-url]: https://www.typescriptlang.org/
+[TailwindCSS]: https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white
+[TailwindCSS-url]: https://tailwindcss.com/
+[Supabase]: https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white
+[Supabase-url]: https://supabase.com/
+[Electron]: https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white
+[Electron-url]: https://www.electronjs.org/
+[Playwright]: https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white
+[Playwright-url]: https://playwright.dev/
+[OpenAI]: https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white
+[OpenAI-url]: https://openai.com/
+[Stripe]: https://img.shields.io/badge/Stripe-626CD9?style=for-the-badge&logo=stripe&logoColor=white
+[Stripe-url]: https://stripe.com/

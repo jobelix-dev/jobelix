@@ -9,6 +9,7 @@
 
 export interface UserProfile {
   id: string;
+  email: string;
   role: 'student' | 'company';
   created_at?: string;
 }
@@ -17,6 +18,7 @@ export interface SignupPayload {
   email: string;
   password: string;
   role: 'student' | 'company';
+  captchaToken?: string;
 }
 
 export interface SignupResponse {
@@ -24,12 +26,14 @@ export interface SignupResponse {
   userId?: string;
   error?: string;
   message?: string;
+  loggedIn?: boolean;
   profile?: UserProfile;
 }
 
 export interface LoginPayload {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface LoginResponse {
@@ -195,6 +199,18 @@ export interface ExtractedResumeData {
   publications: PublicationEntry[];
   certifications: CertificationEntry[];
   social_links: SocialLinkEntry; // Changed from array to object
+}
+
+/**
+ * Draft profile data structure (database row)
+ * Extends ExtractedResumeData with database fields
+ */
+export interface DraftProfileData extends ExtractedResumeData {
+  id: string;
+  status: 'editing' | 'published';
+  student_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
@@ -383,4 +399,45 @@ export interface CompanyOfferDraft {
   status: 'editing' | 'ready_to_publish';
   created_at: string;
   updated_at: string;
+}
+
+// Bot Session Types
+export type BotSessionStatus = 'starting' | 'running' | 'completed' | 'failed' | 'stopped';
+
+export interface BotSession {
+  id: string;
+  user_id: string;
+  status: BotSessionStatus;
+  started_at: string;
+  last_heartbeat_at: string | null;
+  completed_at: string | null;
+  current_activity: string | null;
+  activity_details: Record<string, unknown> | null;
+  jobs_found: number;
+  jobs_applied: number;
+  jobs_failed: number;
+  credits_used: number;
+  error_message: string | null;
+  error_details: Record<string, unknown> | null;
+  bot_version: string | null;
+  platform: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Bot Launch Types
+export type BotLaunchStage = 'checking' | 'installing' | 'launching' | 'running';
+
+export interface BotLaunchStatus {
+  stage: BotLaunchStage;
+  message?: string;
+  progress?: number;
+  logs: string[];
+}
+
+export interface HistoricalTotals {
+  jobs_found: number;
+  jobs_applied: number;
+  jobs_failed: number;
+  credits_used: number;
 }

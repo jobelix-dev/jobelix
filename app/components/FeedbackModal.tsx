@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Bug, Lightbulb, Send } from 'lucide-react';
+import { X, Bug, Lightbulb, Send, MessageSquare } from 'lucide-react';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -30,7 +30,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, subject, description }),
+        body: JSON.stringify({ feedback_type: type, subject, description }),
       });
 
       const data = await response.json();
@@ -48,7 +48,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       } else {
         setError(data.error || 'Failed to submit feedback');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setSubmitting(false);
@@ -58,114 +58,122 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-zinc-200 dark:border-zinc-800">
+    <div 
+      className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-surface rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-scale-in"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-800">
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            Send Feedback
-          </h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary-subtle flex items-center justify-center">
+              <MessageSquare size={18} className="text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold text-default">
+              Send Feedback
+            </h2>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-primary-subtle/50 rounded-lg transition-colors"
             aria-label="Close"
           >
-            <X className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+            <X className="w-5 h-5 text-muted" />
           </button>
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          {/* Type Selection */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          {/* Type Selection - Segmented Control */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              What type of feedback?
+            <label className="block text-sm font-medium text-default">
+              Type
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex p-1 bg-primary-subtle/30 rounded-xl">
               <button
                 type="button"
                 onClick={() => setType('bug')}
-                className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                   type === 'bug'
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                    : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                    ? 'bg-white text-default shadow-sm'
+                    : 'text-muted hover:text-default'
                 }`}
               >
-                <Bug className={`w-5 h-5 ${type === 'bug' ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'}`} />
-                <span className={`font-medium ${type === 'bug' ? 'text-red-700 dark:text-red-300' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                  Bug Report
-                </span>
+                <Bug className="w-4 h-4" />
+                Bug Report
               </button>
               <button
                 type="button"
                 onClick={() => setType('feature')}
-                className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                   type === 'feature'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                    : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                    ? 'bg-white text-default shadow-sm'
+                    : 'text-muted hover:text-default'
                 }`}
               >
-                <Lightbulb className={`w-5 h-5 ${type === 'feature' ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-500'}`} />
-                <span className={`font-medium ${type === 'feature' ? 'text-purple-700 dark:text-purple-300' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                  Feature Request
-                </span>
+                <Lightbulb className="w-4 h-4" />
+                Feature Request
               </button>
             </div>
           </div>
 
           {/* Subject */}
           <div className="space-y-2">
-            <label htmlFor="subject" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Subject <span className="text-red-500">*</span>
+            <label htmlFor="feedback-subject" className="block text-sm font-medium text-default">
+              Subject
             </label>
             <input
-              id="subject"
+              id="feedback-subject"
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder={type === 'bug' ? 'e.g., Login button not working' : 'e.g., Add dark mode toggle'}
+              placeholder={type === 'bug' ? 'What went wrong?' : 'What would you like to see?'}
               maxLength={200}
               required
-              className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2.5 rounded-xl border border-border/50 bg-white text-default placeholder:text-muted/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
-              {subject.length}/200
-            </p>
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <label htmlFor="description" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Description <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="feedback-description" className="block text-sm font-medium text-default">
+                Description
+              </label>
+              <span className="text-xs text-muted">
+                {description.length}/5000
+              </span>
+            </div>
             <textarea
-              id="description"
+              id="feedback-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={
                 type === 'bug'
-                  ? 'Please describe what happened, what you expected, and steps to reproduce...'
-                  : 'Please describe the feature you\'d like to see and why it would be useful...'
+                  ? 'Please describe what happened and steps to reproduce...'
+                  : 'Please describe the feature and why it would be useful...'
               }
-              rows={8}
+              rows={5}
               maxLength={5000}
               required
-              className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-3 py-2.5 rounded-xl border border-border/50 bg-white text-default placeholder:text-muted/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all"
             />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
-              {description.length}/5000
-            </p>
           </div>
 
           {/* Error/Success Messages */}
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+            <div className="p-3 bg-error-subtle rounded-xl text-sm text-error flex items-center gap-2">
+              <span className="flex-shrink-0">!</span>
               {error}
             </div>
           )}
           {success && (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm text-green-700 dark:text-green-300">
-              ✓ Thank you for your feedback! We'll review it soon.
+            <div className="p-3 bg-success-subtle rounded-xl text-sm text-success flex items-center gap-2">
+              <span className="flex-shrink-0">✓</span>
+              Thank you for your feedback! We&apos;ll review it soon.
             </div>
           )}
 
@@ -173,7 +181,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
           <button
             type="submit"
             disabled={submitting || !subject.trim() || !description.trim()}
-            className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>

@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface GitHubConnectionStatus {
   connected: boolean;
@@ -25,6 +25,18 @@ export function useGitHubConnection() {
   const [status, setStatus] = useState<GitHubConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup poll interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Check GitHub connection status
   const checkStatus = useCallback(async () => {
@@ -50,9 +62,9 @@ export function useGitHubConnection() {
       } else {
         setStatus({ connected: false });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error checking GitHub connection:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setStatus({ connected: false });
     } finally {
       setLoading(false);
@@ -61,6 +73,12 @@ export function useGitHubConnection() {
 
   // Connect GitHub (opens OAuth flow in popup)
   const connect = useCallback(() => {
+    // Clear any existing poll interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
     // Open GitHub OAuth in a centered popup window
     const width = 600;
     const height = 700;
@@ -74,14 +92,19 @@ export function useGitHubConnection() {
     );
 
     if (!popup) {
-      alert('Please allow popups for this site to connect GitHub');
+      setPopupBlocked(true);
       return;
     }
 
+    setPopupBlocked(false);
+
     // Poll for popup closure and check connection status
-    const pollInterval = setInterval(() => {
+    pollIntervalRef.current = setInterval(() => {
       if (popup.closed) {
-        clearInterval(pollInterval);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
         // Refresh connection status after popup closes
         setTimeout(() => {
           checkStatus();
@@ -113,9 +136,9 @@ export function useGitHubConnection() {
       await checkStatus();
       
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error disconnecting GitHub:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       return false;
     } finally {
       setLoading(false);
@@ -151,6 +174,7 @@ export function useGitHubConnection() {
     status,
     loading,
     error,
+    popupBlocked,
     connect,
     disconnect,
     refresh: checkStatus,

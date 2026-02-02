@@ -36,6 +36,14 @@ export async function POST() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
+      const isMissingSession =
+        error.name === 'AuthSessionMissingError' ||
+        error.message?.toLowerCase().includes('auth session missing');
+
+      if (isMissingSession) {
+        // Treat missing session as a successful logout (idempotent).
+        return NextResponse.json({ success: true, alreadyLoggedOut: true });
+      }
       // Log full details on the server for debugging
       console.error("Supabase signOut error:", error);
       // Return a generic message to the browser
@@ -46,13 +54,14 @@ export async function POST() {
      * Logout succeeded. Cookies are cleared.
      */
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * Catch unexpected server errors and return a generic message.
      * Avoid returning internal error details to the browser.
      */
+    console.error('Logout error:', error);
     return NextResponse.json(
-      { error: error.message || 'Logout failed' },
+      { error: 'Logout failed' },
       { status: 500 }
     )
   }

@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["browser-utils.ts"],
+  "sourcesContent": ["/**\n * Browser Utilities - Shared browser/Playwright helpers\n * \n * Contains utility functions used across multiple components\n * for browser state detection and error handling.\n */\n\n/**\n * Check if an error indicates the browser was closed\n * \n * This is used throughout the bot to gracefully handle cases where\n * the user closes the browser window during operation.\n * \n * @param error - The error to check\n * @returns True if the error indicates browser closure\n * \n * @example\n * ```typescript\n * try {\n *   await page.goto(url);\n * } catch (error) {\n *   if (isBrowserClosed(error)) {\n *     console.log('User closed the browser');\n *     return;\n *   }\n *   throw error;\n * }\n * ```\n */\nexport function isBrowserClosed(error: unknown): boolean {\n  const message = error instanceof Error ? error.message : String(error);\n  return (\n    message.includes('Target page, context or browser has been closed') ||\n    message.includes('Target closed') ||\n    message.includes('Browser closed')\n  );\n}\n"],
+  "mappings": "AA6BO,SAAS,gBAAgB,OAAyB;AACvD,QAAM,UAAU,iBAAiB,QAAQ,MAAM,UAAU,OAAO,KAAK;AACrE,SACE,QAAQ,SAAS,iDAAiD,KAClE,QAAQ,SAAS,eAAe,KAChC,QAAQ,SAAS,gBAAgB;AAErC;",
+  "names": []
+}

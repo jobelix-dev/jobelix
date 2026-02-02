@@ -17,6 +17,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
+import { updatePasswordSchema } from '@/lib/server/validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,30 +27,27 @@ export async function POST(request: NextRequest) {
      * Expected shape:
      * { password: string }
      */
-    const { password } = await request.json()
+    const body = await request.json()
 
     /**
-     * 2) Basic server-side validation
-     * Never trust frontend validation alone.
+     * 2) Validate input using Zod schema.
+     * If validation fails, return structured error messages.
      */
-    if (!password) {
+    const result = updatePasswordSchema.safeParse(body)
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'Password is required' },
+        { 
+          error: 'Validation failed',
+          errors: result.error.issues.map(e => ({
+            path: e.path.join('.'),
+            message: e.message,
+          })),
+        },
         { status: 400 }
       )
     }
 
-    /**
-     * Beginner note:
-     * - Supabase itself has password rules
-     * - This check is an EARLY guard to give faster feedback
-     */
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
-      )
-    }
+    const { password } = result.data
 
     /**
      * 3) Create a Supabase client using cookies
@@ -73,14 +71,40 @@ export async function POST(request: NextRequest) {
       password: password
     })
 
-
     if (error) {
       /**
        * 🔐 SECURITY:
-       * - Do NOT return error.message to the client
-       * - It can reveal internal auth details
-       * - Always log the full error server-side
+       * - Do NOT return error.message to the client directly
+       * - Check for specific known errors and return user-friendly messages
        */
+      console.error('Supabase updateUser error:', error);
+      
+      // Check for specific password-related errors
+      if (error.code === 'same_password' || error.message?.includes('same_password') || error.message?.includes('Password should be different')) {
+        return NextResponse.json(
+          { error: 'New password should be different from your current password' },
+          { status: 400 }
+        )
+      }
+      
+      // Check for expired/invalid session errors (when reset link has expired)
+      if (error.code === 'invalid_grant' || error.code === 'expired_token' || error.code === 'session_not_found' || 
+          error.message?.includes('invalid') || error.message?.includes('expired') || error.message?.includes('session')) {
+        return NextResponse.json(
+          { error: 'This password reset link has expired. Please request a new password reset.' },
+          { status: 400 }
+        )
+      }
+      
+      // Check for weak password errors
+      if (error.message?.includes('weak') || error.message?.includes('Password should be at least')) {
+        return NextResponse.json(
+          { error: 'Password is too weak. Please choose a stronger password.' },
+          { status: 400 }
+        )
+      }
+
+      // Generic error for other cases
       return NextResponse.json(
         { error: 'Failed to update password' }, // 🔐
         { status: 400 }
@@ -95,7 +119,7 @@ export async function POST(request: NextRequest) {
      * - Supabase invalidates old sessions automatically
      */
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch {
     /**
      * 🔐 SECURITY:
      * - Never expose raw server errors to the client

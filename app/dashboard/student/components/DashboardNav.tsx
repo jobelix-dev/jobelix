@@ -1,16 +1,17 @@
 /**
- * Student Dashboard Navigation
+ * Talent Dashboard Navigation
  * 
- * Tab-based navigation for student dashboard sections:
+ * Tab-based navigation for talent dashboard sections:
  * - Profile: Resume upload and profile editor
- * - Matches: Job matches from startups
+ * - Matches: Job matches from employers
  * - Auto Apply: Mass application tools
  * - Activity: Application tracking
+ * Note: Component/folder uses "student" for DB compatibility, UI shows "talent"
  */
 
 'use client';
 
-import { User, Briefcase, Zap, Activity, Rocket } from 'lucide-react';
+import { User, Briefcase, Zap, Rocket } from 'lucide-react';
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
@@ -21,43 +22,50 @@ interface DashboardNavProps {
 
 export default function DashboardNav({ activeTab, onTabChange }: DashboardNavProps) {
   const tabs = [
-    { id: 'profile' as const, label: 'My Profile', icon: User },
-    { id: 'job-preferences' as const, label: 'Job Preferences', icon: Zap },
+    { id: 'profile' as const, label: 'Profile', icon: User },
+    { id: 'job-preferences' as const, label: 'Preferences', icon: Zap },
     { id: 'auto-apply' as const, label: 'Auto Apply', icon: Rocket },
     { id: 'matches' as const, label: 'Matches', icon: Briefcase, comingSoon: true },
   ];
 
   return (
-    <div className="border-b border-zinc-200 dark:border-zinc-800 mb-8">
-      <div className="flex gap-1">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange(tab.id)}
-              className={`
-                flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-t-lg transition-colors
-                ${isActive 
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-t border-x border-zinc-200 dark:border-zinc-800' 
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                }
-              `}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-              {tab.comingSoon && (
-                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
-                  Coming Soon
-                </span>
-              )}
-            </button>
-          );
-        })}
+    <nav className="mb-6">
+      {/* Full width on mobile, centered on desktop */}
+      <div className="flex justify-center px-1">
+        <div className="w-full sm:w-auto inline-flex bg-surface rounded-2xl sm:rounded-xl p-1.5 sm:p-1 shadow-sm border border-border/30">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange(tab.id)}
+                className={`
+                  relative flex flex-col sm:flex-row items-center justify-center
+                  flex-1 sm:flex-none
+                  gap-1 sm:gap-2
+                  px-2 sm:px-4 py-3 sm:py-2
+                  text-xs sm:text-sm font-medium
+                  rounded-xl sm:rounded-lg
+                  transition-all duration-200
+                  ${isActive 
+                    ? 'bg-primary text-white shadow-sm' 
+                    : 'text-muted active:bg-primary-subtle/50 sm:hover:text-default sm:hover:bg-primary-subtle/50'
+                  }
+                `}
+              >
+                <Icon className="w-5 h-5 sm:w-[18px] sm:h-[18px]" strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[11px] sm:text-sm leading-tight">{tab.label}</span>
+                {tab.comingSoon && (
+                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 bg-info rounded-full" title="Coming Soon" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </nav>
   );
 }

@@ -6,64 +6,83 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, ArrowDown } from 'lucide-react';
 import WorkPreferencesSection from './sections/WorkPreferencesSection';
 import { usePreferences } from './hooks';
 
-export default function JobPreferencesTab() {
+interface JobPreferencesTabProps {
+  onUnsavedChanges?: (hasChanges: boolean) => void;
+}
+
+export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTabProps) {
   // Custom hook for preferences
   const preferences = usePreferences();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  useEffect(() => {
+    if (onUnsavedChanges) {
+      onUnsavedChanges(hasUnsavedChanges);
+    }
+  }, [hasUnsavedChanges, onUnsavedChanges]);
+
+  // Cleanup: Clear unsaved changes notification when unmounting (navigating away)
+  useEffect(() => {
+    return () => {
+      if (onUnsavedChanges) {
+        onUnsavedChanges(false);
+      }
+    };
+  }, [onUnsavedChanges]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-2">
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-2">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-xl sm:text-2xl font-bold text-default">
               Job Preferences
             </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-              Set your job preferences to receive better startup matches <br /> and enable the LinkedIn Auto-Apply bot.
+            <p className="text-sm text-muted mt-1">
+              Set your job preferences to receive better startup matches <br className="hidden sm:block" /> and enable the LinkedIn Auto-Apply bot.
             </p>
           </div>
           
           {/* Status Badge */}
           {!preferences.checking && (
-            hasUnsavedChanges ? (
+            hasUnsavedChanges ? ( // Changes exist, show Unsaved button
               <button
                 onClick={() => {
                   const saveButton = document.getElementById('save-preferences-button');
                   saveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer flex-shrink-0"
+                className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0 w-full sm:w-auto"
               >
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                <span className="text-sm font-medium text-warning">
                   Unsaved
                 </span>
-                <ArrowDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <ArrowDown className="w-4 h-4 text-warning" />
               </button>
-            ) : preferences.preferencesComplete ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 flex-shrink-0">
-                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+            ) : preferences.preferencesComplete ? ( // no changes + complete preferences = show Saved badge
+              <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-success-subtle/20 border border-success flex-shrink-0 w-full sm:w-auto">
+                <CheckCircle className="w-4 h-4 text-success" />
+                <span className="text-sm font-medium text-success">
                   Saved
                 </span>
               </div>
-            ) : (
+            ) : ( // Incomplete preferences, show Unsaved button
               <button
                 onClick={() => {
                   const saveButton = document.getElementById('save-preferences-button');
                   saveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer flex-shrink-0"
+                className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-warning-subtle/20 border border-warning hover:bg-warning-subtle transition-colors cursor-pointer flex-shrink-0 w-full sm:w-auto"
               >
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                <span className="text-sm font-medium text-warning">
                   Unsaved
                 </span>
-                <ArrowDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <ArrowDown className="w-4 h-4 text-warning" />
               </button>
             )
           )}
@@ -73,7 +92,7 @@ export default function JobPreferencesTab() {
       {/* Work Preferences Section */}
       <WorkPreferencesSection 
         onSave={preferences.recheckPreferences}
-        onUnsavedChanges={setHasUnsavedChanges}
+        onUnsavedChanges={setHasUnsavedChanges} // when set to true Unsaved button shows up and when clicked scrolls to bottom save preferences button
       />
     </div>
   );

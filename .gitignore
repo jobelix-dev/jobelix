@@ -17,12 +17,16 @@
 /.next/
 /out/
 
-# production
-/build
+# production (Next.js build output, not electron-builder assets)
+# Note: /build/license.txt and /build/icon.* are tracked for electron-builder
+/.next-build
 
 # misc
 .DS_Store
 *.pem
+
+# copilot
+.github/copilot*
 
 # debug
 npm-debug.log*
@@ -65,4 +69,3 @@ resources/linux/main/tailored_resumes/
 resources/linux/main/log.txt
 
 electron-builder.env
-.github/

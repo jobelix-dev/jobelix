@@ -1,0 +1,247 @@
+name: Build & Release
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to GitHub Releases'
+        required: false
+        default: 'false'
+        type: boolean
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux Intel (Ubuntu 22.04)
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+            artifact_name: Jobelix-linux-x64
+            linux_label: ubuntu-22.04
+
+          # Linux ARM64 (Ubuntu 22.04)
+          - os: ubuntu-22.04-arm
+            platform: linux
+            arch: arm64
+            artifact_name: Jobelix-linux-arm64
+            linux_label: ubuntu-22.04-arm
+
+          # Windows Intel (x64)
+          - os: windows-2022
+            platform: win32
+            arch: x64
+            artifact_name: Jobelix-windows-x64
+
+          # Windows ARM64
+          - os: windows-2022
+            platform: win32
+            arch: arm64
+            artifact_name: Jobelix-windows-arm64
+
+          # # macOS Intel (x64) - DISABLED: Code signing not configured
+          # - os: macos-15
+          #   platform: darwin
+          #   arch: x64
+          #   artifact_name: Jobelix-macos-x64
+
+          # # macOS Apple Silicon (ARM64) - DISABLED: Code signing not configured
+          # - os: macos-latest
+          #   platform: darwin
+          #   arch: arm64
+          #   artifact_name: Jobelix-macos-arm64
+
+          # NOTE: Arch Linux build is run locally with `npm run release`
+          # and JOBELIX_LINUX_LABEL=arch env var. Upload the .AppImage
+          # manually to the GitHub release.
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine build version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag push - use the tag version
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            # Manual dispatch with version specified
+            VERSION="${{ github.event.inputs.version }}"
+            VERSION="${VERSION#v}"  # Strip v prefix if present
+          else
+            # Push to main - fetch latest release and increment patch
+            LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
+            VERSION=${LATEST#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            PATCH=$((PATCH + 1))
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Update package.json version
+        shell: bash
+        run: |
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+          cat package.json | grep '"version"'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # Linux-specific dependencies for Electron
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-0 \
+            libnotify4 \
+            libnss3 \
+            libxss1 \
+            libxtst6 \
+            xdg-utils \
+            libatspi2.0-0 \
+            libuuid1 \
+            libsecret-1-0 \
+            libgbm1 \
+            libasound2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Build bot TypeScript
+        run: npm run build:bot
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      # Build electron app
+      - name: Build Electron app (Linux)
+        if: matrix.platform == 'linux'
+        env:
+          JOBELIX_LINUX_LABEL: ${{ matrix.linux_label }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --${{ matrix.arch }}
+
+      - name: Build Electron app (Windows)
+        if: matrix.platform == 'win32'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --${{ matrix.arch }}
+
+      - name: Build Electron app (macOS)
+        if: matrix.platform == 'darwin'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --mac --${{ matrix.arch }}
+
+      # Upload artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.zip
+            dist/*.yml
+            dist/*.yaml
+            dist/latest*.yml
+          if-no-files-found: warn
+          retention-days: 7
+
+  # Release job - runs on push to main, tags, or manual trigger with publish=true
+  # Publishes to jobelix-dev/jobelix-releases (separate repo for releases)
+  release:
+    needs: build
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout (for version detection)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version tag
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag push - use the tag as-is
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            # Manual dispatch with version specified
+            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Push to main - get latest release from jobelix-releases and increment patch version
+            LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
+            echo "Latest release: $LATEST"
+            
+            # Strip 'v' prefix and split into parts
+            VERSION=${LATEST#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            echo "New version: $NEW_VERSION"
+            echo "tag=$NEW_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          TAG=${{ steps.version.outputs.tag }}
+          REPO="jobelix-dev/jobelix-releases"
+          
+          # Check if release exists
+          if gh release view "$TAG" --repo "$REPO" &>/dev/null; then
+            echo "Release $TAG exists, uploading artifacts..."
+            gh release upload "$TAG" dist/* --repo "$REPO" --clobber
+          else
+            echo "Creating new release $TAG..."
+            gh release create "$TAG" dist/* \
+              --repo "$REPO" \
+              --title "$TAG" \
+              --generate-notes
+          fi

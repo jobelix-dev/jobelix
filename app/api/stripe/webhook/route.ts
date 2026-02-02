@@ -29,6 +29,10 @@ let webhookSecretCache: string | null = null;
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getStripe(): Stripe {
+  if (stripeInstance) {
+    return stripeInstance;
+  }
+
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error("STRIPE_SECRET_KEY is not set");
   }
@@ -44,6 +48,10 @@ function getStripe(): Stripe {
  * Lazy initialization to avoid build-time errors when env vars aren't available
  */
 function getWebhookSecret(): string {
+  if (webhookSecretCache) {
+    return webhookSecretCache;
+  }
+
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     throw new Error("STRIPE_WEBHOOK_SECRET is not set");
   }
@@ -56,9 +64,17 @@ function getWebhookSecret(): string {
 // ✅ Server-side truth: if the paid priceId is not in this mapping, we refuse to credit.
 const PRICE_TO_CREDITS: Record<string, number> = {};
 
-if (process.env.STRIPE_PRICE_CREDITS_1000) {
-  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_1000] = 1000;
+if (process.env.STRIPE_PRICE_CREDITS_250) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_250] = 250;
 }
+if (process.env.STRIPE_PRICE_CREDITS_750) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_750] = 750;
+}
+if (process.env.STRIPE_PRICE_CREDITS_1500) {
+  PRICE_TO_CREDITS[process.env.STRIPE_PRICE_CREDITS_1500] = 1500;
+}
+
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,8 +91,9 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
     try {
       event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret());
-    } catch (err: any) {
-      console.error("❌ Webhook signature verification failed:", err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error("❌ Webhook signature verification failed:", errorMessage);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
@@ -113,8 +130,9 @@ export async function POST(request: NextRequest) {
         if (first?.price && typeof first.price !== "string") {
           paidPriceId = first.price.id;
         }
-      } catch (err: any) {
-        console.error("❌ Failed to fetch line items for session:", session.id, err?.message);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error("❌ Failed to fetch line items for session:", session.id, errorMessage);
         return NextResponse.json({ received: true });
       }
 
@@ -245,7 +263,7 @@ export async function POST(request: NextRequest) {
 
     // Acknowledge other event types
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Webhook handler error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

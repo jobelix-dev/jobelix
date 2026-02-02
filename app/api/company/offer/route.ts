@@ -63,7 +63,7 @@ export async function GET() {
      * 3) Fetch unpublished drafts (offer_id IS NULL)
      *
      * 🔐 Avoid select('*') here too.
-     * Drafts can contain internal/private fields — only send what the UI needs.
+     * Drafts can contain internal/private fields  -  only send what the UI needs.
      */
     const { data: unpublishedDrafts, error: draftsError } = await supabase
       .from('company_offer_draft')
@@ -92,7 +92,7 @@ export async function GET() {
       publishedOffers: publishedOffers || [],
       unpublishedDrafts: unpublishedDrafts || []
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     /**
      * 🔐 SECURITY:
      * Don't leak raw error.message to the client.

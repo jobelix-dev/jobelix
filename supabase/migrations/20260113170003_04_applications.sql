@@ -67,17 +67,6 @@ create table "public"."student_work_preferences" (
 
 alter table "public"."student_work_preferences" enable row level security;
 
--- Profile searched: Company tracking of what profiles they've searched
-create table "public"."profile_searched" (
-  "id" uuid not null default gen_random_uuid(),
-  "created_at" timestamp with time zone not null default now(),
-  "academics" text,
-  "experience" text,
-  "difficulty" smallint
-);
-
-alter table "public"."profile_searched" enable row level security;
-
 -- =============================================================================
 -- INDEXES
 -- =============================================================================
@@ -89,7 +78,6 @@ CREATE INDEX idx_student_work_preferences_student ON public.student_work_prefere
 CREATE UNIQUE INDEX application_pkey ON public.application USING btree (id);
 CREATE UNIQUE INDEX student_work_preferences_pkey ON public.student_work_preferences USING btree (id);
 CREATE UNIQUE INDEX student_work_preferences_student_unique ON public.student_work_preferences USING btree (student_id);
-CREATE UNIQUE INDEX profile_searched_pkey ON public.profile_searched USING btree (id);
 
 -- =============================================================================
 -- PRIMARY KEYS
@@ -97,7 +85,6 @@ CREATE UNIQUE INDEX profile_searched_pkey ON public.profile_searched USING btree
 
 alter table "public"."application" add constraint "application_pkey" PRIMARY KEY using index "application_pkey";
 alter table "public"."student_work_preferences" add constraint "student_work_preferences_pkey" PRIMARY KEY using index "student_work_preferences_pkey";
-alter table "public"."profile_searched" add constraint "profile_searched_pkey" PRIMARY KEY using index "profile_searched_pkey";
 
 -- =============================================================================
 -- FOREIGN KEYS
@@ -113,9 +100,6 @@ alter table "public"."student_work_preferences" add constraint "student_work_pre
 alter table "public"."student_work_preferences" validate constraint "student_work_preferences_student_id_fkey";
 
 alter table "public"."student_work_preferences" add constraint "student_work_preferences_student_unique" UNIQUE using index "student_work_preferences_student_unique";
-
-alter table "public"."profile_searched" add constraint "profile_searched_id_fkey" FOREIGN KEY (id) REFERENCES public.company_offer(id) ON UPDATE RESTRICT ON DELETE CASCADE not valid;
-alter table "public"."profile_searched" validate constraint "profile_searched_id_fkey";
 
 -- =============================================================================
 -- FUNCTIONS
@@ -184,29 +168,6 @@ grant select on table "public"."student_work_preferences" to "service_role";
 grant trigger on table "public"."student_work_preferences" to "service_role";
 grant truncate on table "public"."student_work_preferences" to "service_role";
 grant update on table "public"."student_work_preferences" to "service_role";
-
-grant delete on table "public"."profile_searched" to "anon";
-grant insert on table "public"."profile_searched" to "anon";
-grant references on table "public"."profile_searched" to "anon";
-grant select on table "public"."profile_searched" to "anon";
-grant trigger on table "public"."profile_searched" to "anon";
-grant truncate on table "public"."profile_searched" to "anon";
-grant update on table "public"."profile_searched" to "anon";
-
-grant delete on table "public"."profile_searched" to "authenticated";
-grant insert on table "public"."profile_searched" to "authenticated";
-grant references on table "public"."profile_searched" to "authenticated";
-grant select on table "public"."profile_searched" to "authenticated";
-grant trigger on table "public"."profile_searched" to "authenticated";
-grant truncate on table "public"."profile_searched" to "authenticated";
-
-grant delete on table "public"."profile_searched" to "service_role";
-grant insert on table "public"."profile_searched" to "service_role";
-grant references on table "public"."profile_searched" to "service_role";
-grant select on table "public"."profile_searched" to "service_role";
-grant trigger on table "public"."profile_searched" to "service_role";
-grant truncate on table "public"."profile_searched" to "service_role";
-grant update on table "public"."profile_searched" to "service_role";
 
 -- =============================================================================
 -- ROW LEVEL SECURITY POLICIES
@@ -279,46 +240,6 @@ for update
 to authenticated
 using ((student_id = (SELECT auth.uid())))
 with check ((student_id = (SELECT auth.uid())));
-
--- Profile searched policies
-create policy "profile_searched_delete_owner"
-on "public"."profile_searched"
-as permissive
-for delete
-to authenticated
-using ((EXISTS ( SELECT 1
-   FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
-
-create policy "profile_searched_insert_owner"
-on "public"."profile_searched"
-as permissive
-for insert
-to authenticated
-with check ((EXISTS ( SELECT 1
-   FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
-
-create policy "profile_searched_select_owner"
-on "public"."profile_searched"
-as permissive
-for select
-to authenticated
-using ((EXISTS ( SELECT 1
-   FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
-
-create policy "profile_searched_update_owner"
-on "public"."profile_searched"
-as permissive
-for update
-to authenticated
-using ((EXISTS ( SELECT 1
-   FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))))
-with check ((EXISTS ( SELECT 1
-   FROM public.company_offer
-  WHERE ((company_offer.id = profile_searched.id) AND (company_offer.company_id = (SELECT auth.uid()))))));
 
 -- =============================================================================
 -- STORAGE BUCKETS

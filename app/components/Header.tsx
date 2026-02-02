@@ -13,8 +13,8 @@ export default function Header() {
     <header className="absolute top-0 left-0 right-0 p-6 pt-14">
       <Link 
         href="/" 
-        className="inline-flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors"
-        style={{ WebkitAppRegion: 'no-drag' } as any}
+        className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <svg 
           xmlns="http://www.w3.org/2000/svg" 

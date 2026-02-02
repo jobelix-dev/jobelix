@@ -1,6 +1,7 @@
 {
   "name": "jobelix",
-  "version": "0.2.2",
+  "version": "0.0.12",
+  "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
@@ -8,19 +9,28 @@
   "scripts": {
     "dev": "concurrently \"next dev\" \"electron .\"",
     "build": "next build",
+    "build:bot": "node scripts/build-bot.mjs",
     "start": "next start",
     "lint": "eslint",
-    "build-installer": "electron-builder",
-    "release": "electron-builder --publish always"
+    "test": "NODE_OPTIONS='--max-old-space-size=4096' vitest",
+    "test:coverage": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --coverage",
+    "dist": "npm run build:bot && node scripts/release.mjs",
+    "release": "npm run build:bot && node scripts/release.mjs --publish always",
+    "postinstall": "patch-package"
   },
   "build": {
     "appId": "com.jobelix.app",
     "productName": "Jobelix",
+    "buildDependenciesFromSource": false,
+    "nodeGypRebuild": false,
+    "npmRebuild": false,
+    "compression": "maximum",
     "publish": [
       {
         "provider": "github",
         "owner": "jobelix-dev",
-        "repo": "jobelix-releases"
+        "repo": "jobelix-releases",
+        "releaseType": "release"
       }
     ],
     "directories": {
@@ -28,45 +38,49 @@
     },
     "files": [
       "src/main/**/*",
+      "!src/main/**/*.ts",
+      "!src/main/**/__tests__/**/*",
       "preload.js",
-      "loader.html",
-      "update-required.html",
       "package.json",
       "build/license.txt",
-      "!.next/**/*",
-      "!app/**/*",
-      "!lib/**/*",
-      "!public/**/*",
-      "!supabase/**/*",
-      "!docs/**/*",
-      "!tests/**/*",
-      "!node_modules/.cache/**/*"
+      "build/loading.html",
+      "build/icon.png",
+      "!node_modules/playwright-core/bin/**/*",
+      "!node_modules/playwright-core/lib/server/**/*",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/*.md",
+      "!node_modules/**/README*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/.github/**/*",
+      "!node_modules/**/*.map"
     ],
-    "extraResources": [
-      {
-        "from": "resources/${os}/",
-        "to": "./${os}/",
-        "filter": [
-          "engine",
-          "engine.exe",
-          "version.txt"
-        ]
-      }
+    "asarUnpack": [],
+    "extraResources": [],
+    "electronLanguages": [
+      "en-US",
+      "en-GB"
     ],
+    "removePackageScripts": true,
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-windows-${arch}-setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "license": "build/license.txt"
+      "license": "build/license.txt",
+      "include": "build/installer.nsh"
     },
     "mac": {
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/icon.icns",
       "category": "public.app-category.utilities",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "artifactName": "${productName}-${version}-macos-${arch}.${ext}"
     },
     "dmg": {
       "contents": [
@@ -85,45 +99,66 @@
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png",
-      "category": "Utility"
-    }
+      "category": "Utility",
+      "artifactName": "${productName}-${version}-${env.JOBELIX_LINUX_LABEL}.${ext}",
+      "executableArgs": [
+        "--no-sandbox"
+      ]
+    },
+    "afterPack": "./scripts/after-pack.mjs"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.7.3",
+    "js-yaml": "^4.1.1",
+    "playwright-core": "^1.58.0",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
     "@ai-sdk/openai": "^3.0.1",
     "@ai-sdk/react": "^3.0.3",
+    "@hcaptcha/react-hcaptcha": "^2.0.2",
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.6.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
     "@vercel/analytics": "^1.6.1",
+    "@vercel/speed-insights": "^1.3.1",
     "ai": "^6.0.3",
-    "electron-log": "^5.4.3",
-    "electron-updater": "^6.7.3",
     "lucide-react": "^0.562.0",
-    "next": "16.1.0",
+    "next": "^16.1.6",
     "openai": "^6.15.0",
     "pdf-parse-fork": "^1.2.0",
     "pdf2json": "^4.0.0",
     "pdfjs-dist": "^5.4.530",
+    "playwright": "^1.58.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.7.0",
     "server-only": "^0.0.1",
     "stripe": "^20.1.2",
     "yaml": "^2.8.2",
-    "zod": "^4.2.1"
-  },
-  "devDependencies": {
+    "zod": "^4.2.1",
     "@tailwindcss/postcss": "^4",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.0.18",
     "concurrently": "^9.2.1",
     "electron": "^39.2.7",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "^26.4.0",
+    "esbuild": "^0.27.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.0",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "tar": "^7.5.6"
   }
 }

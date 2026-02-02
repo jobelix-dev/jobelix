@@ -1,6 +1,6 @@
 /**
  * LanguagesInput Component
- * Compact two-column language containers with proficiency dropdown
+ * Responsive language cards with proficiency dropdown
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -12,6 +12,7 @@ interface LanguagesInputProps {
   onChange: (languages: LanguageEntry[]) => void;
   fieldErrors?: Record<number, { language_name?: string; proficiency_level?: string }>;
   disabled?: boolean;
+  idPrefix?: string;
 }
 
 const proficiencyLevels: LanguageEntry['proficiency_level'][] = ['Beginner', 'Intermediate', 'Advanced', 'Fluent', 'Native'];
@@ -42,19 +43,19 @@ function CustomDropdown({
   }, [isOpen]);
 
   return (
-    <div ref={dropdownRef} className="relative flex-shrink-0">
+    <div ref={dropdownRef} className="relative">
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="appearance-none bg-white dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-100 border border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 text-xs pr-7 pl-3 py-2 rounded-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all shadow-sm hover:shadow-md min-w-[110px] text-center"
+        className="w-full flex items-center justify-between gap-2 bg-primary-subtle/30 text-default border border-transparent hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs px-3 py-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer font-medium transition-all"
       >
-        {value}
+        <span>{value}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-muted transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-purple-600 dark:text-purple-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       
       {isOpen && (
-        <div className="absolute top-full mt-1 min-w-[110px] bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-2xl shadow-lg overflow-hidden z-50 py-1">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-surface border border-border/50 rounded-lg shadow-lg overflow-hidden z-50 py-1">
           {proficiencyLevels.map((level) => (
             <button
               key={level}
@@ -63,10 +64,10 @@ function CustomDropdown({
                 onChange(level);
                 setIsOpen(false);
               }}
-              className={`w-full text-center px-3 py-2 text-xs font-medium transition-colors ${
+              className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors ${
                 value === level
-                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
-                  : 'text-zinc-900 dark:text-zinc-100 hover:bg-purple-50 dark:hover:bg-purple-900/20'
+                  ? 'bg-primary-subtle text-primary'
+                  : 'text-default hover:bg-primary-subtle/50'
               }`}
             >
               {level}
@@ -78,7 +79,13 @@ function CustomDropdown({
   );
 }
 
-export default function LanguagesInput({ languages, onChange, fieldErrors = {}, disabled = false }: LanguagesInputProps) {
+export default function LanguagesInput({
+  languages,
+  onChange,
+  fieldErrors = {},
+  disabled = false,
+  idPrefix = 'profile-language'
+}: LanguagesInputProps) {
   const updateLanguage = (index: number, field: keyof LanguageEntry, value: string) => {
     const updated = [...languages];
     updated[index] = { ...updated[index], [field]: value };
@@ -90,46 +97,56 @@ export default function LanguagesInput({ languages, onChange, fieldErrors = {}, 
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {languages.map((language, index) => {
         const nameError = fieldErrors[index]?.language_name;
         const proficiencyError = fieldErrors[index]?.proficiency_level;
         const hasError = nameError || proficiencyError;
         
         return (
-          <div key={index} className="space-y-1">
-            <div className="h-4">
-              {(nameError || proficiencyError) && (
-                <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500 px-1">
-                  <AlertCircle className="w-3 h-3" />
-                  <span>{nameError || proficiencyError}</span>
-                </div>
-              )}
-            </div>
-            <div
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
-                hasError
-                  ? 'border-amber-500 dark:border-amber-600 ring-1 ring-amber-500/50 dark:ring-amber-600/50'
-                  : 'border-purple-200 dark:border-purple-800'
-              } bg-purple-50/30 dark:bg-purple-900/10`}
-            >
+          <div 
+            key={index} 
+            className={`relative p-3 rounded-xl border bg-white transition-all ${
+              hasError
+                ? 'border-warning ring-1 ring-warning/30'
+                : 'border-border/50 hover:border-border'
+            }`}
+          >
+            {/* Error message */}
+            {(nameError || proficiencyError) && (
+              <div className="flex items-center gap-1.5 text-xs text-warning mb-2">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{nameError || proficiencyError}</span>
+              </div>
+            )}
+            
+            {/* Language name input */}
+            <div className="mb-2">
               <input
+                id={`${idPrefix}-${index}-language_name`}
                 type="text"
                 value={language.language_name}
                 onChange={(e) => updateLanguage(index, 'language_name', e.target.value)}
                 placeholder="e.g., English"
                 disabled={disabled}
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed min-w-0"
+                className="w-full bg-transparent border-none focus:outline-none text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-muted/50"
               />
-              <CustomDropdown
-                value={language.proficiency_level}
-                onChange={(level) => updateLanguage(index, 'proficiency_level', level)}
-                disabled={disabled}
-              />
+            </div>
+            
+            {/* Bottom row: proficiency + delete */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <CustomDropdown
+                  value={language.proficiency_level}
+                  onChange={(level) => updateLanguage(index, 'proficiency_level', level)}
+                  disabled={disabled}
+                />
+              </div>
               <button
+                type="button"
                 onClick={() => removeLanguage(index)}
                 disabled={disabled}
-                className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
+                className="p-2 text-muted hover:text-error hover:bg-error-subtle rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
                 title="Remove language"
               >
                 <Trash2 className="w-4 h-4" />

@@ -4,6 +4,40 @@
  * Saves to repository root for Electron app usage
  */
 
+/**
+ * Escapes a string value for safe YAML output.
+ * Handles special characters, multi-line strings, and injection attacks.
+ */
+function escapeYamlString(value: string): string {
+  if (!value) return '""';
+  
+  // Check if the string needs quoting
+  const needsQuoting = /[:\-#{}\[\]&*!|>'"%@`]|^[\s]|[\s]$|[\n\r]/.test(value);
+  
+  if (needsQuoting) {
+    // Escape backslashes and double quotes, then wrap in double quotes
+    const escaped = value
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+    return `"${escaped}"`;
+  }
+  
+  return value;
+}
+
+/**
+ * Escapes an array item for safe YAML output.
+ */
+function escapeYamlArrayItem(value: string): string {
+  const escaped = escapeYamlString(value);
+  // If already quoted, return as-is; otherwise check if it needs quoting
+  if (escaped.startsWith('"')) return escaped;
+  return escaped;
+}
+
 interface WorkPreferences {
   remote_work: boolean;
   exp_internship: boolean;
@@ -50,8 +84,9 @@ interface WorkPreferences {
 export function preferencesToYAML(prefs: WorkPreferences): string {
   const yaml: string[] = [];
 
-  // Remote work
-  yaml.push(`remote: ${prefs.remote_work}`);
+  // Remote work filter is disabled - it limits job results too much
+  // Bot now searches all jobs (on-site, hybrid, remote) by default
+  yaml.push(`remote: false`);
   yaml.push('');
 
   // Experience levels
@@ -89,7 +124,7 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
     yaml.push('  []');
   } else {
     prefs.positions.forEach(position => {
-      yaml.push(`  - ${position}`);
+      yaml.push(`  - ${escapeYamlArrayItem(position)}`);
     });
   }
   yaml.push('');
@@ -100,7 +135,7 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
     yaml.push('  []');
   } else {
     prefs.locations.forEach(location => {
-      yaml.push(`  - ${location}`);
+      yaml.push(`  - ${escapeYamlArrayItem(location)}`);
     });
   }
   yaml.push('');
@@ -115,7 +150,7 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
     yaml.push('  []');
   } else {
     prefs.company_blacklist.forEach(company => {
-      yaml.push(`  - ${company}`);
+      yaml.push(`  - ${escapeYamlArrayItem(company)}`);
     });
   }
   yaml.push('');
@@ -126,7 +161,7 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
     yaml.push('  []');
   } else {
     prefs.title_blacklist.forEach(title => {
-      yaml.push(`  - ${title}`);
+      yaml.push(`  - ${escapeYamlArrayItem(title)}`);
     });
   }
   yaml.push('');
@@ -137,12 +172,12 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
   
   // Personal details
   yaml.push('  personal_details:');
-  yaml.push(`    date_of_birth: "${prefs.date_of_birth}"`);
-  yaml.push(`    pronouns: "${prefs.pronouns}"`);
-  yaml.push(`    gender: "${prefs.gender}"`);
+  yaml.push(`    date_of_birth: ${escapeYamlString(prefs.date_of_birth)}`);
+  yaml.push(`    pronouns: ${escapeYamlString(prefs.pronouns)}`);
+  yaml.push(`    gender: ${escapeYamlString(prefs.gender)}`);
   yaml.push(`    veteran: ${prefs.is_veteran}`);
   yaml.push(`    disability: ${prefs.has_disability}`);
-  yaml.push(`    ethnicity: "${prefs.ethnicity}"`);
+  yaml.push(`    ethnicity: ${escapeYamlString(prefs.ethnicity)}`);
   yaml.push('  ');
 
   // Legal authorization
@@ -171,12 +206,12 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 
   // Availability
   yaml.push('  availability:');
-  yaml.push(`    notice_period: "${prefs.notice_period}"`);
+  yaml.push(`    notice_period: ${escapeYamlString(prefs.notice_period)}`);
   yaml.push('  ');
 
   // Salary expectations
   yaml.push('  salary_expectations:');
-  yaml.push(`    salary_expectation_usd: "${prefs.salary_expectation_usd}"`);
+  yaml.push(`    salary_expectation_usd: ${escapeYamlString(String(prefs.salary_expectation_usd))}`);
 
   return yaml.join('\n');
 }

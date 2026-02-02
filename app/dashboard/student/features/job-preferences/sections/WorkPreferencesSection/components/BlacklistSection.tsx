@@ -6,9 +6,9 @@
 
 'use client';
 
-import React from 'react';
+import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import { Ban } from 'lucide-react';
-import ArrayInputField from './ArrayInputField';
+import ArrayInputField, { ArrayInputFieldRef } from './ArrayInputField';
 
 interface BlacklistSectionProps {
   companyBlacklist: string[];
@@ -16,33 +16,62 @@ interface BlacklistSectionProps {
   onChange: (field: string, value: string[]) => void;
 }
 
-export default function BlacklistSection({
-  companyBlacklist,
-  titleBlacklist,
-  onChange,
-}: BlacklistSectionProps) {
+export interface BlacklistSectionRef {
+  flushAllPendingInputs: () => void;
+  getPendingInputs: () => { company: string; title: string };
+}
+
+const BlacklistSection = forwardRef<BlacklistSectionRef, BlacklistSectionProps>((
+  {
+    companyBlacklist,
+    titleBlacklist,
+    onChange,
+  },
+  ref
+) => {
+  const companyRef = useRef<ArrayInputFieldRef>(null);
+  const titleRef = useRef<ArrayInputFieldRef>(null);
+
+  // Expose flush and get methods to parent
+  useImperativeHandle(ref, () => ({
+    flushAllPendingInputs: () => {
+      companyRef.current?.flushPendingInput();
+      titleRef.current?.flushPendingInput();
+    },
+    getPendingInputs: () => ({
+      company: companyRef.current?.getPendingInput() || '',
+      title: titleRef.current?.getPendingInput() || '',
+    }),
+  }));
+
   return (
     <div className="space-y-4">
-      <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+      <h4 className="text-sm font-semibold text-primary-hover flex items-center gap-2">
         <Ban className="w-4 h-4" />
         Filters & Exclusions
       </h4>
 
       <ArrayInputField
+        ref={companyRef}
         label="Company Blacklist"
         placeholder="e.g., CompanyName Inc"
         value={companyBlacklist}
         onChange={(val) => onChange('company_blacklist', val)}
-        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+        tagColorClass="bg-primary-subtle/30 text-primary-hover"
       />
 
       <ArrayInputField
+        ref={titleRef}
         label="Job Title Blacklist"
         placeholder="e.g., Senior, Lead"
         value={titleBlacklist}
         onChange={(val) => onChange('title_blacklist', val)}
-        tagColorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+        tagColorClass="bg-primary-subtle/30 text-primary-hover"
       />
     </div>
   );
-}
+});
+
+BlacklistSection.displayName = 'BlacklistSection';
+
+export default BlacklistSection;

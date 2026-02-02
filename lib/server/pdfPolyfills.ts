@@ -10,7 +10,7 @@
 
 // Polyfill DOMMatrix (2D transformation matrix)
 if (typeof DOMMatrix === 'undefined') {
-  (global as any).DOMMatrix = class {
+  (global as unknown as { DOMMatrix: unknown }).DOMMatrix = class {
     a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
     constructor() {}
   };
@@ -18,7 +18,7 @@ if (typeof DOMMatrix === 'undefined') {
 
 // Polyfill Path2D (Canvas path object)
 if (typeof Path2D === 'undefined') {
-  (global as any).Path2D = class {
+  (global as unknown as { Path2D: unknown }).Path2D = class {
     constructor() {}
     addPath() {}
     arc() {}
@@ -35,7 +35,7 @@ if (typeof Path2D === 'undefined') {
 
 // Polyfill ImageData (Pixel data container)
 if (typeof ImageData === 'undefined') {
-  (global as any).ImageData = class {
+  (global as unknown as { ImageData: unknown }).ImageData = class {
     width: number;
     height: number;
     data: Uint8ClampedArray;

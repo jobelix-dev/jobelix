@@ -1,138 +1,252 @@
 /**
- * IPC Handlers
- * Registers all IPC communication channels between main and renderer processes
+ * IPC Handlers - Communication between main and renderer processes
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
-import { launchBot } from './process-manager.js';
+import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
+import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
+import { openExternalUrl } from './update-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
-/**
- * Setup all IPC handlers
- * Registers handlers for config management, resume generation, and bot launching
- */
-export function setupIpcHandlers() {
-  logger.info('Setting up IPC handlers...');
-
-  // Handler: Read config.yaml file
-  ipcMain.handle(IPC_CHANNELS.READ_CONFIG, async () => {
-    logger.ipc(IPC_CHANNELS.READ_CONFIG, 'Reading config file');
-    const result = await readConfig();
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.READ_CONFIG, 'Config read successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.READ_CONFIG, 'Config read failed or file not found');
-    }
-    
-    return result;
-  });
-
-  // Handler: Write config.yaml file
-  ipcMain.handle(IPC_CHANNELS.WRITE_CONFIG, async (event, content) => {
-    logger.ipc(IPC_CHANNELS.WRITE_CONFIG, 'Writing config file');
-    const result = await writeConfig(content);
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.WRITE_CONFIG, 'Config written successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.WRITE_CONFIG, `Config write failed: ${result.error}`);
-    }
-    
-    return result;
-  });
-
-  // Handler: Write resume.yaml file
-  ipcMain.handle(IPC_CHANNELS.WRITE_RESUME, async (event, content) => {
-    logger.ipc(IPC_CHANNELS.WRITE_RESUME, 'Writing resume file');
-    const result = await writeResume(content);
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.WRITE_RESUME, `Resume written to: ${result.path}`);
-    } else {
-      logger.ipc(IPC_CHANNELS.WRITE_RESUME, `Resume write failed: ${result.error}`);
-    }
-    
-    return result;
-  });
-
-  // Handler: Launch bot automation
-  ipcMain.handle(IPC_CHANNELS.LAUNCH_BOT, async (event, token) => {
-    logger.ipc(IPC_CHANNELS.LAUNCH_BOT, 'Launching bot');
-    const result = await launchBot(token);
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launched with PID: ${result.pid}`);
-    } else {
-      logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launch failed: ${result.error}`);
-    }
-    
-    return result;
-  });
-
-  // Handler: Minimize window
-  ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_MINIMIZE, 'Minimizing window');
-      window.minimize();
-    }
-  });
-
-  // Handler: Maximize window
-  ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_MAXIMIZE, 'Maximizing window');
-      window.maximize();
-    }
-  });
-
-  // Handler: Unmaximize window
-  ipcMain.handle(IPC_CHANNELS.WINDOW_UNMAXIMIZE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_UNMAXIMIZE, 'Restoring window');
-      window.unmaximize();
-    }
-  });
-
-  // Handler: Close window
-  ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_CLOSE, 'Closing window');
-      window.close();
-    }
-  });
-
-  // Handler: Check if window is maximized
-  ipcMain.handle(IPC_CHANNELS.WINDOW_IS_MAXIMIZED, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    return window ? window.isMaximized() : false;
-  });
-
-  logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW')).length} IPC handlers registered`);
+// Lazy-loaded bot launcher
+let botLauncher = null;
+async function getBotLauncher() {
+  if (!botLauncher) {
+    botLauncher = await import('./node-bot-launcher.js');
+  }
+  return botLauncher;
 }
 
-/**
- * Remove all IPC handlers
- * Clean up function for app shutdown
- */
+// Helper to get window from event
+function getWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender);
+}
+
+// Helper to create safe status sender
+function createStatusSender(event, channel) {
+  return (payload) => {
+    try {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(channel, payload);
+      }
+    } catch (err) {
+      logger.warn(`Failed to send ${channel}:`, err.message);
+    }
+  };
+}
+
+export function setupIpcHandlers() {
+  logger.info('Setting up IPC handlers...');
+  let handlerCount = 0;
+
+  // ============================================================================
+  // App Info
+  // ============================================================================
+  
+  ipcMain.handle('get-app-version', () => app.getVersion());
+  handlerCount++;
+
+  // ============================================================================
+  // Config & Resume Files
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.READ_CONFIG, async () => {
+    const result = await readConfig();
+    logger.debug(`Config read: ${result.success ? 'OK' : 'failed'}`);
+    return result;
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.WRITE_CONFIG, async (_, content) => {
+    const result = await writeConfig(content);
+    logger.debug(`Config write: ${result.success ? 'OK' : result.error}`);
+    return result;
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.WRITE_RESUME, async (_, content) => {
+    const result = await writeResume(content);
+    logger.debug(`Resume write: ${result.success ? result.path : result.error}`);
+    return result;
+  });
+  handlerCount++;
+
+  // ============================================================================
+  // Bot Control
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.LAUNCH_BOT, async (event, { token, apiUrl }) => {
+    logger.info('Launching bot...');
+    try {
+      const launcher = await getBotLauncher();
+      const sendStatus = createStatusSender(event, IPC_CHANNELS.BOT_STATUS);
+      const result = await launcher.launchNodeBot(token, sendStatus, apiUrl);
+      logger.info(`Bot launch: ${result.success ? 'OK' : result.error}`);
+      return result;
+    } catch (err) {
+      logger.error('Bot launch failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.STOP_BOT, async () => {
+    logger.info('Stopping bot...');
+    try {
+      const launcher = await getBotLauncher();
+      const result = await launcher.stopNodeBot();
+      logger.info(`Bot stop: ${result.success ? 'OK' : result.error}`);
+      return result;
+    } catch (err) {
+      logger.error('Bot stop failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.FORCE_STOP_BOT, async () => {
+    logger.info('Force stopping bot...');
+    try {
+      const launcher = await getBotLauncher();
+      const result = await launcher.forceStopBot();
+      logger.info(`Bot force stop: ${result.success ? 'OK' : result.error}`);
+      return result;
+    } catch (err) {
+      logger.error('Bot force stop failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.GET_BOT_STATUS, async () => {
+    try {
+      const launcher = await getBotLauncher();
+      return { success: true, ...launcher.getBotStatus() };
+    } catch (err) {
+      return { success: false, running: false, pid: null, startedAt: null };
+    }
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.GET_BOT_LOG_PATH, async () => {
+    try {
+      const launcher = await getBotLauncher();
+      const path = launcher.getBotLogPath();
+      return path ? { success: true, path } : { success: false, error: 'Log not initialized' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  handlerCount++;
+
+  // ============================================================================
+  // Browser Management
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.CHECK_BROWSER, () => {
+    try {
+      return { success: true, ...checkBrowserInstalled() };
+    } catch (err) {
+      return { success: false, installed: false, error: err.message };
+    }
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.INSTALL_BROWSER, async (event) => {
+    const window = getWindow(event);
+    if (!window) return { success: false, error: 'No window' };
+    
+    try {
+      return await installBrowser(window);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  handlerCount++;
+
+  // ============================================================================
+  // Window Controls
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
+    getWindow(event)?.minimize();
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, (event) => {
+    getWindow(event)?.maximize();
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_UNMAXIMIZE, (event) => {
+    getWindow(event)?.unmaximize();
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, (event) => {
+    getWindow(event)?.close();
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_IS_MAXIMIZED, (event) => {
+    return getWindow(event)?.isMaximized() ?? false;
+  });
+  handlerCount++;
+
+  // ============================================================================
+  // Auth Cache
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.SAVE_AUTH_CACHE, async (_, tokens) => {
+    return await saveAuthCache(tokens);
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.LOAD_AUTH_CACHE, async () => {
+    return await loadAuthCache();
+  });
+  handlerCount++;
+
+  ipcMain.handle(IPC_CHANNELS.CLEAR_AUTH_CACHE, async () => {
+    return await clearAuthCache();
+  });
+  handlerCount++;
+
+  // ============================================================================
+  // Updates
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.OPEN_RELEASES_PAGE, () => {
+    openExternalUrl('https://github.com/jobelix-dev/jobelix-releases/releases/latest');
+    return { success: true };
+  });
+  handlerCount++;
+
+  ipcMain.handle('open-external-url', (_, url) => {
+    openExternalUrl(url);
+    return { success: true };
+  });
+  handlerCount++;
+
+  logger.success(`${handlerCount} IPC handlers registered`);
+}
+
 export function removeIpcHandlers() {
-  logger.info('Removing IPC handlers...');
+  const channels = [
+    'get-app-version',
+    'open-external-url',
+    ...Object.values(IPC_CHANNELS)
+  ];
   
-  ipcMain.removeHandler(IPC_CHANNELS.READ_CONFIG);
-  ipcMain.removeHandler(IPC_CHANNELS.WRITE_CONFIG);
-  ipcMain.removeHandler(IPC_CHANNELS.WRITE_RESUME);
-  ipcMain.removeHandler(IPC_CHANNELS.LAUNCH_BOT);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MAXIMIZE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_CLOSE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_IS_MAXIMIZED);
+  channels.forEach(channel => {
+    try {
+      ipcMain.removeHandler(channel);
+    } catch {
+      // Handler might not exist
+    }
+  });
   
-  logger.success('IPC handlers removed');
+  logger.info('IPC handlers removed');
 }

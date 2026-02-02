@@ -31,7 +31,7 @@ export function usePreferences() {
       } else {
         setPreferencesComplete(false);
       }
-    } catch (err) {
+    } catch (_err) {
       setPreferencesComplete(false);
     } finally {
       setChecking(false);
