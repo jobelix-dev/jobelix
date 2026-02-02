@@ -51,6 +51,7 @@ import {
   socialLinksPrompt,
 } from '@/lib/server/prompts'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
+import * as pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs'
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps'
 import { setExtractionProgress } from '@/lib/server/extractionProgress'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
@@ -66,9 +67,10 @@ import type {
 } from '@/lib/shared/types'
 
 // Configure PDF.js for Node.js serverless environment
-// Disable worker for serverless - run synchronously in main thread
-// This avoids file path issues in Vercel's serverless functions
-pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+// In pdfjs-dist v5, we must provide the worker module on globalThis.pdfjsWorker
+// This avoids the "No GlobalWorkerOptions.workerSrc specified" error on Vercel
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(globalThis as any).pdfjsWorker = pdfjsWorker
 
 // PDF.js text content item type
 interface TextContentItem {
@@ -262,6 +264,7 @@ export async function POST(_request: NextRequest) {
     const uint8Array = new Uint8Array(arrayBuffer)
 
     // Load PDF document using pdfjs-dist legacy build (Node.js compatible)
+    // Worker is handled via globalThis.pdfjsWorker set at module load
     const loadingTask = pdfjsLib.getDocument({
       data: uint8Array,
       useSystemFonts: true,

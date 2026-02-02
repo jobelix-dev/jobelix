@@ -15,11 +15,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, Loader2, ChevronDown } from 'lucide-react';
+import { Download, Loader2, ChevronDown, Terminal, Check, Copy } from 'lucide-react';
 import type { ReleaseInfo, Platform, AssetInfo } from '@/lib/client/github-api';
 import { formatFileSize, getFallbackDownloadUrl } from '@/lib/client/github-api';
 import { getPlatformDisplayName, PLATFORM_OPTIONS } from '@/lib/client/platformDetection';
 import { useIsClient, usePlatform } from '@/app/hooks/useClientSide';
+
+/** Linux install command - one-liner that auto-detects distro */
+const LINUX_INSTALL_COMMAND = 'curl -fsSL https://jobelix.fr/install.sh | bash';
+
+/** Check if platform is a Linux variant */
+function isLinuxPlatform(platform: Platform): boolean {
+  return platform === 'linux-x64' || platform === 'linux-arm64' || platform === 'linux-arch';
+}
 
 interface DownloadButtonProps {
   releaseInfo?: ReleaseInfo;
@@ -61,6 +69,7 @@ export default function DownloadButton({
   const isClient = useIsClient();
   const platform = usePlatform();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -70,6 +79,13 @@ export default function DownloadButton({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showDropdown]);
+
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   // Don't render anything until client-side hydration is complete
   if (!isClient) {
@@ -121,6 +137,17 @@ export default function DownloadButton({
     );
   }
 
+  // Handle copy to clipboard for Linux install command
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(LINUX_INSTALL_COMMAND);
+      setCopied(true);
+      trackDownload(platform, releaseInfo.version);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   // Handle main download click
   const handleDownload = (targetPlatform: Platform, url: string) => {
     trackDownload(targetPlatform, releaseInfo.version);
@@ -133,6 +160,61 @@ export default function DownloadButton({
     ? 'bg-primary hover:bg-primary-hover text-white'
     : 'bg-surface hover:bg-primary-subtle text-default border-2 border-primary-subtle';
 
+  // Linux: Show install command instead of download button
+  if (isLinuxPlatform(platform)) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted text-center">
+          Install on {platformName} with one command:
+        </p>
+        
+        {/* Command box with copy button */}
+        <div className="flex items-stretch bg-surface border border-border rounded-lg overflow-hidden shadow-md">
+          <div className="flex items-center gap-2 px-4 py-3 bg-surface/50 flex-1 min-w-0">
+            <Terminal className="w-4 h-4 text-muted flex-shrink-0" />
+            <code className="text-sm font-mono text-default truncate">
+              {LINUX_INSTALL_COMMAND}
+            </code>
+          </div>
+          <button
+            onClick={handleCopyCommand}
+            className={`px-4 py-3 transition-colors flex items-center gap-2 ${
+              copied 
+                ? 'bg-success text-white' 
+                : 'bg-primary hover:bg-primary-hover text-white'
+            }`}
+            title={copied ? 'Copied!' : 'Copy to clipboard'}
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span className="text-sm font-medium">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                <span className="text-sm font-medium">Copy</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <p className="text-xs text-muted text-center">
+          Auto-detects your distro (Ubuntu, Arch, etc.) • Version {releaseInfo.version}
+        </p>
+        
+        {/* Link to manual download */}
+        <p className="text-xs text-muted text-center">
+          Prefer manual install?{' '}
+          <a href={getFallbackDownloadUrl()} className="text-primary hover:underline">
+            Download AppImage directly
+          </a>
+        </p>
+      </div>
+    );
+  }
+
+  // Windows/macOS: Show download button with dropdown
   return (
     <div className="space-y-2">
       <div className="relative inline-flex">
