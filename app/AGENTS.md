@@ -163,6 +163,7 @@ await supabase.from('user_credits').update({ balance: balance + 100 });
 - **Entry**: `src/main/index.js`, preload: `preload.js`
 - **Bot runtime**: `npm run fetch:bot` (from GitHub releases, needs `PY_RUNTIME_TAG`)
 - **Platforms**: win/mac/linux/arch (resources/<os>/)
+- **Window frame**: Uses `frame: true` for native OS window controls (minimize, maximize, close)
 
 ---
 

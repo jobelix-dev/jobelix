@@ -58,7 +58,7 @@ export const WINDOW_CONFIG = {
     height: 800,
     center: true,
     show: false,
-    frame: false, // Custom window controls
+    frame: true, // Use native OS window controls (minimize, maximize, close)
     autoHideMenuBar: true,
     title: 'Jobelix',
   },
@@ -96,13 +96,6 @@ export const IPC_CHANNELS = {
   SAVE_AUTH_CACHE: 'save-auth-cache',
   LOAD_AUTH_CACHE: 'load-auth-cache',
   CLEAR_AUTH_CACHE: 'clear-auth-cache',
-  
-  // Window controls
-  WINDOW_MINIMIZE: 'window-minimize',
-  WINDOW_MAXIMIZE: 'window-maximize',
-  WINDOW_UNMAXIMIZE: 'window-unmaximize',
-  WINDOW_CLOSE: 'window-close',
-  WINDOW_IS_MAXIMIZED: 'window-is-maximized',
   
   // Update management
   OPEN_RELEASES_PAGE: 'open-releases-page',

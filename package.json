@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
@@ -70,7 +70,10 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "license": "build/license.txt",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Jobelix"
     },
     "mac": {
       "target": [

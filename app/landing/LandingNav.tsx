@@ -3,39 +3,17 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import MobileNav from './MobileNav';
-import { useIsElectron } from '@/app/hooks/useClientSide';
 
 /**
  * Landing page navigation component
  * 
- * Electron window drag architecture:
- * - The outer <nav> has WebkitAppRegion: 'drag' (in Electron) so dragging the
- *   nav background drags the window
- * - The inner content div has WebkitAppRegion: 'no-drag' so links/buttons are clickable
- * - On desktop (sm:+), right padding avoids overlap with window controls
- * - On mobile, no window controls exist so no padding needed
- * 
- * This approach ensures:
- * - Browser: Normal nav behavior, no drag regions
- * - Electron Desktop: Drag by nav background, click links normally
- * - Electron Mobile: No window controls, no padding, normal touch behavior
+ * Simple, clean navigation without custom window control complexity.
+ * Window controls are handled natively by the OS via Electron's frame: true.
  */
 export default function LandingNav() {
-  const isElectron = useIsElectron();
-
   return (
-    <nav 
-      className={`bg-white/80 sticky top-0 z-[60] shadow-[0_1px_0_rgba(0,0,0,0.04)] ${
-        isElectron ? 'sm:pr-[144px]' : ''
-      }`}
-      style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}
-    >
-      {/* Full-width no-drag container ensures all content is clickable */}
-      <div 
-        className="w-full"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <nav className="bg-white/80 sticky top-0 z-[60] shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <Image 
@@ -78,7 +56,6 @@ export default function LandingNav() {
           {/* Mobile menu - always at the right edge */}
           <MobileNav />
         </div>
-      </div>
       </div>
     </nav>
   );

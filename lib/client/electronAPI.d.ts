@@ -78,13 +78,6 @@ export interface ElectronAPI {
   } | null>;
   clearAuthCache: () => Promise<{ success: boolean; error?: string }>;
   
-  // Window controls
-  windowMinimize: () => Promise<void>;
-  windowMaximize: () => Promise<void>;
-  windowUnmaximize: () => Promise<void>;
-  windowClose: () => Promise<void>;
-  windowIsMaximized: () => Promise<boolean>;
-  
   // Auto-updater events
   onUpdateAvailable: (callback: (info: { 
     version: string; 

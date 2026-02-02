@@ -33,13 +33,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadAuthCache: () => ipcRenderer.invoke('load-auth-cache'),
   clearAuthCache: () => ipcRenderer.invoke('clear-auth-cache'),
   
-  // Window controls
-  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
-  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
-  windowUnmaximize: () => ipcRenderer.invoke('window-unmaximize'),
-  windowClose: () => ipcRenderer.invoke('window-close'),
-  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
-  
   // Bot status updates (main -> renderer)
   onBotStatus: (callback) => ipcRenderer.on('bot-status', (event, data) => callback(data)),
   removeBotStatusListeners: () => {
