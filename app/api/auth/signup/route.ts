@@ -233,6 +233,25 @@ export async function POST(request: NextRequest) {
     // data.session is null when email confirmation is required
     if (data.user && data.session) {
       // Auto-confirm is enabled (usually local dev)
+      // Sign in with the regular client to establish browser cookies
+      console.log('[Signup] Auto-confirm enabled, establishing browser session')
+      const supabase = await createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
+      
+      if (signInError) {
+        console.error('[Signup] Failed to establish session after auto-confirm:', signInError.message)
+        // User was created but session failed - they can log in manually
+        return NextResponse.json({ 
+          success: true, 
+          userId: data.user.id,
+          message: 'Account created. Please log in.'
+        })
+      }
+      
+      console.log('[Signup] Session established successfully')
       return NextResponse.json({ success: true, userId: data.user.id })
     }
 
