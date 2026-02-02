@@ -13,6 +13,7 @@ export const URLS = {
 export const FILES = {
   PRELOAD: 'preload.js',
   ICON: 'icon.png',
+  LOADING_HTML: 'loading.html',
   PACKAGE_JSON: 'package.json',
   CONFIG_YAML: 'config.yaml',
   RESUME_YAML: 'resume.yaml',
