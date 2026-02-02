@@ -101,31 +101,43 @@ download_appimage() {
 
 # Download and install icon
 install_icon() {
-    local icon_url="https://raw.githubusercontent.com/${GITHUB_REPO}/main/build/icon.png"
+    local icon_url="https://raw.githubusercontent.com/jobelix-dev/jobelix-releases/main/build/icon.png"
     local icon_dest="${ICON_DIR}/${APP_NAME}.png"
 
     info "Installing application icon..."
     
     mkdir -p "$ICON_DIR"
     
-    # Try to download from repo, fall back to extracting from AppImage
-    if curl -fsSL -o "$icon_dest" "$icon_url" 2>/dev/null; then
+    # Try to download from repo first
+    if curl -fsSL -o "$icon_dest" "$icon_url" 2>/dev/null && [[ -s "$icon_dest" ]]; then
         success "Icon installed"
     else
-        warn "Could not download icon, extracting from AppImage..."
+        info "Extracting icon from AppImage..."
         # Extract icon from AppImage
         local appimage="${INSTALL_DIR}/${APP_NAME}.AppImage"
         if [[ -f "$appimage" ]]; then
-            cd /tmp
-            "$appimage" --appimage-extract "*.png" &>/dev/null || true
-            if [[ -f "squashfs-root/icon.png" ]]; then
-                cp "squashfs-root/icon.png" "$icon_dest"
-                rm -rf squashfs-root
+            local tmpdir=$(mktemp -d)
+            cd "$tmpdir"
+            "$appimage" --appimage-extract "usr/share/icons/hicolor/512x512/apps/*.png" &>/dev/null || true
+            
+            # Find the extracted icon
+            local extracted_icon=$(find squashfs-root -name "*.png" -type f 2>/dev/null | head -1)
+            if [[ -n "$extracted_icon" && -f "$extracted_icon" ]]; then
+                cp "$extracted_icon" "$icon_dest"
                 success "Icon extracted and installed"
             else
-                rm -rf squashfs-root
-                warn "Could not extract icon"
+                # Try alternative location
+                "$appimage" --appimage-extract "*.png" &>/dev/null || true
+                extracted_icon=$(find squashfs-root -name "*.png" -type f 2>/dev/null | head -1)
+                if [[ -n "$extracted_icon" && -f "$extracted_icon" ]]; then
+                    cp "$extracted_icon" "$icon_dest"
+                    success "Icon extracted and installed"
+                else
+                    warn "Could not extract icon from AppImage"
+                fi
             fi
+            rm -rf "$tmpdir"
+            cd - > /dev/null
         fi
     fi
 
