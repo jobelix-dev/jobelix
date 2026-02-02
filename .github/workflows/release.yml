@@ -51,17 +51,17 @@ jobs:
             arch: arm64
             artifact_name: Jobelix-windows-arm64
 
-          # macOS Intel (x64)
-          - os: macos-15
-            platform: darwin
-            arch: x64
-            artifact_name: Jobelix-macos-x64
+          # # macOS Intel (x64) - DISABLED: Code signing not configured
+          # - os: macos-15
+          #   platform: darwin
+          #   arch: x64
+          #   artifact_name: Jobelix-macos-x64
 
-          # macOS Apple Silicon (ARM64)
-          - os: macos-latest
-            platform: darwin
-            arch: arm64
-            artifact_name: Jobelix-macos-arm64
+          # # macOS Apple Silicon (ARM64) - DISABLED: Code signing not configured
+          # - os: macos-latest
+          #   platform: darwin
+          #   arch: arm64
+          #   artifact_name: Jobelix-macos-arm64
 
           # NOTE: Arch Linux build is run locally with `npm run release`
           # and JOBELIX_LINUX_LABEL=arch env var. Upload the .AppImage
