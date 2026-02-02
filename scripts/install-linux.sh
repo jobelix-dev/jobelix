@@ -195,15 +195,69 @@ EOF
 
     chmod +x "$wrapper"
     success "CLI wrapper created at $wrapper"
+}
 
-    # Check if ~/.local/bin is in PATH
-    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-        warn "~/.local/bin is not in your PATH"
-        echo ""
-        echo "Add this line to your ~/.bashrc or ~/.zshrc:"
-        echo -e "  ${YELLOW}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
-        echo ""
+# Add ~/.local/bin to PATH in shell config files
+setup_path() {
+    local path_line='export PATH="$HOME/.local/bin:$PATH"'
+    local path_comment="# Added by Jobelix installer"
+    
+    # Check if already in PATH
+    if [[ ":$PATH:" == *":$HOME/.local/bin:"* ]]; then
+        success "~/.local/bin is already in PATH"
+        return
     fi
+
+    info "Adding ~/.local/bin to PATH..."
+
+    # Detect shell and add to appropriate rc file
+    local shell_name=$(basename "$SHELL")
+    local rc_files=()
+
+    case "$shell_name" in
+        bash)
+            [[ -f "$HOME/.bashrc" ]] && rc_files+=("$HOME/.bashrc")
+            [[ -f "$HOME/.bash_profile" ]] && rc_files+=("$HOME/.bash_profile")
+            # If neither exists, create .bashrc
+            [[ ${#rc_files[@]} -eq 0 ]] && rc_files+=("$HOME/.bashrc")
+            ;;
+        zsh)
+            rc_files+=("$HOME/.zshrc")
+            ;;
+        fish)
+            # Fish uses different syntax
+            local fish_config="$HOME/.config/fish/config.fish"
+            mkdir -p "$(dirname "$fish_config")"
+            if ! grep -q ".local/bin" "$fish_config" 2>/dev/null; then
+                echo "" >> "$fish_config"
+                echo "# Added by Jobelix installer" >> "$fish_config"
+                echo 'set -gx PATH $HOME/.local/bin $PATH' >> "$fish_config"
+                success "Added to $fish_config"
+            fi
+            return
+            ;;
+        *)
+            # Default to bashrc for unknown shells
+            rc_files+=("$HOME/.bashrc")
+            ;;
+    esac
+
+    # Add to each rc file if not already present
+    for rc_file in "${rc_files[@]}"; do
+        if [[ -f "$rc_file" ]] && grep -q ".local/bin" "$rc_file" 2>/dev/null; then
+            success "PATH already configured in $rc_file"
+        else
+            echo "" >> "$rc_file"
+            echo "$path_comment" >> "$rc_file"
+            echo "$path_line" >> "$rc_file"
+            success "Added PATH to $rc_file"
+        fi
+    done
+
+    echo ""
+    warn "PATH updated! Run this to use 'jobelix' command immediately:"
+    echo -e "  ${YELLOW}source ~/.${shell_name}rc${NC}  (or restart your terminal)"
+    echo ""
 }
 
 # Main installation
@@ -239,6 +293,7 @@ main() {
     install_icon
     create_desktop_entry
     create_wrapper
+    setup_path
 
     echo ""
     echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"

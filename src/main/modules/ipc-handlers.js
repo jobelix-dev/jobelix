@@ -167,35 +167,6 @@ export function setupIpcHandlers() {
   handlerCount++;
 
   // ============================================================================
-  // Window Controls
-  // ============================================================================
-
-  ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
-    getWindow(event)?.minimize();
-  });
-  handlerCount++;
-
-  ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, (event) => {
-    getWindow(event)?.maximize();
-  });
-  handlerCount++;
-
-  ipcMain.handle(IPC_CHANNELS.WINDOW_UNMAXIMIZE, (event) => {
-    getWindow(event)?.unmaximize();
-  });
-  handlerCount++;
-
-  ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, (event) => {
-    getWindow(event)?.close();
-  });
-  handlerCount++;
-
-  ipcMain.handle(IPC_CHANNELS.WINDOW_IS_MAXIMIZED, (event) => {
-    return getWindow(event)?.isMaximized() ?? false;
-  });
-  handlerCount++;
-
-  // ============================================================================
   // Auth Cache
   // ============================================================================
 

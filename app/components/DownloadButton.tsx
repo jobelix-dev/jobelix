@@ -15,7 +15,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, Loader2, ChevronDown, Terminal, Check, Copy } from 'lucide-react';
+import { Download, Loader2, ChevronDown, Terminal, Check, Copy, X } from 'lucide-react';
 import type { ReleaseInfo, Platform, AssetInfo } from '@/lib/client/github-api';
 import { formatFileSize, getFallbackDownloadUrl } from '@/lib/client/github-api';
 import { getPlatformDisplayName, PLATFORM_OPTIONS } from '@/lib/client/platformDetection';
@@ -70,6 +70,7 @@ export default function DownloadButton({
   const platform = usePlatform();
   const [showDropdown, setShowDropdown] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showLinuxModal, setShowLinuxModal] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -216,7 +217,91 @@ export default function DownloadButton({
 
   // Windows/macOS: Show download button with dropdown
   return (
-    <div className="space-y-2">
+    <>
+      {/* Linux Install Modal */}
+      {showLinuxModal && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowLinuxModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-lg bg-surface rounded-xl shadow-2xl border border-border p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowLinuxModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-lg hover:bg-primary-subtle transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5 text-muted" />
+            </button>
+
+            {/* Modal content */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary-subtle rounded-lg">
+                  <Terminal className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-default">Install on Linux</h3>
+                  <p className="text-sm text-muted">One command, auto-detects your distro</p>
+                </div>
+              </div>
+
+              {/* Command box */}
+              <div className="flex items-stretch bg-background border border-border rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 flex-1 min-w-0">
+                  <code className="text-sm font-mono text-default truncate">
+                    {LINUX_INSTALL_COMMAND}
+                  </code>
+                </div>
+                <button
+                  onClick={handleCopyCommand}
+                  className={`px-4 py-3 transition-colors flex items-center gap-2 ${
+                    copied 
+                      ? 'bg-success text-white' 
+                      : 'bg-primary hover:bg-primary-hover text-white'
+                  }`}
+                  title={copied ? 'Copied!' : 'Copy to clipboard'}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span className="text-sm font-medium">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span className="text-sm font-medium">Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <p className="text-xs text-muted">
+                Works on Ubuntu, Debian, Arch, Fedora, and more. Version {releaseInfo?.version}
+              </p>
+
+              {/* Fallback link */}
+              <div className="pt-2 border-t border-border">
+                <p className="text-sm text-muted">
+                  Prefer manual install?{' '}
+                  <a 
+                    href={getFallbackDownloadUrl()} 
+                    className="text-primary hover:underline"
+                    onClick={() => setShowLinuxModal(false)}
+                  >
+                    Download AppImage directly
+                  </a>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
       <div className="relative inline-flex">
         {/* Main download button */}
         <button
@@ -256,15 +341,22 @@ export default function DownloadButton({
                   key={p}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDownload(p, asset.url);
                     setShowDropdown(false);
+                    // For Linux platforms, show the install modal instead of downloading
+                    if (isLinuxPlatform(p)) {
+                      setShowLinuxModal(true);
+                    } else {
+                      handleDownload(p, asset.url);
+                    }
                   }}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-primary-subtle transition-colors flex items-center justify-between ${
                     p === platform ? 'bg-primary-subtle/50 font-medium' : ''
                   }`}
                 >
-                  <span>{name}</span>
-                  <span className="text-xs text-muted">{formatFileSize(asset.size)}</span>
+                  <span>{name}{isLinuxPlatform(p) ? ' (via script)' : ''}</span>
+                  <span className="text-xs text-muted">
+                    {isLinuxPlatform(p) ? 'curl install' : formatFileSize(asset.size)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -296,5 +388,6 @@ export default function DownloadButton({
         </p>
       )}
     </div>
+    </>
   );
 }

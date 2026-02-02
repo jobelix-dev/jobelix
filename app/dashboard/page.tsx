@@ -17,7 +17,6 @@ import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriang
 import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
-import { useIsElectron } from '@/app/hooks/useClientSide';
 
 // Map DB role to display role
 function getDisplayRole(dbRole: string): string {
@@ -28,7 +27,6 @@ function getDisplayRole(dbRole: string): string {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const isElectron = useIsElectron();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -156,22 +154,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Clean Header Bar */}
-      {/* In Electron: outer header is draggable for window movement */}
-      {/* Inner container is no-drag to allow button clicks */}
-      {/* On desktop (sm:+), right padding avoids overlap with window controls */}
-      <header 
-        className={`sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20 ${
-          isElectron ? 'sm:pr-[144px]' : ''
-        }`}
-        style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}
-      >
-        {/* Full-width no-drag container ensures all content is clickable */}
-        <div 
-          className="w-full"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <div className="max-w-5xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center justify-between h-14">
+      <header className="sticky top-0 z-[60] bg-surface/95 backdrop-blur-sm border-b border-border/20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14">
             {/* Logo / Title */}
             <div className="flex items-center gap-3">
               <h1 className="text-lg sm:text-xl font-bold text-default">Jobelix</h1>
@@ -256,7 +241,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
               )}
-            </div>
             </div>
           </div>
         </div>
