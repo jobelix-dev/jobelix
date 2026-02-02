@@ -68,6 +68,7 @@ export async function GET() {
       return NextResponse.json({
         profile: {
           id: studentData.id,
+          email: user.email ?? '',
           role: 'student' as const,
           created_at: studentData.created_at,
         },
@@ -97,6 +98,7 @@ export async function GET() {
       return NextResponse.json({
         profile: {
           id: companyData.id,
+          email: user.email ?? '',
           role: 'company' as const,
           created_at: companyData.created_at,
         },
