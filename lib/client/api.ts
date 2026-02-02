@@ -128,6 +128,23 @@ class ApiClient {
     })
   }
 
+  async deleteAccount(): Promise<{ success: boolean }> {
+    const result = await this.request<{ success: boolean }>('/api/auth/account', {
+      method: 'DELETE',
+    });
+
+    // Clear auth cache after account deletion
+    if (result.success && typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+      try {
+        await window.electronAPI.clearAuthCache();
+      } catch (error) {
+        console.warn('Failed to clear auth cache after account deletion:', error);
+      }
+    }
+
+    return result;
+  }
+
   async getProfile(): Promise<ProfileResponse> {
     return this.request<ProfileResponse>('/api/auth/profile')
   }

@@ -9,6 +9,7 @@
 
 export interface UserProfile {
   id: string;
+  email: string;
   role: 'student' | 'company';
   created_at?: string;
 }
