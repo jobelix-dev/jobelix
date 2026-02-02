@@ -173,13 +173,19 @@ export async function installBrowser(mainWindow) {
     
     logger.info(`Running: ${command} ${args.join(' ')}`);
 
+    // Spawn with lower CPU priority to avoid blocking the UI
+    // PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT helps with slow connections
     const child = spawn(command, args, {
       env: {
         ...process.env,
         PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+        // Give more time for slow connections and reduce CPU pressure
+        PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '300000',
       },
       shell: isWindows, // Use shell on Windows for npx
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Set lower priority on supported platforms (nice value)
+      ...(process.platform !== 'win32' && { nice: 10 }),
     });
 
     let _stdout = '';

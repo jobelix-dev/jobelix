@@ -43,8 +43,20 @@
       "preload.js",
       "loader.html",
       "package.json",
-      "build/license.txt"
+      "build/license.txt",
+      "!node_modules/playwright-core/bin/**/*",
+      "!node_modules/playwright-core/lib/server/**/*",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/*.md",
+      "!node_modules/**/README*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/.github/**/*",
+      "!node_modules/**/*.map"
     ],
+    "asarUnpack": [],
+    "extraResources": [],
+    "electronLanguages": ["en-US", "en-GB"],
+    "removePackageScripts": true,
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
@@ -81,8 +93,10 @@
       "target": "AppImage",
       "icon": "build/icon.png",
       "category": "Utility",
-      "artifactName": "${productName}-${version}-${env.JOBELIX_LINUX_LABEL}.${ext}"
-    }
+      "artifactName": "${productName}-${version}-${env.JOBELIX_LINUX_LABEL}.${ext}",
+      "executableArgs": ["--no-sandbox"]
+    },
+    "afterPack": "./scripts/after-pack.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

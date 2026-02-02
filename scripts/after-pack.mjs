@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+/**
+ * After-pack script for electron-builder
+ * Strips debug symbols from binaries to reduce package size
+ * 
+ * This runs after the app is packaged but before creating the installer/AppImage
+ */
+
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * @param {import('electron-builder').AfterPackContext} context
+ */
+export default async function afterPack(context) {
+  const { appOutDir, electronPlatformName } = context;
+  
+  console.log(`\n🔧 After-pack: Stripping debug symbols for ${electronPlatformName}...`);
+
+  if (electronPlatformName === 'linux') {
+    await stripLinux(appOutDir);
+  } else if (electronPlatformName === 'darwin') {
+    await stripMac(appOutDir);
+  }
+  // Windows binaries are already stripped by default in release builds
+  
+  console.log('✅ Debug symbol stripping complete\n');
+}
+
+/**
+ * Strip debug symbols from Linux binaries
+ */
+async function stripLinux(appOutDir) {
+  const binaries = [
+    'jobelix',                    // Main Electron binary
+    'chrome_crashpad_handler',
+    'libffmpeg.so',
+    'libEGL.so',
+    'libGLESv2.so',
+    'libvk_swiftshader.so',
+    'libvulkan.so.1',
+  ];
+
+  // Check if strip is available
+  try {
+    execSync('which strip', { stdio: 'ignore' });
+  } catch {
+    console.log('  ⚠️  strip not found, skipping Linux symbol stripping');
+    return;
+  }
+
+  for (const binary of binaries) {
+    const binaryPath = path.join(appOutDir, binary);
+    if (fs.existsSync(binaryPath)) {
+      try {
+        const sizeBefore = fs.statSync(binaryPath).size;
+        execSync(`strip --strip-debug "${binaryPath}"`, { stdio: 'ignore' });
+        const sizeAfter = fs.statSync(binaryPath).size;
+        const saved = ((sizeBefore - sizeAfter) / 1024 / 1024).toFixed(2);
+        if (sizeBefore > sizeAfter) {
+          console.log(`  ✓ ${binary}: saved ${saved}MB`);
+        }
+      } catch (error) {
+        // Some binaries may not be strippable, that's ok
+        console.log(`  - ${binary}: skipped (not strippable)`);
+      }
+    }
+  }
+}
+
+/**
+ * Strip debug symbols from macOS binaries using strip -x
+ */
+async function stripMac(appOutDir) {
+  const appName = 'Jobelix.app';
+  const frameworksPath = path.join(appOutDir, appName, 'Contents', 'Frameworks');
+  const macOSPath = path.join(appOutDir, appName, 'Contents', 'MacOS');
+
+  // Check if strip is available
+  try {
+    execSync('which strip', { stdio: 'ignore' });
+  } catch {
+    console.log('  ⚠️  strip not found, skipping macOS symbol stripping');
+    return;
+  }
+
+  // Strip the main executable
+  const mainBinary = path.join(macOSPath, 'Jobelix');
+  if (fs.existsSync(mainBinary)) {
+    try {
+      const sizeBefore = fs.statSync(mainBinary).size;
+      execSync(`strip -x "${mainBinary}"`, { stdio: 'ignore' });
+      const sizeAfter = fs.statSync(mainBinary).size;
+      const saved = ((sizeBefore - sizeAfter) / 1024 / 1024).toFixed(2);
+      if (sizeBefore > sizeAfter) {
+        console.log(`  ✓ Jobelix (main): saved ${saved}MB`);
+      }
+    } catch {
+      console.log('  - Jobelix (main): skipped');
+    }
+  }
+
+  // Strip helper apps in Frameworks
+  if (fs.existsSync(frameworksPath)) {
+    const helpers = fs.readdirSync(frameworksPath).filter(f => f.endsWith('.app'));
+    for (const helper of helpers) {
+      const helperBinary = path.join(
+        frameworksPath, 
+        helper, 
+        'Contents', 
+        'MacOS', 
+        helper.replace('.app', '')
+      );
+      if (fs.existsSync(helperBinary)) {
+        try {
+          execSync(`strip -x "${helperBinary}"`, { stdio: 'ignore' });
+          console.log(`  ✓ ${helper}: stripped`);
+        } catch {
+          // Silent fail for helpers
+        }
+      }
+    }
+  }
+}
