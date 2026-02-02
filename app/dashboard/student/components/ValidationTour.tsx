@@ -69,12 +69,16 @@ export default function ValidationTour({
   // Track if we're ready to show the overlay (step has been processed)
   const overlayReady = stepKey === step?.id && targetRect !== null;
 
+  // Extract stable values from step to avoid recreating updateRect on every render
+  const stepTargetId = step?.targetId;
+  const stepTargetIds = step?.targetIds;
+
   const updateRect = useCallback(() => {
-    if (!step) return;
-    const ids = step.targetIds && step.targetIds.length > 0 ? step.targetIds : [step.targetId];
+    if (!stepTargetId) return;
+    const ids = stepTargetIds && stepTargetIds.length > 0 ? stepTargetIds : [stepTargetId];
     const rect = calculateUnionRect(ids);
     setTargetRect(rect);
-  }, [step]);
+  }, [stepTargetId, stepTargetIds]);
 
   // Handle resize/scroll events - use requestAnimationFrame to batch updates
   useEffect(() => {
@@ -96,15 +100,21 @@ export default function ValidationTour({
       window.removeEventListener('scroll', handle, true);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [isOpen, step, overlayReady, updateRect]);
+  }, [isOpen, stepTargetId, overlayReady, updateRect]);
 
   // Reset state when step changes or tour closes
   // Use a key derived from isOpen and step.id to track valid state
   const currentStepId = isOpen && step ? step.id : null;
   
+  // Store onBefore in a ref to avoid it being a dependency
+  const onBeforeRef = React.useRef(step?.onBefore);
+  useEffect(() => {
+    onBeforeRef.current = step?.onBefore;
+  }, [step?.onBefore]);
+  
   useEffect(() => {
     // When tour is not active, nothing to set up
-    if (!currentStepId || !step) {
+    if (!currentStepId || !stepTargetId) {
       return;
     }
     
@@ -119,9 +129,9 @@ export default function ValidationTour({
       setStepKey(null);
       setTargetRect(null);
       
-      step.onBefore?.();
+      onBeforeRef.current?.();
       
-      const ids = step.targetIds && step.targetIds.length > 0 ? step.targetIds : [step.targetId];
+      const ids = stepTargetIds && stepTargetIds.length > 0 ? stepTargetIds : [stepTargetId];
       const target = ids.map((id) => document.getElementById(id)).find((node) => !!node) as HTMLElement | undefined;
       if (!target) {
         attempt += 1;
@@ -153,7 +163,7 @@ export default function ValidationTour({
       
       // Update rect and mark this step as ready
       updateRect();
-      setStepKey(step.id);
+      setStepKey(currentStepId);
     };
 
     timeoutId = setTimeout(begin, 60);
@@ -165,7 +175,7 @@ export default function ValidationTour({
       setStepKey(null);
       setTargetRect(null);
     };
-  }, [currentStepId, step, updateRect, previousOverflow]);
+  }, [currentStepId, stepTargetId, stepTargetIds, updateRect, previousOverflow]);
 
   // Callback ref to measure popover height - called by React when element mounts/unmounts
   const popoverRefCallback = useCallback((node: HTMLDivElement | null) => {
