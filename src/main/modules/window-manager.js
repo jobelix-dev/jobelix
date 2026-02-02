@@ -2,10 +2,15 @@
  * Window Manager
  * Handles creation and management of all Electron windows
  * 
- * PERFORMANCE NOTE:
- * With the APPIMAGE_EXTRACT_AND_RUN optimization on Linux, startup is now
- * ~100ms instead of ~50 seconds. We no longer need a splash screen - the
- * main window shows immediately with a brief loading state while content loads.
+ * STARTUP OPTIMIZATION:
+ * In production mode, we load a local loading.html first for instant feedback,
+ * then navigate to the remote URL. This eliminates the blank white screen
+ * while waiting for the remote server to respond.
+ * 
+ * The loading screen shows immediately (<100ms) while the remote content
+ * loads in the background. The user sees:
+ * 1. Instant: Loading screen with Jobelix branding and spinner
+ * 2. 2-10s later: Actual app content from jobelix.fr
  */
 
 import { BrowserWindow, app } from 'electron';
@@ -71,11 +76,14 @@ async function waitForNextJs(
 /**
  * Create the main application window
  * 
- * CHANGES FROM PREVIOUS VERSION:
- * - No splash screen - main window shows immediately (startup is now fast)
- * - Window shown right away with background color as brief loading state
- * - Content loads asynchronously while user sees the window
- * - Update check is deferred until after content loads (via onMainWindowReady callback)
+ * STARTUP OPTIMIZATION (Production Mode):
+ * 1. Load local loading.html immediately - shows within ~100ms
+ * 2. User sees branded loading screen while remote content fetches
+ * 3. Navigate to remote URL once loading screen is displayed
+ * 4. Update check deferred until remote content loads
+ * 
+ * Development Mode:
+ * - Waits for Next.js dev server, then loads localhost:3000
  * 
  * @returns {Promise<BrowserWindow>} The main window instance
  */
@@ -89,8 +97,8 @@ export async function createMainWindow() {
   const mainWindow = new BrowserWindow({
     ...WINDOW_CONFIG.MAIN,
     show: false, // Initially hidden, show after ready-to-show
-    // Set background color matching app theme - user sees this while content loads
-    backgroundColor: '#f8fafc',
+    // Set background color matching loading screen gradient start
+    backgroundColor: '#667eea',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -109,23 +117,7 @@ export async function createMainWindow() {
     mainWindowRef = null;
   });
 
-  // Determine URL based on environment
-  const startUrl = app.isPackaged 
-    ? URLS.PRODUCTION
-    : URLS.DEVELOPMENT;
-
-  // Wait for Next.js in development mode
-  if (!app.isPackaged) {
-    logger.info('Development mode: Waiting for Next.js server...');
-    const isReady = await waitForNextJs(startUrl);
-    
-    if (!isReady) {
-      logger.error('Next.js server did not start in time. Starting app anyway...');
-    }
-  }
-
   // Show window as soon as the renderer is ready to paint
-  // This provides fast perceived startup - user sees window immediately
   mainWindow.once('ready-to-show', () => {
     logger.debug(`⏱️ Window ready-to-show at ${Date.now() - createStartTime}ms`);
     mainWindow.maximize();
@@ -133,30 +125,85 @@ export async function createMainWindow() {
     logger.success('Main window visible');
   });
 
-  // When content fully loads, trigger deferred operations (like update check)
-  mainWindow.webContents.once('did-finish-load', () => {
-    const loadTime = Date.now() - createStartTime;
-    logger.success(`Main window content loaded in ${loadTime}ms`);
+  if (app.isPackaged) {
+    // =========================================================================
+    // PRODUCTION MODE: Load local loading screen first, then remote URL
+    // =========================================================================
+    const loadingHtmlPath = path.join(basePath, DIRECTORIES.BUILD, FILES.LOADING_HTML);
+    logger.info(`Loading local loading screen: ${loadingHtmlPath}`);
     
-    // Trigger any deferred callbacks (e.g., update check)
-    if (onMainWindowReadyCallback) {
-      logger.debug('Triggering onMainWindowReady callback');
-      onMainWindowReadyCallback();
-      onMainWindowReadyCallback = null;
+    // Load the local loading.html for instant visual feedback
+    await mainWindow.loadFile(loadingHtmlPath);
+    logger.debug(`⏱️ Loading screen shown in ${Date.now() - createStartTime}ms`);
+    
+    // Now navigate to the remote URL
+    // The loading screen has a fallback that redirects after 500ms,
+    // but we also trigger it from here for reliability
+    logger.info(`Navigating to remote URL: ${URLS.PRODUCTION}`);
+    
+    // Track when remote content fully loads
+    mainWindow.webContents.once('did-finish-load', () => {
+      // Only trigger callback when we've loaded the remote URL (not the loading screen)
+      const currentUrl = mainWindow.webContents.getURL();
+      if (currentUrl.startsWith('https://') || currentUrl.startsWith('http://localhost')) {
+        const loadTime = Date.now() - createStartTime;
+        logger.success(`Remote content loaded in ${loadTime}ms`);
+        
+        // Trigger deferred callbacks (e.g., update check)
+        if (onMainWindowReadyCallback) {
+          logger.debug('Triggering onMainWindowReady callback');
+          onMainWindowReadyCallback();
+          onMainWindowReadyCallback = null;
+        }
+      }
+    });
+    
+    // Handle remote load failures
+    mainWindow.webContents.once('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      // Only handle failures for the remote URL, not the loading screen
+      if (validatedURL && validatedURL.startsWith('https://')) {
+        logger.error(`Failed to load remote URL: ${errorDescription} (code: ${errorCode})`);
+        // The loading screen has error handling built-in with retry button
+      }
+    });
+    
+    // Navigate to remote URL
+    mainWindow.loadURL(URLS.PRODUCTION);
+    
+  } else {
+    // =========================================================================
+    // DEVELOPMENT MODE: Wait for Next.js server, then load directly
+    // =========================================================================
+    logger.info('Development mode: Waiting for Next.js server...');
+    const isReady = await waitForNextJs(URLS.DEVELOPMENT);
+    
+    if (!isReady) {
+      logger.error('Next.js server did not start in time. Starting app anyway...');
     }
-  });
+    
+    // When content loads in dev mode, trigger deferred callbacks
+    mainWindow.webContents.once('did-finish-load', () => {
+      const loadTime = Date.now() - createStartTime;
+      logger.success(`Development content loaded in ${loadTime}ms`);
+      
+      if (onMainWindowReadyCallback) {
+        logger.debug('Triggering onMainWindowReady callback');
+        onMainWindowReadyCallback();
+        onMainWindowReadyCallback = null;
+      }
+    });
 
-  // Handle load failures
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    logger.error(`Main window failed to load: ${errorDescription} (code: ${errorCode})`);
-    // Still show the window so user isn't stuck
-    if (!mainWindow.isVisible()) {
-      mainWindow.show();
-    }
-  });
-
-  logger.info(`Loading URL: ${startUrl}`);
-  mainWindow.loadURL(startUrl);
+    // Handle load failures
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      logger.error(`Main window failed to load: ${errorDescription} (code: ${errorCode})`);
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+    });
+    
+    logger.info(`Loading URL: ${URLS.DEVELOPMENT}`);
+    mainWindow.loadURL(URLS.DEVELOPMENT);
+  }
 
   logger.success('Main window created');
   
@@ -172,16 +219,24 @@ export function getStartUrl() {
 }
 
 // ============================================================================
-// REMOVED: Splash screen functionality
+// ARCHITECTURE NOTES
 // ============================================================================
-// The following functions have been removed because startup is now fast
-// (~100ms with APPIMAGE_EXTRACT_AND_RUN) and splash screen is no longer needed:
+// 
+// Production Mode Startup Flow:
+// 1. Window created with purple background (#667eea)
+// 2. Local loading.html loaded instantly (<100ms)
+// 3. Window shown to user with loading animation
+// 4. Navigate to https://www.jobelix.fr (2-10s depending on network)
+// 5. When remote content loads, trigger update check
 //
-// - createSplashWindow() - No longer used
-// - updateSplashStatus() - No longer used  
-// - setUpdateInProgress() - No longer needed (no splash to keep visible)
-// - isUpdateInProgress() - No longer needed
+// The loading screen provides:
+// - Instant visual feedback (no white screen)
+// - Branded experience while waiting
+// - Error handling with retry button for network issues
+// - Status messages that update during loading
 //
-// Update progress is now shown entirely through UpdateNotification.tsx in the
-// main window's renderer process.
+// Previous: Splash screen functionality removed (commit 75db261)
+// Reason: APPIMAGE_EXTRACT_AND_RUN makes extraction fast, but network
+//         loading of remote URL still takes time. Loading screen replaces
+//         splash screen with a simpler, more reliable solution.
 // ============================================================================

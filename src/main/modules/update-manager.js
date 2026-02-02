@@ -49,10 +49,12 @@
 
 import { app, shell, dialog } from 'electron';
 import fs from 'fs';
-import pkg from 'electron-updater';
-const { autoUpdater } = pkg;
 import logger from '../utils/logger.js';
 import { getMainWindow } from './window-manager.js';
+
+// electron-updater is dynamically imported to avoid loading 1.4MB at startup
+// It's only loaded when initAutoUpdater() is called (after window content loads)
+let autoUpdater = null;
 
 /**
  * GitHub repository info for releases
@@ -182,10 +184,26 @@ async function showInstallDialog(version) {
  * 4. If update found: download (Win/Mac) or notify with direct link (Linux)
  * 5. After download: show dialog asking user to install now or later
  */
-export function initAutoUpdater() {
+export async function initAutoUpdater() {
   // Skip auto-updater in development mode (no packaged app to update)
   if (!app.isPackaged) {
     logger.info('Skipping auto-updater in development mode');
+    return;
+  }
+
+  // ============================================================================
+  // Dynamic import electron-updater (1.4MB module)
+  // ============================================================================
+  // This is done lazily to avoid slowing down app startup.
+  // The module is only loaded after the main window content has loaded.
+  const importStart = Date.now();
+  try {
+    const pkg = await import('electron-updater');
+    // electron-updater's default export contains autoUpdater
+    autoUpdater = pkg.default.autoUpdater;
+    logger.debug(`⏱️ electron-updater loaded in ${Date.now() - importStart}ms`);
+  } catch (err) {
+    logger.error('Failed to load electron-updater:', err.message);
     return;
   }
 
