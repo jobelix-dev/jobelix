@@ -186,12 +186,19 @@ create_wrapper() {
 
     info "Creating command-line wrapper..."
 
-    cat > "$wrapper" << EOF
+    # Create wrapper script
+    # - APPIMAGE_EXTRACT_AND_RUN=1 extracts to /tmp instead of FUSE mounting (faster)
+    # - Redirect stdout to /dev/null during extraction, then restore for app output
+    # - The AppImage prints file listing during extraction which we want to hide
+    cat > "$wrapper" << WRAPPER_EOF
 #!/usr/bin/env bash
 # Jobelix launcher - sets environment for fast startup
 export APPIMAGE_EXTRACT_AND_RUN=1
-exec "${appimage}" "\$@"
-EOF
+
+# Run AppImage, filtering out the extraction file listing
+# The listing goes to stdout before the app starts
+exec "${appimage}" "\$@" 2>&1 | grep -v "^/tmp/appimage_extracted_"
+WRAPPER_EOF
 
     chmod +x "$wrapper"
     success "CLI wrapper created at $wrapper"

@@ -11,6 +11,11 @@
 import { app } from 'electron';
 app.disableHardwareAcceleration();
 
+// Suppress GPU-related errors on Linux when hardware acceleration is disabled
+// These SharedImageManager errors are harmless but noisy
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
