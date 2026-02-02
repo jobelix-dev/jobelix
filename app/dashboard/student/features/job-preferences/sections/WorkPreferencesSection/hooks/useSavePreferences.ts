@@ -4,7 +4,7 @@
  * Handles saving work preferences with validation, API calls, and YAML export.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 import type { WorkPreferences, ValidationErrors } from '../types';
 import { getValidationErrors } from '../validation';
@@ -94,9 +94,9 @@ export function useSavePreferences({
     }
   };
 
-  const updateValidationErrors = (prefs: WorkPreferences) => {
+  const updateValidationErrors = useCallback((prefs: WorkPreferences) => {
     setValidationErrors(getValidationErrors(prefs));
-  };
+  }, []);
 
   return {
     saving,
