@@ -1,24 +1,19 @@
 /**
  * Jobelix - Electron Main Process Entry Point
- * Orchestrates all modules and manages application lifecycle
  * 
- * STARTUP OPTIMIZATION:
- * 1. GPU hardware acceleration disabled - reduces app.whenReady() from 10-30s to <1s
- * 2. No splash screen - main window shows immediately
- * 3. Auto-update check deferred until after window loads
+ * Startup optimizations:
+ * - GPU acceleration disabled (fixes 10-30s delay on some systems)
+ * - Auto-updater deferred until after window loads
+ * - Local loading screen for instant feedback
  */
 
-// =============================================================================
-// CRITICAL: GPU acceleration must be disabled BEFORE any other Electron imports
-// This fixes slow startup (10-30+ seconds) on ALL platforms (Windows, Mac, Linux)
-// Jobelix is a form-based UI, so software rendering is sufficient and unnoticeable
-// =============================================================================
+// CRITICAL: Must disable GPU before any other Electron imports
 import { app } from 'electron';
 app.disableHardwareAcceleration();
 
-// Load environment variables from .env.local (for Electron main process)
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
+
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { createMainWindow, onMainWindowReady } from './modules/window-manager.js';
 import { initAutoUpdater } from './modules/update-manager.js';
@@ -26,127 +21,63 @@ import { logPlatformInfo, initializeDataDirectories, isMac } from './modules/pla
 import { waitForNextJs } from './utils/dev-utils.js';
 import logger from './utils/logger.js';
 
-// Store reference to main window
-let _mainWindow = null;
+const startTime = Date.now();
+const elapsed = () => Date.now() - startTime;
 
-// Startup timing for performance debugging
-const startupTimings = {
-  processStart: Date.now(),
-  appReady: 0,
-  ipcSetup: 0,
-  dataDirs: 0,
-  mainWindowCreated: 0,
-  mainContentLoaded: 0,
-};
-
-/**
- * Log startup timing milestone
- */
-function logTiming(milestone, label) {
-  startupTimings[milestone] = Date.now();
-  const elapsed = startupTimings[milestone] - startupTimings.processStart;
-  logger.info(`⏱️ [${elapsed}ms] ${label}`);
-}
-
-/**
- * Initialize the application
- */
 async function initializeApp() {
   try {
-    logTiming('appReady', 'App ready, starting initialization');
+    logger.info(`⏱️ [${elapsed()}ms] App ready, starting initialization`);
     
-    // Setup IPC handlers first
     setupIpcHandlers();
-    logTiming('ipcSetup', 'IPC handlers registered');
+    logger.info(`⏱️ [${elapsed()}ms] IPC handlers registered`);
     
-    // Initialize data directories (cross-platform userData folder)
     initializeDataDirectories();
-    logTiming('dataDirs', 'Data directories initialized');
+    logger.info(`⏱️ [${elapsed()}ms] Data directories initialized`);
     
-    // Log platform information for debugging
     logPlatformInfo();
     
-    // In development mode, wait for Next.js to be ready before proceeding
+    // In dev mode, wait for Next.js server
     if (!app.isPackaged) {
-      logger.info('Development mode detected - waiting for Next.js server...');
-      const isNextReady = await waitForNextJs();
-      
-      if (!isNextReady) {
-        logger.error('Next.js server is not responding. Please ensure Next.js is running:');
-        logger.error('  Run: npm start (in another terminal)');
-        logger.error('  Or: npm run dev (to start both Next.js and Electron together)');
+      logger.info('Development mode - waiting for Next.js...');
+      if (!await waitForNextJs()) {
+        logger.error('Next.js not responding. Run: npm run dev');
         app.quit();
         return;
       }
-      
-      logger.success('Next.js server is ready - proceeding with app initialization');
+      logger.success('Next.js ready');
     }
     
-    // Register callback for when main window content loads
-    // This defers non-critical operations (like update check) until after window is visible
+    // Defer auto-updater until after window content loads
     onMainWindowReady(() => {
-      logTiming('mainContentLoaded', 'Main window content loaded, starting deferred operations');
-      
-      // Initialize auto-updater AFTER window is visible
-      // This ensures user sees the app immediately, update check happens in background
+      logger.info(`⏱️ [${elapsed()}ms] Content loaded, starting auto-updater`);
       initAutoUpdater();
-      logger.info('Auto-updater initialized (deferred)');
     });
     
-    // Create main window (no splash screen - startup is now fast)
-    _mainWindow = await createMainWindow();
-    logTiming('mainWindowCreated', 'Main window created');
-    
-    // Log timing summary
-    logger.info('='.repeat(50));
-    logger.info('STARTUP TIMING SUMMARY');
-    logger.info('='.repeat(50));
-    logger.info(`Total time to window creation: ${startupTimings.mainWindowCreated - startupTimings.processStart}ms`);
-    logger.info('='.repeat(50));
+    await createMainWindow();
+    logger.info(`⏱️ [${elapsed()}ms] Main window created`);
     
   } catch (error) {
-    logger.error('Fatal error during app initialization:', error);
+    logger.error('Fatal error:', error);
     app.quit();
   }
 }
 
-/**
- * App lifecycle event handlers
- */
-
-// When Electron is ready, initialize the app
+// App lifecycle
 app.whenReady().then(() => {
-  logger.info('='.repeat(60));
-  logger.info('Jobelix Application Starting');
-  logger.info('='.repeat(60));
-  
+  logger.info('='.repeat(50));
+  logger.info('Jobelix Starting');
+  logger.info('='.repeat(50));
   initializeApp();
 });
 
-// Before app quits, clean up processes
-app.on('will-quit', () => {
-  logger.info('Application shutting down...');
-  logger.info('Cleanup complete');
-});
-
-// When all windows are closed
 app.on('window-all-closed', () => {
-  // On macOS, apps typically stay open until explicitly quit
   if (!isMac()) {
-    logger.info('All windows closed - quitting application');
     app.quit();
-  } else {
-    logger.info('All windows closed - keeping app running (macOS)');
   }
 });
 
-// Handle unhandled errors
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-});
+// Error handlers
+process.on('uncaughtException', (err) => logger.error('Uncaught Exception:', err));
+process.on('unhandledRejection', (reason) => logger.error('Unhandled Rejection:', reason));
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-logger.info('Main process module loaded');
+logger.info('Main process loaded');

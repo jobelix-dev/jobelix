@@ -1,358 +1,252 @@
 /**
- * IPC Handlers
- * Registers all IPC communication channels between main and renderer processes
+ * IPC Handlers - Communication between main and renderer processes
  */
 
 import { ipcMain, BrowserWindow, app } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
 import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
-import { openReleasesPage, openExternalUrl } from './update-manager.js';
+import { openExternalUrl } from './update-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
-// Dynamic import for TypeScript bot launcher (only loaded when needed)
-let nodeBotLauncher = null;
-async function getNodeBotLauncher() {
-  if (!nodeBotLauncher) {
-    // Dynamic import of the TypeScript module
-    nodeBotLauncher = await import('./node-bot-launcher.js');
+// Lazy-loaded bot launcher
+let botLauncher = null;
+async function getBotLauncher() {
+  if (!botLauncher) {
+    botLauncher = await import('./node-bot-launcher.js');
   }
-  return nodeBotLauncher;
+  return botLauncher;
 }
 
-/**
- * Setup all IPC handlers
- * Registers handlers for config management, resume generation, and bot launching
- */
+// Helper to get window from event
+function getWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender);
+}
+
+// Helper to create safe status sender
+function createStatusSender(event, channel) {
+  return (payload) => {
+    try {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(channel, payload);
+      }
+    } catch (err) {
+      logger.warn(`Failed to send ${channel}:`, err.message);
+    }
+  };
+}
+
 export function setupIpcHandlers() {
   logger.info('Setting up IPC handlers...');
+  let handlerCount = 0;
 
-  // Handler: Get app version
-  ipcMain.handle('get-app-version', () => {
-    return app.getVersion();
-  });
+  // ============================================================================
+  // App Info
+  // ============================================================================
+  
+  ipcMain.handle('get-app-version', () => app.getVersion());
+  handlerCount++;
 
-  // Handler: Read config.yaml file
+  // ============================================================================
+  // Config & Resume Files
+  // ============================================================================
+
   ipcMain.handle(IPC_CHANNELS.READ_CONFIG, async () => {
-    logger.ipc(IPC_CHANNELS.READ_CONFIG, 'Reading config file');
     const result = await readConfig();
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.READ_CONFIG, 'Config read successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.READ_CONFIG, 'Config read failed or file not found');
-    }
-    
+    logger.debug(`Config read: ${result.success ? 'OK' : 'failed'}`);
     return result;
   });
+  handlerCount++;
 
-  // Handler: Write config.yaml file
-  ipcMain.handle(IPC_CHANNELS.WRITE_CONFIG, async (event, content) => {
-    logger.ipc(IPC_CHANNELS.WRITE_CONFIG, 'Writing config file');
+  ipcMain.handle(IPC_CHANNELS.WRITE_CONFIG, async (_, content) => {
     const result = await writeConfig(content);
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.WRITE_CONFIG, 'Config written successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.WRITE_CONFIG, `Config write failed: ${result.error}`);
-    }
-    
+    logger.debug(`Config write: ${result.success ? 'OK' : result.error}`);
     return result;
   });
+  handlerCount++;
 
-  // Handler: Write resume.yaml file
-  ipcMain.handle(IPC_CHANNELS.WRITE_RESUME, async (event, content) => {
-    logger.ipc(IPC_CHANNELS.WRITE_RESUME, 'Writing resume file');
+  ipcMain.handle(IPC_CHANNELS.WRITE_RESUME, async (_, content) => {
     const result = await writeResume(content);
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.WRITE_RESUME, `Resume written to: ${result.path}`);
-    } else {
-      logger.ipc(IPC_CHANNELS.WRITE_RESUME, `Resume write failed: ${result.error}`);
-    }
-    
+    logger.debug(`Resume write: ${result.success ? result.path : result.error}`);
     return result;
   });
+  handlerCount++;
 
-  // Handler: Launch bot automation
+  // ============================================================================
+  // Bot Control
+  // ============================================================================
+
   ipcMain.handle(IPC_CHANNELS.LAUNCH_BOT, async (event, { token, apiUrl }) => {
-    logger.ipc(IPC_CHANNELS.LAUNCH_BOT, 'Launching bot');
-    if (apiUrl) {
-      logger.info(`Using API URL from frontend: ${apiUrl}`);
-    }
-    const sendBotStatus = (payload) => {
-      try {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send(IPC_CHANNELS.BOT_STATUS, payload);
-        }
-      } catch (error) {
-        logger.warn('Failed to send bot status update:', error);
-      }
-    };
-
-    // Launch Node.js bot
-    let result;
-    logger.info('🚀 Launching Node.js bot (TypeScript/Playwright)');
+    logger.info('Launching bot...');
     try {
-      const launcher = await getNodeBotLauncher();
-      result = await launcher.launchNodeBot(token, sendBotStatus, apiUrl);
-    } catch (error) {
-      logger.error('Failed to load Node.js bot launcher:', error);
-      result = { success: false, error: error.message || 'Failed to load bot launcher' };
+      const launcher = await getBotLauncher();
+      const sendStatus = createStatusSender(event, IPC_CHANNELS.BOT_STATUS);
+      const result = await launcher.launchNodeBot(token, sendStatus, apiUrl);
+      logger.info(`Bot launch: ${result.success ? 'OK' : result.error}`);
+      return result;
+    } catch (err) {
+      logger.error('Bot launch failed:', err.message);
+      return { success: false, error: err.message };
     }
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launched successfully`);
-    } else {
-      logger.ipc(IPC_CHANNELS.LAUNCH_BOT, `Bot launch failed: ${result.error}`);
-    }
-    
-    return result;
   });
+  handlerCount++;
 
-  // Handler: Stop bot automation (graceful)
   ipcMain.handle(IPC_CHANNELS.STOP_BOT, async () => {
-    logger.ipc(IPC_CHANNELS.STOP_BOT, '🛑 STOP_BOT IPC handler called');
-    logger.info('[IPC] 🛑 Stop bot requested from frontend');
-    
-    // Stop Node.js bot
-    let result;
+    logger.info('Stopping bot...');
     try {
-      const launcher = await getNodeBotLauncher();
-      result = await launcher.stopNodeBot();
-    } catch (error) {
-      logger.error('Failed to stop Node.js bot:', error);
-      result = { success: false, error: error.message };
+      const launcher = await getBotLauncher();
+      const result = await launcher.stopNodeBot();
+      logger.info(`Bot stop: ${result.success ? 'OK' : result.error}`);
+      return result;
+    } catch (err) {
+      logger.error('Bot stop failed:', err.message);
+      return { success: false, error: err.message };
     }
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.STOP_BOT, '✅ Bot stopped successfully');
-      logger.success('[IPC] ✅ Bot process stopped');
-    } else {
-      logger.ipc(IPC_CHANNELS.STOP_BOT, `❌ Bot stop failed: ${result.error}`);
-      logger.error(`[IPC] ❌ Bot stop failed: ${result.error}`);
-    }
-    
-    return result;
   });
+  handlerCount++;
 
-  // Handler: Force stop bot (kill process tree)
   ipcMain.handle(IPC_CHANNELS.FORCE_STOP_BOT, async () => {
-    logger.ipc(IPC_CHANNELS.FORCE_STOP_BOT, '🔪 FORCE_STOP_BOT IPC handler called');
-    logger.info('[IPC] 🔪 Force stop bot requested from frontend');
-    
-    let result;
+    logger.info('Force stopping bot...');
     try {
-      const launcher = await getNodeBotLauncher();
-      result = await launcher.forceStopBot();
-    } catch (error) {
-      logger.error('Failed to force stop bot:', error);
-      result = { success: false, error: error.message };
+      const launcher = await getBotLauncher();
+      const result = await launcher.forceStopBot();
+      logger.info(`Bot force stop: ${result.success ? 'OK' : result.error}`);
+      return result;
+    } catch (err) {
+      logger.error('Bot force stop failed:', err.message);
+      return { success: false, error: err.message };
     }
-    
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.FORCE_STOP_BOT, '✅ Bot force stopped');
-    } else {
-      logger.ipc(IPC_CHANNELS.FORCE_STOP_BOT, `❌ Force stop failed: ${result.error}`);
-    }
-    
-    return result;
   });
+  handlerCount++;
 
-  // Handler: Get bot status (running, PID, etc.)
   ipcMain.handle(IPC_CHANNELS.GET_BOT_STATUS, async () => {
     try {
-      const launcher = await getNodeBotLauncher();
-      const status = launcher.getBotStatus();
-      return { success: true, ...status };
-    } catch (error) {
-      logger.error('Failed to get bot status:', error);
+      const launcher = await getBotLauncher();
+      return { success: true, ...launcher.getBotStatus() };
+    } catch (err) {
       return { success: false, running: false, pid: null, startedAt: null };
     }
   });
+  handlerCount++;
 
-  // Handler: Get bot log file path
   ipcMain.handle(IPC_CHANNELS.GET_BOT_LOG_PATH, async () => {
-    logger.ipc(IPC_CHANNELS.GET_BOT_LOG_PATH, 'Getting bot log file path');
     try {
-      const launcher = await getNodeBotLauncher();
-      const logPath = launcher.getBotLogPath();
-      if (logPath) {
-        logger.ipc(IPC_CHANNELS.GET_BOT_LOG_PATH, `Log path: ${logPath}`);
-        return { success: true, path: logPath };
-      } else {
-        return { success: false, error: 'Log file not initialized' };
-      }
-    } catch (error) {
-      logger.error('Failed to get bot log path:', error);
-      return { success: false, error: error.message || 'Failed to get log path' };
+      const launcher = await getBotLauncher();
+      const path = launcher.getBotLogPath();
+      return path ? { success: true, path } : { success: false, error: 'Log not initialized' };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   });
+  handlerCount++;
 
-  // Handler: Check if Playwright browser is installed
-  ipcMain.handle(IPC_CHANNELS.CHECK_BROWSER, async () => {
-    logger.ipc(IPC_CHANNELS.CHECK_BROWSER, 'Checking browser installation');
+  // ============================================================================
+  // Browser Management
+  // ============================================================================
+
+  ipcMain.handle(IPC_CHANNELS.CHECK_BROWSER, () => {
     try {
-      const status = checkBrowserInstalled();
-      logger.ipc(IPC_CHANNELS.CHECK_BROWSER, `Browser installed: ${status.installed}`);
-      return { success: true, ...status };
-    } catch (error) {
-      logger.error('Failed to check browser:', error);
-      return { success: false, installed: false, error: error.message };
+      return { success: true, ...checkBrowserInstalled() };
+    } catch (err) {
+      return { success: false, installed: false, error: err.message };
     }
   });
+  handlerCount++;
 
-  // Handler: Install Playwright browser
   ipcMain.handle(IPC_CHANNELS.INSTALL_BROWSER, async (event) => {
-    logger.ipc(IPC_CHANNELS.INSTALL_BROWSER, 'Starting browser installation');
+    const window = getWindow(event);
+    if (!window) return { success: false, error: 'No window' };
+    
     try {
-      const window = BrowserWindow.fromWebContents(event.sender);
-      if (!window) {
-        return { success: false, error: 'No window available' };
-      }
-      const result = await installBrowser(window);
-      if (result.success) {
-        logger.ipc(IPC_CHANNELS.INSTALL_BROWSER, 'Browser installed successfully');
-      } else {
-        logger.ipc(IPC_CHANNELS.INSTALL_BROWSER, `Browser installation failed: ${result.error}`);
-      }
-      return result;
-    } catch (error) {
-      logger.error('Failed to install browser:', error);
-      return { success: false, error: error.message };
+      return await installBrowser(window);
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   });
+  handlerCount++;
 
-  // Handler: Minimize window
+  // ============================================================================
+  // Window Controls
+  // ============================================================================
+
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_MINIMIZE, 'Minimizing window');
-      window.minimize();
-    }
+    getWindow(event)?.minimize();
   });
+  handlerCount++;
 
-  // Handler: Maximize window
   ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_MAXIMIZE, 'Maximizing window');
-      window.maximize();
-    }
+    getWindow(event)?.maximize();
   });
+  handlerCount++;
 
-  // Handler: Unmaximize window
   ipcMain.handle(IPC_CHANNELS.WINDOW_UNMAXIMIZE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_UNMAXIMIZE, 'Restoring window');
-      window.unmaximize();
-    }
+    getWindow(event)?.unmaximize();
   });
+  handlerCount++;
 
-  // Handler: Close window
   ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-      logger.ipc(IPC_CHANNELS.WINDOW_CLOSE, 'Closing window');
-      window.close();
-    }
+    getWindow(event)?.close();
   });
+  handlerCount++;
 
-  // Handler: Check if window is maximized
   ipcMain.handle(IPC_CHANNELS.WINDOW_IS_MAXIMIZED, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    return window ? window.isMaximized() : false;
+    return getWindow(event)?.isMaximized() ?? false;
   });
+  handlerCount++;
 
-  // Handler: Save auth cache
-  ipcMain.handle(IPC_CHANNELS.SAVE_AUTH_CACHE, async (event, tokens) => {
-    logger.ipc(IPC_CHANNELS.SAVE_AUTH_CACHE, 'Saving auth cache');
-    const result = await saveAuthCache(tokens);
+  // ============================================================================
+  // Auth Cache
+  // ============================================================================
 
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.SAVE_AUTH_CACHE, 'Auth cache saved successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.SAVE_AUTH_CACHE, `Auth cache save failed: ${result.error}`);
-    }
-
-    return result;
+  ipcMain.handle(IPC_CHANNELS.SAVE_AUTH_CACHE, async (_, tokens) => {
+    return await saveAuthCache(tokens);
   });
+  handlerCount++;
 
-  // Handler: Load auth cache
   ipcMain.handle(IPC_CHANNELS.LOAD_AUTH_CACHE, async () => {
-    logger.ipc(IPC_CHANNELS.LOAD_AUTH_CACHE, 'Loading auth cache');
-    const result = await loadAuthCache();
-
-    if (result) {
-      logger.ipc(IPC_CHANNELS.LOAD_AUTH_CACHE, 'Auth cache loaded successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.LOAD_AUTH_CACHE, 'No valid auth cache found');
-    }
-
-    return result;
+    return await loadAuthCache();
   });
+  handlerCount++;
 
-  // Handler: Clear auth cache
   ipcMain.handle(IPC_CHANNELS.CLEAR_AUTH_CACHE, async () => {
-    logger.ipc(IPC_CHANNELS.CLEAR_AUTH_CACHE, 'Clearing auth cache');
-    const result = await clearAuthCache();
-
-    if (result.success) {
-      logger.ipc(IPC_CHANNELS.CLEAR_AUTH_CACHE, 'Auth cache cleared successfully');
-    } else {
-      logger.ipc(IPC_CHANNELS.CLEAR_AUTH_CACHE, `Auth cache clear failed: ${result.error}`);
-    }
-
-    return result;
+    return await clearAuthCache();
   });
+  handlerCount++;
 
-  // Handler: Open GitHub releases page (for manual update download on Linux)
+  // ============================================================================
+  // Updates
+  // ============================================================================
+
   ipcMain.handle(IPC_CHANNELS.OPEN_RELEASES_PAGE, () => {
-    logger.ipc(IPC_CHANNELS.OPEN_RELEASES_PAGE, 'Opening releases page');
-    openReleasesPage();
+    openExternalUrl('https://github.com/jobelix-dev/jobelix-releases/releases/latest');
     return { success: true };
   });
+  handlerCount++;
 
-  // Handler: Open external URL (for direct download links)
-  ipcMain.handle('open-external-url', (event, url) => {
-    logger.ipc('open-external-url', `Opening: ${url}`);
+  ipcMain.handle('open-external-url', (_, url) => {
     openExternalUrl(url);
     return { success: true };
   });
+  handlerCount++;
 
-  logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW') || k.startsWith('SAVE') || k.startsWith('LOAD') || k.startsWith('CLEAR')).length} IPC handlers registered`);
+  logger.success(`${handlerCount} IPC handlers registered`);
 }
 
-/**
- * Remove all IPC handlers
- * Clean up function for app shutdown
- */
 export function removeIpcHandlers() {
-  logger.info('Removing IPC handlers...');
+  const channels = [
+    'get-app-version',
+    'open-external-url',
+    ...Object.values(IPC_CHANNELS)
+  ];
   
-  ipcMain.removeHandler('get-app-version');
-  ipcMain.removeHandler(IPC_CHANNELS.READ_CONFIG);
-  ipcMain.removeHandler(IPC_CHANNELS.WRITE_CONFIG);
-  ipcMain.removeHandler(IPC_CHANNELS.WRITE_RESUME);
-  ipcMain.removeHandler(IPC_CHANNELS.LAUNCH_BOT);
-  ipcMain.removeHandler(IPC_CHANNELS.STOP_BOT);
-  ipcMain.removeHandler(IPC_CHANNELS.FORCE_STOP_BOT);
-  ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_STATUS);
-  ipcMain.removeHandler(IPC_CHANNELS.GET_BOT_LOG_PATH);
-  ipcMain.removeHandler(IPC_CHANNELS.CHECK_BROWSER);
-  ipcMain.removeHandler(IPC_CHANNELS.INSTALL_BROWSER);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MAXIMIZE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_UNMAXIMIZE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_CLOSE);
-  ipcMain.removeHandler(IPC_CHANNELS.WINDOW_IS_MAXIMIZED);
-  ipcMain.removeHandler(IPC_CHANNELS.SAVE_AUTH_CACHE);
-  ipcMain.removeHandler(IPC_CHANNELS.LOAD_AUTH_CACHE);
-  ipcMain.removeHandler(IPC_CHANNELS.CLEAR_AUTH_CACHE);
-  ipcMain.removeHandler(IPC_CHANNELS.OPEN_RELEASES_PAGE);
-  ipcMain.removeHandler('open-external-url');
+  channels.forEach(channel => {
+    try {
+      ipcMain.removeHandler(channel);
+    } catch {
+      // Handler might not exist
+    }
+  });
   
-  logger.success('IPC handlers removed');
+  logger.info('IPC handlers removed');
 }
