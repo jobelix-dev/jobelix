@@ -13,6 +13,9 @@ export interface BrowserStatus {
 }
 
 export interface ElectronAPI {
+  // App info
+  getAppVersion: () => Promise<string>;
+  
   readConfigFile: () => Promise<{ success: boolean; content: string }>;
   writeConfigFile: (content: string) => Promise<{ success: boolean; error?: string }>;
   writeResumeFile: (content: string) => Promise<{ success: boolean; path?: string; error?: string }>;
@@ -89,6 +92,7 @@ export interface ElectronAPI {
     releaseDate?: string;
     manualDownload?: boolean;
     downloadUrl?: string;
+    distroLabel?: string; // Linux only: human-readable distro name
   }) => void) => void;
   onUpdateDownloadProgress: (callback: (progress: { 
     bytesPerSecond: number; 
@@ -102,6 +106,9 @@ export interface ElectronAPI {
   
   // Open releases page for manual update download (Linux)
   openReleasesPage: () => Promise<{ success: boolean }>;
+  
+  // Open any external URL (for direct download links)
+  openExternalUrl: (url: string) => Promise<{ success: boolean }>;
 
   // Bot status updates (from stdout IPC)
   onBotStatus: (callback: (payload: { 

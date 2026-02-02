@@ -4,6 +4,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  // App info (exposed synchronously at preload time)
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
+
   // Config files
   readConfigFile: () => ipcRenderer.invoke('read-config'),
   writeConfigFile: (content) => ipcRenderer.invoke('write-config', content),
@@ -56,4 +60,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Open external URL (for manual update download on Linux)
   openReleasesPage: () => ipcRenderer.invoke('open-releases-page'),
+  openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
 });

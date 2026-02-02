@@ -1,31 +1,102 @@
 /**
- * Update Manager
- * Handles automatic updates using electron-updater
+ * Update Manager - Automatic Application Updates via electron-updater
  * 
- * Flow:
- * 1. On app launch, check GitHub releases for newer version
- * 2. On Windows/macOS: Download and install automatically
- * 3. On Linux: Notify user of available update (don't auto-install due to distro variants)
+ * ============================================================================
+ * OVERVIEW
+ * ============================================================================
+ * This module handles automatic updates for the Jobelix Electron app.
+ * It uses electron-updater which checks GitHub Releases for new versions.
  * 
- * Linux Note:
+ * ============================================================================
+ * UPDATE FLOW
+ * ============================================================================
+ * 1. App launches → initAutoUpdater() called from src/main/index.js
+ * 2. Checks GitHub releases (jobelix-dev/jobelix-releases) for newer version
+ * 3. If update available:
+ *    - Windows/macOS: Auto-downloads, shows dialog asking to install now or later
+ *    - Linux: Detects distro (Arch/Ubuntu), shows notification with direct download link
+ * 4. User chooses when to install (no forced restarts)
+ * 
+ * ============================================================================
+ * ARCHITECTURE
+ * ============================================================================
+ * 
+ *   ┌─────────────────┐     IPC Events      ┌──────────────────────────┐
+ *   │  update-manager │ ─────────────────►  │  UpdateNotification.tsx  │
+ *   │  (main process) │                     │  (renderer process)      │
+ *   └────────┬────────┘                     └──────────────────────────┘
+ *            │                                         │
+ *            │ updateSplashStatus()                    │ User sees notification
+ *            ▼                                         │ in app UI
+ *   ┌─────────────────┐                               │
+ *   │   loader.html   │                               │
+ *   │ (splash screen) │                               │
+ *   └─────────────────┘                               │
+ *            │                                         │
+ *            │ Shows download progress                 │
+ *            ▼                                         ▼
+ *   User sees "Downloading update 45%..."    User sees toast notification
+ * 
+ * ============================================================================
+ * IPC EVENTS SENT TO RENDERER
+ * ============================================================================
+ * - 'update-available'       → New version found (version, releaseNotes, manualDownload flag)
+ * - 'update-download-progress' → Download progress (percent, bytesPerSecond, etc.)
+ * - 'update-downloaded'      → Ready to install (version)
+ * - 'update-error'           → Update failed (message)
+ * 
+ * ============================================================================
+ * LINUX DISTRO DETECTION
+ * ============================================================================
  * electron-updater doesn't differentiate between Linux distributions.
- * We build separate AppImages for Ubuntu and Arch, but the updater would
- * download whichever is in latest-linux.yml (typically Ubuntu).
- * To prevent installing the wrong binary, we disable auto-download on Linux
- * and show a notification directing users to download manually.
+ * We build separate AppImages for Ubuntu and Arch.
+ * 
+ * Solution: Detect distro at runtime and provide direct download link:
+ * - Reads /etc/os-release to detect Arch-based distros
+ * - Constructs direct URL to correct AppImage
+ * - Opens browser to download (user sees what they're getting)
+ * 
+ * ============================================================================
+ * FILES INVOLVED
+ * ============================================================================
+ * - src/main/modules/update-manager.js   → This file (main process logic)
+ * - src/main/modules/window-manager.js   → Splash window status updates
+ * - app/components/UpdateNotification.tsx → React UI for update notifications
+ * - preload.js                           → IPC bridge for update events
+ * - lib/client/electronAPI.d.ts          → TypeScript types for electronAPI
+ * - loader.html                          → Splash screen with progress bar
+ * 
+ * ============================================================================
+ * RELATED CONFIGURATION
+ * ============================================================================
+ * - electron-builder.yml → publish config points to jobelix-releases repo
+ * - package.json → electron-updater dependency
  */
 
-import { app, shell } from 'electron';
+import { app, shell, dialog } from 'electron';
+import fs from 'fs';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import logger from '../utils/logger.js';
 import { updateSplashStatus, getMainWindow, setUpdateInProgress } from './window-manager.js';
 
-// GitHub releases page for manual download
-const RELEASES_URL = 'https://github.com/jobelix-dev/jobelix-releases/releases/latest';
+/**
+ * GitHub repository info for releases
+ */
+const GITHUB_OWNER = 'jobelix-dev';
+const GITHUB_REPO = 'jobelix-releases';
 
 /**
- * Send update event to main window renderer process
+ * GitHub releases page URL for manual download fallback
+ */
+const RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
+
+/**
+ * Send IPC event to main window's renderer process
+ * Used to notify the React app about update status
+ * 
+ * @param {string} channel - IPC channel name (e.g., 'update-available')
+ * @param {object} data - Data to send with the event
  */
 function sendToMainWindow(channel, data) {
   const mainWindow = getMainWindow();
@@ -35,67 +106,192 @@ function sendToMainWindow(channel, data) {
 }
 
 /**
- * Check if running on Linux
+ * Check if running on Linux platform
+ * @returns {boolean} True if running on Linux
  */
 function isLinux() {
   return process.platform === 'linux';
 }
 
 /**
- * Initialize auto-updater and check for updates
- * Call this once when app is ready (only in packaged mode)
+ * Detect Linux distribution type
+ * Reads /etc/os-release to determine if running on Arch-based or Debian-based distro
  * 
- * @param {BrowserWindow} splashWindow - The splash window to send progress updates to
+ * @returns {{ distro: string, label: string }} Distro info for download URL construction
+ *   - distro: 'arch' or 'ubuntu-22.04' (matches artifact naming)
+ *   - label: Human-readable name for UI (e.g., 'Arch Linux', 'Ubuntu')
+ */
+function getLinuxDistro() {
+  try {
+    if (!fs.existsSync('/etc/os-release')) {
+      logger.warn('Cannot detect Linux distro: /etc/os-release not found');
+      return { distro: 'ubuntu-22.04', label: 'Linux' };
+    }
+
+    const content = fs.readFileSync('/etc/os-release', 'utf-8');
+    const id = content.match(/^ID=(.*)$/m)?.[1]?.replace(/"/g, '') || '';
+    const idLike = content.match(/^ID_LIKE=(.*)$/m)?.[1]?.replace(/"/g, '') || '';
+    const prettyName = content.match(/^PRETTY_NAME=(.*)$/m)?.[1]?.replace(/"/g, '') || '';
+
+    // Arch-based distributions
+    const archDistros = ['arch', 'manjaro', 'endeavouros', 'garuda', 'arco', 'artix', 'cachyos'];
+    const isArch = archDistros.includes(id) || archDistros.some(d => idLike.includes(d));
+
+    if (isArch) {
+      logger.info(`Detected Arch-based distro: ${prettyName || id}`);
+      return { distro: 'arch', label: prettyName || 'Arch Linux' };
+    }
+
+    // Default to Ubuntu for Debian-based and others
+    logger.info(`Detected distro: ${prettyName || id} (using Ubuntu build)`);
+    return { distro: 'ubuntu-22.04', label: prettyName || 'Ubuntu' };
+
+  } catch (error) {
+    logger.error('Failed to detect Linux distro:', error.message);
+    return { distro: 'ubuntu-22.04', label: 'Linux' };
+  }
+}
+
+/**
+ * Construct direct download URL for a specific version and distro
+ * 
+ * @param {string} version - Version number (e.g., '0.0.9')
+ * @param {string} distro - Distro label (e.g., 'arch', 'ubuntu-22.04')
+ * @returns {string} Direct download URL to the AppImage
+ */
+function getDirectDownloadUrl(version, distro) {
+  // Artifact naming: Jobelix-{version}-{distro}.AppImage
+  const filename = `Jobelix-${version}-${distro}.AppImage`;
+  return `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/v${version}/${filename}`;
+}
+
+/**
+ * Show dialog asking user whether to install update now or later
+ * 
+ * @param {string} version - The version that was downloaded
+ */
+async function showInstallDialog(version) {
+  const mainWindow = getMainWindow();
+  
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Update Ready',
+    message: `Jobelix v${version} has been downloaded.`,
+    detail: 'Would you like to install it now? The app will restart.',
+    buttons: ['Install Now', 'Install Later'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+
+  if (result.response === 0) {
+    // User chose "Install Now"
+    logger.info('User chose to install update now');
+    autoUpdater.quitAndInstall();
+  } else {
+    // User chose "Install Later" - will install on next app quit
+    logger.info('User chose to install update later (will install on quit)');
+    // autoInstallOnAppQuit is already true, so it will install when user closes app
+  }
+}
+
+/**
+ * Initialize the auto-updater and begin checking for updates
+ * 
+ * Called once from src/main/index.js when the app is ready.
+ * Only runs in packaged mode (skipped in development).
+ * 
+ * Flow:
+ * 1. Configure autoUpdater settings based on platform
+ * 2. Set up event handlers for update lifecycle
+ * 3. Check GitHub releases for new version
+ * 4. If update found: download (Win/Mac) or notify with direct link (Linux)
+ * 5. After download: show dialog asking user to install now or later
+ * 
+ * @param {BrowserWindow} splashWindow - The splash window to show progress on
  */
 export function initAutoUpdater(splashWindow) {
+  // Skip auto-updater in development mode (no packaged app to update)
   if (!app.isPackaged) {
     logger.info('Skipping auto-updater in development mode');
     return;
   }
 
-  // Configure auto-updater
-  // On Linux: Don't auto-download (we have distro-specific builds)
-  // On Windows/macOS: Auto-download is safe
+  // ============================================================================
+  // Configure auto-updater behavior based on platform
+  // ============================================================================
+  // 
+  // Windows/macOS: Safe to auto-download and install
+  // Linux: Disabled because we have distro-specific builds (Ubuntu/Arch)
+  //        We detect distro and provide direct download link instead
   autoUpdater.autoDownload = !isLinux();
-  autoUpdater.autoInstallOnAppQuit = !isLinux();
+  autoUpdater.autoInstallOnAppQuit = !isLinux(); // Install on quit if user chooses "Later"
+  autoUpdater.allowDowngrade = false; // Don't allow downgrading to older versions
   autoUpdater.logger = logger.getLogger();
 
   if (isLinux()) {
-    logger.info('Linux detected: Auto-update disabled (distro-specific builds)');
-    logger.info('Users will be notified of updates and directed to download manually');
+    const { distro, label } = getLinuxDistro();
+    logger.info(`Linux detected: ${label} (${distro})`);
+    logger.info('Auto-update disabled - will provide direct download link for correct distro');
   }
 
-  // Event handlers - update splash screen with progress
+  // ============================================================================
+  // Event Handlers - Update lifecycle events from electron-updater
+  // ============================================================================
+
+  /**
+   * Event: Checking for updates
+   * Triggered when autoUpdater.checkForUpdates() starts
+   */
   autoUpdater.on('checking-for-update', () => {
     logger.info('Checking for updates...');
     updateSplashStatus(splashWindow, 'checking');
   });
 
+  /**
+   * Event: Update available
+   * Triggered when a newer version is found on GitHub releases
+   * 
+   * On Windows/macOS: Starts downloading automatically
+   * On Linux: Detects distro and sends direct download link to renderer
+   */
   autoUpdater.on('update-available', (info) => {
     logger.info(`Update available: v${info.version}`);
     
     if (isLinux()) {
-      // On Linux: Don't download, just notify
-      logger.info('Linux: Skipping auto-download, will notify user');
-      updateSplashStatus(splashWindow, 'no-update'); // Continue loading app
+      // ========================================================================
+      // LINUX: Smart distro detection with direct download
+      // ========================================================================
+      const { distro, label } = getLinuxDistro();
+      const directUrl = getDirectDownloadUrl(info.version, distro);
       
-      // Notify renderer after main window loads
+      logger.info(`Linux: Detected ${label}, direct download: ${directUrl}`);
+      updateSplashStatus(splashWindow, 'no-update'); // Continue loading app normally
+      
+      // Send notification to renderer after main window loads
+      // Delay ensures UpdateNotification component is mounted
+      logger.info('Linux: Scheduling update notification to renderer in 3s...');
       setTimeout(() => {
+        logger.info('Linux: Sending update-available IPC to renderer now');
         sendToMainWindow('update-available', {
           version: info.version,
           releaseNotes: info.releaseNotes,
           releaseDate: info.releaseDate,
-          manualDownload: true, // Flag to show "Download manually" UI
-          downloadUrl: RELEASES_URL,
+          manualDownload: true,
+          downloadUrl: directUrl, // Direct link to correct AppImage
+          distroLabel: label,     // For UI: "Download for Arch Linux"
         });
-      }, 3000); // Delay to ensure main window is ready
+        logger.info('Linux: update-available IPC sent');
+      }, 3000);
     } else {
-      // On Windows/macOS: Download automatically
-      // Mark update in progress to keep splash visible
+      // ========================================================================
+      // WINDOWS/MACOS: Automatic download
+      // ========================================================================
       setUpdateInProgress(true);
       logger.info('Downloading update...');
       updateSplashStatus(splashWindow, 'available', info.version);
       
+      // Also notify renderer (in case main window is already visible)
       sendToMainWindow('update-available', {
         version: info.version,
         releaseNotes: info.releaseNotes,
@@ -105,17 +301,28 @@ export function initAutoUpdater(splashWindow) {
     }
   });
 
+  /**
+   * Event: Update not available
+   * Triggered when current version is already the latest
+   */
   autoUpdater.on('update-not-available', (info) => {
     logger.info(`App is up to date (v${info.version})`);
     updateSplashStatus(splashWindow, 'no-update');
   });
 
+  /**
+   * Event: Download progress
+   * Triggered periodically during update download (Windows/macOS only)
+   * Updates both splash screen and renderer notification
+   */
   autoUpdater.on('download-progress', (progress) => {
     const percent = Math.round(progress.percent);
     logger.debug(`Download progress: ${percent}%`);
+    
+    // Update splash screen progress bar
     updateSplashStatus(splashWindow, 'downloading', percent);
     
-    // Also notify main window renderer
+    // Also send to renderer for UpdateNotification component
     sendToMainWindow('update-download-progress', {
       bytesPerSecond: progress.bytesPerSecond,
       percent: progress.percent,
@@ -124,35 +331,49 @@ export function initAutoUpdater(splashWindow) {
     });
   });
 
+  /**
+   * Event: Update downloaded
+   * Triggered when download completes successfully
+   * Shows dialog asking user to install now or later (no forced restart)
+   */
   autoUpdater.on('update-downloaded', (info) => {
-    logger.success(`Update v${info.version} downloaded. Will install on restart.`);
+    logger.success(`Update v${info.version} downloaded.`);
     updateSplashStatus(splashWindow, 'ready');
+    setUpdateInProgress(false); // Allow splash to close now
     
-    // Also notify main window renderer
+    // Notify renderer
     sendToMainWindow('update-downloaded', {
       version: info.version,
     });
     
-    // Give user a moment to see the "Installing..." message, then quit and install
+    // Show dialog asking user to install now or later
+    // Small delay to ensure main window is visible
     setTimeout(() => {
-      logger.info('Quitting and installing update...');
-      autoUpdater.quitAndInstall();
-    }, 2000);
+      showInstallDialog(info.version);
+    }, 500);
   });
 
+  /**
+   * Event: Error
+   * Triggered when update check or download fails
+   * On error, we just continue loading the app normally
+   */
   autoUpdater.on('error', (err) => {
     logger.error('Auto-updater error:', err.message);
-    // On error, just continue loading the app normally
+    // Don't block app startup on update errors - just continue
     updateSplashStatus(splashWindow, 'error');
+    setUpdateInProgress(false); // Allow splash to close
     
-    // Also notify main window renderer
+    // Notify renderer so they can show error toast
     sendToMainWindow('update-error', {
       message: err.message,
       error: err.toString(),
     });
   });
 
-  // Check for updates
+  // ============================================================================
+  // Start the update check
+  // ============================================================================
   logger.info('Checking GitHub releases for updates...');
   autoUpdater.checkForUpdates().catch((err) => {
     logger.error('Failed to check for updates:', err.message);
@@ -161,8 +382,21 @@ export function initAutoUpdater(splashWindow) {
 }
 
 /**
- * Open the releases page for manual download
- * Called from renderer when user clicks "Download Update" on Linux
+ * Open a URL in the user's default browser
+ * Used for manual update download on Linux
+ * 
+ * @param {string} url - URL to open (can be direct download or releases page)
+ */
+export function openExternalUrl(url) {
+  logger.info(`Opening external URL: ${url}`);
+  shell.openExternal(url);
+}
+
+/**
+ * Open the GitHub releases page in the user's default browser
+ * Fallback if direct download URL fails
+ * 
+ * @deprecated Use openExternalUrl with direct download URL instead
  */
 export function openReleasesPage() {
   shell.openExternal(RELEASES_URL);

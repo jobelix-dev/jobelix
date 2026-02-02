@@ -82,22 +82,42 @@ async function waitForNextJs(
  * @returns {BrowserWindow} The splash window instance
  */
 export function createSplashWindow() {
+  const splashStartTime = Date.now();
   logger.info('Creating splash window...');
   
   const splash = new BrowserWindow({
     ...WINDOW_CONFIG.SPLASH,
+    // Show immediately with background color to avoid blank/white flash
+    backgroundColor: '#ffffff',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
     },
   });
   
+  logger.debug(`⏱️ BrowserWindow constructor took ${Date.now() - splashStartTime}ms`);
+  
   // Use app.getAppPath() for packaged app, process.cwd() for dev
   const basePath = app.isPackaged ? app.getAppPath() : process.cwd();
   const loaderPath = path.join(basePath, FILES.LOADER);
-  splash.loadFile(loaderPath);
   
-  logger.success('Splash window created');
+  const loadStartTime = Date.now();
+  splash.loadFile(loaderPath);
+  logger.debug(`⏱️ loadFile() initiated (async) after ${Date.now() - loadStartTime}ms`);
+  
+  // Log when splash content actually loads and set app version
+  splash.webContents.once('did-finish-load', () => {
+    logger.success(`Splash window content loaded in ${Date.now() - splashStartTime}ms total`);
+    // Display current app version on splash
+    try {
+      const version = app.getVersion();
+      splash.webContents.executeJavaScript(`setAppVersion('${version}')`);
+    } catch (error) {
+      logger.warn('Failed to set app version on splash:', error.message);
+    }
+  });
+  
+  logger.success(`Splash window created in ${Date.now() - splashStartTime}ms`);
   return splash;
 }
 
@@ -134,6 +154,8 @@ export async function createMainWindow() {
   
   const mainWindow = new BrowserWindow({
     ...WINDOW_CONFIG.MAIN,
+    // Set background color to prevent white flash during load
+    backgroundColor: '#f8fafc', // Light background matching app theme
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

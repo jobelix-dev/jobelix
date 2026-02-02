@@ -18,16 +18,41 @@ import logger from './utils/logger.js';
 // Store reference to main window
 let _mainWindow = null;
 
+// Startup timing for performance debugging
+const startupTimings = {
+  processStart: Date.now(),
+  appReady: 0,
+  ipcSetup: 0,
+  dataDirs: 0,
+  splashCreated: 0,
+  mainWindowCreated: 0,
+  autoUpdaterInit: 0,
+  mainContentLoaded: 0,
+};
+
+/**
+ * Log startup timing milestone
+ */
+function logTiming(milestone, label) {
+  startupTimings[milestone] = Date.now();
+  const elapsed = startupTimings[milestone] - startupTimings.processStart;
+  logger.info(`⏱️ [${elapsed}ms] ${label}`);
+}
+
 /**
  * Initialize the application
  */
 async function initializeApp() {
   try {
+    logTiming('appReady', 'App ready, starting initialization');
+    
     // Setup IPC handlers first
     setupIpcHandlers();
+    logTiming('ipcSetup', 'IPC handlers registered');
     
     // Initialize data directories (cross-platform userData folder)
     initializeDataDirectories();
+    logTiming('dataDirs', 'Data directories initialized');
     
     // Log platform information for debugging
     logPlatformInfo();
@@ -52,10 +77,19 @@ async function initializeApp() {
     // Splash is returned so update-manager can show progress on it
     const { mainWindow: window, splash } = await createMainWindow();
     _mainWindow = window;
+    logTiming('mainWindowCreated', 'Main window and splash created');
     
     // Initialize auto-updater (checks GitHub releases and downloads updates)
     // Pass splash window so it can display download progress to user
     initAutoUpdater(splash);
+    logTiming('autoUpdaterInit', 'Auto-updater initialized');
+    
+    // Log timing summary
+    logger.info('='.repeat(50));
+    logger.info('STARTUP TIMING SUMMARY');
+    logger.info('='.repeat(50));
+    logger.info(`Total time to window creation: ${startupTimings.mainWindowCreated - startupTimings.processStart}ms`);
+    logger.info('='.repeat(50));
     
   } catch (error) {
     logger.error('Fatal error during app initialization:', error);

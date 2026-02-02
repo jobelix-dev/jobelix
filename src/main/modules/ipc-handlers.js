@@ -3,11 +3,11 @@
  * Registers all IPC communication channels between main and renderer processes
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
 import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
-import { openReleasesPage } from './update-manager.js';
+import { openReleasesPage, openExternalUrl } from './update-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
@@ -27,6 +27,11 @@ async function getNodeBotLauncher() {
  */
 export function setupIpcHandlers() {
   logger.info('Setting up IPC handlers...');
+
+  // Handler: Get app version
+  ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+  });
 
   // Handler: Read config.yaml file
   ipcMain.handle(IPC_CHANNELS.READ_CONFIG, async () => {
@@ -310,6 +315,13 @@ export function setupIpcHandlers() {
     return { success: true };
   });
 
+  // Handler: Open external URL (for direct download links)
+  ipcMain.handle('open-external-url', (event, url) => {
+    logger.ipc('open-external-url', `Opening: ${url}`);
+    openExternalUrl(url);
+    return { success: true };
+  });
+
   logger.success(`${Object.keys(IPC_CHANNELS).filter(k => k.startsWith('LAUNCH') || k.startsWith('READ') || k.startsWith('WRITE') || k.startsWith('WINDOW') || k.startsWith('SAVE') || k.startsWith('LOAD') || k.startsWith('CLEAR')).length} IPC handlers registered`);
 }
 
@@ -320,6 +332,7 @@ export function setupIpcHandlers() {
 export function removeIpcHandlers() {
   logger.info('Removing IPC handlers...');
   
+  ipcMain.removeHandler('get-app-version');
   ipcMain.removeHandler(IPC_CHANNELS.READ_CONFIG);
   ipcMain.removeHandler(IPC_CHANNELS.WRITE_CONFIG);
   ipcMain.removeHandler(IPC_CHANNELS.WRITE_RESUME);
@@ -339,6 +352,7 @@ export function removeIpcHandlers() {
   ipcMain.removeHandler(IPC_CHANNELS.LOAD_AUTH_CACHE);
   ipcMain.removeHandler(IPC_CHANNELS.CLEAR_AUTH_CACHE);
   ipcMain.removeHandler(IPC_CHANNELS.OPEN_RELEASES_PAGE);
+  ipcMain.removeHandler('open-external-url');
   
   logger.success('IPC handlers removed');
 }

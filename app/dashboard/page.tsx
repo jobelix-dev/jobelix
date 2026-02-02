@@ -13,7 +13,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/shared/types';
 import { api } from '@/lib/client/api';
-import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriangle } from 'lucide-react';
+import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriangle, Info } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -100,6 +101,21 @@ export default function DashboardPage() {
 
     loadProfile();
   }, [router]);
+
+  // Fetch app version in Electron
+  useEffect(() => {
+    async function fetchAppVersion() {
+      if (typeof window !== 'undefined' && window.electronAPI?.getAppVersion) {
+        try {
+          const version = await window.electronAPI.getAppVersion();
+          setAppVersion(version);
+        } catch (error) {
+          console.warn('Failed to get app version:', error);
+        }
+      }
+    }
+    fetchAppVersion();
+  }, []);
 
   async function handleLogout() {
     try {
@@ -356,6 +372,17 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted mb-1">Email</p>
                   <p className="text-sm text-default font-medium">{profile.email}</p>
                 </div>
+                
+                {/* App Version (Electron only) */}
+                {appVersion && (
+                  <div className="p-3 bg-background rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Info size={14} className="text-muted" />
+                      <p className="text-xs text-muted">App Version</p>
+                    </div>
+                    <p className="text-sm text-default font-medium mt-1">v{appVersion}</p>
+                  </div>
+                )}
                 
                 {/* Danger Zone */}
                 <div className="pt-4 border-t border-border/20">
