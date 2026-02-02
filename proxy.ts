@@ -1,12 +1,16 @@
 /**
- * Global Rate Limiting Middleware
+ * Global Proxy Middleware
  * 
- * Limits requests per IP address across all routes.
- * Uses an in-memory store (suitable for single-instance deployments).
+ * Handles:
+ * 1. Supabase auth session refresh (keeps users logged in)
+ * 2. Rate limiting per IP address
+ * 
+ * Uses an in-memory store for rate limiting (suitable for single-instance deployments).
  * For production with multiple instances, consider Redis or Upstash.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 // Rate limit configuration
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -308,7 +312,48 @@ function checkFeedbackRateLimit(ip: string): { allowed: boolean; hourlyRemaining
   };
 }
 
-export function proxy(request: NextRequest) {
+/**
+ * Refresh Supabase auth session
+ * This is CRITICAL for keeping users logged in - without it,
+ * auth tokens expire and API calls return 401 Unauthorized.
+ * 
+ * See: https://supabase.com/docs/guides/auth/server-side/nextjs
+ */
+async function updateSupabaseSession(request: NextRequest): Promise<NextResponse> {
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  // IMPORTANT: This getUser() call refreshes the auth token
+  const { data: { user: _user } } = await supabase.auth.getUser()
+
+  return supabaseResponse
+}
+
+export async function proxy(request: NextRequest) {
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
 
@@ -395,15 +440,22 @@ export function proxy(request: NextRequest) {
   // Apply general rate limit to all requests
   const { allowed, limit, remaining, reset } = checkRateLimit(ip);
 
-  // Create response (either continue or block)
-  const response = allowed
-    ? NextResponse.next()
-    : NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
-      );
+  // If rate limited, return early with 429
+  if (!allowed) {
+    const response = NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
+    response.headers.set('X-RateLimit-Limit', limit.toString());
+    response.headers.set('X-RateLimit-Remaining', remaining.toString());
+    response.headers.set('X-RateLimit-Reset', new Date(reset).toISOString());
+    return response;
+  }
 
-  // Add rate limit headers (useful for clients to know their limits)
+  // Refresh Supabase auth session (keeps users logged in)
+  const response = await updateSupabaseSession(request);
+
+  // Add rate limit headers to successful response
   response.headers.set('X-RateLimit-Limit', limit.toString());
   response.headers.set('X-RateLimit-Remaining', remaining.toString());
   response.headers.set('X-RateLimit-Reset', new Date(reset).toISOString());
