@@ -52,6 +52,12 @@
       color: #888;
       margin-top: 10px;
     }
+    .app-version {
+      position: absolute;
+      bottom: 15px;
+      font-size: 11px;
+      color: #aaa;
+    }
   </style>
 </head>
 <body>
@@ -61,6 +67,7 @@
     <div class="progress-bar" id="progressBar"></div>
   </div>
   <div class="version" id="version"></div>
+  <div class="app-version" id="appVersion"></div>
   
   <script>
     /**
@@ -113,6 +120,18 @@
           versionEl.textContent = '';
           progressContainer.style.display = 'none';
           break;
+      }
+    }
+    
+    /**
+     * Set the app version displayed at bottom of splash
+     * Called from main process via webContents.executeJavaScript()
+     * @param {string} version - App version (e.g., "0.0.8")
+     */
+    function setAppVersion(version) {
+      const appVersionEl = document.getElementById('appVersion');
+      if (appVersionEl) {
+        appVersionEl.textContent = 'v' + version;
       }
     }
   </script>
