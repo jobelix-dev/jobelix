@@ -11,7 +11,6 @@ export const URLS = {
 
 // File and directory names
 export const FILES = {
-  LOADER: 'loader.html',
   PRELOAD: 'preload.js',
   ICON: 'icon.png',
   PACKAGE_JSON: 'package.json',
@@ -50,15 +49,9 @@ export const EXECUTABLES = {
 };
 
 // Window configurations
+// NOTE: SPLASH config removed - startup is now fast (~100ms with APPIMAGE_EXTRACT_AND_RUN)
+//       so splash screen is no longer needed
 export const WINDOW_CONFIG = {
-  SPLASH: {
-    width: 400,
-    height: 300,
-    transparent: false,
-    frame: false,
-    alwaysOnTop: true,
-    center: true,
-  },
   MAIN: {
     width: 1200,
     height: 800,

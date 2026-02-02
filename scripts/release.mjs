@@ -3,11 +3,13 @@
  * Release Script - Build and optionally publish Electron app
  * 
  * Detects OS and architecture, sets appropriate labels for artifact naming.
- * Fetches the latest GitHub release version unless a specific version is provided.
+ * Fetches the latest GitHub release version and auto-increments for new releases.
  * 
  * Usage:
  *   npm run dist                        # Build only (uses package.json version)
- *   npm run release                     # Build and publish at latest GitHub version
+ *   npm run release                     # Build and publish, auto-increment patch version
+ *   npm run release -- --bump minor     # Bump minor version (0.1.0 → 0.2.0)
+ *   npm run release -- --bump major     # Bump major version (0.1.0 → 1.0.0)
  *   npm run release -- --version 1.2.3  # Build and publish at specific version
  *   JOBELIX_LINUX_LABEL=arch npm run release  # Override Linux label for Arch
  */
@@ -87,6 +89,39 @@ function updatePackageVersion(version) {
 }
 
 /**
+ * Increment semantic version
+ * @param {string} version - Current version (e.g., "1.2.3")
+ * @param {'patch'|'minor'|'major'} bump - Which part to increment
+ * @returns {string} New version
+ */
+function incrementVersion(version, bump = 'patch') {
+  const parts = version.split('.').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) {
+    throw new Error(`Invalid version format: ${version}`);
+  }
+  
+  let [major, minor, patch] = parts;
+  
+  switch (bump) {
+    case 'major':
+      major++;
+      minor = 0;
+      patch = 0;
+      break;
+    case 'minor':
+      minor++;
+      patch = 0;
+      break;
+    case 'patch':
+    default:
+      patch++;
+      break;
+  }
+  
+  return `${major}.${minor}.${patch}`;
+}
+
+/**
  * Detect if running on Arch Linux or derivative
  */
 function isArchLinux() {
@@ -132,6 +167,7 @@ function getPlatformInfo() {
 function parseArgs(args) {
   const result = {
     version: null,
+    bump: 'patch', // Default to patch bump
     publish: false,
     extraArgs: [],
   };
@@ -140,6 +176,13 @@ function parseArgs(args) {
     const arg = args[i];
     if (arg === '--version' && args[i + 1]) {
       result.version = args[++i].replace(/^v/, '');
+    } else if (arg === '--bump' && args[i + 1]) {
+      const bumpType = args[++i].toLowerCase();
+      if (['patch', 'minor', 'major'].includes(bumpType)) {
+        result.bump = bumpType;
+      } else {
+        console.warn(`Unknown bump type "${bumpType}", using "patch"`);
+      }
     } else if (arg === '--publish') {
       result.publish = true;
       if (args[i + 1] && !args[i + 1].startsWith('-')) {
@@ -173,14 +216,16 @@ async function main() {
   let versionSource = 'CLI argument';
 
   if (!targetVersion && parsed.extraArgs.includes('always')) {
-    // Publishing - fetch latest version from GitHub
+    // Publishing - fetch latest version from GitHub and auto-increment
     console.log('Fetching latest release version from GitHub...');
     try {
       const latestVersion = await fetchLatestVersion();
       if (latestVersion) {
-        targetVersion = latestVersion;
-        versionSource = `GitHub latest (${latestVersion})`;
+        // Auto-increment the version
+        targetVersion = incrementVersion(latestVersion, parsed.bump);
+        versionSource = `GitHub v${latestVersion} + ${parsed.bump} bump`;
         console.log(`  Latest release: v${latestVersion}`);
+        console.log(`  New version:    v${targetVersion} (${parsed.bump} bump)`);
       } else {
         // No releases yet, use package.json version
         const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));

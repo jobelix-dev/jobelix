@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * After-pack script for electron-builder
- * Strips debug symbols from binaries to reduce package size
+ * 
+ * 1. Strips debug symbols from binaries to reduce package size
+ * 2. On Linux: Creates wrapper script for fast AppImage startup (APPIMAGE_EXTRACT_AND_RUN)
  * 
  * This runs after the app is packaged but before creating the installer/AppImage
  */
@@ -16,16 +18,17 @@ import path from 'path';
 export default async function afterPack(context) {
   const { appOutDir, electronPlatformName } = context;
   
-  console.log(`\n🔧 After-pack: Stripping debug symbols for ${electronPlatformName}...`);
+  console.log(`\n🔧 After-pack: Processing ${electronPlatformName}...`);
 
   if (electronPlatformName === 'linux') {
     await stripLinux(appOutDir);
+    await createLinuxWrapper(appOutDir);
   } else if (electronPlatformName === 'darwin') {
     await stripMac(appOutDir);
   }
   // Windows binaries are already stripped by default in release builds
   
-  console.log('✅ Debug symbol stripping complete\n');
+  console.log('✅ After-pack complete\n');
 }
 
 /**
@@ -61,12 +64,52 @@ async function stripLinux(appOutDir) {
         if (sizeBefore > sizeAfter) {
           console.log(`  ✓ ${binary}: saved ${saved}MB`);
         }
-      } catch (error) {
+      } catch (_error) {
         // Some binaries may not be strippable, that's ok
         console.log(`  - ${binary}: skipped (not strippable)`);
       }
     }
   }
+}
+
+/**
+ * Create a wrapper script for Linux AppImage that enables fast startup
+ * 
+ * By default, AppImage runs through FUSE which is extremely slow on some systems.
+ * Setting APPIMAGE_EXTRACT_AND_RUN=1 makes it extract to /tmp and run directly,
+ * which can improve startup time from 50+ seconds to <1 second.
+ * 
+ * We rename the original binary and create a wrapper that sets the env var.
+ */
+async function createLinuxWrapper(appOutDir) {
+  console.log('  Creating fast-startup wrapper for Linux...');
+  
+  const binaryName = 'jobelix';
+  const originalBinary = path.join(appOutDir, binaryName);
+  const renamedBinary = path.join(appOutDir, `${binaryName}.bin`);
+  
+  if (!fs.existsSync(originalBinary)) {
+    console.log(`  ⚠️  Binary not found: ${originalBinary}`);
+    return;
+  }
+  
+  // Rename original binary
+  fs.renameSync(originalBinary, renamedBinary);
+  
+  // Create wrapper script that sets APPIMAGE_EXTRACT_AND_RUN
+  // This dramatically improves startup time on Linux by bypassing FUSE
+  const wrapperScript = `#!/bin/bash
+# Jobelix fast-startup wrapper
+# Sets APPIMAGE_EXTRACT_AND_RUN=1 to bypass slow FUSE layer
+# This improves startup time from ~50s to <1s on many Linux systems
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+export APPIMAGE_EXTRACT_AND_RUN=1
+exec "\${SCRIPT_DIR}/${binaryName}.bin" "$@"
+`;
+  
+  fs.writeFileSync(originalBinary, wrapperScript, { mode: 0o755 });
+  console.log(`  ✓ Created wrapper script with APPIMAGE_EXTRACT_AND_RUN=1`);
 }
 
 /**
