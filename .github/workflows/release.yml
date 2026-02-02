@@ -1,12 +1,32 @@
 name: Build & Release
 
+# Triggers:
+# 1. Push to main with desktop app changes (paths filter)
+# 2. Tag push (v*) - always triggers (paths filter ignored for tags)
+# 3. Manual dispatch
+#
+# NOTE: Website-only changes (app/**, lib/**, public/**) do NOT trigger this workflow
+# because Vercel handles those deployments automatically.
+
 on:
   push:
     branches:
       - main
-      - dev
     tags:
       - 'v*'
+    paths:
+      # Desktop app core files
+      - 'src/main/**'
+      - 'preload.js'
+      - 'build/**'
+      # Build configuration
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/build-bot.mjs'
+      - 'scripts/after-pack.mjs'
+      - 'scripts/release.mjs'
+      # This workflow file itself
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       publish:
@@ -175,7 +195,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # Release job - runs on push to main, tags, or manual trigger with publish=true
+  # Release job - runs after build completes
   # Publishes to jobelix-dev/jobelix-releases (separate repo for releases)
   release:
     needs: build
