@@ -17,7 +17,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/jobelix-dev/nextjs-app">
+  <a href="https://github.com/jobelix-dev/jobelix">
     <img src="build/icon.png" alt="Jobelix Logo" width="120" height="120">
   </a>
 
@@ -34,9 +34,9 @@
     <br />
     <a href="https://www.jobelix.fr/download">Download App</a>
     ·
-    <a href="https://github.com/jobelix-dev/nextjs-app/issues/new?labels=bug&template=bug-report.md">Report Bug</a>
+    <a href="https://github.com/jobelix-dev/jobelix/issues/new?labels=bug&template=bug-report.md">Report Bug</a>
     ·
-    <a href="https://github.com/jobelix-dev/nextjs-app/issues/new?labels=enhancement&template=feature-request.md">Request Feature</a>
+    <a href="https://github.com/jobelix-dev/jobelix/issues/new?labels=enhancement&template=feature-request.md">Request Feature</a>
   </p>
 </div>
 
@@ -151,8 +151,8 @@ Jobelix automates the entire process:
 
 ```bash
 # Clone the repository
-git clone https://github.com/jobelix-dev/nextjs-app.git
-cd nextjs-app
+git clone https://github.com/jobelix-dev/jobelix.git
+cd jobelix
 
 # Install dependencies
 npm install
@@ -330,7 +330,7 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 - [ ] Interview scheduling integration
 - [ ] Multi-language support
 
-See the [open issues](https://github.com/jobelix-dev/nextjs-app/issues) for a full list of proposed features and known issues.
+See the [open issues](https://github.com/jobelix-dev/jobelix/issues) for a full list of proposed features and known issues.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -372,21 +372,21 @@ You are free to share and adapt this work for non-commercial purposes with attri
 ---
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/jobelix-dev/nextjs-app.svg?style=for-the-badge
-[contributors-url]: https://github.com/jobelix-dev/nextjs-app/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/jobelix-dev/nextjs-app.svg?style=for-the-badge
-[forks-url]: https://github.com/jobelix-dev/nextjs-app/network/members
-[stars-shield]: https://img.shields.io/github/stars/jobelix-dev/nextjs-app.svg?style=for-the-badge
-[stars-url]: https://github.com/jobelix-dev/nextjs-app/stargazers
-[issues-shield]: https://img.shields.io/github/issues/jobelix-dev/nextjs-app.svg?style=for-the-badge
-[issues-url]: https://github.com/jobelix-dev/nextjs-app/issues
+[contributors-shield]: https://img.shields.io/github/contributors/jobelix-dev/jobelix.svg?style=for-the-badge
+[contributors-url]: https://github.com/jobelix-dev/jobelix/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/jobelix-dev/jobelix.svg?style=for-the-badge
+[forks-url]: https://github.com/jobelix-dev/jobelix/network/members
+[stars-shield]: https://img.shields.io/github/stars/jobelix-dev/jobelix.svg?style=for-the-badge
+[stars-url]: https://github.com/jobelix-dev/jobelix/stargazers
+[issues-shield]: https://img.shields.io/github/issues/jobelix-dev/jobelix.svg?style=for-the-badge
+[issues-url]: https://github.com/jobelix-dev/jobelix/issues
 [license-shield]: https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg?style=for-the-badge
 [license-url]: https://creativecommons.org/licenses/by-nc/4.0/
 
 [vercel-shield]: https://img.shields.io/badge/Vercel-Deployed-black?style=for-the-badge&logo=vercel
 [vercel-url]: https://www.jobelix.fr
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/jobelix-dev/nextjs-app/release.yml?style=for-the-badge&logo=github&label=Build
-[ci-url]: https://github.com/jobelix-dev/nextjs-app/actions/workflows/release.yml
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/jobelix-dev/jobelix/release.yml?style=for-the-badge&logo=github&label=Build
+[ci-url]: https://github.com/jobelix-dev/jobelix/actions/workflows/release.yml
 
 [Next.js]: https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/

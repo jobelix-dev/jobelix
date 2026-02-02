@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Github } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -31,6 +32,15 @@ export default function Footer() {
             <a href="#faq" className="text-sm text-muted hover:text-primary transition-colors">FAQ</a>
             <Link href="/download" className="text-sm text-muted hover:text-primary transition-colors">Download</Link>
             <Link href="/login" className="text-sm text-muted hover:text-primary transition-colors">Sign In</Link>
+            <a 
+              href="https://github.com/jobelix-dev/jobelix" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-muted hover:text-primary transition-colors"
+              aria-label="GitHub"
+            >
+              <Github className="w-5 h-5" />
+            </a>
           </div>
           
           {/* Copyright */}
