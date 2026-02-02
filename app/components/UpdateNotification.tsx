@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Terminal, Copy, Check, X } from 'lucide-react';
+
+/** Linux install command - one-liner that auto-detects distro */
+const LINUX_INSTALL_COMMAND = 'curl -fsSL https://jobelix.fr/install.sh | bash';
 
 /**
  * Update info received from main process when a new version is available
@@ -68,6 +72,8 @@ export default function UpdateNotification() {
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [updateDownloaded, setUpdateDownloaded] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<UpdateError | null>(null);
+  const [showLinuxModal, setShowLinuxModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   /**
    * Set up IPC event listeners for update notifications
@@ -126,6 +132,13 @@ export default function UpdateNotification() {
     };
   }, []);
 
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   /**
    * Format bytes to human-readable size (KB, MB, GB)
    */
@@ -145,20 +158,40 @@ export default function UpdateNotification() {
   };
 
   /**
-   * Handle "Download Update" button click (Linux only)
+   * Handle copy to clipboard for Linux install command
+   */
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(LINUX_INSTALL_COMMAND);
+      setCopied(true);
+      console.log('[UpdateNotification] Copied install command to clipboard');
+    } catch (err) {
+      console.error('[UpdateNotification] Failed to copy:', err);
+    }
+  };
+
+  /**
+   * Handle "Update" button click for Linux
+   * Shows the install command modal instead of downloading directly
+   */
+  const handleLinuxUpdateClick = () => {
+    console.log('[UpdateNotification] Showing Linux install modal');
+    setShowLinuxModal(true);
+  };
+
+  /**
+   * Handle "Download AppImage" fallback click (Linux)
    * Opens direct download URL in browser
    */
-  const handleDownloadClick = () => {
+  const handleDirectDownload = () => {
     if (updateAvailable?.downloadUrl && window.electronAPI?.openExternalUrl) {
       console.log('[UpdateNotification] Opening direct download:', updateAvailable.downloadUrl);
       window.electronAPI.openExternalUrl(updateAvailable.downloadUrl);
     } else if (window.electronAPI?.openReleasesPage) {
-      // Fallback to releases page
       console.log('[UpdateNotification] Fallback: Opening releases page');
       window.electronAPI.openReleasesPage();
     }
-    // Dismiss the notification after clicking
-    setUpdateAvailable(null);
+    setShowLinuxModal(false);
   };
 
   /**
@@ -166,6 +199,7 @@ export default function UpdateNotification() {
    */
   const handleDismiss = () => {
     setUpdateAvailable(null);
+    setShowLinuxModal(false);
   };
 
   /**
@@ -175,85 +209,167 @@ export default function UpdateNotification() {
     setUpdateError(null);
   };
 
-  // Don't render if no update notifications to show
-  if (!updateAvailable && !downloadProgress && !updateDownloaded && !updateError) {
+  // Don't render if no update notifications to show (but allow modal to show)
+  if (!updateAvailable && !downloadProgress && !updateDownloaded && !updateError && !showLinuxModal) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-md space-y-2">
-      {/* Update Error Notification */}
-      {updateError && (
-        <div className="bg-error text-white rounded-lg shadow-lg p-4 animate-slide-in">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <h3 className="text-sm font-medium">Update Check Failed</h3>
-              <p className="mt-1 text-sm opacity-90">
-                {updateError.message || 'Could not check for updates. Please try again later.'}
+    <>
+      {/* Linux Install Command Modal */}
+      {showLinuxModal && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowLinuxModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-lg bg-surface rounded-xl shadow-2xl border border-border p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowLinuxModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-lg hover:bg-primary-subtle transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5 text-muted" />
+            </button>
+
+            {/* Modal content */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary-subtle rounded-lg">
+                  <Terminal className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-default">Update to v{updateAvailable?.version}</h3>
+                  <p className="text-sm text-muted">Run this command in your terminal</p>
+                </div>
+              </div>
+
+              {/* Command box */}
+              <div className="flex items-stretch bg-background border border-border rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 flex-1 min-w-0">
+                  <Terminal className="w-4 h-4 text-muted flex-shrink-0" />
+                  <code className="text-sm font-mono text-default truncate">
+                    {LINUX_INSTALL_COMMAND}
+                  </code>
+                </div>
+                <button
+                  onClick={handleCopyCommand}
+                  className={`px-4 py-3 transition-colors flex items-center gap-2 ${
+                    copied 
+                      ? 'bg-success text-white' 
+                      : 'bg-primary hover:bg-primary-hover text-white'
+                  }`}
+                  title={copied ? 'Copied!' : 'Copy to clipboard'}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span className="text-sm font-medium">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span className="text-sm font-medium">Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <p className="text-xs text-muted">
+                The install script will automatically detect your distro ({updateAvailable?.distroLabel || 'Linux'}) and update Jobelix.
               </p>
-              <button
-                onClick={handleErrorDismiss}
-                className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
-              >
-                Dismiss
-              </button>
+
+              {/* Fallback link */}
+              <div className="pt-2 border-t border-border">
+                <p className="text-sm text-muted">
+                  Prefer manual install?{' '}
+                  <button 
+                    onClick={handleDirectDownload}
+                    className="text-primary hover:underline"
+                  >
+                    Download AppImage directly
+                  </button>
+                </p>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Update Available Notification */}
-      {updateAvailable && !updateDownloaded && (
-        <div className="bg-info text-white rounded-lg shadow-lg p-4 animate-slide-in">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+      <div className="fixed bottom-4 right-4 z-50 max-w-md space-y-2">
+        {/* Update Error Notification */}
+        {updateError && (
+          <div className="bg-error text-white rounded-lg shadow-lg p-4 animate-slide-in">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium">Update Check Failed</h3>
+                <p className="mt-1 text-sm opacity-90">
+                  {updateError.message || 'Could not check for updates. Please try again later.'}
+                </p>
+                <button
+                  onClick={handleErrorDismiss}
+                  className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
-            <div className="ml-3 flex-1">
-              <h3 className="text-sm font-medium">Update Available</h3>
-              {updateAvailable.manualDownload ? (
-                // Linux: Manual download with direct link
-                <>
-                  <p className="mt-1 text-sm opacity-90">
-                    Version {updateAvailable.version} is available!
-                  </p>
-                  {updateAvailable.distroLabel && (
-                    <p className="mt-1 text-xs opacity-75">
-                      Detected: {updateAvailable.distroLabel}
+          </div>
+        )}
+
+        {/* Update Available Notification */}
+        {updateAvailable && !updateDownloaded && (
+          <div className="bg-info text-white rounded-lg shadow-lg p-4 animate-slide-in">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium">Update Available</h3>
+                {updateAvailable.manualDownload ? (
+                  // Linux: Show install command modal
+                  <>
+                    <p className="mt-1 text-sm opacity-90">
+                      Version {updateAvailable.version} is available!
                     </p>
-                  )}
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={handleDownloadClick}
-                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
-                    >
-                      <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Download Update
-                    </button>
-                    <button
-                      onClick={handleDismiss}
-                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/10 hover:bg-white/20 transition-colors"
-                    >
-                      Later
-                    </button>
-                  </div>
-                </>
-              ) : (
-                // Windows/macOS: Auto-downloading
-                <>
-                  <p className="mt-1 text-sm opacity-90">
-                    Version {updateAvailable.version} is downloading...
-                  </p>
-                  {updateAvailable.releaseNotes && (
+                    {updateAvailable.distroLabel && (
+                      <p className="mt-1 text-xs opacity-75">
+                        Detected: {updateAvailable.distroLabel}
+                      </p>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={handleLinuxUpdateClick}
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/20 hover:bg-white/30 transition-colors"
+                      >
+                        <Terminal className="h-4 w-4 mr-1.5" />
+                        How to Update
+                      </button>
+                      <button
+                        onClick={handleDismiss}
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-white/10 hover:bg-white/20 transition-colors"
+                      >
+                        Later
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  // Windows/macOS: Auto-downloading
+                  <>
+                    <p className="mt-1 text-sm opacity-90">
+                      Version {updateAvailable.version} is downloading...
+                    </p>
+                    {updateAvailable.releaseNotes && (
                     <p className="mt-2 text-xs opacity-75 line-clamp-2">
                       {updateAvailable.releaseNotes}
                     </p>
@@ -314,5 +430,6 @@ export default function UpdateNotification() {
         </div>
       )}
     </div>
+    </>
   );
 }
