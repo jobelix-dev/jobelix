@@ -176,9 +176,9 @@ const socialLinksSchema = z.object({
 
 export const profileDraftSchema = z.object({
   student_name: z.string().max(100).optional().nullable(),
-  phone_number: z.string().max(20).optional().nullable(),
+  phone_number: z.string().min(1, 'Phone number is required').max(20),
   email: z.string().email().max(255).optional().nullable(),
-  address: z.string().max(200).optional().nullable(),
+  address: z.string().min(1, 'Address is required').max(200),
   education: z.array(educationEntrySchema).max(50).optional().default([]),
   experience: z.array(experienceEntrySchema).max(50).optional().default([]),
   projects: z.array(projectEntrySchema).max(100).optional().default([]),

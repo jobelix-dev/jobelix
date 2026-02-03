@@ -72,6 +72,7 @@ export default function MobileNav() {
               >
                 Features
               </a>
+              {/* Testimonials - commented out until we have content
               <a 
                 href="#testimonials" 
                 className="py-3 px-4 text-base font-medium text-muted hover:text-default hover:bg-primary/5 rounded-lg transition-colors"
@@ -79,6 +80,7 @@ export default function MobileNav() {
               >
                 Testimonials
               </a>
+              */}
               <a 
                 href="#faq" 
                 className="py-3 px-4 text-base font-medium text-muted hover:text-default hover:bg-primary/5 rounded-lg transition-colors"

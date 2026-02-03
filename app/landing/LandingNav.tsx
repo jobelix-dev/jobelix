@@ -31,9 +31,11 @@ export default function LandingNav() {
           <a href="#features" className="nav-link text-sm font-medium text-muted hover:text-default transition-colors">
             Features
           </a>
+          {/* Testimonials - commented out until we have content
           <a href="#testimonials" className="nav-link text-sm font-medium text-muted hover:text-default transition-colors">
             Testimonials
           </a>
+          */}
           <a href="#faq" className="nav-link text-sm font-medium text-muted hover:text-default transition-colors">
             FAQ
           </a>

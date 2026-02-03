@@ -54,8 +54,31 @@ export class TextInputHandler extends BaseFieldHandler {
         log.debug(`Clearing LinkedIn prefill: "${existingValue}"`);
       }
 
-      // Get answer from GPT
-      const answer = await this.askGpt(input, questionText);
+      // Try smart matching first for common fields (phone, email, city, etc.)
+      let answer: string | undefined;
+      const smartMatcher = this.createSmartMatcher();
+      
+      // Try matching by element ID/name first
+      const smartMatchById = await smartMatcher.matchByElementId(input);
+      if (smartMatchById?.value) {
+        log.info(`[SMART] Matched by element: ${smartMatchById.fieldType} = "${smartMatchById.value}"`);
+        answer = smartMatchById.value;
+      }
+      
+      // If no match by ID, try matching by question text
+      if (!answer) {
+        const smartMatchByText = smartMatcher.matchByQuestionText(questionText);
+        if (smartMatchByText?.value) {
+          log.info(`[SMART] Matched by question: ${smartMatchByText.fieldType} = "${smartMatchByText.value}"`);
+          answer = smartMatchByText.value;
+        }
+      }
+
+      // Fall back to GPT if no smart match
+      if (!answer) {
+        answer = await this.askGpt(input, questionText);
+      }
+      
       if (!answer?.trim()) {
         log.warn('No answer available for text input');
         return false;
