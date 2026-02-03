@@ -12,6 +12,7 @@ import { getLatestRelease, getFallbackDownloadUrl } from '@/lib/client/github-ap
 import { CheckCircle2, Download, Sparkles } from 'lucide-react';
 import ElectronDetector from './ElectronDetector';
 import BackToDashboardLink from './BackToDashboardLink';
+import AppFooter from '../components/AppFooter';
 import type { Metadata } from "next";
 import {
   SITE_NAME,
@@ -70,12 +71,12 @@ export default async function DownloadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-surface">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-surface">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <div className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="flex items-center justify-start mb-8">
           <BackToDashboardLink />
         </div>
@@ -176,6 +177,7 @@ export default async function DownloadPage() {
           </div>
         )}
       </div>
+      <AppFooter />
     </div>
   );
 }

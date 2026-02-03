@@ -77,9 +77,10 @@ export interface ProfileValidationResult {
 
 /**
  * Validates phone number format (client-side)
+ * Phone number is REQUIRED for job applications
  */
 function validatePhoneNumber(value: string | null | undefined): string | null {
-  if (!value?.trim()) return null // Phone number is optional
+  if (!value?.trim()) return 'Phone number is required'
   
   const trimmed = value.trim()
   
@@ -113,10 +114,11 @@ function validateEmail(value: string | null | undefined): string | null {
 }
 
 /**
- * Validates address (optional but if provided must be valid)
+ * Validates address (client-side)
+ * Address is REQUIRED for job applications (city/location)
  */
 function validateAddress(value: string | null | undefined): string | null {
-  if (!value?.trim()) return null // Address is optional
+  if (!value?.trim()) return 'Address is required'
   
   const trimmed = value.trim()
   if (trimmed.length > 500) return 'Address too long'

@@ -28,6 +28,7 @@ interface FieldConfig {
   type: string;
   placeholder: string;
   errorKey: 'student_name' | 'email' | 'phone_number' | 'address';
+  required?: boolean;
 }
 
 const FIELDS: FieldConfig[] = [
@@ -37,6 +38,7 @@ const FIELDS: FieldConfig[] = [
     type: 'text',
     placeholder: 'Enter your name',
     errorKey: 'student_name',
+    required: true,
   },
   {
     key: 'email',
@@ -44,6 +46,7 @@ const FIELDS: FieldConfig[] = [
     type: 'email',
     placeholder: 'your.email@example.com',
     errorKey: 'email',
+    required: true,
   },
   {
     key: 'phone_number',
@@ -51,6 +54,7 @@ const FIELDS: FieldConfig[] = [
     type: 'tel',
     placeholder: '+1 (555) 123-4567',
     errorKey: 'phone_number',
+    required: true,
   },
   {
     key: 'address',
@@ -58,6 +62,7 @@ const FIELDS: FieldConfig[] = [
     type: 'text',
     placeholder: 'City, Country',
     errorKey: 'address',
+    required: true,
   },
 ];
 
@@ -82,6 +87,7 @@ export default function BasicInfoForm({
               id={`profile-${field.key.replace('_', '-')}`}
               label={field.label}
               error={error}
+              required={field.required}
             >
               <input
                 id={`profile-${field.key.replace('_', '-')}`}

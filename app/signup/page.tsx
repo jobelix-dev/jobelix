@@ -8,18 +8,10 @@
  * Note: UI uses "talent/employer" but DB stores as "student/company"
  */
 
-/**
- * Signup Page
- * 
- * User registration interface with role selection (talent/employer).
- * Route: /signup?role=talent or /signup?role=employer
- * Uses: SignupForm component
- * Redirects to /login after successful registration
- */
-
 import type { Metadata } from "next";
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
+import AppFooter from "../components/AppFooter";
 import Link from "next/link";
 import "../globals.css";
 import { canonicalUrl } from "@/lib/seo";
@@ -55,27 +47,30 @@ export default async function SignupPage({
   const displayRole = dbRole === 'student' ? 'talent' : 'employer';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 md:p-12 bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-4 sm:p-6 md:p-8 rounded-lg shadow-lg border border-primary-subtle">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-default">
-          {displayRole === 'talent' ? 'Join as a talent' : 'Join as an employer'}
-        </h2>
-        <p className="text-sm text-muted mb-6">
-          {displayRole === 'talent' 
-            ? 'Create your account to start exploring job opportunities and connect with top employers.'
-            : 'Create your account to post positions and discover exceptional talent.'}
-        </p>
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12">
+        <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-4 sm:p-6 md:p-8 rounded-lg shadow-lg border border-primary-subtle">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-default">
+            {displayRole === 'talent' ? 'Join as a talent' : 'Join as an employer'}
+          </h2>
+          <p className="text-sm text-muted mb-6">
+            {displayRole === 'talent' 
+              ? 'Create your account to start exploring job opportunities and connect with top employers.'
+              : 'Create your account to post positions and discover exceptional talent.'}
+          </p>
 
-        <SignupForm role={dbRole} />
+          <SignupForm role={dbRole} />
 
-        <div className="mt-6 text-center text-sm text-muted">
-          Already have an account?{' '}
-          <Link href="/login" className="text-primary hover:underline">
-            Log in
-          </Link>
+          <div className="mt-6 text-center text-sm text-muted">
+            Already have an account?{' '}
+            <Link href="/login" className="text-primary hover:underline">
+              Log in
+            </Link>
+          </div>
         </div>
       </div>
+      <AppFooter />
     </div>
   );
 }

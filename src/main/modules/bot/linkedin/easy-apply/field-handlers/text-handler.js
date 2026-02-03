@@ -34,7 +34,23 @@ class TextInputHandler extends BaseFieldHandler {
       if (existingValue?.trim()) {
         log.debug(`Clearing LinkedIn prefill: "${existingValue}"`);
       }
-      const answer = await this.askGpt(input, questionText);
+      let answer;
+      const smartMatcher = this.createSmartMatcher();
+      const smartMatchById = await smartMatcher.matchByElementId(input);
+      if (smartMatchById?.value) {
+        log.info(`[SMART] Matched by element: ${smartMatchById.fieldType} = "${smartMatchById.value}"`);
+        answer = smartMatchById.value;
+      }
+      if (!answer) {
+        const smartMatchByText = smartMatcher.matchByQuestionText(questionText);
+        if (smartMatchByText?.value) {
+          log.info(`[SMART] Matched by question: ${smartMatchByText.fieldType} = "${smartMatchByText.value}"`);
+          answer = smartMatchByText.value;
+        }
+      }
+      if (!answer) {
+        answer = await this.askGpt(input, questionText);
+      }
       if (!answer?.trim()) {
         log.warn("No answer available for text input");
         return false;

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AppFooter from "../components/AppFooter";
 
 export const metadata: Metadata = {
   robots: {
@@ -16,5 +17,12 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1">
+        {children}
+      </div>
+      <AppFooter />
+    </div>
+  );
 }

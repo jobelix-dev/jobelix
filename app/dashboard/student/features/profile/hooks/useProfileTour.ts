@@ -73,7 +73,7 @@ function buildProfileTourSteps(
       id: 'phone_number',
       targetId: 'profile-phone-number',
       title: 'Enter your phone',
-      message: 'Enter a valid phone number.',
+      message: 'Required for job applications. Recruiters may call you.',
     });
   }
 
@@ -82,10 +82,10 @@ function buildProfileTourSteps(
     steps.push({
       id: 'address',
       targetId: 'profile-address',
-      title: addressTooLong ? 'Shorten your address' : 'Update your address',
+      title: addressTooLong ? 'Shorten your address' : 'Enter your location',
       message: addressTooLong
         ? 'Shorten your address or clear it.'
-        : 'Enter a valid address or clear it.',
+        : 'Required for job applications (e.g., "New York, NY").',
     });
   }
 

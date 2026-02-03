@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.20",
+  "version": "0.0.22",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
