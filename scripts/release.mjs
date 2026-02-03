@@ -16,6 +16,7 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import https from 'https';
+import { fileURLToPath } from 'url';
 
 const GITHUB_OWNER = 'jobelix-dev';
 const GITHUB_REPO = 'jobelix-releases';
@@ -78,7 +79,7 @@ async function fetchLatestVersion() {
  * Update package.json version
  */
 function updatePackageVersion(version) {
-  const pkgPath = new URL('../package.json', import.meta.url).pathname;
+  const pkgPath = fileURLToPath(new URL('../package.json', import.meta.url));
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
   const oldVersion = pkg.version;
   pkg.version = version;
@@ -226,7 +227,7 @@ async function main() {
         console.log(`  Publishing to:  v${targetVersion}`);
       } else {
         // No releases yet, use package.json version
-        const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));
+        const pkg = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf-8'));
         targetVersion = pkg.version;
         versionSource = 'package.json (no releases yet)';
         console.log('  No releases found, using package.json version');
@@ -234,7 +235,7 @@ async function main() {
     } catch (error) {
       console.warn(`  Warning: Could not fetch GitHub releases: ${error.message}`);
       console.warn('  Falling back to package.json version');
-      const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));
+      const pkg = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf-8'));
       targetVersion = pkg.version;
       versionSource = 'package.json (GitHub fetch failed)';
     }
@@ -249,7 +250,7 @@ async function main() {
       console.log(`Version:      ${targetVersion} (${versionSource})`);
     }
   } else {
-    const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url).pathname, 'utf-8'));
+    const pkg = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf-8'));
     console.log(`Version:      ${pkg.version} (package.json)`);
   }
 
