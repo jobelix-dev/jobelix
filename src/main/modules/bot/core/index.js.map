@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["index.ts"],
-  "sourcesContent": ["export { loadAndValidateConfig, validateConfig, buildSearchUrl, ConfigError } from './config-validator';\n"],
-  "mappings": "AAAA,SAAS,uBAAuB,gBAAgB,gBAAgB,mBAAmB;",
-  "names": []
-}

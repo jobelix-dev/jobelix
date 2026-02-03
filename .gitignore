@@ -69,3 +69,8 @@ resources/linux/main/tailored_resumes/
 resources/linux/main/log.txt
 
 electron-builder.env
+
+
+# remove .js compiled files from bot modules
+src/main/modules/bot/**/*.js
+src/main/modules/bot/**/*.js.map
