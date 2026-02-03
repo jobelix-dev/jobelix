@@ -86,4 +86,13 @@
   Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
   
   SetShellVarContext current
+  
+  ; Clean up AppData folders
+  ; Note: This removes ALL user data including configs, resumes, and profiles
+  ; Users will be warned by the uninstaller about data removal
+  RMDir /r "$LOCALAPPDATA\jobelix-installer"
+  RMDir /r "$APPDATA\jobelix"
+  
+  ; Note: Temp files in $TEMP are automatically cleaned by Windows periodically
+  ; We don't remove them explicitly to avoid interfering with any running processes
 !macroend

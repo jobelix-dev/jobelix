@@ -296,7 +296,8 @@ export function useBot(): UseBotReturn {
       }
 
       const profileData = await profileResponse.json();
-      if (!profileData.student?.first_name || !profileData.student?.last_name) {
+      // Check that profile has at least a name (first_name from parsed student_name)
+      if (!profileData.student?.first_name) {
         throw new Error('Profile not published. Go to Profile tab and click "Publish Profile".');
       }
 

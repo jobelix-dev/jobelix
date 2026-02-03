@@ -45,6 +45,7 @@
       "build/license.txt",
       "build/loading.html",
       "build/icon.png",
+      "node_modules/playwright-core/**/*",
       "!node_modules/playwright-core/bin/**/*",
       "!node_modules/**/*.d.ts",
       "!node_modules/**/*.md",
@@ -53,7 +54,9 @@
       "!node_modules/**/.github/**/*",
       "!node_modules/**/*.map"
     ],
-    "asarUnpack": [],
+    "asarUnpack": [
+      "node_modules/playwright-core/**/*"
+    ],
     "extraResources": [],
     "electronLanguages": [
       "en-US",
