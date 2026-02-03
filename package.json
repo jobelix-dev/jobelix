@@ -72,7 +72,11 @@
       "include": "build/installer.nsh",
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Jobelix"
+      "shortcutName": "Jobelix",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "differentialPackage": false
     },
     "mac": {
       "target": [
