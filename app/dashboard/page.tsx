@@ -288,7 +288,7 @@ export default function DashboardPage() {
                 
                 <div>
                   <h3 className="font-medium text-default mb-1">Where it&apos;s stored</h3>
-                  <p>Your data is stored in Supabase (PostgreSQL) with Row Level Security. This means you can only access your own data - no one else can see it.</p>
+                  <p>Your data is stored in Supabase (PostgreSQL) with Row Level Security. This means you can only access your own data and no other user can see yours.</p>
                 </div>
                 
                 <div>
