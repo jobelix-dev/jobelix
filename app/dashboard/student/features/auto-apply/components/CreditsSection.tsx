@@ -80,7 +80,7 @@ export default function CreditsSection({
                 {balance.toLocaleString()}
               </p>
               <p className="text-2xl sm:text-3xl font-bold text-success">
-                ≈ {Math.ceil(balance / 7)} jobs
+                ≈ {Math.floor(balance / 7)} jobs
               </p>
             </div>
           </div>

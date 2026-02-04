@@ -80,9 +80,13 @@ async function showInstallDialog(version) {
 
   if (result.response === 0) {
     logger.info('User chose to install update now');
-    autoUpdater.quitAndInstall();
+    // Use setImmediate to ensure the dialog is fully closed before quitting
+    setImmediate(() => {
+      // Pass false to not force install (let NSIS handle it properly)
+      autoUpdater.quitAndInstall(false, true);
+    });
   } else {
-    logger.info('User chose to install update later');
+    logger.info('User chose to install update later (will install on next app quit)');
   }
 }
 
@@ -173,6 +177,15 @@ export async function initAutoUpdater() {
   autoUpdater.autoInstallOnAppQuit = !isLinux();
   autoUpdater.allowDowngrade = false;
   autoUpdater.logger = logger.getLogger();
+  
+  // Windows-specific configuration for NSIS installer
+  if (process.platform === 'win32') {
+    // Force NSIS mode - critical for proper updates on Windows
+    autoUpdater.allowPrerelease = false;
+    autoUpdater.forceDevUpdateConfig = false;
+    
+    logger.info('Windows detected - NSIS update mode enabled');
+  }
 
   if (isLinux()) {
     const { label, distro } = getLinuxDistro();

@@ -26,6 +26,17 @@
   ; Check if this is an update (app already installed)
   IfFileExists "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 skip_cleanup
     
+    DetailPrint "Detected existing installation - cleaning up for update"
+    
+    ; Try to close running app gracefully
+    ; The updater should have already quit the app, but double-check
+    nsExec::ExecToLog 'taskkill /IM "${APP_EXECUTABLE_FILENAME}" /F'
+    Pop $0
+    ${If} $0 == 0
+      DetailPrint "Closed running application"
+      Sleep 1000
+    ${EndIf}
+    
     ; Remove old Start Menu shortcut if it exists
     SetShellVarContext current
     Delete "$SMPROGRAMS\${PRODUCT_NAME}.lnk"
@@ -79,7 +90,7 @@
   ; Clean up AppData folders
   ; Note: This removes ALL user data including configs, resumes, and profiles
   ; Users will be warned by the uninstaller about data removal
-  RMDir /r "$LOCALAPPDATA\jobelix-installer"
+  RMDir /r "$LOCALAPPDATA\jobelix-updater"
   RMDir /r "$APPDATA\jobelix"
   
   ; Note: Temp files in $TEMP are automatically cleaned by Windows periodically

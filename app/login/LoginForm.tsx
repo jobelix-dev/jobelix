@@ -74,6 +74,7 @@ export default function LoginForm() {
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setCaptchaToken(null); // Reset captcha after failed login
       setTimeout(() => setError(''), 1500);
     } finally {
       setLoading(false);
