@@ -111,18 +111,19 @@ export function checkBrowserInstalled() {
 }
 
 /**
- * Get the path to the Playwright CLI
+ * Get the path to the Playwright CLI script
  * In packaged app, it's in node_modules within the app.asar
  * In development, it's in the project's node_modules
- * @returns {string} Path to playwright-core CLI
+ * @returns {string} Path to playwright-core cli.js
  */
-function _getPlaywrightCliPath() {
+function getPlaywrightCliPath() {
   if (app.isPackaged) {
-    // In packaged app, use npx which will find playwright in node_modules
-    return 'npx';
+    // In packaged app, playwright-core is in the asar archive
+    // Use path relative to app root
+    return path.join(app.getAppPath(), 'node_modules', 'playwright-core', 'cli.js');
   }
-  // In development, use the project's playwright
-  return path.join(process.cwd(), 'node_modules', '.bin', 'playwright');
+  // In development, use the project's playwright-core
+  return path.join(process.cwd(), 'node_modules', 'playwright-core', 'cli.js');
 }
 
 /**
@@ -166,10 +167,11 @@ export async function installBrowser(mainWindow) {
   });
 
   return new Promise((resolve) => {
-    // Use npx to run playwright install chromium
-    const isWindows = process.platform === 'win32';
-    const command = isWindows ? 'npx.cmd' : 'npx';
-    const args = ['playwright', 'install', 'chromium'];
+    // Use the bundled playwright-core CLI directly with Electron's Node.js
+    // This avoids requiring npx/Node.js to be installed on the user's system
+    const playwrightCli = getPlaywrightCliPath();
+    const command = process.execPath; // Electron's bundled Node.js executable
+    const args = [playwrightCli, 'install', 'chromium'];
     
     logger.info(`Running: ${command} ${args.join(' ')}`);
 
@@ -181,8 +183,9 @@ export async function installBrowser(mainWindow) {
         PLAYWRIGHT_BROWSERS_PATH: browsersPath,
         // Give more time for slow connections and reduce CPU pressure
         PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '300000',
+        // Required for Electron to run as Node.js
+        ELECTRON_RUN_AS_NODE: '1',
       },
-      shell: isWindows, // Use shell on Windows for npx
       stdio: ['ignore', 'pipe', 'pipe'],
       // Set lower priority on supported platforms (nice value)
       ...(process.platform !== 'win32' && { nice: 10 }),
