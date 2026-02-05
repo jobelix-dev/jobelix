@@ -57,9 +57,9 @@ export const buildValidationTourSteps = (
     });
   }
 
-  if (errors.dateFilter) {
+  if (errors.jobOfferRecency) {
     steps.push({
-      id: 'dateFilter',
+      id: 'jobOfferRecency',
       targetId: 'job-pref-date-filters',
       title: 'Choose a date range',
       message: 'Select at least one date filter.',
