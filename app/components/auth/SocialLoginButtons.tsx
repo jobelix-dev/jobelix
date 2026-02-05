@@ -2,7 +2,14 @@
  * Social Login Buttons Component
  * 
  * Provides OAuth login buttons for Google, LinkedIn, and GitHub.
- * Uses Supabase's built-in OAuth flow with PKCE.
+ * Uses a popup-based OAuth flow for better UX in Electron apps.
+ * 
+ * Flow:
+ * 1. User clicks OAuth button
+ * 2. Popup opens with provider's login page
+ * 3. After auth, popup redirects to /auth/callback
+ * 4. Callback page closes popup and signals success to opener
+ * 5. Parent window detects auth and redirects to dashboard
  * 
  * Used by: LoginForm, SignupForm
  * Callback: /auth/callback (handles code exchange)
@@ -10,8 +17,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
+import { useRouter } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
 
 interface SocialLoginButtonsProps {
@@ -21,6 +29,8 @@ interface SocialLoginButtonsProps {
   onStart?: () => void;
   /** Callback on error */
   onError?: (error: string) => void;
+  /** Callback on successful login */
+  onSuccess?: () => void;
 }
 
 interface ProviderConfig {
@@ -78,12 +88,102 @@ const providers: ProviderConfig[] = [
   },
 ];
 
+// Popup window dimensions
+const POPUP_WIDTH = 500;
+const POPUP_HEIGHT = 600;
+
+/**
+ * Opens a centered popup window for OAuth
+ */
+function openOAuthPopup(url: string, name: string): Window | null {
+  const left = window.screenX + (window.outerWidth - POPUP_WIDTH) / 2;
+  const top = window.screenY + (window.outerHeight - POPUP_HEIGHT) / 2;
+  
+  const features = [
+    `width=${POPUP_WIDTH}`,
+    `height=${POPUP_HEIGHT}`,
+    `left=${left}`,
+    `top=${top}`,
+    'toolbar=no',
+    'menubar=no',
+    'scrollbars=yes',
+    'resizable=yes',
+  ].join(',');
+  
+  return window.open(url, name, features);
+}
+
 export default function SocialLoginButtons({
   action = 'login',
   onStart,
   onError,
+  onSuccess,
 }: SocialLoginButtonsProps) {
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
+  const [popup, setPopup] = useState<Window | null>(null);
+  const router = useRouter();
+
+  // Listen for auth state changes (popup will trigger this after successful login)
+  const checkAuthAndRedirect = useCallback(async () => {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      console.log('[OAuth] Session detected, redirecting to dashboard');
+      onSuccess?.();
+      router.push('/dashboard');
+      return true;
+    }
+    return false;
+  }, [router, onSuccess]);
+
+  // Poll for popup close and check auth
+  useEffect(() => {
+    if (!popup || !loadingProvider) return;
+
+    const pollInterval = setInterval(async () => {
+      // Check if popup was closed
+      if (popup.closed) {
+        console.log('[OAuth] Popup closed');
+        clearInterval(pollInterval);
+        
+        // Check if authentication succeeded
+        const authenticated = await checkAuthAndRedirect();
+        
+        if (!authenticated) {
+          // Popup was closed without completing auth
+          console.log('[OAuth] Auth not completed');
+          setLoadingProvider(null);
+          setPopup(null);
+        }
+      }
+    }, 500);
+
+    return () => clearInterval(pollInterval);
+  }, [popup, loadingProvider, checkAuthAndRedirect]);
+
+  // Also listen for Supabase auth state changes
+  useEffect(() => {
+    const supabase = createClient();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[OAuth] Auth state changed:', event);
+      
+      if (event === 'SIGNED_IN' && session && loadingProvider) {
+        console.log('[OAuth] Sign in detected via auth state change');
+        
+        // Close popup if still open
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+        
+        onSuccess?.();
+        router.push('/dashboard');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [loadingProvider, popup, router, onSuccess]);
 
   async function handleOAuthLogin(provider: Provider) {
     setLoadingProvider(provider);
@@ -92,21 +192,21 @@ export default function SocialLoginButtons({
     try {
       const supabase = createClient();
 
-      // Build the redirect URL
-      // Use NEXT_PUBLIC_APP_URL for production, fallback to window.location.origin for dev
+      // Build the redirect URL for after OAuth completes
+      // Use popup=true to tell the callback to redirect to the success page
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-      const redirectTo = `${baseUrl}/auth/callback?next=/dashboard`;
+      const redirectTo = `${baseUrl}/auth/callback?popup=true`;
 
-      // For GitHub, request additional scopes for profile import (repos, etc.)
-      // This allows us to use the same OAuth app for both auth AND profile sync
+      // For GitHub, request additional scopes for profile import
       const scopes = provider === 'github' ? 'read:user public_repo' : undefined;
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Get the OAuth URL without redirecting
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo,
           scopes,
-          skipBrowserRedirect: false,
+          skipBrowserRedirect: true, // Don't redirect, we'll open a popup
         },
       });
 
@@ -114,9 +214,32 @@ export default function SocialLoginButtons({
         console.error(`[OAuth] ${provider} error:`, error.message);
         onError?.(error.message);
         setLoadingProvider(null);
+        return;
       }
-      // If successful, the browser will redirect to the provider's OAuth page
-      // Don't reset loading state here - let the redirect happen
+
+      if (!data?.url) {
+        console.error(`[OAuth] No URL returned for ${provider}`);
+        onError?.('Failed to start OAuth flow');
+        setLoadingProvider(null);
+        return;
+      }
+
+      // Open OAuth in a popup
+      console.log(`[OAuth] Opening popup for ${provider}`);
+      const oauthPopup = openOAuthPopup(data.url, `${provider}-oauth`);
+      
+      if (!oauthPopup) {
+        console.error('[OAuth] Failed to open popup - blocked by browser?');
+        onError?.('Popup was blocked. Please allow popups for this site.');
+        setLoadingProvider(null);
+        return;
+      }
+
+      setPopup(oauthPopup);
+      
+      // Focus the popup
+      oauthPopup.focus();
+      
     } catch (err) {
       console.error(`[OAuth] ${provider} unexpected error:`, err);
       onError?.(err instanceof Error ? err.message : 'OAuth failed');
@@ -162,7 +285,7 @@ export default function SocialLoginButtons({
           )}
           <span>
             {loadingProvider === provider.id
-              ? 'Redirecting...'
+              ? 'Waiting for authentication...'
               : `${actionText} with ${provider.name}`}
           </span>
         </button>
