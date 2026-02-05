@@ -23,7 +23,7 @@ export interface WorkPreferences {
   job_volunteer: boolean;
   job_other: boolean;
 
-  // Date filters
+  // Job offer recency
   date_24_hours: boolean;
   date_week: boolean;
   date_month: boolean;
@@ -58,7 +58,7 @@ export type ValidationErrors = {
   locations?: boolean;
   experience?: boolean;
   jobType?: boolean;
-  dateFilter?: boolean;
+  jobOfferRecency?: boolean;
   workAuthorization?: boolean;
   date_of_birth?: boolean;
   pronouns?: boolean;
