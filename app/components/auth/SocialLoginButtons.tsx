@@ -27,18 +27,12 @@ interface ProviderConfig {
   id: Provider;
   name: string;
   icon: React.ReactNode;
-  bgColor: string;
-  hoverColor: string;
-  textColor: string;
 }
 
 const providers: ProviderConfig[] = [
   {
     id: 'google',
     name: 'Google',
-    bgColor: 'bg-white',
-    hoverColor: 'hover:bg-gray-50',
-    textColor: 'text-gray-700',
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24">
         <path
@@ -63,11 +57,8 @@ const providers: ProviderConfig[] = [
   {
     id: 'linkedin_oidc',
     name: 'LinkedIn',
-    bgColor: 'bg-[#0A66C2]',
-    hoverColor: 'hover:bg-[#004182]',
-    textColor: 'text-white',
     icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+      <svg className="w-5 h-5 text-[#0A66C2]" fill="currentColor" viewBox="0 0 24 24">
         <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
       </svg>
     ),
@@ -75,9 +66,6 @@ const providers: ProviderConfig[] = [
   {
     id: 'github',
     name: 'GitHub',
-    bgColor: 'bg-[#24292F]',
-    hoverColor: 'hover:bg-[#1b1f23]',
-    textColor: 'text-white',
     icon: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
         <path
@@ -118,7 +106,6 @@ export default function SocialLoginButtons({
         options: {
           redirectTo,
           scopes,
-          // Skip browser redirect - we want to handle the URL ourselves
           skipBrowserRedirect: false,
         },
       });
@@ -147,11 +134,11 @@ export default function SocialLoginButtons({
           type="button"
           onClick={() => handleOAuthLogin(provider.id)}
           disabled={loadingProvider !== null}
-          className={`flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-md border border-primary-subtle font-medium transition-colors ${provider.bgColor} ${provider.hoverColor} ${provider.textColor} disabled:opacity-60 disabled:cursor-not-allowed`}
+          className="flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border border-border/30 bg-background hover:bg-primary-subtle/50 text-default font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
         >
           {loadingProvider === provider.id ? (
             <svg
-              className="animate-spin h-5 w-5"
+              className="animate-spin h-5 w-5 text-primary"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
