@@ -190,12 +190,18 @@ function formatDate(year: number | null | undefined, month: number | null | unde
 function normalizePhoneNumber(phone: string | undefined): string | undefined {
   if (!phone) return undefined;
   
-  // Match phone with international prefix
-  const match = phone.match(/^(\+\d{1,3})[\s\-.]?(.*)$/);
-  if (!match) return phone;
+  // If it doesn't start with +, return as-is
+  if (!phone.startsWith('+')) return phone;
   
-  const prefix = match[1];
-  let national = match[2].replace(/[\s\-\.]/g, ''); // Remove formatting
+  // Known country calling codes sorted by length (longest first) to match correctly
+  const knownPrefixes = [
+    '+971', '+972', '+234',  // 3-digit codes
+    '+351', '+353', '+358', '+852',
+    '+33', '+44', '+49', '+39', '+34', '+31', '+32', '+41', '+43', '+48',  // 2-digit codes
+    '+46', '+47', '+45', '+61', '+64', '+81', '+86', '+91', '+65', '+82',
+    '+52', '+55', '+54', '+27',
+    '+1',  // 1-digit code (US/CA) - must be last
+  ];
   
   // Countries that use a trunk prefix (leading 0) in national format
   // When combined with international prefix, the 0 should be removed
@@ -221,11 +227,25 @@ function normalizePhoneNumber(phone: string | undefined): string | undefined {
     '+91',  // India
   ];
   
-  if (countriesWithTrunkPrefix.includes(prefix) && national.startsWith('0')) {
-    national = national.substring(1);
+  // Try to match against known prefixes
+  for (const prefix of knownPrefixes) {
+    if (phone.startsWith(prefix)) {
+      // Extract national number (everything after the prefix)
+      let national = phone.slice(prefix.length);
+      // Remove any separator characters and formatting
+      national = national.replace(/^[\s\-.]/, '').replace(/[\s\-\.]/g, '');
+      
+      // Strip leading 0 (trunk prefix) for countries that use it
+      if (countriesWithTrunkPrefix.includes(prefix) && national.startsWith('0')) {
+        national = national.substring(1);
+      }
+      
+      return `${prefix}${national}`;
+    }
   }
   
-  return `${prefix}${national}`;
+  // Unknown prefix - return as-is but remove formatting
+  return phone.replace(/[\s\-\.]/g, '');
 }
 
 export function generateResumeYaml(data: ProfileData): string {

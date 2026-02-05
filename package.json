@@ -30,7 +30,8 @@
         "provider": "github",
         "owner": "jobelix-dev",
         "repo": "jobelix-releases",
-        "releaseType": "release"
+        "releaseType": "release",
+        "publishAutoUpdate": true
       }
     ],
     "directories": {

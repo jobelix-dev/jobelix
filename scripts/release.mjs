@@ -259,6 +259,11 @@ async function main() {
   if (platformInfo.label) {
     env.JOBELIX_LINUX_LABEL = platformInfo.label;
   }
+  
+  // Allow publishing to releases regardless of age (for adding Arch build after CI)
+  if (parsed.extraArgs.includes('always')) {
+    env.EP_GH_IGNORE_TIME = 'true';
+  }
 
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 

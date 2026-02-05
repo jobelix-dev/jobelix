@@ -11,6 +11,7 @@
  * 2. CODE-BASED PKCE FLOW (OAuth, Email Confirmation):
  *    - Supabase sends: /auth/callback?code=xxx
  *    - We exchange with: supabase.auth.exchangeCodeForSession(code)
+ *    - For OAuth signups: automatically creates a student profile
  * 
  * WHY BOTH FLOWS?
  * When using resetPasswordForEmail() with service role key (server-side),
@@ -26,7 +27,166 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
-import type { EmailOtpType } from '@supabase/supabase-js'
+import { getServiceSupabase } from '@/lib/server/supabaseService'
+import type { EmailOtpType, User } from '@supabase/supabase-js'
+
+/**
+ * Ensure OAuth user has a student profile.
+ * OAuth users don't have a role in user_metadata, so the trigger doesn't create a profile.
+ * We default all OAuth signups to student (talent) role.
+ */
+async function ensureStudentProfile(userId: string, email: string): Promise<void> {
+  const supabaseAdmin = getServiceSupabase()
+  
+  // Check if user already has a profile (student or company)
+  const { data: studentData } = await supabaseAdmin
+    .from('student')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle()
+  
+  if (studentData) {
+    console.log('[Callback] User already has student profile')
+    return
+  }
+  
+  const { data: companyData } = await supabaseAdmin
+    .from('company')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle()
+  
+  if (companyData) {
+    console.log('[Callback] User already has company profile')
+    return
+  }
+  
+  // No profile exists - create student profile for OAuth user
+  console.log('[Callback] Creating student profile for OAuth user:', email)
+  
+  const { error: insertError } = await supabaseAdmin
+    .from('student')
+    .insert({ id: userId, mail_adress: email })
+  
+  if (insertError) {
+    console.error('[Callback] Failed to create student profile:', insertError)
+    // Don't throw - user can still log in, just won't have a profile yet
+    return
+  }
+  
+  // Also create API token for the user (matching the trigger behavior)
+  const { error: tokenError } = await supabaseAdmin.rpc('create_api_token_if_missing', {
+    p_user_id: userId
+  })
+  
+  if (tokenError) {
+    // Try direct insert as fallback
+    console.log('[Callback] RPC failed, trying direct insert for API token')
+    const { error: directTokenError } = await supabaseAdmin
+      .from('api_tokens')
+      .insert({ user_id: userId, token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '') })
+    
+    if (directTokenError) {
+      console.warn('[Callback] Failed to create API token:', directTokenError)
+    }
+  }
+  
+  console.log('[Callback] Student profile created successfully')
+}
+
+/**
+ * Save GitHub OAuth connection for users who signed in via GitHub.
+ * This allows them to use GitHub profile import without reconnecting.
+ * 
+ * Supabase provides the GitHub access token in the user's identities array.
+ */
+async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
+  // Check if user signed in via GitHub
+  const githubIdentity = user.identities?.find(id => id.provider === 'github')
+  
+  if (!githubIdentity) {
+    console.log('[Callback] Not a GitHub OAuth login, skipping connection save')
+    return
+  }
+  
+  // Get the provider token from user metadata
+  // Supabase stores OAuth provider data in app_metadata and identity_data
+  const providerToken = user.user_metadata?.provider_token
+  const githubUsername = githubIdentity.identity_data?.user_name || 
+                         githubIdentity.identity_data?.preferred_username ||
+                         user.user_metadata?.user_name
+  const githubName = githubIdentity.identity_data?.name || user.user_metadata?.name
+  const githubAvatarUrl = githubIdentity.identity_data?.avatar_url || user.user_metadata?.avatar_url
+  
+  if (!providerToken) {
+    console.log('[Callback] No GitHub provider token available, cannot save connection')
+    console.log('[Callback] user_metadata:', JSON.stringify(user.user_metadata, null, 2))
+    return
+  }
+  
+  console.log('[Callback] Saving GitHub OAuth connection for user:', user.email, 'github:', githubUsername)
+  
+  const supabaseAdmin = getServiceSupabase()
+  
+  // Check if connection already exists
+  const { data: existingConnection } = await supabaseAdmin
+    .from('oauth_connections')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('provider', 'github')
+    .maybeSingle()
+  
+  if (existingConnection) {
+    // Update existing connection with new token
+    console.log('[Callback] Updating existing GitHub connection')
+    const { error: updateError } = await supabaseAdmin
+      .from('oauth_connections')
+      .update({
+        access_token: providerToken,
+        token_type: 'bearer',
+        scope: 'read:user', // Supabase default scope
+        metadata: {
+          username: githubUsername,
+          name: githubName,
+          avatar_url: githubAvatarUrl,
+          profile_url: githubUsername ? `https://github.com/${githubUsername}` : null,
+          synced_from_auth: true
+        },
+        connected_at: new Date().toISOString()
+      })
+      .eq('id', existingConnection.id)
+    
+    if (updateError) {
+      console.error('[Callback] Failed to update GitHub connection:', updateError)
+    }
+    return
+  }
+  
+  // Create new connection
+  const { error: insertError } = await supabaseAdmin
+    .from('oauth_connections')
+    .insert({
+      user_id: user.id,
+      provider: 'github',
+      access_token: providerToken,
+      token_type: 'bearer',
+      scope: 'read:user', // Supabase default scope
+      metadata: {
+        username: githubUsername,
+        name: githubName,
+        avatar_url: githubAvatarUrl,
+        profile_url: githubUsername ? `https://github.com/${githubUsername}` : null,
+        synced_from_auth: true
+      },
+      connected_at: new Date().toISOString()
+    })
+  
+  if (insertError) {
+    console.error('[Callback] Failed to save GitHub connection:', insertError)
+  } else {
+    console.log('[Callback] GitHub OAuth connection saved successfully')
+  }
+}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -177,6 +337,16 @@ export async function GET(request: NextRequest) {
     } else {
       console.log('[Callback] User email confirmed at:', user.email_confirmed_at)
     }
+    
+    // For OAuth signups, ensure the user has a student profile
+    // This handles new OAuth users who don't have a role in metadata
+    if (user.email) {
+      await ensureStudentProfile(user.id, user.email)
+    }
+    
+    // For GitHub OAuth, save the connection for profile import
+    // This allows users to immediately sync their GitHub repos/projects
+    await saveGitHubConnectionFromOAuth(user)
     
     console.log('[Callback] Redirecting to:', next)
     return NextResponse.redirect(new URL(next, requestUrl.origin))
