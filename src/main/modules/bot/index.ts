@@ -34,7 +34,7 @@ import * as os from 'os';
 import type { ChildProcess } from 'child_process';
 
 import type { JobSearchConfig, Resume } from './types';
-import { loadAndValidateConfig } from './core/config-validator';
+import { loadFullConfig, type ResumeConfig } from './core/config-validator';
 import { loadResume } from './models/resume';
 import { LinkedInAuthenticator } from './linkedin/authenticator';
 import { LinkedInJobManager } from './linkedin/job-manager';
@@ -123,10 +123,17 @@ export class LinkedInBot {
     const resumePath = options.resumePath || path.join(dataFolder, 'resume.yaml');
 
     log.info(`Loading config from: ${configPath}`);
-    this.config = loadAndValidateConfig(configPath);
+    const { config, resumeConfig } = loadFullConfig(configPath);
+    this.config = config;
 
     log.info(`Loading resume from: ${resumePath}`);
     this.resume = loadResume(resumePath);
+    
+    // Merge resume_config from config.yaml into resume
+    // This ensures job preferences (salary, legal auth, etc.) override resume defaults
+    if (resumeConfig) {
+      this.mergeResumeConfig(this.resume, resumeConfig);
+    }
 
     // Initialize GPT Answerer
     log.info('Initializing GPT Answerer...');
@@ -335,6 +342,104 @@ export class LinkedInBot {
     if (token.length !== 64) return false;
     return /^[0-9a-fA-F]+$/.test(token);
   }
+
+  /**
+   * Merge resume_config from config.yaml into the resume object
+   * 
+   * This allows job preferences (salary, legal authorization, etc.) to override
+   * the defaults from resume.yaml. The resume_config section in config.yaml
+   * is updated when users save their job preferences.
+   */
+  private mergeResumeConfig(resume: Resume, resumeConfig: ResumeConfig): void {
+    log.info('Merging resume_config into resume...');
+    
+    // Merge self identification
+    if (resumeConfig.personal_details) {
+      const pd = resumeConfig.personal_details;
+      if (pd.gender !== undefined) {
+        resume.selfIdentification.gender = pd.gender;
+      }
+      if (pd.pronouns !== undefined) {
+        resume.selfIdentification.pronouns = pd.pronouns;
+      }
+      if (pd.veteran !== undefined) {
+        resume.selfIdentification.veteran = pd.veteran ? 'Yes' : 'No';
+      }
+      if (pd.disability !== undefined) {
+        resume.selfIdentification.disability = pd.disability ? 'Yes' : 'No';
+      }
+      if (pd.ethnicity !== undefined) {
+        resume.selfIdentification.ethnicity = pd.ethnicity;
+      }
+      if (pd.date_of_birth !== undefined) {
+        resume.personalInformation.dateOfBirth = pd.date_of_birth;
+      }
+    }
+    
+    // Merge legal authorization
+    if (resumeConfig.legal_authorization) {
+      const la = resumeConfig.legal_authorization;
+      if (la.eu_work_authorization !== undefined) {
+        resume.legalAuthorization.euWorkAuthorization = la.eu_work_authorization ? 'Yes' : 'No';
+        // Auto-derive EU visa/sponsorship if not explicitly set
+        resume.legalAuthorization.requiresEuVisa = la.eu_work_authorization ? 'No' : 'Yes';
+        resume.legalAuthorization.legallyAllowedToWorkInEu = la.eu_work_authorization ? 'Yes' : 'No';
+        resume.legalAuthorization.requiresEuSponsorship = la.eu_work_authorization ? 'No' : 'Yes';
+      }
+      if (la.us_work_authorization !== undefined) {
+        resume.legalAuthorization.usWorkAuthorization = la.us_work_authorization ? 'Yes' : 'No';
+        // Auto-derive US visa/sponsorship if not explicitly set
+        resume.legalAuthorization.requiresUsVisa = la.us_work_authorization ? 'No' : 'Yes';
+        resume.legalAuthorization.legallyAllowedToWorkInUs = la.us_work_authorization ? 'Yes' : 'No';
+        resume.legalAuthorization.requiresUsSponsorship = la.us_work_authorization ? 'No' : 'Yes';
+      }
+      // Allow explicit override of visa/sponsorship if provided
+      if (la.requires_us_visa !== undefined) {
+        resume.legalAuthorization.requiresUsVisa = la.requires_us_visa ? 'Yes' : 'No';
+      }
+      if (la.requires_us_sponsorship !== undefined) {
+        resume.legalAuthorization.requiresUsSponsorship = la.requires_us_sponsorship ? 'Yes' : 'No';
+      }
+    }
+    
+    // Merge work preferences
+    if (resumeConfig.work_preferences) {
+      const wp = resumeConfig.work_preferences;
+      if (wp.remote_work !== undefined) {
+        resume.workPreferences.remoteWork = wp.remote_work ? 'Yes' : 'No';
+      }
+      if (wp.in_person_work !== undefined) {
+        resume.workPreferences.inPersonWork = wp.in_person_work ? 'Yes' : 'No';
+      }
+      if (wp.open_to_relocation !== undefined) {
+        resume.workPreferences.openToRelocation = wp.open_to_relocation ? 'Yes' : 'No';
+      }
+      if (wp.willing_to_complete_assessments !== undefined) {
+        resume.workPreferences.willingToCompleteAssessments = wp.willing_to_complete_assessments ? 'Yes' : 'No';
+      }
+      if (wp.willing_to_undergo_drug_tests !== undefined) {
+        resume.workPreferences.willingToUndergoDrugTests = wp.willing_to_undergo_drug_tests ? 'Yes' : 'No';
+      }
+      if (wp.willing_to_undergo_background_checks !== undefined) {
+        resume.workPreferences.willingToUndergoBackgroundChecks = wp.willing_to_undergo_background_checks ? 'Yes' : 'No';
+      }
+    }
+    
+    // Merge availability
+    if (resumeConfig.availability?.notice_period !== undefined) {
+      resume.availability.noticePeriod = resumeConfig.availability.notice_period;
+    }
+    
+    // Merge salary expectations - THIS IS THE KEY FIX!
+    if (resumeConfig.salary_expectations?.salary_expectation_usd !== undefined) {
+      const salary = resumeConfig.salary_expectations.salary_expectation_usd;
+      // Convert to string if it's a number
+      resume.salaryExpectations.salaryRangeUSD = String(salary);
+      log.info(`Salary expectation set to: ${resume.salaryExpectations.salaryRangeUSD}`);
+    }
+    
+    log.info('Resume config merged successfully');
+  }
 }
 
 // Export singleton for convenience
@@ -342,7 +447,7 @@ export const linkedInBot = new LinkedInBot();
 
 // Re-export all types and utilities for external use
 export * from './types';
-export { loadAndValidateConfig, ConfigError } from './core/config-validator';
+export { loadAndValidateConfig, loadFullConfig, ConfigError } from './core/config-validator';
 export { loadResume, parseResumeYaml } from './models/resume';
 export { LinkedInAuthenticator } from './linkedin/authenticator';
 export { LinkedInJobManager } from './linkedin/job-manager';
