@@ -19,9 +19,60 @@ export class ConfigError extends Error {
 }
 
 /**
+ * Resume config section from config.yaml
+ * Contains personal details, legal authorization, work preferences, etc.
+ */
+export interface ResumeConfig {
+  personal_details?: {
+    date_of_birth?: string;
+    pronouns?: string;
+    gender?: string;
+    veteran?: boolean;
+    disability?: boolean;
+    ethnicity?: string;
+  };
+  legal_authorization?: {
+    eu_work_authorization?: boolean;
+    us_work_authorization?: boolean;
+    requires_us_visa?: boolean;
+    requires_us_sponsorship?: boolean;
+  };
+  work_preferences?: {
+    remote_work?: boolean;
+    in_person_work?: boolean;
+    open_to_relocation?: boolean;
+    willing_to_complete_assessments?: boolean;
+    willing_to_undergo_drug_tests?: boolean;
+    willing_to_undergo_background_checks?: boolean;
+  };
+  availability?: {
+    notice_period?: string;
+  };
+  salary_expectations?: {
+    salary_expectation_usd?: string | number;
+  };
+}
+
+/**
+ * Full config data including resume_config section
+ */
+export interface FullConfigData {
+  config: JobSearchConfig;
+  resumeConfig: ResumeConfig | null;
+}
+
+/**
  * Load and validate configuration from YAML file
  */
 export function loadAndValidateConfig(configPath: string): JobSearchConfig {
+  const { config } = loadFullConfig(configPath);
+  return config;
+}
+
+/**
+ * Load full configuration including resume_config section
+ */
+export function loadFullConfig(configPath: string): FullConfigData {
   log.info(`Loading config from: ${configPath}`);
 
   if (!fs.existsSync(configPath)) {
@@ -37,7 +88,14 @@ export function loadAndValidateConfig(configPath: string): JobSearchConfig {
     throw new ConfigError(`Error parsing config YAML: ${e}`);
   }
 
-  return validateConfig(data);
+  const config = validateConfig(data);
+  const resumeConfig = (data.resume_config as ResumeConfig) || null;
+  
+  if (resumeConfig) {
+    log.info('Found resume_config section in config.yaml');
+  }
+
+  return { config, resumeConfig };
 }
 
 /**
