@@ -197,6 +197,7 @@ export async function GET(request: NextRequest) {
   const token_hash = requestUrl.searchParams.get('token_hash')
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null
   const next = requestUrl.searchParams.get('next') || '/dashboard'
+  const isPopup = requestUrl.searchParams.get('popup') === 'true'
 
   console.log('[Callback] ===== STARTING CALLBACK PROCESS =====')
   console.log('[Callback] Full URL:', requestUrl.toString())
@@ -205,8 +206,23 @@ export async function GET(request: NextRequest) {
   console.log('[Callback] Token hash present:', !!token_hash)
   console.log('[Callback] Type:', type)
   console.log('[Callback] Next URL:', next)
+  console.log('[Callback] Is Popup:', isPopup)
   console.log('[Callback] Origin:', requestUrl.origin)
   console.log('[Callback] Host:', request.headers.get('host'))
+
+  // Helper to redirect appropriately based on popup mode
+  const redirectTo = (path: string) => {
+    if (isPopup) {
+      // For popups, redirect to a page that closes the popup
+      const popupUrl = new URL('/auth/callback-success', requestUrl.origin)
+      if (path.includes('error=')) {
+        // Pass error to popup
+        popupUrl.searchParams.set('error', new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error')
+      }
+      return NextResponse.redirect(popupUrl)
+    }
+    return NextResponse.redirect(new URL(path, requestUrl.origin))
+  }
 
   // WORKAROUND: If we're on the wrong domain (www.jobelix.fr instead of preview URL),
   // redirect to the correct preview URL
@@ -308,10 +324,10 @@ export async function GET(request: NextRequest) {
       // Check for expired/invalid code errors
       if (error.message?.includes('expired') || error.message?.includes('invalid') || error.code === 'invalid_grant') {
         console.log('[Callback] Redirecting to login due to expired/invalid code')
-        return NextResponse.redirect(new URL(`/login?error=This+link+has+expired.+Please+request+a+new+one.`, requestUrl.origin))
+        return redirectTo(`/login?error=This+link+has+expired.+Please+request+a+new+one.`)
       }
       console.log('[Callback] Redirecting to login due to other error')
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin))
+      return redirectTo(`/login?error=${encodeURIComponent(error.message)}`)
     }
 
     console.log('[Callback] Session exchange successful, checking user...')
@@ -329,7 +345,7 @@ export async function GET(request: NextRequest) {
     
     if (!user) {
       console.error('[Callback] No user found after successful exchange!')
-      return NextResponse.redirect(new URL(`/login?error=Authentication+failed`, requestUrl.origin))
+      return redirectTo(`/login?error=Authentication+failed`)
     }
     
     if (!user.email_confirmed_at) {
@@ -348,15 +364,15 @@ export async function GET(request: NextRequest) {
     // This allows users to immediately sync their GitHub repos/projects
     await saveGitHubConnectionFromOAuth(user)
     
-    console.log('[Callback] Redirecting to:', next)
-    return NextResponse.redirect(new URL(next, requestUrl.origin))
+    console.log('[Callback] Redirecting to:', isPopup ? '/auth/callback-success' : next)
+    return redirectTo(next)
   }
   
   // ===========================================
   // NO VALID AUTH PARAMETERS
   // ===========================================
   console.log('[Callback] No valid auth parameters (code, token, or token_hash)')
-  return NextResponse.redirect(new URL(`/login?error=Invalid+or+expired+link`, requestUrl.origin))
+  return redirectTo(`/login?error=Invalid+or+expired+link`)
 }
 
 export const dynamic = 'force-dynamic'
