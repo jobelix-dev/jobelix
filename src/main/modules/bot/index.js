@@ -1,7 +1,7 @@
 import { chromium } from "playwright-core";
 import * as path from "path";
 import * as os from "os";
-import { loadAndValidateConfig } from "./core/config-validator.js";
+import { loadFullConfig } from "./core/config-validator.js";
 import { loadResume } from "./models/resume.js";
 import { LinkedInAuthenticator } from "./linkedin/authenticator.js";
 import { LinkedInJobManager } from "./linkedin/job-manager.js";
@@ -49,9 +49,13 @@ class LinkedInBot {
     const configPath = options.configPath || path.join(dataFolder, "config.yaml");
     const resumePath = options.resumePath || path.join(dataFolder, "resume.yaml");
     log.info(`Loading config from: ${configPath}`);
-    this.config = loadAndValidateConfig(configPath);
+    const { config, resumeConfig } = loadFullConfig(configPath);
+    this.config = config;
     log.info(`Loading resume from: ${resumePath}`);
     this.resume = loadResume(resumePath);
+    if (resumeConfig) {
+      this.mergeResumeConfig(this.resume, resumeConfig);
+    }
     log.info("Initializing GPT Answerer...");
     this.gptAnswerer = new GPTAnswerer(
       options.token,
@@ -219,10 +223,92 @@ class LinkedInBot {
     if (token.length !== 64) return false;
     return /^[0-9a-fA-F]+$/.test(token);
   }
+  /**
+   * Merge resume_config from config.yaml into the resume object
+   * 
+   * This allows job preferences (salary, legal authorization, etc.) to override
+   * the defaults from resume.yaml. The resume_config section in config.yaml
+   * is updated when users save their job preferences.
+   */
+  mergeResumeConfig(resume, resumeConfig) {
+    log.info("Merging resume_config into resume...");
+    if (resumeConfig.personal_details) {
+      const pd = resumeConfig.personal_details;
+      if (pd.gender !== void 0) {
+        resume.selfIdentification.gender = pd.gender;
+      }
+      if (pd.pronouns !== void 0) {
+        resume.selfIdentification.pronouns = pd.pronouns;
+      }
+      if (pd.veteran !== void 0) {
+        resume.selfIdentification.veteran = pd.veteran ? "Yes" : "No";
+      }
+      if (pd.disability !== void 0) {
+        resume.selfIdentification.disability = pd.disability ? "Yes" : "No";
+      }
+      if (pd.ethnicity !== void 0) {
+        resume.selfIdentification.ethnicity = pd.ethnicity;
+      }
+      if (pd.date_of_birth !== void 0) {
+        resume.personalInformation.dateOfBirth = pd.date_of_birth;
+      }
+    }
+    if (resumeConfig.legal_authorization) {
+      const la = resumeConfig.legal_authorization;
+      if (la.eu_work_authorization !== void 0) {
+        resume.legalAuthorization.euWorkAuthorization = la.eu_work_authorization ? "Yes" : "No";
+        resume.legalAuthorization.requiresEuVisa = la.eu_work_authorization ? "No" : "Yes";
+        resume.legalAuthorization.legallyAllowedToWorkInEu = la.eu_work_authorization ? "Yes" : "No";
+        resume.legalAuthorization.requiresEuSponsorship = la.eu_work_authorization ? "No" : "Yes";
+      }
+      if (la.us_work_authorization !== void 0) {
+        resume.legalAuthorization.usWorkAuthorization = la.us_work_authorization ? "Yes" : "No";
+        resume.legalAuthorization.requiresUsVisa = la.us_work_authorization ? "No" : "Yes";
+        resume.legalAuthorization.legallyAllowedToWorkInUs = la.us_work_authorization ? "Yes" : "No";
+        resume.legalAuthorization.requiresUsSponsorship = la.us_work_authorization ? "No" : "Yes";
+      }
+      if (la.requires_us_visa !== void 0) {
+        resume.legalAuthorization.requiresUsVisa = la.requires_us_visa ? "Yes" : "No";
+      }
+      if (la.requires_us_sponsorship !== void 0) {
+        resume.legalAuthorization.requiresUsSponsorship = la.requires_us_sponsorship ? "Yes" : "No";
+      }
+    }
+    if (resumeConfig.work_preferences) {
+      const wp = resumeConfig.work_preferences;
+      if (wp.remote_work !== void 0) {
+        resume.workPreferences.remoteWork = wp.remote_work ? "Yes" : "No";
+      }
+      if (wp.in_person_work !== void 0) {
+        resume.workPreferences.inPersonWork = wp.in_person_work ? "Yes" : "No";
+      }
+      if (wp.open_to_relocation !== void 0) {
+        resume.workPreferences.openToRelocation = wp.open_to_relocation ? "Yes" : "No";
+      }
+      if (wp.willing_to_complete_assessments !== void 0) {
+        resume.workPreferences.willingToCompleteAssessments = wp.willing_to_complete_assessments ? "Yes" : "No";
+      }
+      if (wp.willing_to_undergo_drug_tests !== void 0) {
+        resume.workPreferences.willingToUndergoDrugTests = wp.willing_to_undergo_drug_tests ? "Yes" : "No";
+      }
+      if (wp.willing_to_undergo_background_checks !== void 0) {
+        resume.workPreferences.willingToUndergoBackgroundChecks = wp.willing_to_undergo_background_checks ? "Yes" : "No";
+      }
+    }
+    if (resumeConfig.availability?.notice_period !== void 0) {
+      resume.availability.noticePeriod = resumeConfig.availability.notice_period;
+    }
+    if (resumeConfig.salary_expectations?.salary_expectation_usd !== void 0) {
+      const salary = resumeConfig.salary_expectations.salary_expectation_usd;
+      resume.salaryExpectations.salaryRangeUSD = String(salary);
+      log.info(`Salary expectation set to: ${resume.salaryExpectations.salaryRangeUSD}`);
+    }
+    log.info("Resume config merged successfully");
+  }
 }
 const linkedInBot = new LinkedInBot();
 export * from "./types/index.js";
-import { loadAndValidateConfig as loadAndValidateConfig2, ConfigError } from "./core/config-validator.js";
+import { loadAndValidateConfig, loadFullConfig as loadFullConfig2, ConfigError } from "./core/config-validator.js";
 import { loadResume as loadResume2, parseResumeYaml } from "./models/resume.js";
 import { LinkedInAuthenticator as LinkedInAuthenticator2 } from "./linkedin/authenticator.js";
 import { LinkedInJobManager as LinkedInJobManager2 } from "./linkedin/job-manager.js";
@@ -238,7 +324,8 @@ export {
   StatusReporter,
   createLogger2 as createLogger,
   linkedInBot,
-  loadAndValidateConfig2 as loadAndValidateConfig,
+  loadAndValidateConfig,
+  loadFullConfig2 as loadFullConfig,
   loadResume2 as loadResume,
   logger2 as logger,
   parseResumeYaml,
