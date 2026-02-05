@@ -2,12 +2,13 @@
  * useBrowserStatus - Hook for managing Playwright browser installation status
  * 
  * Checks if the browser is installed and handles installation with progress tracking.
+ * Auto-installs browser if not present (in Electron environment).
  * Used by AutoApplyTab to ensure browser is ready before allowing bot launch.
  */
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BrowserInstallProgress } from '@/lib/client/electronAPI';
 
 export interface UseBrowserStatusReturn {
@@ -39,6 +40,9 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
   const [message, setMessage] = useState('Checking browser...');
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
+  
+  // Track if we've already triggered auto-install to prevent duplicates
+  const autoInstallTriggered = useRef(false);
 
   // Check browser status
   const checkBrowser = useCallback(async () => {
@@ -140,6 +144,31 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
   useEffect(() => {
     checkBrowser();
   }, [checkBrowser]);
+
+  // Auto-install browser if not installed (after initial check completes)
+  useEffect(() => {
+    // Only run in Electron environment
+    if (typeof window === 'undefined' || !window.electronAPI?.installBrowser) {
+      return;
+    }
+    
+    // Wait for initial check to complete
+    if (checking) {
+      return;
+    }
+    
+    // Only trigger auto-install once
+    if (autoInstallTriggered.current) {
+      return;
+    }
+    
+    // If not installed and not already installing, start installation automatically
+    if (!installed && !installing && !error) {
+      console.log('[useBrowserStatus] Browser not installed, starting auto-installation...');
+      autoInstallTriggered.current = true;
+      installBrowser();
+    }
+  }, [checking, installed, installing, error, installBrowser]);
 
   return {
     checking,

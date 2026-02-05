@@ -69,19 +69,124 @@ export function parseResumeYaml(content: string): Resume {
 
 function parsePersonalInformation(basics: Record<string, unknown>, _root: Record<string, unknown>): PersonalInformation {
   const location = (basics.location || {}) as Record<string, unknown>;
+  const phone = basics.phone as string || '';
+  // Prefer phoneCountryCode from YAML, fallback to location.countryCode
+  const countryCode = basics.phoneCountryCode as string || location.countryCode as string || '';
+  const country = location.countryCode as string || location.country as string || '';
+  
+  // Extract prefix and national number from phone
+  // Use the explicit country code if available
+  const { prefix, national } = parsePhoneNumber(phone, countryCode || country);
   
   return {
     name: (basics.name as string)?.split(' ')[0] || '',
     surname: (basics.name as string)?.split(' ').slice(1).join(' ') || '',
     dateOfBirth: basics.dateOfBirth as string || '',
-    country: location.countryCode as string || location.country as string || '',
+    country,
     city: location.city as string || '',
-    phone: basics.phone as string || '',
-    phonePrefix: basics.phonePrefix as string || extractPhonePrefix(basics.phone as string),
+    phone,
+    phonePrefix: basics.phonePrefix as string || prefix,
+    phoneNational: national,
     email: basics.email as string || '',
     github: extractProfile(basics.profiles, 'github') || basics.github as string || '',
     linkedin: extractProfile(basics.profiles, 'linkedin') || basics.linkedin as string || '',
   };
+}
+
+/**
+ * Parse a phone number into prefix and national parts
+ * 
+ * Handles cases:
+ * - "+1 555-123-4567" → { prefix: "+1", national: "555-123-4567" }
+ * - "+33 0786948497" → { prefix: "+33", national: "786948497" } (strips leading 0)
+ * - "555-123-4567" with country "US" → { prefix: "+1", national: "555-123-4567" }
+ * - "555-123-4567" with no country → { prefix: "", national: "555-123-4567" }
+ */
+function parsePhoneNumber(phone: string, country: string): { prefix: string; national: string } {
+  if (!phone) return { prefix: '', national: '' };
+  
+  // Try to extract prefix from the phone number itself
+  const prefixMatch = phone.match(/^(\+\d{1,3})[\s\-.]?(.*)$/);
+  if (prefixMatch) {
+    const prefix = prefixMatch[1];
+    let national = prefixMatch[2].trim();
+    
+    // Strip leading 0 (trunk prefix) for countries that use it
+    // France (+33), UK (+44), Germany (+49), Italy (+39), etc.
+    const countriesWithTrunkPrefix = ['+33', '+44', '+49', '+39', '+34', '+31', '+32', '+41', '+43', '+48', '+351', '+353', '+46', '+47', '+45', '+358', '+61', '+64', '+91'];
+    if (countriesWithTrunkPrefix.includes(prefix) && national.startsWith('0')) {
+      national = national.substring(1);
+    }
+    
+    return { prefix, national };
+  }
+  
+  // No prefix in phone - try to infer from country
+  const inferredPrefix = getPhonePrefixForCountry(country);
+  return {
+    prefix: inferredPrefix,
+    national: phone.trim(),
+  };
+}
+
+/**
+ * Get phone country code prefix from country code or name
+ * 
+ * Common country codes for job applications
+ */
+function getPhonePrefixForCountry(country: string): string {
+  if (!country) return '';
+  
+  const countryUpper = country.toUpperCase();
+  
+  const countryToPrefixMap: Record<string, string> = {
+    // North America
+    'US': '+1', 'USA': '+1', 'UNITED STATES': '+1',
+    'CA': '+1', 'CANADA': '+1',
+    
+    // Europe
+    'GB': '+44', 'UK': '+44', 'UNITED KINGDOM': '+44',
+    'DE': '+49', 'GERMANY': '+49',
+    'FR': '+33', 'FRANCE': '+33',
+    'ES': '+34', 'SPAIN': '+34',
+    'IT': '+39', 'ITALY': '+39',
+    'NL': '+31', 'NETHERLANDS': '+31',
+    'BE': '+32', 'BELGIUM': '+32',
+    'CH': '+41', 'SWITZERLAND': '+41',
+    'AT': '+43', 'AUSTRIA': '+43',
+    'PL': '+48', 'POLAND': '+48',
+    'PT': '+351', 'PORTUGAL': '+351',
+    'IE': '+353', 'IRELAND': '+353',
+    'SE': '+46', 'SWEDEN': '+46',
+    'NO': '+47', 'NORWAY': '+47',
+    'DK': '+45', 'DENMARK': '+45',
+    'FI': '+358', 'FINLAND': '+358',
+    
+    // Asia Pacific
+    'AU': '+61', 'AUSTRALIA': '+61',
+    'NZ': '+64', 'NEW ZEALAND': '+64',
+    'JP': '+81', 'JAPAN': '+81',
+    'CN': '+86', 'CHINA': '+86',
+    'IN': '+91', 'INDIA': '+91',
+    'SG': '+65', 'SINGAPORE': '+65',
+    'HK': '+852', 'HONG KONG': '+852',
+    'KR': '+82', 'SOUTH KOREA': '+82', 'KOREA': '+82',
+    
+    // Middle East
+    'AE': '+971', 'UAE': '+971', 'UNITED ARAB EMIRATES': '+971',
+    'IL': '+972', 'ISRAEL': '+972',
+    
+    // Latin America
+    'MX': '+52', 'MEXICO': '+52',
+    'BR': '+55', 'BRAZIL': '+55',
+    'AR': '+54', 'ARGENTINA': '+54',
+    
+    // Africa
+    'ZA': '+27', 'SOUTH AFRICA': '+27',
+    'NG': '+234', 'NIGERIA': '+234',
+  };
+  
+  return countryToPrefixMap[countryUpper] || '';
 }
 
 function extractPhonePrefix(phone: string | undefined): string {

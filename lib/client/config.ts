@@ -6,6 +6,14 @@
  */
 
 /**
+ * Checks if the app is running in development mode.
+ * Uses NODE_ENV which is set by Next.js.
+ */
+export function isDevelopment(): boolean {
+  return process.env.NODE_ENV === 'development';
+}
+
+/**
  * Gets the HCaptcha site key from environment variables.
  * Returns empty string if not configured (captcha will not render).
  */
@@ -22,8 +30,17 @@ export function getHCaptchaSiteKey(): string {
 
 /**
  * Checks if HCaptcha is properly configured.
+ * Returns false in development mode to skip captcha for local testing.
+ * 
+ * SECURITY: This only affects the client-side rendering of the captcha widget.
+ * The server-side validation is handled by Supabase based on their dashboard config.
+ * In production, Supabase will require captcha if configured there.
  */
 export function isHCaptchaConfigured(): boolean {
+  // Skip captcha in development for easier local testing
+  if (isDevelopment()) {
+    return false;
+  }
   return Boolean(process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY);
 }
 

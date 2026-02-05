@@ -17,6 +17,7 @@ import type { ExtractedResumeData } from '@/lib/shared/types';
 const EMPTY_PROFILE: ExtractedResumeData = {
   student_name: null,
   phone_number: null,
+  phone_country_code: null,
   email: null,
   address: null,
   education: [],
@@ -68,6 +69,7 @@ export function useProfileData() {
           const loadedData = {
             student_name: response.draft.student_name,
             phone_number: response.draft.phone_number,
+            phone_country_code: response.draft.phone_country_code || null,
             email: response.draft.email,
             address: response.draft.address,
             education: response.draft.education || [],
@@ -144,6 +146,7 @@ export function useProfileData() {
         await api.updateDraft(draftId, {
           student_name: profileData.student_name,
           phone_number: profileData.phone_number,
+          phone_country_code: profileData.phone_country_code,
           email: profileData.email,
           address: profileData.address,
           education: profileData.education,

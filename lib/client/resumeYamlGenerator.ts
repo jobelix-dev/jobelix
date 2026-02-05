@@ -4,6 +4,7 @@ interface StudentData {
   student_name: string;
   mail_adress: string;
   phone_number?: string;
+  phone_country_code?: string;
   address?: string;
 }
 
@@ -76,8 +77,9 @@ interface ResumeProfile {
 interface ResumeBasics {
   email: string;
   name: string;
-  location?: { city: string };
+  location?: { city: string; countryCode?: string };
   phone?: string;
+  phoneCountryCode?: string;
   profiles?: ResumeProfile[];
 }
 
@@ -176,6 +178,56 @@ function formatDate(year: number | null | undefined, month: number | null | unde
   }
 }
 
+/**
+ * Normalize phone number to proper E.164 format
+ * Strips the leading 0 (trunk prefix) for countries that use it
+ * 
+ * Examples:
+ * - "+330786948497" → "+33786948497" (France)
+ * - "+440712345678" → "+44712345678" (UK)
+ * - "+15551234567" → "+15551234567" (US - no change, no trunk prefix)
+ */
+function normalizePhoneNumber(phone: string | undefined): string | undefined {
+  if (!phone) return undefined;
+  
+  // Match phone with international prefix
+  const match = phone.match(/^(\+\d{1,3})[\s\-.]?(.*)$/);
+  if (!match) return phone;
+  
+  const prefix = match[1];
+  let national = match[2].replace(/[\s\-\.]/g, ''); // Remove formatting
+  
+  // Countries that use a trunk prefix (leading 0) in national format
+  // When combined with international prefix, the 0 should be removed
+  const countriesWithTrunkPrefix = [
+    '+33',  // France
+    '+44',  // UK
+    '+49',  // Germany
+    '+39',  // Italy
+    '+34',  // Spain
+    '+31',  // Netherlands
+    '+32',  // Belgium
+    '+41',  // Switzerland
+    '+43',  // Austria
+    '+48',  // Poland
+    '+351', // Portugal
+    '+353', // Ireland
+    '+46',  // Sweden
+    '+47',  // Norway
+    '+45',  // Denmark
+    '+358', // Finland
+    '+61',  // Australia
+    '+64',  // New Zealand
+    '+91',  // India
+  ];
+  
+  if (countriesWithTrunkPrefix.includes(prefix) && national.startsWith('0')) {
+    national = national.substring(1);
+  }
+  
+  return `${prefix}${national}`;
+}
+
 export function generateResumeYaml(data: ProfileData): string {
   const { student, academic, experience, projects, skills, languages, certifications, socialLinks } = data;
   
@@ -190,12 +242,17 @@ export function generateResumeYaml(data: ProfileData): string {
   // Add optional basic fields
   if (student.address) {
     resume.basics.location = {
-      city: student.address
+      city: student.address,
+      countryCode: student.phone_country_code || undefined,
     };
   }
 
   if (student.phone_number) {
-    resume.basics.phone = student.phone_number;
+    resume.basics.phone = normalizePhoneNumber(student.phone_number);
+  }
+
+  if (student.phone_country_code) {
+    resume.basics.phoneCountryCode = student.phone_country_code;
   }
 
   // Social links (profiles)

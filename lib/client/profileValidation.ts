@@ -2,7 +2,7 @@
  * Client-Side Profile Validation
  * 
  * Validates complete profile data before allowing finalization.
- * Uses same validation logic as server-side but runs in browser.
+ * Phone validation is simple (presence + min digits) - E.164 normalization happens at finalize time.
  * Used by: StudentDashboard to enable/disable Save button
  */
 
@@ -76,26 +76,39 @@ export interface ProfileValidationResult {
 }
 
 /**
- * Validates phone number format (client-side)
+ * Validates phone number (client-side)
+ * Simple validation: requires country code + phone with 4-15 digits
+ * E.164 normalization happens at finalize time, not here
  * Phone number is REQUIRED for job applications
  */
-function validatePhoneNumber(value: string | null | undefined): string | null {
-  if (!value?.trim()) return 'Phone number is required'
-  
-  const trimmed = value.trim()
-  
-  // Check if contains only valid phone characters (digits, spaces, dashes, parentheses, plus)
-  const validCharsPattern = /^[\d\s\-\+\(\)]+$/
-  if (!validCharsPattern.test(trimmed)) {
-    return 'Phone number can only contain digits and formatting characters'
+function validatePhoneNumber(
+  phone: string | null | undefined,
+  countryCode: string | null | undefined
+): string | null {
+  // Country code is required
+  if (!countryCode?.trim()) {
+    return 'Country code is required';
   }
   
-  const digitsOnly = trimmed.replace(/\D/g, '')
+  // Phone is required
+  if (!phone?.trim()) {
+    return 'Phone number is required';
+  }
   
-  if (digitsOnly.length < 10) return 'Phone number must contain at least 10 digits'
-  if (digitsOnly.length > 15) return 'Phone number cannot exceed 15 digits'
+  // Extract digits only
+  const digits = phone.replace(/\D/g, '');
   
-  return null
+  // Minimum 4 digits (shortest valid phone numbers)
+  if (digits.length < 4) {
+    return 'Phone number is too short';
+  }
+  
+  // Maximum 15 digits (E.164 limit)
+  if (digits.length > 15) {
+    return 'Phone number is too long';
+  }
+  
+  return null;
 }
 
 /**
@@ -282,7 +295,7 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
     fieldErrors.student_name = nameError
   }
   
-  const phoneError = validatePhoneNumber(data.phone_number)
+  const phoneError = validatePhoneNumber(data.phone_number, data.phone_country_code)
   if (phoneError) {
     errors.push(phoneError)
     fieldErrors.phone_number = phoneError

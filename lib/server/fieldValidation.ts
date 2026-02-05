@@ -10,6 +10,7 @@
  */
 
 import "server-only";
+import { normalizeCountryCode } from '../shared/phone';
 
 export interface ValidationResult {
   isValid: boolean
@@ -17,39 +18,41 @@ export interface ValidationResult {
   normalizedValue?: string | null
 }
 
-const PHONE_MIN_DIGITS = 10
-const PHONE_MAX_DIGITS = 15
-
 /**
- * Validates phone number format
- * Accepts international formats with country codes and various separators
+ * Validates phone number - simple validation for AI extraction
+ * Just checks that we have digits and reasonable length.
+ * E.164 normalization happens at finalize time, not here.
  * 
  * @param value - Phone number string
- * @returns Validation result with normalized value
+ * @param countryCode - Optional ISO 3166-1 alpha-2 country code (e.g., 'US', 'GB')
+ * @returns Validation result
  */
-export function validatePhoneNumber(value: string | null | undefined): ValidationResult {
+export function validatePhoneNumber(value: string | null | undefined, countryCode?: string | null): ValidationResult {
   if (!value?.trim()) {
-    return { isValid: false, errorMessage: 'Phone number is required' }
+    return { isValid: false, errorMessage: 'Phone number is required' };
   }
 
-  const trimmed = value.trim()
-  const digitsOnly = trimmed.replace(/\D/g, '')
+  const trimmed = value.trim();
   
-  if (digitsOnly.length < PHONE_MIN_DIGITS) {
-    return { 
-      isValid: false, 
-      errorMessage: `Phone number must contain at least ${PHONE_MIN_DIGITS} digits` 
-    }
+  // Extract digits only
+  const digits = trimmed.replace(/\D/g, '');
+  
+  // Must have at least 4 digits (shortest valid phone numbers)
+  if (digits.length < 4) {
+    return { isValid: false, errorMessage: 'Phone number is too short' };
+  }
+  
+  // E.164 max is 15 digits
+  if (digits.length > 15) {
+    return { isValid: false, errorMessage: 'Phone number is too long' };
   }
 
-  if (digitsOnly.length > PHONE_MAX_DIGITS) {
-    return { 
-      isValid: false, 
-      errorMessage: `Phone number cannot exceed ${PHONE_MAX_DIGITS} digits` 
-    }
+  // Validate country code if provided
+  if (countryCode) {
+    normalizeCountryCode(countryCode); // This validates it
   }
 
-  return { isValid: true, normalizedValue: trimmed }
+  return { isValid: true, normalizedValue: trimmed };
 }
 
 /**

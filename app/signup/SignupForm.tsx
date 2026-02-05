@@ -9,7 +9,7 @@
  */
 
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
@@ -27,6 +27,7 @@ export default function SignupForm({ role }: SignupFormProps) {
   const router = useRouter();
   const hCaptchaSiteKey = getHCaptchaSiteKey();
   const hasCaptcha = isHCaptchaConfigured();
+  const captchaRef = useRef<HCaptcha>(null);
   
   // Display role for UI (talent/employer) vs DB role (student/company)
   const displayRole = role === 'student' ? 'talent' : 'employer';
@@ -69,6 +70,10 @@ export default function SignupForm({ role }: SignupFormProps) {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);
+      // Reset captcha widget and token after failed signup
+      // HCaptcha tokens are single-use, so we must reset the widget for retry
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
       
       // Don't auto-clear the error for "already exists" - let user read it
       if (!errorMessage.toLowerCase().includes('already exists')) {
@@ -127,6 +132,7 @@ export default function SignupForm({ role }: SignupFormProps) {
           <div className="flex justify-center">
             {hasCaptcha && (
               <HCaptcha
+                ref={captchaRef}
                 sitekey={hCaptchaSiteKey}
                 onVerify={(token) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken(null)}

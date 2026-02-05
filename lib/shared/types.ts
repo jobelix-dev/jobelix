@@ -189,6 +189,7 @@ export interface ContactInfo {
 export interface ExtractedResumeData {
   student_name: string | null;
   phone_number: string | null;
+  phone_country_code: string | null; // ISO 3166-1 alpha-2 country code (e.g., "US", "GB")
   email: string | null;
   address: string | null;
   education: EducationEntry[];

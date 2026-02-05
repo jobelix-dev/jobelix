@@ -12,6 +12,7 @@
 
 import "server-only";
 
+import { parsePhoneNumberWithError, type CountryCode } from 'libphonenumber-js'
 import type { SocialLinkEntry } from '../shared/types'
 
 /**
@@ -21,6 +22,7 @@ import type { SocialLinkEntry } from '../shared/types'
 interface DraftData {
   student_name?: string | null
   phone_number?: string | null
+  phone_country_code?: string | null
   email?: string | null
   address?: string | null
   education?: DraftEducationEntry[]
@@ -133,17 +135,68 @@ function parseName(fullName: string | null | undefined): { firstName: string | n
 }
 
 /**
+ * Normalize phone number to E.164 format for storage/bot usage.
+ * This is the single place where E.164 normalization happens.
+ * 
+ * @param rawPhone - User-entered phone string (may be formatted, local, or international)
+ * @param countryCode - ISO country code (FR, US, GB, etc.)
+ * @returns { e164, country } - normalized E.164 format and validated country code
+ */
+function normalizePhoneToE164(
+  rawPhone: string | null | undefined,
+  countryCode: string | null | undefined
+): { e164: string | null; country: string | null } {
+  if (!rawPhone?.trim()) {
+    return { e164: null, country: countryCode || 'FR' }
+  }
+
+  const phone = rawPhone.trim()
+  const country = (countryCode?.toUpperCase() || 'FR') as CountryCode
+
+  try {
+    // Try parsing with the country hint
+    const parsed = parsePhoneNumberWithError(phone, country)
+    
+    if (parsed.isValid()) {
+      console.log(`📞 Phone normalized to E.164: "${phone}" → "${parsed.format('E.164')}" (${parsed.country || country})`)
+      return {
+        e164: parsed.format('E.164'),
+        country: parsed.country || country,
+      }
+    }
+    
+    // Number parsed but not valid - still use it but log warning
+    console.log(`⚠️ Phone parsed but invalid for ${country}: "${phone}" - storing as-is`)
+  } catch (error) {
+    // Parsing failed - log and store original
+    console.log(`⚠️ Phone parse failed for "${phone}" with country ${country}: ${error instanceof Error ? error.message : 'unknown'}`)
+  }
+
+  // Fallback: store original phone with country code
+  // The bot can try to handle it
+  return {
+    e164: phone,
+    country: country,
+  }
+}
+
+/**
  * Map draft data to student table record
+ * Normalizes phone number to E.164 format here (finalize time)
  */
 export function mapDraftToStudent(draft: DraftData, userId: string) {
   const { firstName, lastName } = parseName(draft.student_name)
+  
+  // Normalize phone to E.164 at finalize time
+  const normalizedPhone = normalizePhoneToE164(draft.phone_number, draft.phone_country_code)
   
   return {
     id: userId,
     student_name: draft.student_name || null,
     first_name: firstName,
     last_name: lastName,
-    phone_number: draft.phone_number || null,
+    phone_number: normalizedPhone.e164,
+    phone_country_code: normalizedPhone.country,
     mail_adress: draft.email || null,
     address: draft.address || null,
   }

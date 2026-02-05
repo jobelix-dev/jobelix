@@ -18,7 +18,6 @@ import LaunchSection from './components/LaunchSection';
 import { usePreferences } from '../job-preferences/hooks';
 import { useBot, useCredits } from './hooks';
 import { useBrowserStatus } from './hooks/useBrowserStatus';
-import { BrowserNotInstalledBanner, BrowserCheckingBanner } from './components/LaunchSection/shared';
 
 export default function AutoApplyTab() {
   const [profilePublished, setProfilePublished] = useState(false);
@@ -127,17 +126,14 @@ export default function AutoApplyTab() {
             profilePublished={profilePublished}
             preferencesComplete={preferences.preferencesComplete}
           />
-        ) : browser.checking ? (
-          <BrowserCheckingBanner />
-        ) : !browser.installed ? (
-          <BrowserNotInstalledBanner
-            installing={browser.installing}
-            progress={browser.progress}
-            error={browser.error}
-            onInstall={browser.installBrowser}
-          />
         ) : (
           <LaunchSection
+            // Browser status
+            browserChecking={browser.checking}
+            browserInstalled={browser.installed}
+            browserInstalling={browser.installing}
+            browserProgress={browser.progress}
+            browserError={browser.error}
             botState={bot.botState}
             launchProgress={bot.launchProgress}
             sessionStats={bot.sessionStats}

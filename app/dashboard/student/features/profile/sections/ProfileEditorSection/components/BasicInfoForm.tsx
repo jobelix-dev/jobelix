@@ -2,17 +2,18 @@
  * BasicInfoForm Component
  * 
  * Form for basic profile information (name, email, phone, address).
- * Uses FormField for consistent styling and validation display.
+ * Uses FormField for consistent styling and PhoneInput for phone number handling.
  */
 
 'use client';
 
-import { FormField, inputClassName } from '@/app/components/shared';
+import { FormField, inputClassName, PhoneInput } from '@/app/components/shared';
 import { ExtractedResumeData } from '@/lib/shared/types';
 
 interface BasicInfoFormProps {
   data: ExtractedResumeData;
-  onUpdateField: (field: keyof ExtractedResumeData, value: string) => void;
+  onUpdateField: (field: keyof ExtractedResumeData, value: unknown) => void;
+  onUpdateFields: (updates: Partial<ExtractedResumeData>) => void;
   fieldErrors?: {
     student_name?: string;
     email?: string;
@@ -22,53 +23,10 @@ interface BasicInfoFormProps {
   disabled?: boolean;
 }
 
-interface FieldConfig {
-  key: keyof ExtractedResumeData;
-  label: string;
-  type: string;
-  placeholder: string;
-  errorKey: 'student_name' | 'email' | 'phone_number' | 'address';
-  required?: boolean;
-}
-
-const FIELDS: FieldConfig[] = [
-  {
-    key: 'student_name',
-    label: 'Full Name',
-    type: 'text',
-    placeholder: 'Enter your name',
-    errorKey: 'student_name',
-    required: true,
-  },
-  {
-    key: 'email',
-    label: 'Email',
-    type: 'email',
-    placeholder: 'your.email@example.com',
-    errorKey: 'email',
-    required: true,
-  },
-  {
-    key: 'phone_number',
-    label: 'Phone Number',
-    type: 'tel',
-    placeholder: '+1 (555) 123-4567',
-    errorKey: 'phone_number',
-    required: true,
-  },
-  {
-    key: 'address',
-    label: 'Address',
-    type: 'text',
-    placeholder: 'City, Country',
-    errorKey: 'address',
-    required: true,
-  },
-];
-
 export default function BasicInfoForm({
   data,
   onUpdateField,
+  onUpdateFields,
   fieldErrors,
   disabled = false,
 }: BasicInfoFormProps) {
@@ -77,30 +35,77 @@ export default function BasicInfoForm({
       <h3 className="text-base sm:text-lg font-semibold text-muted">Basic Information</h3>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        {FIELDS.map((field) => {
-          const error = fieldErrors?.[field.errorKey];
-          const value = (data[field.key] as string) || '';
-          
-          return (
-            <FormField
-              key={field.key}
-              id={`profile-${field.key.replace('_', '-')}`}
-              label={field.label}
-              error={error}
-              required={field.required}
-            >
-              <input
-                id={`profile-${field.key.replace('_', '-')}`}
-                type={field.type}
-                value={value}
-                onChange={(e) => onUpdateField(field.key, e.target.value)}
-                placeholder={field.placeholder}
-                disabled={disabled}
-                className={inputClassName(!!error, disabled)}
-              />
-            </FormField>
-          );
-        })}
+        {/* Name Field */}
+        <FormField
+          id="profile-student-name"
+          label="Full Name"
+          error={fieldErrors?.student_name}
+          required
+        >
+          <input
+            id="profile-student-name"
+            type="text"
+            value={(data.student_name as string) || ''}
+            onChange={(e) => onUpdateField('student_name', e.target.value)}
+            placeholder="Enter your name"
+            disabled={disabled}
+            className={inputClassName(!!fieldErrors?.student_name, disabled)}
+          />
+        </FormField>
+
+        {/* Email Field */}
+        <FormField
+          id="profile-email"
+          label="Email"
+          error={fieldErrors?.email}
+          required
+        >
+          <input
+            id="profile-email"
+            type="email"
+            value={(data.email as string) || ''}
+            onChange={(e) => onUpdateField('email', e.target.value)}
+            placeholder="your.email@example.com"
+            disabled={disabled}
+            className={inputClassName(!!fieldErrors?.email, disabled)}
+          />
+        </FormField>
+
+        {/* Phone Field */}
+        <FormField
+          id="profile-phone-number"
+          label="Phone Number"
+          error={fieldErrors?.phone_number}
+          required
+        >
+          <PhoneInput
+            id="profile-phone-number"
+            phoneValue={data.phone_number}
+            countryCode={data.phone_country_code}
+            onPhoneChange={(phone) => onUpdateField('phone_number', phone)}
+            onCountryChange={(country) => onUpdateField('phone_country_code', country)}
+            error={fieldErrors?.phone_number}
+            disabled={disabled}
+          />
+        </FormField>
+
+        {/* Address Field */}
+        <FormField
+          id="profile-address"
+          label="Address"
+          error={fieldErrors?.address}
+          required
+        >
+          <input
+            id="profile-address"
+            type="text"
+            value={(data.address as string) || ''}
+            onChange={(e) => onUpdateField('address', e.target.value)}
+            placeholder="City, Country"
+            disabled={disabled}
+            className={inputClassName(!!fieldErrors?.address, disabled)}
+          />
+        </FormField>
       </div>
     </div>
   );
