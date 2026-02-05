@@ -123,6 +123,30 @@ export default function SocialLoginButtons({
   const [popup, setPopup] = useState<Window | null>(null);
   const router = useRouter();
 
+  // Save auth tokens to Electron cache for automatic login
+  const saveAuthCacheIfElectron = useCallback(async (session: { 
+    access_token: string; 
+    refresh_token: string; 
+    expires_at?: number;
+    user: { id: string };
+  }) => {
+    if (typeof window !== 'undefined' && window.electronAPI?.saveAuthCache) {
+      try {
+        const tokens = {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          user_id: session.user.id
+        };
+        await window.electronAPI.saveAuthCache(tokens);
+        console.log('[OAuth] Auth cache saved for Electron');
+      } catch (cacheError) {
+        console.warn('[OAuth] Failed to save auth cache:', cacheError);
+        // Don't fail login if cache save fails
+      }
+    }
+  }, []);
+
   // Listen for auth state changes (popup will trigger this after successful login)
   const checkAuthAndRedirect = useCallback(async () => {
     const supabase = createClient();
@@ -130,12 +154,16 @@ export default function SocialLoginButtons({
     
     if (session) {
       console.log('[OAuth] Session detected, redirecting to dashboard');
+      
+      // Save auth cache for Electron auto-login
+      await saveAuthCacheIfElectron(session);
+      
       onSuccess?.();
       router.push('/dashboard');
       return true;
     }
     return false;
-  }, [router, onSuccess]);
+  }, [router, onSuccess, saveAuthCacheIfElectron]);
 
   // Poll for popup close and check auth
   useEffect(() => {
@@ -166,7 +194,7 @@ export default function SocialLoginButtons({
   useEffect(() => {
     const supabase = createClient();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[OAuth] Auth state changed:', event);
       
       if (event === 'SIGNED_IN' && session && loadingProvider) {
@@ -177,13 +205,16 @@ export default function SocialLoginButtons({
           popup.close();
         }
         
+        // Save auth cache for Electron auto-login
+        await saveAuthCacheIfElectron(session);
+        
         onSuccess?.();
         router.push('/dashboard');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [loadingProvider, popup, router, onSuccess]);
+  }, [loadingProvider, popup, router, onSuccess, saveAuthCacheIfElectron]);
 
   async function handleOAuthLogin(provider: Provider) {
     setLoadingProvider(provider);

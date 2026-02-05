@@ -306,7 +306,7 @@ export default function DashboardPage() {
               </div>
               <h2 className="text-lg font-semibold mb-4">Data & Privacy</h2>
               
-              <div className="space-y-4 text-sm text-muted max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-4 text-sm text-muted">
                 <div>
                   <h3 className="font-medium text-default mb-1">What we collect</h3>
                   <p>Profile info (name, email, phone), resume/CV data, job preferences, and payment info (processed securely via Stripe).</p>
