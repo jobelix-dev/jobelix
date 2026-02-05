@@ -5,6 +5,7 @@
  * Used by: app/login/page.tsx
  * Calls: lib/api.ts -> app/api/auth/login/route.ts
  * Handles form validation, loading states, and error display.
+ * Supports email/password and OAuth (Google, LinkedIn, GitHub).
  */
 
 'use client';
@@ -15,6 +16,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { createClient } from '@/lib/client/supabaseClient';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
+import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -86,67 +88,86 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && (
-        <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error border border-error">
-          {error}
+    <div className="flex flex-col gap-6">
+      {/* Social login buttons */}
+      <SocialLoginButtons
+        action="login"
+        onError={(err) => setError(err)}
+      />
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-primary-subtle" />
         </div>
-      )}
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-surface px-2 text-muted">or continue with email</span>
+        </div>
+      </div>
 
-      <label className="flex flex-col">
-        <span className="text-sm text-muted">Email</span>
-        <input
-          required
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          placeholder="you@example.com"
-        />
-      </label>
-
-      <label className="flex flex-col">
-        <span className="text-sm text-muted">Password</span>
-        <input
-          required
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          placeholder="Enter your password"
-        />
-      </label>
-
-      <div className="flex justify-center">
-        {hasCaptcha && (
-          <HCaptcha
-            ref={captchaRef}
-            sitekey={hCaptchaSiteKey}
-            onVerify={(token) => setCaptchaToken(token)}
-            onExpire={() => setCaptchaToken(null)}
-            onError={() => setCaptchaToken(null)}
-            sentry={false}
-          />
+      {/* Email/password form */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error && (
+          <div className="rounded bg-error-subtle px-3 py-2 text-sm text-error border border-error">
+            {error}
+          </div>
         )}
-      </div>
 
-      <div className="flex justify-end">
-        <Link 
-          href="/reset-password" 
-          className="text-xs text-primary hover:underline"
+        <label className="flex flex-col">
+          <span className="text-sm text-muted">Email</span>
+          <input
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="you@example.com"
+          />
+        </label>
+
+        <label className="flex flex-col">
+          <span className="text-sm text-muted">Password</span>
+          <input
+            required
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Enter your password"
+          />
+        </label>
+
+        <div className="flex justify-center">
+          {hasCaptcha && (
+            <HCaptcha
+              ref={captchaRef}
+              sitekey={hCaptchaSiteKey}
+              onVerify={(token) => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken(null)}
+              onError={() => setCaptchaToken(null)}
+              sentry={false}
+            />
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <Link 
+            href="/reset-password" 
+            className="text-xs text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || (hasCaptcha && !captchaToken)}
+          className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
         >
-          Forgot password?
-        </Link>
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading || (hasCaptcha && !captchaToken)}
-        className="mt-2 rounded bg-primary hover:bg-primary-hover px-4 py-2 text-white font-medium shadow-md transition-colors disabled:opacity-60"
-      >
-        {loading ? 'Logging in...' : 'Log in'}
-      </button>
-    </form>
+          {loading ? 'Logging in...' : 'Log in'}
+        </button>
+      </form>
+    </div>
   );
 }
 

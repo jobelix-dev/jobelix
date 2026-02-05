@@ -15,6 +15,8 @@ import { UserProfile } from '@/lib/shared/types';
 import { api } from '@/lib/client/api';
 import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriangle, Info } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
+import WelcomeNotice from '@/app/components/WelcomeNotice';
+import OnboardingSteps from '@/app/components/OnboardingSteps';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
 
@@ -31,6 +33,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showWelcomeNotice, setShowWelcomeNotice] = useState(false);
+  const [showOnboardingSteps, setShowOnboardingSteps] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -80,6 +84,11 @@ export default function DashboardPage() {
         }
 
         setProfile(response.profile);
+        
+        // Show welcome notice if user hasn't seen it yet
+        if (response.profile && !response.profile.has_seen_welcome_notice) {
+          setShowWelcomeNotice(true);
+        }
       } catch (error) {
         console.error('[Dashboard] Failed to load profile:', error);
         console.log('[Dashboard] Clearing cache and redirecting to / due to error')
@@ -136,6 +145,28 @@ export default function DashboardPage() {
       console.error('Delete account failed:', error);
       setIsDeleting(false);
       // Could add error toast here
+    }
+  }
+
+  async function handleWelcomeNoticeDismiss() {
+    try {
+      const response = await fetch('/api/auth/welcome-notice-seen', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        // Update profile state to reflect the change
+        if (profile) {
+          setProfile({ ...profile, has_seen_welcome_notice: true });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to mark welcome notice as seen:', error);
+    } finally {
+      // Close the welcome modal and show onboarding steps
+      setShowWelcomeNotice(false);
+      setShowOnboardingSteps(true);
     }
   }
 
@@ -442,6 +473,19 @@ export default function DashboardPage() {
       <FeedbackModal 
         isOpen={showFeedbackModal} 
         onClose={() => setShowFeedbackModal(false)} 
+      />
+
+      {/* Welcome Notice - Shows on first login */}
+      <WelcomeNotice
+        isOpen={showWelcomeNotice}
+        onClose={handleWelcomeNoticeDismiss}
+      />
+
+      {/* Onboarding Steps - Shows after welcome notice */}
+      <OnboardingSteps
+        isOpen={showOnboardingSteps}
+        onClose={() => setShowOnboardingSteps(false)}
+        userRole={profile.role}
       />
     </div>
   );

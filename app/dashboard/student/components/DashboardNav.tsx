@@ -18,9 +18,11 @@ type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 interface DashboardNavProps {
   activeTab: DashboardTab;
   onTabChange: (tab: DashboardTab) => void;
+  profileHasUnsaved?: boolean;
+  preferencesHasUnsaved?: boolean;
 }
 
-export default function DashboardNav({ activeTab, onTabChange }: DashboardNavProps) {
+export default function DashboardNav({ activeTab, onTabChange, profileHasUnsaved, preferencesHasUnsaved }: DashboardNavProps) {
   const tabs = [
     { id: 'profile' as const, label: 'Profile', icon: User },
     { id: 'job-preferences' as const, label: 'Preferences', icon: Zap },
@@ -58,8 +60,11 @@ export default function DashboardNav({ activeTab, onTabChange }: DashboardNavPro
               >
                 <Icon className="w-5 h-5 sm:w-[18px] sm:h-[18px]" strokeWidth={isActive ? 2.5 : 2} />
                 <span className="text-[11px] sm:text-sm leading-tight">{tab.label}</span>
-                {tab.comingSoon && (
-                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 bg-info rounded-full" title="Coming Soon" />
+                {tab.id === 'profile' && profileHasUnsaved && (
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-warning rounded-full border border-surface" title="Unsaved changes" />
+                )}
+                {tab.id === 'job-preferences' && preferencesHasUnsaved && (
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-warning rounded-full border border-surface" title="Unsaved changes" />
                 )}
               </button>
             );

@@ -74,28 +74,19 @@ function StudentDashboardContent() {
     };
   }, [jobPreferencesUnsaved]);
 
-  const handleTabChange = async (nextTab: DashboardTab) => {
-    if (activeTab === 'job-preferences' && nextTab !== 'job-preferences' && jobPreferencesUnsaved) {
-      const shouldLeave = await confirm('You have unsaved job preferences. Leave without saving?', {
-        title: 'Unsaved Changes',
-        confirmText: 'Leave',
-        cancelText: 'Stay',
-        variant: 'danger'
-      });
-      if (!shouldLeave) {
-        return;
-      }
-      // User confirmed leaving, reset the unsaved flag
-      setJobPreferencesUnsaved(false);
-    }
-
+  const handleTabChange = (nextTab: DashboardTab) => {
     setActiveTab(nextTab);
   };
 
   return (
     <div>
       {/* Dashboard Navigation */}
-      <DashboardNav activeTab={activeTab} onTabChange={handleTabChange} />
+      <DashboardNav 
+        activeTab={activeTab} 
+        onTabChange={handleTabChange}
+        profileHasUnsaved={profileState.draftStatus === 'editing'}
+        preferencesHasUnsaved={jobPreferencesUnsaved}
+      />
 
       {/* Tab Content */}
       <div className="space-y-6">

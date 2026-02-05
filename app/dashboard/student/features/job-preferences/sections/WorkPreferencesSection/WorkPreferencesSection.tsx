@@ -13,7 +13,7 @@ import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
 import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
 import ExperienceLevelsSection from './components/ExperienceLevelsSection';
 import JobTypesSection from './components/JobTypesSection';
-import DateFiltersSection from './components/DateFiltersSection';
+import JobOfferRecencySection from './components/JobOfferRecencySection';
 import PersonalInfoSection from './components/PersonalInfoSection';
 import WorkAuthorizationSection from './components/WorkAuthorizationSection';
 import WorkPreferencesSubSection from './components/WorkPreferencesSection';
@@ -42,14 +42,6 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
     updateSearchCriteria,
     clearDraft,
   } = useWorkPreferences(onUnsavedChanges);
-
-  // Reset to saved preferences on unmount (when navigating away)
-  useEffect(() => {
-    return () => {
-      clearDraft();
-      // Reset form state will happen naturally on next mount
-    };
-  }, [clearDraft]);
 
   const [showAdvanced, setShowAdvanced] = React.useState(false);
 
@@ -272,7 +264,7 @@ function AdvancedSettings({ preferences, blacklistRef, fieldErrors, updateArray,
           </PreferenceCard>
 
           <PreferenceCard>
-            <DateFiltersSection
+            <JobOfferRecencySection
               values={{
                 date_24_hours: preferences.date_24_hours,
                 date_week: preferences.date_week,
@@ -280,8 +272,8 @@ function AdvancedSettings({ preferences, blacklistRef, fieldErrors, updateArray,
                 date_all_time: preferences.date_all_time,
               }}
               onChange={updateCheckbox}
-              hasError={fieldErrors?.dateFilter}
-              tourId="job-pref-date-filters"
+              hasError={fieldErrors?.jobOfferRecency}
+              tourId="job-pref-job-offer-recency"
             />
           </PreferenceCard>
 

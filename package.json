@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.23",
+  "version": "0.0.25",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
@@ -30,7 +30,8 @@
         "provider": "github",
         "owner": "jobelix-dev",
         "repo": "jobelix-releases",
-        "releaseType": "release"
+        "releaseType": "release",
+        "publishAutoUpdate": true
       }
     ],
     "directories": {

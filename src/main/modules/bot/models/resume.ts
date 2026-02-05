@@ -98,6 +98,7 @@ function parsePersonalInformation(basics: Record<string, unknown>, _root: Record
  * 
  * Handles cases:
  * - "+1 555-123-4567" → { prefix: "+1", national: "555-123-4567" }
+ * - "+33786948497" → { prefix: "+33", national: "786948497" }
  * - "+33 0786948497" → { prefix: "+33", national: "786948497" } (strips leading 0)
  * - "555-123-4567" with country "US" → { prefix: "+1", national: "555-123-4567" }
  * - "555-123-4567" with no country → { prefix: "", national: "555-123-4567" }
@@ -105,20 +106,55 @@ function parsePersonalInformation(basics: Record<string, unknown>, _root: Record
 function parsePhoneNumber(phone: string, country: string): { prefix: string; national: string } {
   if (!phone) return { prefix: '', national: '' };
   
-  // Try to extract prefix from the phone number itself
-  const prefixMatch = phone.match(/^(\+\d{1,3})[\s\-.]?(.*)$/);
-  if (prefixMatch) {
-    const prefix = prefixMatch[1];
-    let national = prefixMatch[2].trim();
-    
-    // Strip leading 0 (trunk prefix) for countries that use it
-    // France (+33), UK (+44), Germany (+49), Italy (+39), etc.
-    const countriesWithTrunkPrefix = ['+33', '+44', '+49', '+39', '+34', '+31', '+32', '+41', '+43', '+48', '+351', '+353', '+46', '+47', '+45', '+358', '+61', '+64', '+91'];
-    if (countriesWithTrunkPrefix.includes(prefix) && national.startsWith('0')) {
-      national = national.substring(1);
+  // Known country calling codes sorted by length (longest first) to match correctly
+  // E.g., +353 (Ireland) should match before +35, +1 (US/CA) before +1x
+  const knownPrefixes = [
+    '+971', '+972', '+234',  // 3-digit codes
+    '+351', '+353', '+358', '+852',
+    '+33', '+44', '+49', '+39', '+34', '+31', '+32', '+41', '+43', '+48',  // 2-digit codes
+    '+46', '+47', '+45', '+61', '+64', '+81', '+86', '+91', '+65', '+82',
+    '+52', '+55', '+54', '+27',
+    '+1',  // 1-digit code (US/CA) - must be last
+  ];
+  
+  // Countries that use a trunk prefix (leading 0) in national format
+  const countriesWithTrunkPrefix = [
+    '+33', '+44', '+49', '+39', '+34', '+31', '+32', '+41', '+43', '+48',
+    '+351', '+353', '+46', '+47', '+45', '+358', '+61', '+64', '+91'
+  ];
+  
+  // Check if phone starts with +
+  if (phone.startsWith('+')) {
+    // Try to match against known prefixes
+    for (const knownPrefix of knownPrefixes) {
+      if (phone.startsWith(knownPrefix)) {
+        // Extract national number (everything after the prefix)
+        let national = phone.slice(knownPrefix.length).trim();
+        // Remove any separator characters at the start
+        national = national.replace(/^[\s\-.]/, '').trim();
+        
+        // Strip leading 0 (trunk prefix) for countries that use it
+        if (countriesWithTrunkPrefix.includes(knownPrefix) && national.startsWith('0')) {
+          national = national.substring(1);
+        }
+        
+        return { prefix: knownPrefix, national };
+      }
     }
     
-    return { prefix, national };
+    // Fallback: try regex for unknown prefixes (1-3 digits after +)
+    // Use non-greedy match and require separator or known length
+    const prefixMatch = phone.match(/^(\+\d{1,3})[\s\-.](.*)$/);
+    if (prefixMatch) {
+      let national = prefixMatch[2].trim();
+      const prefix = prefixMatch[1];
+      
+      if (countriesWithTrunkPrefix.includes(prefix) && national.startsWith('0')) {
+        national = national.substring(1);
+      }
+      
+      return { prefix, national };
+    }
   }
   
   // No prefix in phone - try to infer from country

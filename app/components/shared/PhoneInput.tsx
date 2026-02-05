@@ -224,6 +224,14 @@ export default function PhoneInput({
   // All countries for dropdown (memoized, stable)
   const allCountries = useMemo(() => getAllCountries(), []);
   
+  // Sync the default country back to parent if countryCode was null
+  // This ensures the stored value matches what the user sees in the UI
+  useEffect(() => {
+    if (countryCode === null && currentCountry) {
+      onCountryChange(currentCountry);
+    }
+  }, [countryCode, currentCountry, onCountryChange]);
+  
   // Dropdown state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 

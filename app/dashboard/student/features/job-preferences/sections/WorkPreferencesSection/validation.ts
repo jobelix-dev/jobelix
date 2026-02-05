@@ -29,12 +29,12 @@ export const getValidationErrors = (prefs: WorkPreferences): ValidationErrors =>
     prefs.job_other;
   if (!hasJobType) errors.jobType = true;
 
-  const hasDateFilter =
+  const hasJobOfferRecency =
     prefs.date_24_hours ||
     prefs.date_week ||
     prefs.date_month ||
     prefs.date_all_time;
-  if (!hasDateFilter) errors.dateFilter = true;
+  if (!hasJobOfferRecency) errors.jobOfferRecency = true;
 
   if (!prefs.eu_work_authorization && !prefs.us_work_authorization) {
     errors.workAuthorization = true;
@@ -58,7 +58,7 @@ export const getValidationErrorMessage = (errors: ValidationErrors): string | nu
   if (errors.locations) return 'At least 1 location is required';
   if (errors.experience) return 'Select at least 1 experience level';
   if (errors.jobType) return 'Select at least 1 job type';
-  if (errors.dateFilter) return 'Select at least 1 date filter';
+  if (errors.jobOfferRecency) return 'Select at least 1 job offer recency option';
   if (errors.workAuthorization) return 'Select at least 1 work authorization';
   if (errors.date_of_birth) return 'Date of birth is required';
   if (errors.pronouns) return 'Pronouns are required';

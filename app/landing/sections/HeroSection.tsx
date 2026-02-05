@@ -1,7 +1,7 @@
 /**
  * Hero Section
  * 
- * Landing page hero with headline, CTAs, and screenshot.
+ * Landing page hero with headline, CTAs, and video demo.
  */
 
 import Link from "next/link";
@@ -74,7 +74,7 @@ export default function HeroSection() {
           </ScrollReveal>
         </div>
 
-        {/* Hero Screenshot Mockup */}
+        {/* Hero Video Demo */}
         <ScrollReveal delay={400} duration={800} distance={50}>
           <div className="relative mt-16 mx-auto max-w-4xl reflection">
             {/* macOS-style window frame */}
@@ -88,15 +88,19 @@ export default function HeroSection() {
                 </div>
                 <div className="flex-1" />
               </div>
-              {/* Screenshot */}
+              {/* Video */}
               <div className="relative aspect-[16/9] bg-surface">
-                <Image 
-                  src="/hero-screenshot.png"
-                  alt="Jobelix auto-applying to LinkedIn jobs"
-                  fill
-                  className="object-cover object-top"
-                  priority
-                />
+                <video 
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover object-top"
+                  aria-label="Jobelix auto-applying to LinkedIn jobs demonstration"
+                >
+                  <source src="/hero-demo.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
               </div>
             </div>
           </div>
