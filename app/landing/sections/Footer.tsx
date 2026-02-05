@@ -45,6 +45,8 @@ export default function Footer() {
             <a href="#faq" className="text-sm text-muted hover:text-primary transition-colors">FAQ</a>
             <Link href="/download" className="text-sm text-muted hover:text-primary transition-colors">Download</Link>
             <Link href="/login" className="text-sm text-muted hover:text-primary transition-colors">Sign In</Link>
+            <Link href="/privacy" className="text-sm text-muted hover:text-primary transition-colors">Privacy</Link>
+            <Link href="/terms" className="text-sm text-muted hover:text-primary transition-colors">Terms</Link>
           </div>
 
           {/* Social Links */}
