@@ -82,20 +82,29 @@ download_appimage() {
     local filename="Jobelix-${version}-${distro}.AppImage"
     local url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/${filename}"
     local dest="${INSTALL_DIR}/${APP_NAME}.AppImage"
+    local tmp_dest="${INSTALL_DIR}/${APP_NAME}.AppImage.tmp"
 
     info "Downloading Jobelix v${version} for ${distro}..."
     
     mkdir -p "$INSTALL_DIR"
     
+    # Download to temp file first to avoid "Text file busy" error
+    # when updating while the app is running
     if command -v wget &> /dev/null; then
-        wget -q --show-progress -O "$dest" "$url" || error "Download failed"
+        wget -q --show-progress -O "$tmp_dest" "$url" || error "Download failed"
     elif command -v curl &> /dev/null; then
-        curl -fSL --progress-bar -o "$dest" "$url" || error "Download failed"
+        curl -fSL --progress-bar -o "$tmp_dest" "$url" || error "Download failed"
     else
         error "Neither wget nor curl found. Please install one of them."
     fi
 
-    chmod +x "$dest"
+    chmod +x "$tmp_dest"
+    
+    # Remove old file and move new one into place
+    # This works even if the old file is running because we're unlinking, not writing
+    rm -f "$dest"
+    mv "$tmp_dest" "$dest"
+    
     success "Downloaded to $dest"
 }
 
