@@ -27,6 +27,15 @@ Answer the following question based on the provided personal information and exp
 - Do NOT include date of birth, phone numbers, email addresses, or full addresses in professional summaries or headlines unless explicitly asked.
 - Professional summaries should focus on skills, experience, and career highlights - not biographical details.
 
+## Phone Number Rules (CRITICAL)
+- If asked for phone number AND the form has a separate country code dropdown/prefix field:
+  - Return ONLY the national number WITHOUT the country prefix
+  - Example: If phone is "+33 6 12 34 56 78", return "6 12 34 56 78" (no +33)
+  - Example: If phone is "+1 555-123-4567", return "555-123-4567" (no +1)
+- If asked for phone number AND no separate prefix field exists:
+  - Return the full phone number including the country prefix
+- When in doubt, return ONLY the national number (without +XX prefix)
+
 ## Language Rule
 - Always answer in the same language as the question.
 - Do not translate unless required to match the question language.

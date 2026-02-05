@@ -45,10 +45,15 @@ export class DropdownHandler extends BaseFieldHandler {
 
       log.debug(`Options: ${options.slice(0, 5).join(', ')}${options.length > 5 ? '...' : ''}`);
 
-      // Always ask GPT (don't use saved answers or smart matching)
-      log.debug(`Asking GPT: "${questionText}"`);
-      const truncatedOptions = this.truncateOptionsForGPT(options, questionText);
-      const answer = await this.gptAnswerer.answerFromOptions(questionText, truncatedOptions);
+      // Try smart matching first (phone prefix, school)
+      let answer = this.smartMatch(questionText, options, element);
+      
+      if (!answer) {
+        // Fallback to GPT
+        log.debug(`Asking GPT: "${questionText}"`);
+        const truncatedOptions = this.truncateOptionsForGPT(options, questionText);
+        answer = await this.gptAnswerer.answerFromOptions(questionText, truncatedOptions);
+      }
       
       if (!answer?.trim()) {
         log.warn('No answer available for dropdown');
@@ -80,19 +85,45 @@ export class DropdownHandler extends BaseFieldHandler {
   }
 
   /**
-   * Smart matching for school fields only (to match resume school name to dropdown options)
+   * Smart matching for dropdown fields (phone prefix, school)
+   * Returns matched option or null if no match found
    */
-  private smartMatchSchool(questionText: string, options: string[]): string | undefined {
+  private smartMatch(questionText: string, options: string[], element: Locator): string | null {
     const questionLower = questionText.toLowerCase();
+    const matcher = this.createSmartMatcher();
+
+    // Phone prefix detection - check element ID and question text
+    if (this.isPhonePrefixField(questionLower, element)) {
+      log.debug('[SMART MATCH] Detected phone prefix/country code field');
+      const match = matcher.matchPhonePrefix(options);
+      if (match) {
+        return match;
+      }
+    }
 
     // School/University detection
     if (this.isSchoolField(questionLower)) {
       log.debug('[SMART MATCH] Detected school/university field');
-      const matcher = this.createSmartMatcher();
-      return matcher.matchSchool(options) ?? undefined;
+      const match = matcher.matchSchool(options);
+      if (match) {
+        return match;
+      }
     }
 
-    return undefined;
+    return null;
+  }
+
+  /**
+   * Check if this is a phone prefix/country code dropdown
+   */
+  private isPhonePrefixField(questionLower: string, _element: Locator): boolean {
+    return (
+      questionLower.includes('phone') ||
+      questionLower.includes('country code') ||
+      questionLower.includes('country/region') ||
+      questionLower.includes('dial') ||
+      questionLower.includes('prefix')
+    );
   }
 
   /**

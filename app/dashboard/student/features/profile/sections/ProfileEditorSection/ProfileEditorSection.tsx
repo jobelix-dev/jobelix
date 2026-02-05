@@ -101,6 +101,7 @@ export default function ProfileEditorSection({
         <BasicInfoForm
           data={data}
           onUpdateField={handlers.updateField}
+          onUpdateFields={handlers.updateFields}
           fieldErrors={validation?.fieldErrors}
           disabled={disabled}
         />

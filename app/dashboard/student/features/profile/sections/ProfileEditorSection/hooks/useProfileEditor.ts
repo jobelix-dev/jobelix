@@ -108,6 +108,11 @@ export function useProfileEditor({ data, onChange }: UseProfileEditorProps) {
   const updateField = (field: keyof ExtractedResumeData, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
+  
+  // Update multiple fields at once (avoids stale closure issues)
+  const updateFields = (updates: Partial<ExtractedResumeData>) => {
+    onChange({ ...data, ...updates });
+  };
 
   // Create handlers for each array type
   const education = createArrayHandlers<EducationEntry>(data, onChange, 'education', defaultEducation);
@@ -126,6 +131,7 @@ export function useProfileEditor({ data, onChange }: UseProfileEditorProps) {
   return {
     // Basic fields
     updateField,
+    updateFields,
     
     // Education
     addEducation: education.add,

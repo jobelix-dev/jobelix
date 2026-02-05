@@ -65,6 +65,7 @@ import type {
   CertificationEntry,
   SocialLinkEntry,
 } from '@/lib/shared/types'
+import { parsePhoneNumber } from 'libphonenumber-js'
 
 // Configure PDF.js for Node.js serverless environment
 // In pdfjs-dist v5, we must provide the worker module on globalThis.pdfjsWorker
@@ -82,6 +83,7 @@ interface TextContentItem {
 interface ExtractedData {
   student_name: string | null;
   phone_number: string | null;
+  phone_country_code: string | null;
   email: string | null;
   address: string | null;
   education: EducationEntry[];
@@ -98,6 +100,7 @@ interface ExtractedData {
 interface ContactData {
   student_name?: string | null;
   phone_number?: string | null;
+  phone_country_code?: string | null;
   email?: string | null;
   address?: string | null;
 }
@@ -144,13 +147,70 @@ type ExistingSectionData =
 interface ContactInfo {
   student_name: string | null;
   phone_number: string | null;
+  phone_country_code: string | null;
   email: string | null;
   address: string | null;
 }
 
 /**
+ * Processes phone number from AI extraction.
+ * Stores the raw phone number and detects/validates country code.
+ * E.164 normalization happens at finalize time, not here.
+ * 
+ * @param phoneNumber - Raw phone number from AI extraction
+ * @param hintCountryCode - Optional ISO country code hint from AI (e.g., "US", "GB")
+ * @returns { phone_number, phone_country_code } - raw phone and detected/hinted country
+ */
+function processExtractedPhone(
+  phoneNumber: string | null,
+  hintCountryCode: string | null
+): { phone_number: string | null; phone_country_code: string | null } {
+  if (!phoneNumber) {
+    return { phone_number: null, phone_country_code: hintCountryCode || 'FR' };
+  }
+
+  // Clean up the input - remove extra spaces
+  const cleanedPhone = phoneNumber.trim();
+  
+  // If we already have a country hint, use it
+  if (hintCountryCode) {
+    console.log(`📞 Phone stored: "${cleanedPhone}" (country: ${hintCountryCode})`);
+    return {
+      phone_number: cleanedPhone,
+      phone_country_code: hintCountryCode.toUpperCase(),
+    };
+  }
+  
+  // Try to detect country from phone prefix if it starts with +
+  if (cleanedPhone.startsWith('+')) {
+    try {
+      const parsed = parsePhoneNumber(cleanedPhone);
+      if (parsed && parsed.country) {
+        console.log(`📞 Phone stored: "${cleanedPhone}" (detected country: ${parsed.country})`);
+        return {
+          phone_number: cleanedPhone,
+          phone_country_code: parsed.country,
+        };
+      }
+    } catch {
+      // Parsing failed - continue to fallback
+    }
+  }
+
+  // Fallback: default to France
+  console.log(`📞 Phone stored: "${cleanedPhone}" (default country: FR)`);
+  return {
+    phone_number: cleanedPhone,
+    phone_country_code: 'FR',
+  };
+}
+
+/**
  * Helper function to extract a specific section from resume
  * Uses the full resume text but focuses on extracting just one section
+ * 
+ * For ARRAY sections (education, experience, etc.): PRESERVE existing + ADD new
+ * For SCALAR sections (contact_info): handled separately by extractContactInfo
  */
 async function extractSection<T>(
   resumeText: string,
@@ -186,6 +246,50 @@ Your output MUST contain AT LEAST ${existingCount} entries.`,
       },
     ],
     response_format: zodResponseFormat(schema, `${sectionName}_extraction`),
+  });
+
+  return JSON.parse(completion.choices[0].message.content || '{}');
+}
+
+/**
+ * Helper function to extract contact info from resume
+ * Unlike array sections, contact info should REPLACE existing with resume data
+ * (phone, email, name, address should come from the uploaded resume)
+ */
+async function extractContactInfo<T>(
+  resumeText: string,
+  linksInfo: string,
+  schema: Parameters<typeof zodResponseFormat>[0],
+  systemPrompt: string
+): Promise<T> {
+  const openai = getOpenAI();
+  
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: `Extract contact information from this resume.
+
+**FULL RESUME TEXT:**
+${resumeText}${linksInfo}
+
+Extract the following fields from the resume:
+- student_name: Full name of the person
+- phone_number: Phone number exactly as written (with or without country code)
+- phone_country_code: ISO 2-letter country code inferred from phone prefix or location
+- email: Email address
+- address: City or full address
+
+IMPORTANT: Extract data FROM THE RESUME. Do not make up information.
+If a field is not present in the resume, return null for that field.`,
+      },
+    ],
+    response_format: zodResponseFormat(schema, 'contact_info_extraction'),
   });
 
   return JSON.parse(completion.choices[0].message.content || '{}');
@@ -399,6 +503,7 @@ ${JSON.stringify({
     const extractedData: ExtractedData = {
       student_name: existingDraft?.student_name || null,
       phone_number: existingDraft?.phone_number || null,
+      phone_country_code: existingDraft?.phone_country_code || null,
       email: existingDraft?.email || null,
       address: existingDraft?.address || null,
       education: existingDraft?.education || [],
@@ -411,25 +516,32 @@ ${JSON.stringify({
       social_links: existingDraft?.social_links || {},
     };
 
-    // Section 1: Contact Information
+    // Section 1: Contact Information (REPLACE existing with resume data)
     console.log('Extracting section 1/9: Contact Information...');
-    const contactData = await extractSection<ContactData>(
+    const contactData = await extractContactInfo<ContactData>(
       resumeText,
       linksInfo,
-      'contact_info',
-      {
-        student_name: extractedData.student_name,
-        phone_number: extractedData.phone_number,
-        email: extractedData.email,
-        address: extractedData.address,
-      },
       ContactInfoSchema,
       contactPrompt
     );
+    
+    // Log what AI returned for phone debugging
+    console.log(`📞 AI extracted phone_number: "${contactData.phone_number}" (country: "${contactData.phone_country_code}")`);
+    
+    // Use extracted data, fall back to existing only if AI returned null
     extractedData.student_name = contactData.student_name || extractedData.student_name;
-    extractedData.phone_number = contactData.phone_number || extractedData.phone_number;
     extractedData.email = contactData.email || extractedData.email;
     extractedData.address = contactData.address || extractedData.address;
+    
+    // Process phone number - REPLACE with resume data if found
+    // E.164 normalization happens at finalize time, not here
+    const rawPhone = contactData.phone_number ?? null; // Don't fall back to existing - use resume data
+    const rawCountryCode = contactData.phone_country_code ?? extractedData.phone_country_code ?? null;
+    const processedPhone = processExtractedPhone(rawPhone, rawCountryCode);
+    extractedData.phone_number = processedPhone.phone_number;
+    extractedData.phone_country_code = processedPhone.phone_country_code;
+    
+    console.log(`📞 After processing: phone_number: "${extractedData.phone_number}" (country: "${extractedData.phone_country_code}")`);
     console.log(`✓ Contact info extracted`);
     updateProgress(3);
 
@@ -572,6 +684,7 @@ ${JSON.stringify({
         student_id: userId,
         student_name: extractedData.student_name,
         phone_number: extractedData.phone_number,
+        phone_country_code: extractedData.phone_country_code,
         email: extractedData.email,
         address: extractedData.address,
         education: extractedData.education,

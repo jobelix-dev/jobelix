@@ -15,8 +15,12 @@ export interface PersonalInformation {
   dateOfBirth?: string;
   country: string;
   city: string;
+  /** Full phone number as entered by user (may or may not include prefix) */
   phone: string;
+  /** Country code prefix extracted from phone or inferred from country (e.g., "+1") */
   phonePrefix: string;
+  /** National phone number without country code prefix */
+  phoneNational: string;
   email: string;
   github?: string;
   linkedin?: string;

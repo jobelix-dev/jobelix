@@ -79,10 +79,19 @@ export class SmartFieldMatcher {
       }
 
       // Phone number detection
-      // Pattern: id contains "phonenumber-nationalnumber" or "phone-national"
+      // LinkedIn uses different patterns:
+      // - "phonenumber-nationalnumber" or "phone-national" = national number only (prefix in dropdown)
+      // - Other "phone" patterns = full phone number with prefix
       if (elementId.includes('phonenumber-nationalnumber') || 
-          elementId.includes('phone-national') ||
-          elementName.includes('phone')) {
+          elementId.includes('phone-national')) {
+        // This is the national number input (prefix is in a separate dropdown)
+        const phoneNational = this.getPhoneNational();
+        if (phoneNational) {
+          log.info(`[SMART MATCH] ✅ Phone national field detected: ${phoneNational}`);
+          return { fieldType: 'phone-national', value: phoneNational, matchedBy: 'element-id' };
+        }
+      } else if (elementName.includes('phone')) {
+        // Generic phone field - use full formatted number
         const phone = this.formatPhone();
         if (phone) {
           log.info(`[SMART MATCH] ✅ Phone field detected: ${phone}`);
@@ -307,13 +316,41 @@ export class SmartFieldMatcher {
   }
 
   /**
-   * Format phone number with prefix
+   * Format phone number for form fields
+   * 
+   * LinkedIn has two types of phone fields:
+   * 1. Single field for full phone (uses formatPhoneFull)
+   * 2. Split fields: prefix dropdown + national number input (uses phoneNational)
+   * 
+   * This method returns the full formatted phone number with prefix.
    */
   private formatPhone(): string | null {
     if (!this.personalInfo?.phone) return null;
     
-    return this.personalInfo.phonePrefix
-      ? `${this.personalInfo.phonePrefix}${this.personalInfo.phone}`
-      : this.personalInfo.phone;
+    const { phonePrefix, phoneNational } = this.personalInfo;
+    
+    // If we have both prefix and national, combine them
+    if (phonePrefix && phoneNational) {
+      return `${phonePrefix} ${phoneNational}`;
+    }
+    
+    // Fallback to original phone (already formatted or no parsing happened)
+    return this.personalInfo.phone;
+  }
+  
+  /**
+   * Get just the national phone number (without prefix)
+   * Used when LinkedIn has separate prefix dropdown + number input
+   */
+  getPhoneNational(): string | null {
+    return this.personalInfo?.phoneNational || null;
+  }
+  
+  /**
+   * Get just the phone prefix
+   * Used for prefix dropdown selection
+   */
+  getPhonePrefix(): string | null {
+    return this.personalInfo?.phonePrefix || null;
   }
 }

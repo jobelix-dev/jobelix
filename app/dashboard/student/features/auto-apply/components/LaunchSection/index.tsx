@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  Download,
 } from 'lucide-react';
 import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 import { useSimulatedProgress } from '@/app/hooks';
@@ -40,6 +41,13 @@ import {
 // =============================================================================
 
 interface LaunchSectionProps {
+  // Browser status (installation)
+  browserChecking: boolean;
+  browserInstalled: boolean;
+  browserInstalling: boolean;
+  browserProgress: number;
+  browserError: string | null;
+
   // State machine
   botState: BotState;
   launchProgress: LaunchProgress | null;
@@ -84,6 +92,11 @@ const ACTIVITY_MESSAGES: Record<string, string> = {
 // =============================================================================
 
 export default function LaunchSection({
+  browserChecking,
+  browserInstalled,
+  browserInstalling,
+  browserProgress,
+  browserError,
   botState,
   launchProgress,
   sessionStats,
@@ -199,27 +212,7 @@ export default function LaunchSection({
         <h3 className="text-lg font-semibold text-default">Bot Status</h3>
 
         {/* Action Button */}
-        {canStart && !isActive && (
-          <button
-            onClick={handleLaunchClick}
-            disabled={launching || !canLaunch}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {launching ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Launching...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" />
-                Start
-              </>
-            )}
-          </button>
-        )}
-
-        {isActive && (
+        {isActive ? (
           <button
             onClick={handleStop}
             disabled={stopping || botState === 'stopping'}
@@ -237,8 +230,63 @@ export default function LaunchSection({
               </>
             )}
           </button>
+        ) : (
+          <button
+            onClick={handleLaunchClick}
+            disabled={launching || !canLaunch || browserChecking || !browserInstalled}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all text-sm font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {launching ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Launching...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" />
+                Start
+              </>
+            )}
+          </button>
         )}
       </div>
+
+      {/* Browser Installation Progress */}
+      {browserChecking && (
+        <div className="p-3 bg-muted/10 border border-muted/20 rounded-lg">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-4 h-4 text-muted animate-spin" />
+            <span className="text-sm text-muted">Checking browser installation...</span>
+          </div>
+        </div>
+      )}
+
+      {!browserChecking && !browserInstalled && (
+        <div className="p-4 bg-info-subtle/20 border border-info rounded-lg">
+          <div className="flex items-start gap-3">
+            <Download className="w-5 h-5 text-info flex-shrink-0 mt-0.5 animate-pulse" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-default mb-2">Downloading Browser</p>
+              <p className="text-xs text-muted mb-3">
+                Installing Chromium browser for job applications. This only happens once.
+              </p>
+              {browserError ? (
+                <p className="text-xs text-error mb-3">Error: {browserError}</p>
+              ) : (
+                <>
+                  <div className="w-full bg-info/10 rounded-full h-2 mb-2">
+                    <div
+                      className="bg-info h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${browserProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted">{Math.round(browserProgress)}% complete</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Process Info (when running) */}
       {botPid && isActive && <ProcessInfoBanner pid={botPid} />}
@@ -295,7 +343,7 @@ export default function LaunchSection({
           message="Bot finished successfully."
         />
       )}
-      {botState === 'failed' && (
+      {botState === 'failed' && errorMessage !== 'Desktop app required' && (
         <StatusMessage
           variant="error"
           icon={<XCircle className="w-4 h-4" />}
@@ -304,7 +352,7 @@ export default function LaunchSection({
       )}
 
       {/* Desktop Required Banner */}
-      {errorMessage === 'DESKTOP_REQUIRED' && botState === 'idle' && <DesktopRequiredBanner />}
+      {errorMessage === 'Desktop app required' && <DesktopRequiredBanner />}
 
       {/* Permission Warning (idle state only) */}
       {botState === 'idle' && !canLaunch && (

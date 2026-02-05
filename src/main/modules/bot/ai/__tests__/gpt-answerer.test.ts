@@ -31,6 +31,7 @@ describe('GPTAnswerer', () => {
       city: 'San Francisco',
       phone: '+1 555-123-4567',
       phonePrefix: '+1',
+      phoneNational: '555-123-4567',
       email: 'john.doe@example.com',
       github: 'https://github.com/johndoe',
       linkedin: 'https://linkedin.com/in/johndoe',

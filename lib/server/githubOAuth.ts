@@ -47,7 +47,7 @@ export function getGitHubOAuthConfig() {
     clientId,
     clientSecret,
     redirectUri,
-    scopes: ['read:user', 'repo'] // Access user info and repos
+    scopes: ['read:user', 'public_repo'] // Access user info and PUBLIC repos only
   };
 }
 

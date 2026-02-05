@@ -82,7 +82,8 @@ export const SocialLinkSchema = z.object({
 // Complete resume extraction schema
 export const ResumeExtractionSchema = z.object({
   student_name: z.string().nullable().describe('Full name of the student'),
-  phone_number: z.string().nullable().describe('Phone number or mobile number'),
+  phone_number: z.string().nullable().describe('Phone number or mobile number in E.164 format (e.g., +14155551234)'),
+  phone_country_code: z.string().nullable().describe('ISO 3166-1 alpha-2 country code inferred from phone number (e.g., "US", "GB", "DE")'),
   email: z.string().nullable().describe('Email address'),
   address: z.string().nullable().describe('Physical address or location'),
   education: z.array(EducationSchema).describe('Array of educational background entries'),
@@ -121,6 +122,7 @@ export const ChatUpdateSchema = z.object({
 export const ContactInfoSchema = z.object({
   student_name: z.string().nullable(),
   phone_number: z.string().nullable(),
+  phone_country_code: z.string().nullable().describe('ISO 3166-1 alpha-2 country code inferred from phone number (e.g., "US", "GB", "DE")'),
   email: z.string().nullable(),
   address: z.string().nullable(),
 });

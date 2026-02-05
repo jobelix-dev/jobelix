@@ -148,10 +148,21 @@ export function rateLimitExceededResponse(
   config: RateLimitConfig,
   result: RateLimitResult
 ): NextResponse {
+  // User-friendly messages based on endpoint
+  const endpointMessages: Record<string, string> = {
+    'resume-extraction': 'Resume parsing is limited to avoid overload. Please try again in about an hour.',
+    'github-import': 'GitHub import is limited to avoid overload. Please try again in about an hour.',
+    'work-preferences': 'Too many updates. Please try again later.',
+  };
+  
+  const friendlyMessage = endpointMessages[config.endpoint] || 
+    `You've reached the usage limit. Please try again later.`;
+
   return NextResponse.json(
     {
       error: 'Rate limit exceeded',
-      message: `You have exceeded the rate limit for ${config.endpoint}. Hourly: ${result.hourly_count}/${config.hourlyLimit}, Daily: ${result.daily_count}/${config.dailyLimit}`,
+      message: friendlyMessage,
+      detail: `Hourly: ${result.hourly_count}/${config.hourlyLimit}, Daily: ${result.daily_count}/${config.dailyLimit}`,
       hourly_limit: config.hourlyLimit,
       daily_limit: config.dailyLimit,
       hourly_remaining: result.hourly_remaining,

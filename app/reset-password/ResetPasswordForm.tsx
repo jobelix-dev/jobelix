@@ -7,13 +7,14 @@
  */
 
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 
 export default function ResetPasswordForm() {
   const hCaptchaSiteKey = getHCaptchaSiteKey();
   const hasCaptcha = isHCaptchaConfigured();
+  const captchaRef = useRef<HCaptcha>(null);
   
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,10 @@ export default function ResetPasswordForm() {
       setEmail('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset email');
+      // Reset captcha widget and token after failed request
+      // HCaptcha tokens are single-use, so we must reset the widget for retry
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -105,6 +110,7 @@ export default function ResetPasswordForm() {
       <div className="flex justify-center">
         {hasCaptcha && (
           <HCaptcha
+            ref={captchaRef}
             sitekey={hCaptchaSiteKey}
             onVerify={(token) => setCaptchaToken(token)}
             onExpire={() => setCaptchaToken(null)}

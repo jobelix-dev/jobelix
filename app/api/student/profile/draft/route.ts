@@ -21,6 +21,7 @@ import { authenticateRequest } from '@/lib/server/auth'
 const ALLOWED_DRAFT_FIELDS = [
   'student_name',
   'phone_number',
+  'phone_country_code',
   'email',
   'address',
   'education',

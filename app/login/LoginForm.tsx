@@ -8,7 +8,7 @@
  */
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
@@ -21,6 +21,7 @@ export default function LoginForm() {
   const searchParams = useSearchParams();
   const hCaptchaSiteKey = getHCaptchaSiteKey();
   const hasCaptcha = isHCaptchaConfigured();
+  const captchaRef = useRef<HCaptcha>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,7 +75,10 @@ export default function LoginForm() {
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      setCaptchaToken(null); // Reset captcha after failed login
+      // Reset captcha widget and token after failed login
+      // HCaptcha tokens are single-use, so we must reset the widget for retry
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
       setTimeout(() => setError(''), 1500);
     } finally {
       setLoading(false);
@@ -116,6 +120,7 @@ export default function LoginForm() {
       <div className="flex justify-center">
         {hasCaptcha && (
           <HCaptcha
+            ref={captchaRef}
             sitekey={hCaptchaSiteKey}
             onVerify={(token) => setCaptchaToken(token)}
             onExpire={() => setCaptchaToken(null)}
