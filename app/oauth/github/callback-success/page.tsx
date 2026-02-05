@@ -43,11 +43,13 @@ function CallbackContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center p-8 bg-white rounded-2xl shadow-lg border border-border max-w-sm">
+      <div className="text-center p-8 bg-surface rounded-2xl shadow-lg border border-border max-w-sm">
         {error ? (
           <>
             <div className="w-16 h-16 mx-auto mb-4 bg-error-subtle rounded-full flex items-center justify-center">
-              <span className="text-3xl">✕</span>
+              <svg className="w-8 h-8 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </div>
             <h1 className="text-xl font-semibold text-default mb-2">Connection Failed</h1>
             <p className="text-sm text-muted">
@@ -77,7 +79,7 @@ export default function GitHubCallbackSuccessPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-8 bg-white rounded-2xl shadow-lg border border-border max-w-sm">
+        <div className="text-center p-8 bg-surface rounded-2xl shadow-lg border border-border max-w-sm">
           <div className="w-16 h-16 mx-auto mb-4 bg-primary-subtle rounded-full flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
