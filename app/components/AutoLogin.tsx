@@ -23,7 +23,7 @@ export default function AutoLogin() {
       }
 
       // Don't run on login/signup pages or if already on dashboard
-      if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/dashboard')) {
+      if (pathname === '/login' || pathname === '/signup' || pathname === '/desktop' || pathname.startsWith('/dashboard')) {
         return;
       }
 

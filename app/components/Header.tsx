@@ -1,18 +1,21 @@
 /**
  * Header Component
  * 
- * Navigation header with "Back to Home" link.
+ * Navigation header with "Back" button.
  * Used by: app/login/page.tsx, app/signup/page.tsx
  * Provides consistent navigation across authentication pages.
  */
 
-import Link from 'next/link';
+'use client';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
+  const router = useRouter();
+  
   return (
     <header className="absolute top-0 left-0 right-0 p-6 pt-14">
-      <Link 
-        href="/" 
+      <button
+        onClick={() => router.back()}
         className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
       >
         <svg 
@@ -28,8 +31,8 @@ export default function Header() {
         >
           <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
-        Back to Home
-      </Link>
+        Back
+      </button>
     </header>
   );
 }

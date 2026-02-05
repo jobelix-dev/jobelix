@@ -5,8 +5,8 @@
 
 // Application URLs
 export const URLS = {
-  PRODUCTION: 'https://www.jobelix.fr',
-  DEVELOPMENT: 'http://localhost:3000',
+  PRODUCTION: 'https://www.jobelix.fr/desktop',
+  DEVELOPMENT: 'http://localhost:3000/desktop',
 };
 
 // File and directory names
