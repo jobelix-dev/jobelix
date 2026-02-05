@@ -12,6 +12,7 @@ export interface UserProfile {
   email: string;
   role: 'student' | 'company';
   created_at?: string;
+  has_seen_welcome_notice?: boolean;
 }
 
 export interface SignupPayload {

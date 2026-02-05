@@ -51,7 +51,7 @@ export async function GET() {
      */    
     const { data: studentData, error: studentError } = await supabase
       .from('student')
-      .select('id, created_at')
+      .select('id, created_at, has_seen_welcome_notice')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -71,6 +71,7 @@ export async function GET() {
           email: user.email ?? '',
           role: 'student' as const,
           created_at: studentData.created_at,
+          has_seen_welcome_notice: studentData.has_seen_welcome_notice ?? false,
         },
       })
     }
@@ -81,7 +82,7 @@ export async function GET() {
      */
     const { data: companyData, error: companyError } = await supabase
       .from('company')
-      .select('id, created_at')
+      .select('id, created_at, has_seen_welcome_notice')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -101,6 +102,7 @@ export async function GET() {
           email: user.email ?? '',
           role: 'company' as const,
           created_at: companyData.created_at,
+          has_seen_welcome_notice: companyData.has_seen_welcome_notice ?? false,
         },
       })
     }
