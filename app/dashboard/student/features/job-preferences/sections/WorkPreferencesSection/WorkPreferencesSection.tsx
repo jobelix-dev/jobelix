@@ -43,14 +43,6 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
     clearDraft,
   } = useWorkPreferences(onUnsavedChanges);
 
-  // Reset to saved preferences on unmount (when navigating away)
-  useEffect(() => {
-    return () => {
-      clearDraft();
-      // Reset form state will happen naturally on next mount
-    };
-  }, [clearDraft]);
-
   const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   // Refs to child components with array inputs
