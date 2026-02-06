@@ -10,7 +10,7 @@
  */
 
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
@@ -23,9 +23,39 @@ type UserRole = 'student' | 'company';
 interface SignupFormProps {
   /** The user role - 'student' or 'company' */
   role: UserRole;
+  /** Optional referral code from URL */
+  referralCode?: string | null;
 }
 
-export default function SignupForm({ role }: SignupFormProps) {
+/** Storage key for referral code */
+const REFERRAL_STORAGE_KEY = 'jobelix_referral_code';
+
+/**
+ * Apply a referral code after successful signup
+ */
+async function applyReferralCode(code: string): Promise<void> {
+  try {
+    const response = await fetch('/api/student/referral/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    
+    if (response.ok) {
+      console.log('Referral code applied successfully');
+    } else {
+      const data = await response.json();
+      console.warn('Failed to apply referral code:', data.error);
+    }
+  } catch (err) {
+    console.error('Error applying referral code:', err);
+  } finally {
+    // Clear stored code regardless of result
+    localStorage.removeItem(REFERRAL_STORAGE_KEY);
+  }
+}
+
+export default function SignupForm({ role, referralCode }: SignupFormProps) {
   const router = useRouter();
   const hCaptchaSiteKey = getHCaptchaSiteKey();
   const hasCaptcha = isHCaptchaConfigured();
@@ -40,6 +70,14 @@ export default function SignupForm({ role }: SignupFormProps) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Store referral code in localStorage when component mounts
+  // This preserves the code through OAuth redirects and email verification
+  useEffect(() => {
+    if (referralCode) {
+      localStorage.setItem(REFERRAL_STORAGE_KEY, referralCode);
+    }
+  }, [referralCode]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,6 +94,12 @@ export default function SignupForm({ role }: SignupFormProps) {
       });
 
       if (response.success) {
+        // Apply referral code if one was stored
+        const storedReferralCode = localStorage.getItem(REFERRAL_STORAGE_KEY);
+        if (storedReferralCode) {
+          await applyReferralCode(storedReferralCode);
+        }
+        
         if (response.loggedIn) {
           // User already existed and was logged in with provided credentials
           router.refresh();

@@ -73,6 +73,9 @@ export const workPreferencesSchema = z.object({
   company_blacklist: z.array(z.string().max(200)).max(100).optional().default([]),
   title_blacklist: z.array(z.string().max(200)).max(100).optional().default([]),
 
+  // Job description language filter (ISO 639-1 codes)
+  job_languages: z.array(z.string().length(2)).max(20).optional().default(['en']),
+
   // Personal/legal information
   date_of_birth: z.string().max(50).optional().nullable(),
   pronouns: z.string().max(50).optional().nullable(),

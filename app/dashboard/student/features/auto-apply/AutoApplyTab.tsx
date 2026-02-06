@@ -14,6 +14,9 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Search, FileText, ClipboardCheck, Zap } from 'lucide-react';
 import CreditsSection from './components/CreditsSection';
+import ReferralSection from './components/ReferralSection';
+import ReferralBonusBanner from './components/ReferralBonusBanner';
+import ReferralLeaderboard from './components/ReferralLeaderboard';
 import LaunchSection from './components/LaunchSection';
 import { usePreferences } from '../job-preferences/hooks';
 import { useBot, useCredits } from './hooks';
@@ -101,6 +104,11 @@ export default function AutoApplyTab() {
         </div>
       </div>
 
+      {/* Referral Bonus Banner (for referred users) */}
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <ReferralBonusBanner />
+      </div>
+
       {/* Credits Section */}
       <div className="max-w-2xl mx-auto px-1 sm:px-0">
         <CreditsSection
@@ -113,6 +121,16 @@ export default function AutoApplyTab() {
           onBuy={handleBuyCredits}
           onRefresh={credits.refresh}
         />
+      </div>
+
+      {/* Referral Section */}
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <ReferralSection />
+      </div>
+
+      {/* Referral Leaderboard */}
+      <div className="max-w-2xl mx-auto px-1 sm:px-0">
+        <ReferralLeaderboard />
       </div>
 
       {/* Launch Section - State Machine Driven */}

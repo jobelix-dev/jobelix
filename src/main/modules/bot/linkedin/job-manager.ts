@@ -31,6 +31,7 @@ export class LinkedInJobManager {
   private baseSearchUrl = '';
   private companyBlacklist: string[] = [];
   private titleBlacklist: string[] = [];
+  private jobLanguages: string[] = ['en'];
   private positions: string[] = [];
   private locations: string[] = [];
   private outputDir = '';
@@ -53,12 +54,13 @@ export class LinkedInJobManager {
   setParameters(config: JobSearchConfig, resumePath?: string): void {
     this.companyBlacklist = config.companyBlacklist;
     this.titleBlacklist = config.titleBlacklist;
+    this.jobLanguages = config.jobLanguages.length > 0 ? config.jobLanguages : ['en'];
     this.positions = config.positions;
     this.locations = config.locations;
     this.baseSearchUrl = buildSearchUrl(config);
     this.resumePath = resumePath;
 
-    log.info(`Parameters set: ${this.positions.length} positions, ${this.locations.length} locations`);
+    log.info(`Parameters set: ${this.positions.length} positions, ${this.locations.length} locations, languages: ${this.jobLanguages.join(', ')}`);
   }
 
   /**
@@ -86,6 +88,8 @@ export class LinkedInJobManager {
       (type, question, answer) => this.recordAnswer(type, question, answer),
       this.reporter
     );
+    // Configure job languages for filtering
+    this.easyApplier.updateConfig({ jobLanguages: this.jobLanguages });
 
     // Generate search combinations
     const searches = this.generateSearchCombinations();
@@ -281,6 +285,14 @@ export class LinkedInJobManager {
               this.seenJobs.add(job.link);
               continue;
             }
+
+            // If skipped due to language, log and track
+            if (result.languageSkipped) {
+              log.info(`Language mismatch for ${job.title} at ${job.company} (detected: ${result.detectedLanguage}), skipping`);
+              this.writeToFile(job, 'skipped', `language:${result.detectedLanguage}`);
+              this.seenJobs.add(job.link);
+              continue;
+            }
             
             // If modal didn't open (no Easy Apply button), skip and don't count as failure
             if (!result.success && result.error?.includes('Could not open Easy Apply modal')) {
@@ -471,9 +483,9 @@ export class LinkedInJobManager {
   /**
    * Write job result to CSV file
    */
-  private writeToFile(job: Job, status: string): void {
+  private writeToFile(job: Job, status: string, reason?: string): void {
     const filePath = path.join(this.outputDir, `${status}.csv`);
-    appendJobResult(filePath, job.company, job.title, job.link, job.location);
+    appendJobResult(filePath, job.company, job.title, job.link, job.location, reason);
   }
 
 

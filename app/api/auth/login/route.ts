@@ -91,6 +91,14 @@ export async function POST(request: NextRequest) {
      * for security reasons.
      */
     if (error) {
+      // Log the actual error for debugging (server-side only)
+      console.error('[Login] Auth error:', error.message, error.status);
+      
+      // Check for captcha-related errors
+      if (error.message?.includes('captcha') || error.code === 'captcha_failed') {
+        console.error('[Login] Captcha error - ensure NEXT_PUBLIC_HCAPTCHA_SITEKEY is set and captcha widget is rendered');
+      }
+      
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 

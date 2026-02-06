@@ -35,6 +35,9 @@ export interface WorkPreferences {
   company_blacklist: string[];
   title_blacklist: string[];
 
+  // Job description languages (ISO 639-1 codes)
+  job_languages: string[];
+
   // Personal/legal (Complete set)
   date_of_birth: string;
   pronouns: string;

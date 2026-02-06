@@ -9,6 +9,7 @@ import type { SavedAnswer, Job } from '../../types';
 import type { StatusReporter } from '../../utils/status-reporter';
 import { createLogger } from '../../utils/logger';
 import { saveDebugHtml } from '../../utils/debug-html';
+import { detectLanguage, isLanguageAccepted, getLanguageName } from '../../utils/language-detector';
 import { FormHandler, AnswerRecordCallback, GPTAnswererLike } from './form-handler';
 import { NavigationHandler } from './navigation';
 import { EASY_APPLY_BUTTON_SELECTORS, ALREADY_APPLIED_SELECTORS, JOB_DESCRIPTION_SELECTORS, MODAL, TIMEOUTS } from './selectors';
@@ -25,6 +26,8 @@ export interface EasyApplyResult {
   company: string;
   error?: string;
   alreadyApplied?: boolean;
+  languageSkipped?: boolean;
+  detectedLanguage?: string;
   pagesCompleted: number;
   totalFields: number;
   failedFields: number;
@@ -39,6 +42,7 @@ export interface EasyApplierConfig {
   skipOnError: boolean;
   dryRun: boolean;
   useConstantResume?: boolean;
+  jobLanguages?: string[];  // ISO 639-1 codes for acceptable job description languages
 }
 
 const DEFAULT_CONFIG: EasyApplierConfig = {
@@ -88,6 +92,19 @@ export class EasyApplier {
       // Extract job description for tailoring
       const jobDescription = await this.getJobDescription();
       if (jobDescription) job.description = jobDescription;
+
+      // Check language if configured
+      if (this.config.jobLanguages && this.config.jobLanguages.length > 0 && jobDescription) {
+        const langResult = detectLanguage(jobDescription);
+        if (langResult.code && !isLanguageAccepted(langResult.code, this.config.jobLanguages)) {
+          const langName = getLanguageName(langResult.code);
+          log.info(`⏭️ Skipping - job is in ${langName} (detected: ${langResult.code}, confidence: ${langResult.confidence.toFixed(2)})`);
+          result.languageSkipped = true;
+          result.detectedLanguage = langResult.code;
+          result.error = `Job description in ${langName}, not in accepted languages`;
+          return result;
+        }
+      }
 
       // Start resume tailoring in background (if enabled)
       await this.startResumeTailoring(job, jobDescription);

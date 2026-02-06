@@ -92,6 +92,37 @@ const providers: ProviderConfig[] = [
 const POPUP_WIDTH = 500;
 const POPUP_HEIGHT = 600;
 
+/** Storage key for referral code */
+const REFERRAL_STORAGE_KEY = 'jobelix_referral_code';
+
+/**
+ * Apply a referral code after successful OAuth signup
+ */
+async function applyStoredReferralCode(): Promise<void> {
+  const storedCode = localStorage.getItem(REFERRAL_STORAGE_KEY);
+  if (!storedCode) return;
+  
+  try {
+    const response = await fetch('/api/student/referral/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: storedCode }),
+    });
+    
+    if (response.ok) {
+      console.log('[OAuth] Referral code applied successfully');
+    } else {
+      const data = await response.json();
+      console.warn('[OAuth] Failed to apply referral code:', data.error);
+    }
+  } catch (err) {
+    console.error('[OAuth] Error applying referral code:', err);
+  } finally {
+    // Clear stored code regardless of result
+    localStorage.removeItem(REFERRAL_STORAGE_KEY);
+  }
+}
+
 /**
  * Opens a centered popup window for OAuth
  */
@@ -204,6 +235,9 @@ export default function SocialLoginButtons({
         if (popup && !popup.closed) {
           popup.close();
         }
+        
+        // Apply referral code if one was stored (for signups)
+        await applyStoredReferralCode();
         
         // Save auth cache for Electron auto-login
         await saveAuthCacheIfElectron(session);

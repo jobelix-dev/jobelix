@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
 };
 
-type SearchParams = Promise<{ role?: string } | undefined>;
+type SearchParams = Promise<{ role?: string; ref?: string } | undefined>;
 
 export default async function SignupPage({
   searchParams,
@@ -45,6 +45,8 @@ export default async function SignupPage({
   // Default to student/talent if role is missing/invalid
   const dbRole = (params?.role === "company" || params?.role === "employer") ? "company" : "student";
   const displayRole = dbRole === 'student' ? 'talent' : 'employer';
+  // Extract referral code from URL
+  const referralCode = params?.ref || null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -60,7 +62,7 @@ export default async function SignupPage({
               : 'Create your account to post positions and discover exceptional talent.'}
           </p>
 
-          <SignupForm role={dbRole} />
+          <SignupForm role={dbRole} referralCode={referralCode} />
 
           <div className="mt-6 text-center text-sm text-muted">
             Already have an account?{' '}

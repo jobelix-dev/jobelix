@@ -29,18 +29,25 @@ export function getHCaptchaSiteKey(): string {
 }
 
 /**
- * Checks if HCaptcha is properly configured.
- * Returns false in development mode to skip captcha for local testing.
+ * Checks if HCaptcha is properly configured and should be shown.
  * 
- * SECURITY: This only affects the client-side rendering of the captcha widget.
- * The server-side validation is handled by Supabase based on their dashboard config.
- * In production, Supabase will require captcha if configured there.
+ * Use NEXT_PUBLIC_SKIP_CAPTCHA=true to skip captcha in local dev
+ * when testing against a production Supabase that has captcha enabled.
+ * 
+ * IMPORTANT: When connecting to production Supabase with captcha enabled,
+ * you MUST either:
+ *   1. Show captcha (don't set SKIP_CAPTCHA), or
+ *   2. Disable captcha in Supabase dashboard temporarily
+ * 
+ * Otherwise logins will fail with 401 because Supabase requires the captcha token.
  */
 export function isHCaptchaConfigured(): boolean {
-  // Skip captcha in development for easier local testing
-  if (isDevelopment()) {
+  // Explicit skip via env var (for local dev against prod Supabase with captcha disabled)
+  if (process.env.NEXT_PUBLIC_SKIP_CAPTCHA === 'true') {
     return false;
   }
+  
+  // Show captcha if site key is configured
   return Boolean(process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY);
 }
 

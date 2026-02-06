@@ -121,6 +121,7 @@
     "dotenv": "^17.2.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.7.3",
+    "franc-min": "^6.2.0",
     "js-yaml": "^4.1.1",
     "libphonenumber-js": "^1.12.36",
     "playwright-core": "^1.58.0",
