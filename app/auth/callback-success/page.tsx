@@ -2,38 +2,52 @@
  * OAuth Popup Success Page
  * 
  * This page is shown after successful OAuth authentication in a popup.
- * It displays a success message and closes itself automatically.
- * The parent window detects the session via Supabase auth state change.
+ * It communicates success back to the parent window and closes itself.
+ * 
+ * Flow:
+ * 1. OAuth completes, callback sets session cookies
+ * 2. Callback redirects here with success or error
+ * 3. This page sends a postMessage to parent window
+ * 4. Parent receives message and refreshes to pick up session
+ * 5. This popup closes
  * 
  * Route: /auth/callback-success
  */
 
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 function CallbackSuccessContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
-  const [countdown, setCountdown] = useState(2);
 
   useEffect(() => {
-    if (error) return; // Don't auto-close on error
+    // Send message to parent window about auth result
+    if (window.opener) {
+      try {
+        const message = error 
+          ? { type: 'oauth-error', error: decodeURIComponent(error) }
+          : { type: 'oauth-success' };
+        
+        // Post to parent - use '*' since we might be on different origins
+        window.opener.postMessage(message, '*');
+        console.log('[CallbackSuccess] Sent message to parent:', message);
+      } catch (err) {
+        console.error('[CallbackSuccess] Failed to send message to parent:', err);
+      }
+    } else {
+      console.log('[CallbackSuccess] No opener window found');
+    }
 
-    // Countdown timer
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          window.close();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
+    // Auto-close after a short delay (give parent time to process)
+    if (!error) {
+      const closeTimer = setTimeout(() => {
+        window.close();
+      }, 1500);
+      return () => clearTimeout(closeTimer);
+    }
   }, [error]);
 
   if (error) {
@@ -71,7 +85,7 @@ function CallbackSuccessContent() {
         Sign in successful!
       </h1>
       <p className="text-sm text-muted">
-        This window will close shortly...
+        Closing...
       </p>
       <div className="mt-4 flex justify-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
