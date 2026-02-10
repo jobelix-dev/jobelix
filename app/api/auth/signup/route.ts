@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(validation.error, { status: validation.error.status })
     }
 
-    const { email, password, role, captchaToken } = validation.data
+    const { email, password, role, captchaToken, referralCode } = validation.data
 
     // Normalize email for consistent handling
     const normalizedEmail = email.toLowerCase().trim()
@@ -147,12 +147,16 @@ export async function POST(request: NextRequest) {
     // Use the regular signUp method from service role context
     // This creates the user AND sends the confirmation email in one call
     // The captchaToken is validated by Supabase's backend
+    // We store the referral code in user_metadata so it survives cross-browser email confirmation
     const { data, error } = await supabaseAdmin.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
         data: {
           role,
+          // Store referral code in metadata - will be applied on email confirmation
+          // This ensures the referral works even if user confirms in a different browser
+          ...(referralCode ? { referral_code: referralCode } : {}),
         },
         emailRedirectTo: redirectTo,
         captchaToken: captchaToken ?? undefined,

@@ -1,34 +1,129 @@
 /**
  * Auth Callback Route Handler
  * 
- * Handles two authentication flows from Supabase:
+ * Handles authentication flows from Supabase and applies referral codes.
  * 
- * 1. TOKEN-BASED FLOW (Password Reset Emails):
- *    - Supabase sends: /auth/callback?token=xxx&type=recovery&redirect_to=...
- *    - Or newer: /auth/callback?token_hash=xxx&type=recovery
- *    - We verify with: supabase.auth.verifyOtp({ token_hash, type: 'recovery' })
+ * Authentication Flows:
  * 
- * 2. CODE-BASED PKCE FLOW (OAuth, Email Confirmation):
+ * 1. TOKEN-BASED FLOW (Password Reset, Email Confirmation):
+ *    - Supabase sends: /auth/callback?token_hash=xxx&type=recovery|signup
+ *    - We verify with: supabase.auth.verifyOtp({ token_hash, type })
+ * 
+ * 2. CODE-BASED PKCE FLOW (OAuth):
  *    - Supabase sends: /auth/callback?code=xxx
  *    - We exchange with: supabase.auth.exchangeCodeForSession(code)
- *    - For OAuth signups: automatically creates a student profile
  * 
- * WHY BOTH FLOWS?
- * When using resetPasswordForEmail() with service role key (server-side),
- * Supabase uses the token-based flow (not PKCE). This is actually MORE secure
- * for cross-browser scenarios (user requests reset in Electron, clicks in Chrome)
- * because there's no PKCE code_verifier that needs to match.
+ * Referral Code Handling:
+ * - Referral code can come from:
+ *   1. URL parameter: ?referral_code=XXX (passed through OAuth redirect)
+ *   2. Cookie: jobelix_referral (set when user lands on /signup?ref=XXX)
+ * - Code is applied server-side after successful authentication
+ * - This ensures referrals work across platforms (browser -> Electron)
  * 
- * SECURITY:
- * - verifyOtp() validates token server-side with Supabase
- * - Token is single-use and expires after otp_expiry (1 hour)
- * - Session is created and stored in HTTP-only cookies
+ * For OAuth Signups:
+ * - Automatically creates a student profile if user doesn't have one
+ * - Saves GitHub OAuth connection for profile import
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
 import type { EmailOtpType, User } from '@supabase/supabase-js'
+import { 
+  validateReferralCode, 
+  REFERRAL_COOKIE_NAME,
+  extractReferralCodeFromUrl 
+} from '@/lib/shared/referral'
+
+/**
+ * Apply a referral code for a newly authenticated user.
+ * This is called server-side to ensure reliability.
+ * 
+ * @param userId - The user's ID
+ * @param referralCode - The referral code to apply
+ * @returns true if applied successfully, false otherwise
+ */
+async function applyReferralCodeServerSide(userId: string, referralCode: string): Promise<boolean> {
+  const supabaseAdmin = getServiceSupabase()
+  
+  console.log('[Callback] Applying referral code server-side:', referralCode, 'for user:', userId)
+  
+  try {
+    const { data: result, error } = await supabaseAdmin
+      .rpc('apply_referral_code', { p_code: referralCode })
+    
+    if (error) {
+      console.error('[Callback] Failed to apply referral code (RPC error):', error)
+      return false
+    }
+    
+    const row = result?.[0]
+    if (!row?.success) {
+      // This is expected for existing users, users who already used a code, etc.
+      console.log('[Callback] Referral code not applied:', row?.error_message)
+      return false
+    }
+    
+    console.log('[Callback] Referral code applied successfully')
+    return true
+  } catch (error) {
+    console.error('[Callback] Error applying referral code:', error)
+    return false
+  }
+}
+
+/**
+ * Get referral code from URL params, cookie, or user metadata.
+ * Priority: URL > Cookie > User metadata
+ * 
+ * URL param is most reliable for OAuth (passed through redirect)
+ * Cookie works for same-browser email confirmation
+ * User metadata works for cross-browser email confirmation
+ */
+function getReferralCodeFromRequest(
+  request: NextRequest, 
+  url: URL, 
+  user?: User | null
+): string | null {
+  // Try URL parameter first (passed through OAuth redirect)
+  const fromUrl = extractReferralCodeFromUrl(url.searchParams)
+  if (fromUrl) {
+    console.log('[Callback] Found referral code in URL:', fromUrl)
+    return fromUrl
+  }
+  
+  // Fall back to cookie (set when user landed on signup page)
+  const fromCookie = request.cookies.get(REFERRAL_COOKIE_NAME)?.value
+  const validatedCookie = validateReferralCode(fromCookie)
+  if (validatedCookie) {
+    console.log('[Callback] Found referral code in cookie:', validatedCookie)
+    return validatedCookie
+  }
+  
+  // Fall back to user metadata (stored during signup for cross-browser support)
+  if (user?.user_metadata?.referral_code) {
+    const fromMetadata = validateReferralCode(user.user_metadata.referral_code)
+    if (fromMetadata) {
+      console.log('[Callback] Found referral code in user metadata:', fromMetadata)
+      return fromMetadata
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Create a response that clears the referral cookie.
+ */
+function clearReferralCookie(response: NextResponse): NextResponse {
+  response.cookies.set(REFERRAL_COOKIE_NAME, '', {
+    path: '/',
+    expires: new Date(0), // Expire immediately
+    httpOnly: false,
+    sameSite: 'lax',
+  })
+  return response
+}
 
 /**
  * Ensure OAuth user has a student profile.
@@ -97,20 +192,16 @@ async function ensureStudentProfile(userId: string, email: string): Promise<void
 /**
  * Save GitHub OAuth connection for users who signed in via GitHub.
  * This allows them to use GitHub profile import without reconnecting.
- * 
- * Supabase provides the GitHub access token in the user's identities array.
  */
 async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
   // Check if user signed in via GitHub
   const githubIdentity = user.identities?.find(id => id.provider === 'github')
   
   if (!githubIdentity) {
-    console.log('[Callback] Not a GitHub OAuth login, skipping connection save')
     return
   }
   
   // Get the provider token from user metadata
-  // Supabase stores OAuth provider data in app_metadata and identity_data
   const providerToken = user.user_metadata?.provider_token
   const githubUsername = githubIdentity.identity_data?.user_name || 
                          githubIdentity.identity_data?.preferred_username ||
@@ -119,12 +210,11 @@ async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
   const githubAvatarUrl = githubIdentity.identity_data?.avatar_url || user.user_metadata?.avatar_url
   
   if (!providerToken) {
-    console.log('[Callback] No GitHub provider token available, cannot save connection')
-    console.log('[Callback] user_metadata:', JSON.stringify(user.user_metadata, null, 2))
+    console.log('[Callback] No GitHub provider token available')
     return
   }
   
-  console.log('[Callback] Saving GitHub OAuth connection for user:', user.email, 'github:', githubUsername)
+  console.log('[Callback] Saving GitHub OAuth connection for user:', user.email)
   
   const supabaseAdmin = getServiceSupabase()
   
@@ -138,13 +228,12 @@ async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
   
   if (existingConnection) {
     // Update existing connection with new token
-    console.log('[Callback] Updating existing GitHub connection')
-    const { error: updateError } = await supabaseAdmin
+    await supabaseAdmin
       .from('oauth_connections')
       .update({
         access_token: providerToken,
         token_type: 'bearer',
-        scope: 'read:user', // Supabase default scope
+        scope: 'read:user',
         metadata: {
           username: githubUsername,
           name: githubName,
@@ -155,22 +244,18 @@ async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
         connected_at: new Date().toISOString()
       })
       .eq('id', existingConnection.id)
-    
-    if (updateError) {
-      console.error('[Callback] Failed to update GitHub connection:', updateError)
-    }
     return
   }
   
   // Create new connection
-  const { error: insertError } = await supabaseAdmin
+  await supabaseAdmin
     .from('oauth_connections')
     .insert({
       user_id: user.id,
       provider: 'github',
       access_token: providerToken,
       token_type: 'bearer',
-      scope: 'read:user', // Supabase default scope
+      scope: 'read:user',
       metadata: {
         username: githubUsername,
         name: githubName,
@@ -181,11 +266,31 @@ async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
       connected_at: new Date().toISOString()
     })
   
-  if (insertError) {
-    console.error('[Callback] Failed to save GitHub connection:', insertError)
-  } else {
-    console.log('[Callback] GitHub OAuth connection saved successfully')
+  console.log('[Callback] GitHub OAuth connection saved')
+}
+
+/**
+ * Process post-authentication tasks:
+ * 1. Ensure user has a profile
+ * 2. Apply referral code if present
+ * 3. Save GitHub connection if applicable
+ */
+async function processPostAuth(
+  user: User, 
+  referralCode: string | null
+): Promise<void> {
+  // Ensure user has a student profile (for OAuth signups)
+  if (user.email) {
+    await ensureStudentProfile(user.id, user.email)
   }
+  
+  // Apply referral code if present
+  if (referralCode) {
+    await applyReferralCodeServerSide(user.id, referralCode)
+  }
+  
+  // Save GitHub connection for profile import
+  await saveGitHubConnectionFromOAuth(user)
 }
 
 export async function GET(request: NextRequest) {
@@ -200,37 +305,36 @@ export async function GET(request: NextRequest) {
   const isPopup = requestUrl.searchParams.get('popup') === 'true'
 
   console.log('[Callback] ===== STARTING CALLBACK PROCESS =====')
-  console.log('[Callback] Full URL:', requestUrl.toString())
   console.log('[Callback] Code present:', !!code)
-  console.log('[Callback] Token present:', !!token)
-  console.log('[Callback] Token hash present:', !!token_hash)
+  console.log('[Callback] Token present:', !!token || !!token_hash)
   console.log('[Callback] Type:', type)
-  console.log('[Callback] Next URL:', next)
   console.log('[Callback] Is Popup:', isPopup)
-  console.log('[Callback] Origin:', requestUrl.origin)
-  console.log('[Callback] Host:', request.headers.get('host'))
 
   // Helper to redirect appropriately based on popup mode
+  // Also clears the referral cookie after processing
   const redirectTo = (path: string) => {
+    let response: NextResponse
+    
     if (isPopup) {
       // For popups, redirect to a page that closes the popup
       const popupUrl = new URL('/auth/callback-success', requestUrl.origin)
       if (path.includes('error=')) {
-        // Pass error to popup
         popupUrl.searchParams.set('error', new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error')
       }
-      return NextResponse.redirect(popupUrl)
+      response = NextResponse.redirect(popupUrl)
+    } else {
+      response = NextResponse.redirect(new URL(path, requestUrl.origin))
     }
-    return NextResponse.redirect(new URL(path, requestUrl.origin))
+    
+    // Clear the referral cookie after processing
+    return clearReferralCookie(response)
   }
 
-  // WORKAROUND: If we're on the wrong domain (www.jobelix.fr instead of preview URL),
-  // redirect to the correct preview URL
+  // WORKAROUND: If we're on the wrong domain, redirect to the correct one
   const currentHost = request.headers.get('host')
   const isWrongDomain = currentHost === 'www.jobelix.fr' || currentHost?.includes('jobelix.fr')
   
   if (isWrongDomain) {
-    // Determine the correct preview URL from environment or headers
     let correctUrl = process.env.NEXT_PUBLIC_APP_URL
     
     if (!correctUrl) {
@@ -243,7 +347,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (correctUrl && correctUrl !== requestUrl.origin) {
-      console.log('[Callback] Wrong domain detected! Redirecting from', requestUrl.origin, 'to', correctUrl)
+      console.log('[Callback] Wrong domain detected! Redirecting to', correctUrl)
       const correctCallbackUrl = new URL(requestUrl.pathname + requestUrl.search, correctUrl)
       return NextResponse.redirect(correctCallbackUrl)
     }
@@ -252,14 +356,12 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
 
   // ===========================================
-  // FLOW 1: Token-based flow (Password Reset)
+  // FLOW 1: Token-based flow (Password Reset, Email Confirmation)
   // ===========================================
-  // Supabase password reset emails use token/token_hash with type=recovery
   const effectiveToken = token_hash || token
   if (effectiveToken && type) {
     console.log('[Callback] Using token-based flow for type:', type)
     
-    // Validate that type is a valid recovery/verification type
     const validTypes: EmailOtpType[] = ['recovery', 'email', 'signup', 'invite', 'magiclink', 'email_change']
     if (!validTypes.includes(type)) {
       console.error('[Callback] Invalid OTP type:', type)
@@ -271,13 +373,9 @@ export async function GET(request: NextRequest) {
       type: type,
     })
     
-    console.log('[Callback] verifyOtp result - session exists:', !!data?.session)
-    console.log('[Callback] verifyOtp result - user exists:', !!data?.user)
-    
     if (error) {
-      console.error('[Callback] verifyOtp error:', error.message, error.code)
+      console.error('[Callback] verifyOtp error:', error.message)
       
-      // User-friendly error messages
       if (error.message?.includes('expired') || error.code === 'otp_expired') {
         return NextResponse.redirect(
           new URL(`/login?error=This+link+has+expired.+Please+request+a+new+one.`, requestUrl.origin)
@@ -300,78 +398,59 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/login?error=Authentication+failed`, requestUrl.origin))
     }
     
-    console.log('[Callback] Token verified successfully for user:', data.user.email)
-    console.log('[Callback] Redirecting to:', next)
-    return NextResponse.redirect(new URL(next, requestUrl.origin))
+    console.log('[Callback] Token verified for user:', data.user.email)
+    
+    // Get referral code from URL, cookie, or user metadata (for cross-browser email confirmation)
+    const referralCode = getReferralCodeFromRequest(request, requestUrl, data.user)
+    console.log('[Callback] Referral code:', referralCode || '(none)')
+    
+    // Process post-auth tasks (profile creation, referral application)
+    // This is important for email confirmation flow - the user is now authenticated
+    await processPostAuth(data.user, referralCode)
+    
+    return redirectTo(next)
   }
 
   // ===========================================
-  // FLOW 2: Code-based PKCE flow (OAuth, etc.)
+  // FLOW 2: Code-based PKCE flow (OAuth)
   // ===========================================
   if (code) {
     console.log('[Callback] Using code-based PKCE flow')
-    console.log('[Callback] Code value:', code.substring(0, 10) + '...')
     
-    console.log('[Callback] Exchanging code for session...')
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-    
-    console.log('[Callback] Exchange result - data.session exists:', !!data?.session)
-    console.log('[Callback] Exchange result - data.user exists:', !!data?.user)
-    console.log('[Callback] Exchange error:', error)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (error) {
-      console.error('[Callback] Error exchanging code for session:', error)
-      // Check for expired/invalid code errors
+      console.error('[Callback] Error exchanging code:', error)
       if (error.message?.includes('expired') || error.message?.includes('invalid') || error.code === 'invalid_grant') {
-        console.log('[Callback] Redirecting to login due to expired/invalid code')
         return redirectTo(`/login?error=This+link+has+expired.+Please+request+a+new+one.`)
       }
-      console.log('[Callback] Redirecting to login due to other error')
       return redirectTo(`/login?error=${encodeURIComponent(error.message)}`)
     }
 
-    console.log('[Callback] Session exchange successful, checking user...')
-    
-    // Verify the session was created
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log('[Callback] User after exchange:', user ? { id: user.id, email: user.email, email_confirmed_at: user.email_confirmed_at } : 'null')
-    
-    // Get session information separately
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    console.log('[Callback] Session after exchange:', session ? { access_token: session.access_token ? 'present' : 'missing', refresh_token: session.refresh_token ? 'present' : 'missing' } : 'null')
-    console.log('[Callback] Session error:', sessionError)
-    
-    console.log('[Callback] User error:', userError)
+    // Verify the session was created by getting the user
+    const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
-      console.error('[Callback] No user found after successful exchange!')
+      console.error('[Callback] No user found after exchange')
       return redirectTo(`/login?error=Authentication+failed`)
     }
     
-    if (!user.email_confirmed_at) {
-      console.log('[Callback] User email not confirmed yet, but exchange succeeded')
-    } else {
-      console.log('[Callback] User email confirmed at:', user.email_confirmed_at)
-    }
+    console.log('[Callback] Session created for user:', user.email)
     
-    // For OAuth signups, ensure the user has a student profile
-    // This handles new OAuth users who don't have a role in metadata
-    if (user.email) {
-      await ensureStudentProfile(user.id, user.email)
-    }
+    // Get referral code from URL, cookie, or user metadata
+    const referralCode = getReferralCodeFromRequest(request, requestUrl, user)
+    console.log('[Callback] Referral code:', referralCode || '(none)')
     
-    // For GitHub OAuth, save the connection for profile import
-    // This allows users to immediately sync their GitHub repos/projects
-    await saveGitHubConnectionFromOAuth(user)
+    // Process post-auth tasks (profile creation, referral application, GitHub connection)
+    await processPostAuth(user, referralCode)
     
-    console.log('[Callback] Redirecting to:', isPopup ? '/auth/callback-success' : next)
     return redirectTo(next)
   }
   
   // ===========================================
   // NO VALID AUTH PARAMETERS
   // ===========================================
-  console.log('[Callback] No valid auth parameters (code, token, or token_hash)')
+  console.log('[Callback] No valid auth parameters')
   return redirectTo(`/login?error=Invalid+or+expired+link`)
 }
 

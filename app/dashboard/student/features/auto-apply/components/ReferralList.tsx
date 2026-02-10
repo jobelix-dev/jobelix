@@ -1,5 +1,10 @@
 /**
  * ReferralList - Shows who the user has referred with status
+ * 
+ * Clean, theme-respecting list with:
+ * - Avatar placeholder with user icon
+ * - Name and join date
+ * - Status badge (completed with credits or pending)
  */
 
 'use client';
@@ -33,7 +38,7 @@ export default function ReferralList({ referrals }: ReferralListProps) {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pt-2">
       <p className="text-xs text-muted font-medium uppercase tracking-wide">
         Your Referrals
       </p>
@@ -42,12 +47,12 @@ export default function ReferralList({ referrals }: ReferralListProps) {
         {visibleReferrals.map((referral) => (
           <div 
             key={referral.id}
-            className="flex items-center justify-between p-2 bg-surface rounded-lg"
+            className="flex items-center justify-between p-2.5 bg-surface rounded-lg border border-border/50"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {/* Avatar placeholder */}
-              <div className="w-7 h-7 rounded-full bg-primary-subtle/30 flex items-center justify-center flex-shrink-0">
-                <User className="w-3.5 h-3.5 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-primary-subtle flex items-center justify-center flex-shrink-0">
+                <User className="w-4 h-4 text-primary" />
               </div>
               
               {/* Name and date */}
@@ -63,14 +68,14 @@ export default function ReferralList({ referrals }: ReferralListProps) {
 
             {/* Status badge */}
             {referral.status === 'completed' ? (
-              <div className="flex items-center gap-1 text-success">
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">+{referral.creditsEarned}</span>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success-subtle">
+                <CheckCircle className="w-3.5 h-3.5 text-success" />
+                <span className="text-xs font-medium text-success">+{referral.creditsEarned}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-warning">
-                <Clock className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Pending</span>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-warning-subtle">
+                <Clock className="w-3.5 h-3.5 text-warning" />
+                <span className="text-xs font-medium text-warning">Pending</span>
               </div>
             )}
           </div>
@@ -81,7 +86,7 @@ export default function ReferralList({ referrals }: ReferralListProps) {
       {hasMore && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-xs text-primary hover:text-primary-hover transition-colors w-full justify-center py-1"
+          className="flex items-center gap-1 text-xs text-muted hover:text-default transition-colors w-full justify-center py-1.5"
         >
           {expanded ? (
             <>

@@ -140,6 +140,30 @@ function validateAddress(value: string | null | undefined): string | null {
 }
 
 /**
+ * Validates full name (must contain both first and last name)
+ */
+function validateFullName(value: string | null | undefined): string | null {
+  if (!value?.trim()) return 'Full name is required'
+  
+  const trimmed = value.trim()
+  
+  // Check for at least two words (first name + last name)
+  const words = trimmed.split(/\s+/).filter(word => word.length > 0)
+  if (words.length < 2) {
+    return 'Please enter both first and last name'
+  }
+  
+  // Validate each part has reasonable length
+  if (words.some(word => word.length < 1)) {
+    return 'Name parts cannot be empty'
+  }
+  
+  if (trimmed.length > 100) return 'Full name too long'
+  
+  return null
+}
+
+/**
  * Validates text field (name, school, position, etc.)
  */
 function validateTextField(value: string | null | undefined, fieldName: string): string | null {
@@ -289,7 +313,7 @@ export function validateProfile(data: ExtractedResumeData): ProfileValidationRes
   }
   
   // Validate basic contact info
-  const nameError = validateTextField(data.student_name, 'Student name')
+  const nameError = validateFullName(data.student_name)
   if (nameError) {
     errors.push(nameError)
     fieldErrors.student_name = nameError
