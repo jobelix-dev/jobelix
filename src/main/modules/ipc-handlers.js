@@ -124,7 +124,7 @@ export function setupIpcHandlers() {
     try {
       const launcher = await getBotLauncher();
       return { success: true, ...launcher.getBotStatus() };
-    } catch (err) {
+    } catch (_err) {
       return { success: false, running: false, pid: null, startedAt: null };
     }
   });

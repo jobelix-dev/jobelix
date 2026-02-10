@@ -84,7 +84,7 @@ function CallbackSuccessContent() {
       <h1 className="text-xl font-semibold text-default mb-2">
         Sign in successful!
       </h1>
-      <p className="text-sm text-muted">
+      <p className="text-sm text-muted" suppressHydrationWarning>
         Closing...
       </p>
       <div className="mt-4 flex justify-center">

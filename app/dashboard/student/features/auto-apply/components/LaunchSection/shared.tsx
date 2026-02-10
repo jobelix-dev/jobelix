@@ -208,22 +208,104 @@ export function SetupMessageBanner({ message, stage }: { message?: string; stage
 
 export function ActivityBanner({
   message,
+  activity,
   company,
   jobTitle,
+  step,
+  totalSteps,
+  language,
+  reason,
+  searchQuery,
+  jobsFound,
 }: {
   message: string;
+  activity?: string;
   company?: string;
   jobTitle?: string;
+  step?: number;
+  totalSteps?: number;
+  language?: string;
+  reason?: string;
+  searchQuery?: string;
+  jobsFound?: number;
 }) {
+  // Determine variant based on activity type
+  const isSuccess = activity === 'application_submitted';
+  const isWarning = activity === 'skipping_job';
+  const isError = activity === 'application_failed';
+  
+  // Determine banner color
+  const bannerClasses = isSuccess
+    ? 'bg-success-subtle/15 border-success/20'
+    : isWarning
+    ? 'bg-warning-subtle/15 border-warning/20'
+    : isError
+    ? 'bg-error-subtle/15 border-error/20'
+    : 'bg-primary-subtle/15 border-primary/20';
+  
+  const dotColor = isSuccess
+    ? 'bg-success'
+    : isWarning
+    ? 'bg-warning'
+    : isError
+    ? 'bg-error'
+    : 'bg-primary';
+
   return (
-    <div className="p-3 bg-primary-subtle/15 border border-primary/20 rounded-lg">
+    <div className={`p-3 border rounded-lg ${bannerClasses}`}>
+      {/* Main activity message */}
       <div className="flex items-center gap-3">
-        <div className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0" />
-        <span className="text-sm text-default">
-          {message}
-          {company && <span className="font-medium"> - {company}</span>}
-          {jobTitle && <span className="text-muted"> - {jobTitle}</span>}
-        </span>
+        <div className={`w-2 h-2 ${dotColor} rounded-full animate-pulse flex-shrink-0`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-default truncate">
+              {message}
+            </span>
+            {/* Step indicator for form filling */}
+            {step !== undefined && totalSteps !== undefined && (
+              <span className="text-xs text-muted flex-shrink-0">
+                Step {step} of {totalSteps}
+              </span>
+            )}
+            {/* Jobs found count */}
+            {jobsFound !== undefined && activity === 'jobs_found' && (
+              <span className="text-xs text-muted flex-shrink-0">
+                {jobsFound} jobs
+              </span>
+            )}
+          </div>
+          
+          {/* Job context line */}
+          {(company || jobTitle) && (
+            <div className="text-sm text-muted truncate mt-0.5">
+              {company && <span className="font-medium">{company}</span>}
+              {company && jobTitle && <span> - </span>}
+              {jobTitle && <span>{jobTitle}</span>}
+            </div>
+          )}
+          
+          {/* Search query line */}
+          {searchQuery && activity === 'searching_jobs' && (
+            <div className="text-xs text-muted mt-0.5">
+              {searchQuery}
+            </div>
+          )}
+          
+          {/* Language indicator */}
+          {language && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-xs text-muted">Language:</span>
+              <span className="text-xs font-medium text-default">{language}</span>
+            </div>
+          )}
+          
+          {/* Reason for skip/failure */}
+          {reason && (isWarning || isError) && (
+            <div className={`text-xs mt-1 ${isError ? 'text-error' : 'text-warning'}`}>
+              {reason}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

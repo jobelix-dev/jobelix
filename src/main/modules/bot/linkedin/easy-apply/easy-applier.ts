@@ -84,43 +84,73 @@ export class EasyApplier {
     };
 
     log.info(`🎯 Starting Easy Apply: "${job.title}" at ${job.company}`);
+    const jobContext = { company: job.company, job_title: job.title };
 
     try {
       // Navigate to job page
+      this.reporter?.sendHeartbeat('navigating_to_job', jobContext);
       await this.navigateToJob(job);
 
       // Extract job description for tailoring
+      this.reporter?.sendHeartbeat('extracting_description', jobContext);
       const jobDescription = await this.getJobDescription();
       if (jobDescription) job.description = jobDescription;
 
-      // Check language if configured
-      if (this.config.jobLanguages && this.config.jobLanguages.length > 0 && jobDescription) {
+      // Detect and store job language
+      if (jobDescription) {
+        this.reporter?.sendHeartbeat('detecting_language', jobContext);
+        log.debug(`🔍 Running language detection on ${jobDescription.length} chars...`);
         const langResult = detectLanguage(jobDescription);
-        if (langResult.code && !isLanguageAccepted(langResult.code, this.config.jobLanguages)) {
-          const langName = getLanguageName(langResult.code);
-          log.info(`⏭️ Skipping - job is in ${langName} (detected: ${langResult.code}, confidence: ${langResult.confidence.toFixed(2)})`);
-          result.languageSkipped = true;
+        log.debug(`🔍 Language detection result: code=${langResult.code}, rawCode=${langResult.rawCode}, confidence=${langResult.confidence.toFixed(2)}, reason=${langResult.reason || 'none'}`);
+        if (langResult.code) {
+          // Always store detected language on job object for form answers and resume generation
+          job.detectedLanguage = langResult.code;
           result.detectedLanguage = langResult.code;
-          result.error = `Job description in ${langName}, not in accepted languages`;
-          return result;
+          const langName = getLanguageName(langResult.code);
+          log.info(`🌐 Detected job language: ${langName} (${langResult.code}, confidence: ${langResult.confidence.toFixed(2)})`);
+          
+          // Notify UI of detected language
+          this.reporter?.sendHeartbeat('detecting_language', { 
+            ...jobContext, 
+            language: langResult.code, 
+            language_name: langName 
+          });
+
+          // Check if language is accepted (if language filter is configured)
+          if (this.config.jobLanguages && this.config.jobLanguages.length > 0) {
+            if (!isLanguageAccepted(langResult.code, this.config.jobLanguages)) {
+              log.info(`⏭️ Skipping - job is in ${langName}, not in accepted languages`);
+              this.reporter?.sendHeartbeat('skipping_job', { 
+                ...jobContext, 
+                reason: `Job in ${langName}, not in accepted languages` 
+              });
+              result.languageSkipped = true;
+              result.error = `Job description in ${langName}, not in accepted languages`;
+              return result;
+            }
+          }
         }
       }
 
       // Start resume tailoring in background (if enabled)
+      this.reporter?.sendHeartbeat('tailoring_resume', jobContext);
       await this.startResumeTailoring(job, jobDescription);
 
       // Open the Easy Apply modal
+      this.reporter?.sendHeartbeat('opening_application', jobContext);
       const modalResult = await this.openEasyApplyModal();
       if (modalResult === 'already_applied') {
         result.alreadyApplied = true;
         result.error = 'Already applied to this job';
         log.info('⏭️ Skipping - already applied');
+        this.reporter?.sendHeartbeat('skipping_job', { ...jobContext, reason: 'Already applied' });
         return result;
       }
       if (modalResult === 'failed') {
         result.error = 'Could not open Easy Apply modal';
         await this.cleanupFailure();
         // Update stats: application failed (modal issue)
+        this.reporter?.sendHeartbeat('application_failed', { ...jobContext, reason: 'Could not open application form' });
         this.reporter?.incrementJobsFailed();
         return result;
       }
@@ -129,11 +159,13 @@ export class EasyApplier {
       await this.setJobContext(job);
 
       // Process all pages until submission
-      const processResult = await this.processAllPages(result);
+      this.reporter?.sendHeartbeat('filling_form', { ...jobContext, step: 1 });
+      const processResult = await this.processAllPages(result, jobContext);
       if (!processResult.success) {
         result.error = processResult.error;
         await this.cleanupFailure();
         // Update stats: application failed during form processing
+        this.reporter?.sendHeartbeat('application_failed', { ...jobContext, reason: processResult.error });
         this.reporter?.incrementJobsFailed();
         return result;
       }
@@ -147,6 +179,7 @@ export class EasyApplier {
       if (result.success) {
         log.info(`✅ Successfully applied to "${job.title}" at ${job.company}`);
         // Update stats: application succeeded
+        this.reporter?.sendHeartbeat('application_submitted', jobContext);
         this.reporter?.incrementJobsApplied();
       }
 
@@ -156,6 +189,7 @@ export class EasyApplier {
       await this.saveHtml('apply_error', result.jobTitle);
       await this.cleanupFailure();
       // Update stats: application failed due to exception
+      this.reporter?.sendHeartbeat('application_failed', { ...jobContext, reason: String(error) });
       this.reporter?.incrementJobsFailed();
     }
 
@@ -316,13 +350,19 @@ export class EasyApplier {
   /**
    * Process all pages until submission
    */
-  private async processAllPages(result: EasyApplyResult): Promise<{ success: boolean; error?: string }> {
+  private async processAllPages(
+    result: EasyApplyResult, 
+    jobContext: { company: string; job_title: string }
+  ): Promise<{ success: boolean; error?: string }> {
     let retries = 0;
     this.formHandler.setRetryMode(false);
 
     for (let step = 1; step <= this.config.maxPages; step++) {
       log.info(`========== EASY-APPLY Step ${step} ==========`);
       await this.saveHtml(`step_${step}_start`);
+
+      // Send step update to UI
+      this.reporter?.sendHeartbeat('filling_form', { ...jobContext, step, total_steps: this.config.maxPages });
 
       if (!await this.navHandler.isModalOpen()) {
         log.info('Modal closed - application complete');
@@ -337,6 +377,7 @@ export class EasyApplier {
       await this.saveHtml(`step_${step}_after_fill`);
 
       // Click primary button
+      this.reporter?.sendHeartbeat('submitting_application', jobContext);
       const navResult = await this.navHandler.clickPrimaryButton();
       
       if (!navResult.success) {
@@ -459,6 +500,7 @@ export class EasyApplier {
         jobTitle: job.title,
         tailoredConfigYaml,
         page: this.page,
+        language: job.detectedLanguage,
       });
 
       log.info(`✅ Tailored resume: ${result.pdfPath}`);

@@ -12,6 +12,7 @@ import type { Page } from 'playwright-core';
 import { createLogger } from '../utils/logger';
 import { getTailoredResumesPath } from '../utils/paths';
 import { RESUME_CSS } from './resume-styles';
+import { getResumeSectionLabels } from '../utils/language-labels';
 
 const log = createLogger('ResumeGenerator');
 
@@ -105,6 +106,8 @@ export interface ResumeGenerationOptions {
   outputDir?: string;
   scoresJson?: string;
   page?: Page; // Playwright page for PDF generation
+  /** Target language for resume labels and content (ISO 639-1 code, e.g., 'en', 'fr', 'de') */
+  language?: string;
 }
 
 /**
@@ -122,7 +125,7 @@ export interface ResumeGenerationResult {
 export async function generateTailoredResume(
   options: ResumeGenerationOptions
 ): Promise<ResumeGenerationResult> {
-  const { companyName, jobTitle, tailoredConfigYaml, outputDir, scoresJson, page } = options;
+  const { companyName, jobTitle, tailoredConfigYaml, outputDir, scoresJson, page, language } = options;
 
   log.info(`Starting resume generation for ${companyName} - ${jobTitle}`);
   log.debug(`Config YAML size: ${tailoredConfigYaml.length} bytes`);
@@ -179,13 +182,16 @@ export async function generateTailoredResume(
   // Generate PDF from YAML
   try {
     log.info('Generating resume PDF');
+    if (language && language !== 'en') {
+      log.info(`Resume language: ${language}`);
+    }
     
     if (page) {
       // Use provided Playwright page
-      await generatePdfWithPlaywright(tailoredConfigYaml, pdfPath, page, companyName, jobTitle);
+      await generatePdfWithPlaywright(tailoredConfigYaml, pdfPath, page, companyName, jobTitle, language);
     } else {
       // Fallback to HTML-based generation without browser
-      await generatePdfWithHtml(tailoredConfigYaml, pdfPath, companyName, jobTitle);
+      await generatePdfWithHtml(tailoredConfigYaml, pdfPath, companyName, jobTitle, language);
     }
 
     // Verify file was created
@@ -217,10 +223,11 @@ async function generatePdfWithPlaywright(
   outputPath: string,
   page: Page,
   companyName: string,
-  jobTitle: string
+  jobTitle: string,
+  language = 'en'
 ): Promise<void> {
   const config = yaml.load(yamlContent) as ResumeConfig;
-  const html = generateResumeHtml(config, companyName, jobTitle);
+  const html = generateResumeHtml(config, companyName, jobTitle, language);
 
   // Create a NEW page for PDF generation to avoid Trusted Types policy from LinkedIn
   const browser = page.context().browser();
@@ -261,10 +268,11 @@ async function generatePdfWithHtml(
   yamlContent: string,
   outputPath: string,
   companyName: string,
-  jobTitle: string
+  jobTitle: string,
+  language = 'en'
 ): Promise<void> {
   const config = yaml.load(yamlContent) as ResumeConfig;
-  const html = generateResumeHtml(config, companyName, jobTitle);
+  const html = generateResumeHtml(config, companyName, jobTitle, language);
 
   // Save HTML temporarily (for debugging or external PDF generation)
   const htmlPath = outputPath.replace('.pdf', '.html');
@@ -285,7 +293,10 @@ async function generatePdfWithHtml(
  * - Consistent spacing system
  * - ATS-friendly structure
  */
-function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle: string): string {
+function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle: string, language = 'en'): string {
+  // Get translated section labels
+  const labels = getResumeSectionLabels(language);
+  
   const basics = config.basics || config.personal_information || {};
   const work = config.work || config.experience_details || [];
   const education = config.education || config.education_details || [];
@@ -328,7 +339,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
     <div class="sidebar-section">
       <h3 class="sidebar-heading">
         <span class="heading-icon">🌐</span>
-        Languages
+        ${labels.languages}
       </h3>
       <div class="languages-list">
         ${languages.map((lang: string) => `<div class="language-item">${escapeHtml(lang)}</div>`).join('')}
@@ -385,7 +396,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
     <div class="sidebar-section">
       <h3 class="sidebar-heading">
         <span class="heading-icon">🏆</span>
-        Certifications
+        ${labels.certifications}
       </h3>
       <div class="certifications-list">
         ${certificates.slice(0, 4).map((cert: CertificateItem) => `
@@ -400,7 +411,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
 
   return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${language}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -418,7 +429,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
       <div class="sidebar-section">
         <h3 class="sidebar-heading">
           <span class="heading-icon">📧</span>
-          Contact
+          ${labels.contact}
         </h3>
         <div class="contact-list">
           ${contactItems.map((item: ContactItem) => `
@@ -435,7 +446,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
         <div class="sidebar-section">
           <h3 class="sidebar-heading">
             <span class="heading-icon">🔗</span>
-            Profiles
+            ${labels.profiles}
           </h3>
           <div class="profile-links">
             ${profileLinks.map((link: { network: string; url: string; icon: string }) => `
@@ -453,7 +464,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
         <div class="sidebar-section">
           <h3 class="sidebar-heading">
             <span class="heading-icon">⚡</span>
-            Skills
+            ${labels.skills}
           </h3>
           ${skillsHtml}
         </div>
@@ -477,7 +488,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
       <!-- Summary -->
       ${basics.summary ? `
         <section class="section">
-          <h2 class="section-heading">Professional Summary</h2>
+          <h2 class="section-heading">${labels.professionalSummary}</h2>
           <p style="font-size: var(--font-size-sm); color: var(--color-text-muted);">${escapeHtml(basics.summary)}</p>
         </section>
       ` : ''}
@@ -485,7 +496,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
       <!-- Experience -->
       ${workHtml ? `
         <section class="section">
-          <h2 class="section-heading">Experience</h2>
+          <h2 class="section-heading">${labels.experience}</h2>
           ${workHtml}
         </section>
       ` : ''}
@@ -493,7 +504,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
       <!-- Education -->
       ${educationHtml ? `
         <section class="section">
-          <h2 class="section-heading">Education</h2>
+          <h2 class="section-heading">${labels.education}</h2>
           ${educationHtml}
         </section>
       ` : ''}
@@ -501,7 +512,7 @@ function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle:
       <!-- Projects -->
       ${projectsHtml ? `
         <section class="section">
-          <h2 class="section-heading">Projects</h2>
+          <h2 class="section-heading">${labels.projects}</h2>
           ${projectsHtml}
         </section>
       ` : ''}

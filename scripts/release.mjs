@@ -93,7 +93,7 @@ function updatePackageVersion(version) {
  * @param {'patch'|'minor'|'major'} bump - Which part to increment
  * @returns {string} New version
  */
-function incrementVersion(version, bump = 'patch') {
+function _incrementVersion(version, bump = 'patch') {
   const parts = version.split('.').map(Number);
   if (parts.length !== 3 || parts.some(isNaN)) {
     throw new Error(`Invalid version format: ${version}`);

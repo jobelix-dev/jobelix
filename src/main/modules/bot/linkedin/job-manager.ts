@@ -103,8 +103,9 @@ export class LinkedInJobManager {
       // Send heartbeat for searching
       if (this.reporter) {
         const shouldContinue = this.reporter.sendHeartbeat('searching_jobs', {
-          query: position,
+          position,
           location,
+          search_query: `${position} in ${location}`,
         });
         if (!shouldContinue) {
           log.warn('Session stopped by user during job search');
@@ -240,7 +241,11 @@ export class LinkedInJobManager {
       // Report jobs found
       if (this.reporter) {
         this.reporter.incrementJobsFound(tiles.length);
-        const shouldContinue = this.reporter.sendHeartbeat('jobs_found', { count: tiles.length });
+        const shouldContinue = this.reporter.sendHeartbeat('jobs_found', { 
+          count: tiles.length,
+          position: this.positions[0],
+          location: this.locations[0],
+        });
         if (!shouldContinue) {
           log.warn('Session stopped by user after finding jobs');
           this.reporter.completeSession(false, 'Stopped by user');
@@ -270,6 +275,11 @@ export class LinkedInJobManager {
       for (const job of jobs) {
         if (isBlacklisted(job, this.companyBlacklist, this.titleBlacklist, this.seenJobs)) {
           log.warn(`Blacklisted ${job.title} at ${job.company}, skipping...`);
+          this.reporter?.sendHeartbeat('skipping_job', { 
+            company: job.company, 
+            job_title: job.title,
+            reason: 'Blacklisted company or title'
+          });
           this.writeToFile(job, 'skipped');
           continue;
         }
