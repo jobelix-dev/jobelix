@@ -74,17 +74,35 @@ interface LaunchSectionProps {
   onReset: () => void;
 }
 
-// Activity display messages
+// Activity display messages - maps bot activities to user-friendly messages
 const ACTIVITY_MESSAGES: Record<string, string> = {
-  initializing: 'Initializing...',
-  starting: 'Starting up...',
-  authenticating: 'Logging into LinkedIn...',
+  // Startup
+  initializing: 'Starting bot...',
+  linkedin_login: 'Waiting for LinkedIn login...',
+  linkedin_login_done: 'LinkedIn connected',
+  
+  // Search
   searching_jobs: 'Searching for jobs...',
-  applying_jobs: 'Applying to jobs...',
-  answering_questions: 'Answering application questions...',
+  jobs_found: 'Found matching jobs',
+  
+  // Application lifecycle
+  navigating_to_job: 'Opening job listing...',
+  extracting_description: 'Reading job details...',
+  detecting_language: 'Detecting language...',
+  tailoring_resume: 'Tailoring resume...',
+  opening_application: 'Opening application...',
+  filling_form: 'Filling application form...',
+  uploading_resume: 'Uploading resume...',
+  generating_cover_letter: 'Writing cover letter...',
   submitting_application: 'Submitting application...',
-  waiting: 'Waiting...',
-  finalizing: 'Finalizing...',
+  application_submitted: 'Application submitted!',
+  application_failed: 'Application failed',
+  skipping_job: 'Skipping job...',
+  
+  // General
+  applying_jobs: 'Processing applications...',
+  finalizing: 'Finishing up...',
+  stats_update: '',  // Silent update, no message
 };
 
 // =============================================================================
@@ -94,7 +112,7 @@ const ACTIVITY_MESSAGES: Record<string, string> = {
 export default function LaunchSection({
   browserChecking,
   browserInstalled,
-  browserInstalling,
+  browserInstalling: _browserInstalling,
   browserProgress,
   browserError,
   botState,
@@ -124,7 +142,6 @@ export default function LaunchSection({
   // Derived state
   const isActive = ['launching', 'running', 'stopping'].includes(botState);
   const isEnded = ['stopped', 'completed', 'failed'].includes(botState);
-  const canStart = ['idle', 'stopped', 'completed', 'failed'].includes(botState);
 
   // Combined stats for display
   const displayStats = useMemo<DisplayStats>(() => {
@@ -323,8 +340,15 @@ export default function LaunchSection({
       {activityMessage && botState === 'running' && (
         <ActivityBanner
           message={activityMessage}
+          activity={currentActivity || undefined}
           company={activityDetails?.company as string | undefined}
           jobTitle={activityDetails?.job_title as string | undefined}
+          step={activityDetails?.step as number | undefined}
+          totalSteps={activityDetails?.total_steps as number | undefined}
+          language={activityDetails?.language_name as string | undefined}
+          reason={activityDetails?.reason as string | undefined}
+          searchQuery={activityDetails?.search_query as string | undefined}
+          jobsFound={activityDetails?.count as number | undefined}
         />
       )}
 

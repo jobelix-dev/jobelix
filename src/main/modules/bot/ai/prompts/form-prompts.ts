@@ -106,9 +106,9 @@ export const coverLetterTemplate = `You are a professional career advisor and ex
 - DO NOT use overly generic phrases or clichés
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST write the cover letter in {target_language}.**
+- Translate the content to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the job description's language.
 
 ## Structure
 1. Opening: Brief introduction and statement of interest (no salutation, start with content)

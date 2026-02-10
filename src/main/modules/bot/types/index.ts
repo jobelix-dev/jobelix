@@ -120,6 +120,8 @@ export interface Job {
   applyMethod: string;
   description?: string;
   summarizedDescription?: string;
+  /** Detected language code (ISO 639-1) from job description, e.g. 'en', 'fr', 'de' */
+  detectedLanguage?: string;
 }
 
 // ============================================================================
@@ -177,15 +179,28 @@ export interface BotStats {
 }
 
 export type BotActivity =
+  // Startup
   | 'initializing'
   | 'linkedin_login'
   | 'linkedin_login_done'
+  // Search
   | 'searching_jobs'
   | 'jobs_found'
-  | 'applying_jobs'
+  // Application lifecycle
+  | 'navigating_to_job'
+  | 'extracting_description'
+  | 'detecting_language'
+  | 'tailoring_resume'
+  | 'opening_application'
+  | 'filling_form'
+  | 'uploading_resume'
+  | 'generating_cover_letter'
   | 'submitting_application'
   | 'application_submitted'
   | 'application_failed'
+  | 'skipping_job'
+  // General
+  | 'applying_jobs'
   | 'finalizing'
   | 'stopped'
   | 'stats_update';

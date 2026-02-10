@@ -143,9 +143,10 @@ export const resumeKeywordOptimizationTemplate = `You are an expert resume write
 - **Preserve all factual information** - only rephrase for keyword alignment
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST write ALL output in {target_language}.**
+- If the resume content is in a different language, translate it to {target_language}.
+- All descriptions, highlights, summaries, and skill names MUST be in {target_language}.
+- Preserve proper nouns (company names, degree titles, certifications) in their original form.
 
 ## What to Optimize:
 1. **Descriptions**: Reword highlights/summaries to emphasize job-relevant aspects using keywords from job description
@@ -206,9 +207,10 @@ export const resumeTailoringTemplate = `You are an expert resume writer and job 
 - When tailoring, ensure your focus is on keywords, key phrases, and job-specific terminology that are found in the job description.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST write ALL output in {target_language}.**
+- If the resume content is in a different language, translate it to {target_language}.
+- All descriptions, highlights, summaries, and skill names MUST be in {target_language}.
+- Preserve proper nouns (company names, degree titles, certifications) in their original form.
 
 ## What to Tailor:
 1. **Project Descriptions**:

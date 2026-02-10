@@ -26,7 +26,7 @@ interface BasicInfoFormProps {
 export default function BasicInfoForm({
   data,
   onUpdateField,
-  onUpdateFields,
+  onUpdateFields: _onUpdateFields,
   fieldErrors,
   disabled = false,
 }: BasicInfoFormProps) {

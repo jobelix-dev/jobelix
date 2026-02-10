@@ -65,8 +65,8 @@ export default function ReferralSection() {
       {/* Value Proposition */}
       <div className="text-sm text-muted">
         <p>
-          Earn <span className="font-medium text-default">200 credits</span> for each friend who uses the bot.
-          They get <span className="font-medium text-default">50 bonus credits</span> too.
+          Earn <span className="font-medium text-primary">200 credits</span> for each friend who uses the bot.
+          They get <span className="font-medium text-primary">50 bonus credits</span> too.
         </p>
       </div>
 
@@ -91,25 +91,6 @@ export default function ReferralSection() {
       {/* Copied feedback */}
       {copied && (
         <p className="text-xs text-success text-center">Copied to clipboard!</p>
-      )}
-
-      {/* Summary Stats (only if there are referrals) */}
-      {(stats?.totalReferrals ?? 0) > 0 && (
-        <div className="flex items-center justify-between text-sm pt-2">
-          <div className="flex items-center gap-4">
-            <span className="text-muted">
-              <span className="font-medium text-default">{stats?.completedReferrals || 0}</span> completed
-            </span>
-            {(stats?.pendingReferrals ?? 0) > 0 && (
-              <span className="text-muted">
-                <span className="font-medium text-warning">{stats?.pendingReferrals}</span> pending
-              </span>
-            )}
-          </div>
-          <span className="text-success font-medium">
-            +{stats?.totalCreditsEarned || 0} credits
-          </span>
-        </div>
       )}
 
       {/* Referrals List */}

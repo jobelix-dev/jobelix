@@ -225,7 +225,7 @@ function getPhonePrefixForCountry(country: string): string {
   return countryToPrefixMap[countryUpper] || '';
 }
 
-function extractPhonePrefix(phone: string | undefined): string {
+function _extractPhonePrefix(phone: string | undefined): string {
   if (!phone) return '';
   const match = phone.match(/^\+(\d{1,3})/);
   return match ? `+${match[1]}` : '';

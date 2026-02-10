@@ -7,24 +7,40 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useSyncExternalStore, useCallback } from 'react';
 import { Gift, X, Zap } from 'lucide-react';
 import { useReferralStatus } from '../hooks/useReferralStatus';
 
 const DISMISS_KEY = 'jobelix_referral_banner_dismissed';
 
+// Use useSyncExternalStore for SSR-safe localStorage access
+function useLocalStorageDismissed() {
+  const subscribe = useCallback((callback: () => void) => {
+    window.addEventListener('storage', callback);
+    return () => window.removeEventListener('storage', callback);
+  }, []);
+  
+  const getSnapshot = useCallback(() => {
+    return localStorage.getItem(DISMISS_KEY) === 'true';
+  }, []);
+  
+  const getServerSnapshot = useCallback(() => {
+    return true; // SSR: assume dismissed to prevent flash
+  }, []);
+  
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
 export default function ReferralBonusBanner() {
   const { status, loading } = useReferralStatus();
-  const [dismissed, setDismissed] = useState(true); // Start hidden to prevent flash
-
-  // Check localStorage on mount
-  useEffect(() => {
-    const wasDismissed = localStorage.getItem(DISMISS_KEY) === 'true';
-    setDismissed(wasDismissed);
-  }, []);
+  const isDismissedFromStorage = useLocalStorageDismissed();
+  const [localDismissed, setLocalDismissed] = useState(false);
+  
+  // Combined dismissed state: either from storage or locally dismissed this session
+  const dismissed = isDismissedFromStorage || localDismissed;
 
   const handleDismiss = () => {
-    setDismissed(true);
+    setLocalDismissed(true);
     localStorage.setItem(DISMISS_KEY, 'true');
   };
 
