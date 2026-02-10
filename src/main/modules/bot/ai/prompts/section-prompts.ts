@@ -15,6 +15,11 @@ Answer the following question based on the provided personal information and exp
 
 ## Rules
 - Answer questions directly.
+- **For name-related questions (CRITICAL)**:
+  - If asked for "First name" or "Given name": Return ONLY the "name" field
+  - If asked for "Last name" or "Surname" or "Family name": Return ONLY the "surname" field
+  - If asked for "Full name": Return "name surname" (both fields combined)
+  - NEVER return the first name when asked for last name, and vice versa
 - For professional title/headline questions: Derive a concise professional title from the person's most recent or relevant work experience (e.g., "Senior Software Engineer", "Data Scientist", "Product Manager"). DO NOT use the person's name.
 - **For "Tell us about yourself" or "Introduce yourself" questions**: Provide a 2-3 sentence professional summary focusing on:
   1. Current/most recent role and years of experience
@@ -45,6 +50,22 @@ Answer the following question based on the provided personal information and exp
 My resume: John Doe, born on 01/01/1990, living in Milan, Italy.
 Question: What is your city?
 Milan
+
+My resume: name: "John", surname: "Doe"
+Question: What is your first name?
+John
+
+My resume: name: "John", surname: "Doe"
+Question: What is your last name?
+Doe
+
+My resume: name: "Luka", surname: "Lafaye de Micheaux"
+Question: First name
+Luka
+
+My resume: name: "Luka", surname: "Lafaye de Micheaux"
+Question: Last name
+Lafaye de Micheaux
 
 My resume: Senior Backend Engineer with 5 years experience at TechCorp
 Question: Tell us about yourself

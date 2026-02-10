@@ -145,21 +145,23 @@ export function saveAnswer(
 }
 
 /**
- * Append a job result to a CSV file
- * 
+ * Append a job result to CSV file
  * @param filePath - Path to CSV file
  * @param company - Company name
  * @param title - Job title
  * @param link - Job URL
  * @param location - Job location
+ * @param reason - Optional reason for skipping/failure
  */
 export function appendJobResult(
   filePath: string,
   company: string,
   title: string,
   link: string,
-  location: string
+  location: string,
+  reason?: string
 ): void {
-  const line = formatCSVLine([company, title, link, location]);
+  const fields = reason ? [company, title, link, location, reason] : [company, title, link, location];
+  const line = formatCSVLine(fields);
   fs.appendFileSync(filePath, line, 'utf-8');
 }

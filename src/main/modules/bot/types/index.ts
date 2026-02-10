@@ -162,6 +162,7 @@ export interface JobSearchConfig {
   distance: number;
   companyBlacklist: string[];
   titleBlacklist: string[];
+  jobLanguages: string[];  // ISO 639-1 codes for acceptable job description languages
 }
 
 // ============================================================================

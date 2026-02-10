@@ -20,6 +20,8 @@ export interface SignupPayload {
   password: string;
   role: 'student' | 'company';
   captchaToken?: string;
+  /** Referral code - stored in user metadata for cross-browser email confirmation */
+  referralCode?: string | null;
 }
 
 export interface SignupResponse {

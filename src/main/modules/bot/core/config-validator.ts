@@ -129,6 +129,10 @@ export function validateConfig(data: Record<string, unknown>): JobSearchConfig {
   const companyBlacklist = sanitizeStringArray(data.companyBlacklist);
   const titleBlacklist = sanitizeStringArray(data.titleBlacklist);
 
+  // Validate job languages (optional, defaults to English)
+  const jobLanguages = sanitizeStringArray(data.jobLanguages);
+  const validatedJobLanguages = jobLanguages.length > 0 ? jobLanguages : ['en'];
+
   const config: JobSearchConfig = {
     remote: data.remote,
     experienceLevel,
@@ -139,6 +143,7 @@ export function validateConfig(data: Record<string, unknown>): JobSearchConfig {
     distance,
     companyBlacklist,
     titleBlacklist,
+    jobLanguages: validatedJobLanguages,
   };
 
   log.info(`Config validated: ${positions.length} positions, ${locations.length} locations`);

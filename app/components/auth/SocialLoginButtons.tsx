@@ -11,16 +11,27 @@
  * 4. Callback page closes popup and signals success to opener
  * 5. Parent window detects auth and redirects to dashboard
  * 
+ * Referral Code Handling:
+ * - Reads referral code from localStorage/cookie
+ * - Passes it through the OAuth redirect URL (?referral_code=XXX)
+ * - Server applies it in /auth/callback after successful auth
+ * - This ensures referral works even across different origins/platforms
+ * 
  * Used by: LoginForm, SignupForm
- * Callback: /auth/callback (handles code exchange)
+ * Callback: /auth/callback (handles code exchange and referral application)
  */
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
 import { useRouter } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
+import { 
+  getReferralCodeFromAnySource, 
+  clearAllReferralStorage,
+  addReferralCodeToUrl 
+} from '@/lib/shared/referral';
 
 interface SocialLoginButtonsProps {
   /** Optional text prefix for buttons (e.g., "Sign up" vs "Log in") */
@@ -122,6 +133,10 @@ export default function SocialLoginButtons({
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [popup, setPopup] = useState<Window | null>(null);
   const router = useRouter();
+  
+  // Track if we're in the middle of an OAuth flow
+  // This is used to handle auth state changes correctly
+  const isOAuthFlowActive = useRef(false);
 
   // Save auth tokens to Electron cache for automatic login
   const saveAuthCacheIfElectron = useCallback(async (session: { 
@@ -147,86 +162,103 @@ export default function SocialLoginButtons({
     }
   }, []);
 
-  // Listen for auth state changes (popup will trigger this after successful login)
-  const checkAuthAndRedirect = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+  // Handle successful authentication
+  const handleAuthSuccess = useCallback(async (session: { 
+    access_token: string; 
+    refresh_token: string; 
+    expires_at?: number;
+    user: { id: string };
+  }) => {
+    console.log('[OAuth] Handling auth success');
     
-    if (session) {
-      console.log('[OAuth] Session detected, redirecting to dashboard');
-      
-      // Save auth cache for Electron auto-login
-      await saveAuthCacheIfElectron(session);
-      
-      onSuccess?.();
-      router.push('/dashboard');
-      return true;
+    // Clear referral storage - it was already applied server-side in /auth/callback
+    clearAllReferralStorage();
+    
+    // Save auth cache for Electron auto-login
+    await saveAuthCacheIfElectron(session);
+    
+    // Close popup if still open
+    if (popup && !popup.closed) {
+      popup.close();
     }
-    return false;
-  }, [router, onSuccess, saveAuthCacheIfElectron]);
+    
+    // Reset state
+    setLoadingProvider(null);
+    setPopup(null);
+    isOAuthFlowActive.current = false;
+    
+    onSuccess?.();
+    router.push('/dashboard');
+  }, [popup, router, onSuccess, saveAuthCacheIfElectron]);
 
-  // Poll for popup close and check auth
+  // Listen for auth state changes
+  // This handles the case where the popup completes auth and the parent detects it
+  useEffect(() => {
+    const supabase = createClient();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[OAuth] Auth state changed:', event, 'isOAuthFlowActive:', isOAuthFlowActive.current);
+      
+      // Only handle SIGNED_IN events when we're actively in an OAuth flow
+      // This prevents handling auth state changes from other sources (e.g., page load)
+      if (event === 'SIGNED_IN' && session && isOAuthFlowActive.current) {
+        console.log('[OAuth] Sign in detected via auth state change');
+        await handleAuthSuccess(session);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [handleAuthSuccess]);
+
+  // Poll for popup close
   useEffect(() => {
     if (!popup || !loadingProvider) return;
 
     const pollInterval = setInterval(async () => {
-      // Check if popup was closed
       if (popup.closed) {
         console.log('[OAuth] Popup closed');
         clearInterval(pollInterval);
         
         // Check if authentication succeeded
-        const authenticated = await checkAuthAndRedirect();
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (!authenticated) {
+        if (session) {
+          console.log('[OAuth] Session found after popup closed');
+          await handleAuthSuccess(session);
+        } else {
           // Popup was closed without completing auth
           console.log('[OAuth] Auth not completed');
           setLoadingProvider(null);
           setPopup(null);
+          isOAuthFlowActive.current = false;
         }
       }
     }, 500);
 
     return () => clearInterval(pollInterval);
-  }, [popup, loadingProvider, checkAuthAndRedirect]);
-
-  // Also listen for Supabase auth state changes
-  useEffect(() => {
-    const supabase = createClient();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[OAuth] Auth state changed:', event);
-      
-      if (event === 'SIGNED_IN' && session && loadingProvider) {
-        console.log('[OAuth] Sign in detected via auth state change');
-        
-        // Close popup if still open
-        if (popup && !popup.closed) {
-          popup.close();
-        }
-        
-        // Save auth cache for Electron auto-login
-        await saveAuthCacheIfElectron(session);
-        
-        onSuccess?.();
-        router.push('/dashboard');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [loadingProvider, popup, router, onSuccess, saveAuthCacheIfElectron]);
+  }, [popup, loadingProvider, handleAuthSuccess]);
 
   async function handleOAuthLogin(provider: Provider) {
     setLoadingProvider(provider);
+    isOAuthFlowActive.current = true;
     onStart?.();
 
     try {
       const supabase = createClient();
 
       // Build the redirect URL for after OAuth completes
-      // Use popup=true to tell the callback to redirect to the success page
+      // Include popup=true and referral code for server-side handling
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-      const redirectTo = `${baseUrl}/auth/callback?popup=true`;
+      let redirectTo = `${baseUrl}/auth/callback?popup=true`;
+      
+      // Get referral code from any available source and add to redirect URL
+      // This ensures the server can apply it even if localStorage isn't accessible
+      const referralCode = getReferralCodeFromAnySource();
+      if (referralCode) {
+        redirectTo = addReferralCodeToUrl(redirectTo, referralCode);
+        console.log('[OAuth] Added referral code to redirect URL:', referralCode);
+      }
 
       // For GitHub, request additional scopes for profile import
       const scopes = provider === 'github' ? 'read:user public_repo' : undefined;
@@ -245,6 +277,7 @@ export default function SocialLoginButtons({
         console.error(`[OAuth] ${provider} error:`, error.message);
         onError?.(error.message);
         setLoadingProvider(null);
+        isOAuthFlowActive.current = false;
         return;
       }
 
@@ -252,6 +285,7 @@ export default function SocialLoginButtons({
         console.error(`[OAuth] No URL returned for ${provider}`);
         onError?.('Failed to start OAuth flow');
         setLoadingProvider(null);
+        isOAuthFlowActive.current = false;
         return;
       }
 
@@ -263,6 +297,7 @@ export default function SocialLoginButtons({
         console.error('[OAuth] Failed to open popup - blocked by browser?');
         onError?.('Popup was blocked. Please allow popups for this site.');
         setLoadingProvider(null);
+        isOAuthFlowActive.current = false;
         return;
       }
 
@@ -275,6 +310,7 @@ export default function SocialLoginButtons({
       console.error(`[OAuth] ${provider} unexpected error:`, err);
       onError?.(err instanceof Error ? err.message : 'OAuth failed');
       setLoadingProvider(null);
+      isOAuthFlowActive.current = false;
     }
   }
 

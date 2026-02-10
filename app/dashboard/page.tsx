@@ -19,6 +19,7 @@ import WelcomeNotice from '@/app/components/WelcomeNotice';
 import OnboardingSteps from '@/app/components/OnboardingSteps';
 import StudentDashboard from './student/page';
 import CompanyDashboard from './company/page';
+import { useIsElectron } from '@/app/hooks/useClientSide';
 
 // Map DB role to display role
 function getDisplayRole(dbRole: string): string {
@@ -29,6 +30,7 @@ function getDisplayRole(dbRole: string): string {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const isElectron = useIsElectron();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -127,7 +129,8 @@ export default function DashboardPage() {
   async function handleLogout() {
     try {
       await api.logout();
-      router.push('/');
+      // Redirect to desktop landing page in Electron, otherwise to web landing page
+      router.push(isElectron ? '/desktop' : '/');
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -139,8 +142,8 @@ export default function DashboardPage() {
     setIsDeleting(true);
     try {
       await api.deleteAccount();
-      // Redirect to home page after successful deletion
-      router.push('/');
+      // Redirect to desktop landing page in Electron, otherwise to web landing page
+      router.push(isElectron ? '/desktop' : '/');
     } catch (error) {
       console.error('Delete account failed:', error);
       setIsDeleting(false);

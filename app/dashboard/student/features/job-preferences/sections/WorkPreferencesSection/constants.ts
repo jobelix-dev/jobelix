@@ -4,6 +4,27 @@
 
 import { WorkPreferences } from './types';
 
+/**
+ * Supported languages for job description filtering.
+ * Uses ISO 639-1 two-letter codes compatible with franc-min.
+ */
+export const SUPPORTED_LANGUAGES = [
+  { code: 'en', name: 'English' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'it', name: 'Italian' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'nl', name: 'Dutch' },
+  { code: 'pl', name: 'Polish' },
+  { code: 'sv', name: 'Swedish' },
+  { code: 'da', name: 'Danish' },
+  { code: 'no', name: 'Norwegian' },
+  { code: 'fi', name: 'Finnish' },
+] as const;
+
+export type SupportedLanguageCode = typeof SUPPORTED_LANGUAGES[number]['code'];
+
 export const defaultPreferences: WorkPreferences = {
   remote_work: true,
   exp_internship: false,
@@ -27,6 +48,7 @@ export const defaultPreferences: WorkPreferences = {
   locations: ['France'],
   company_blacklist: [],
   title_blacklist: [],
+  job_languages: ['en'],
   date_of_birth: '2000-01-01',
   pronouns: 'he/him',
   gender: 'Male',

@@ -47,7 +47,7 @@ export default function BasicInfoForm({
             type="text"
             value={(data.student_name as string) || ''}
             onChange={(e) => onUpdateField('student_name', e.target.value)}
-            placeholder="Enter your name"
+            placeholder="e.g., John Doe"
             disabled={disabled}
             className={inputClassName(!!fieldErrors?.student_name, disabled)}
           />

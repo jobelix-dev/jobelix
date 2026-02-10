@@ -61,6 +61,7 @@ interface WorkPreferences {
   locations: string[];
   company_blacklist: string[];
   title_blacklist: string[];
+  job_languages: string[];
   date_of_birth: string;
   pronouns: string;
   gender: string;
@@ -164,6 +165,14 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
       yaml.push(`  - ${escapeYamlArrayItem(title)}`);
     });
   }
+  yaml.push('');
+
+  // Job description languages (ISO 639-1 codes)
+  yaml.push('jobLanguages:');
+  const languages = prefs.job_languages.length > 0 ? prefs.job_languages : ['en'];
+  languages.forEach(lang => {
+    yaml.push(`  - ${escapeYamlArrayItem(lang)}`);
+  });
   yaml.push('');
 
   // Bot-specific resume configuration

@@ -304,6 +304,7 @@ describe('buildSearchUrl', () => {
       distance: 25,
       companyBlacklist: [],
       titleBlacklist: [],
+      jobLanguages: ['en'],
     };
 
     const url = buildSearchUrl(config);
@@ -341,6 +342,7 @@ describe('buildSearchUrl', () => {
       distance: 25,
       companyBlacklist: [],
       titleBlacklist: [],
+      jobLanguages: ['en'],
     };
 
     const url = buildSearchUrl(config);

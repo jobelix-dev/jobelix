@@ -11,6 +11,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { Save, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
 import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
+import JobLanguagesSection from './components/JobLanguagesSection';
 import ExperienceLevelsSection from './components/ExperienceLevelsSection';
 import JobTypesSection from './components/JobTypesSection';
 import JobOfferRecencySection from './components/JobOfferRecencySection';
@@ -147,6 +148,14 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
               locationsInputId="job-pref-locations"
               positionsAddButtonId="job-pref-positions-add"
               locationsAddButtonId="job-pref-locations-add"
+            />
+          </PreferenceCard>
+
+          <PreferenceCard>
+            <JobLanguagesSection
+              value={preferences.job_languages}
+              onChange={(value) => updateArray('job_languages', value)}
+              tourId="job-pref-languages"
             />
           </PreferenceCard>
 

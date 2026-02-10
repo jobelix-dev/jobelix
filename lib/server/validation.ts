@@ -33,6 +33,8 @@ export const signupSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['student', 'company'], { message: 'Role must be either "student" or "company"' }),
   captchaToken: z.string().optional(),
+  // Referral code - stored in user metadata for cross-browser email confirmation support
+  referralCode: z.string().regex(/^[a-z0-9]{8}$/).optional().nullable(),
 });
 
 // ============================================================================
@@ -72,6 +74,9 @@ export const workPreferencesSchema = z.object({
   locations: z.array(z.string().max(200)).max(50).optional().default([]),
   company_blacklist: z.array(z.string().max(200)).max(100).optional().default([]),
   title_blacklist: z.array(z.string().max(200)).max(100).optional().default([]),
+
+  // Job description language filter (ISO 639-1 codes)
+  job_languages: z.array(z.string().length(2)).max(20).optional().default(['en']),
 
   // Personal/legal information
   date_of_birth: z.string().max(50).optional().nullable(),

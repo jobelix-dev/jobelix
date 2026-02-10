@@ -46,6 +46,7 @@ describe('LinkedInJobManager', () => {
     distance: 25,
     companyBlacklist: ['BadCompany', 'SpamCorp'],
     titleBlacklist: ['Senior', 'Director'],
+    jobLanguages: ['en'],
   };
 
   describe('JobSearchConfig', () => {
