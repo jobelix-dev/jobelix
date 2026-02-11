@@ -108,17 +108,18 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
   }, [referralCode]);
   
   // Validate manual referral code as user types
+  // Note: Referral codes are 8 lowercase alphanumeric characters
   const handleReferralCodeChange = (value: string) => {
-    const upperValue = value.toUpperCase();
-    setManualReferralCode(upperValue);
+    const lowerValue = value.toLowerCase();
+    setManualReferralCode(lowerValue);
     
-    if (upperValue && !validateReferralCode(upperValue)) {
-      setReferralError('Invalid format. Code should be like ABC123');
+    if (lowerValue && !validateReferralCode(lowerValue)) {
+      setReferralError('Invalid format. Code should be 8 characters (e.g., abc12345)');
     } else {
       setReferralError('');
       // Store valid code in localStorage for OAuth flow
-      if (upperValue && validateReferralCode(upperValue)) {
-        storeReferralCode(upperValue);
+      if (lowerValue && validateReferralCode(lowerValue)) {
+        storeReferralCode(lowerValue);
       }
     }
   };
@@ -263,9 +264,9 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
                       type="text"
                       value={manualReferralCode}
                       onChange={(e) => handleReferralCodeChange(e.target.value)}
-                      className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-                      placeholder="ABC123"
-                      maxLength={10}
+                      className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary lowercase"
+                      placeholder="abc12345"
+                      maxLength={8}
                     />
                     {referralError && (
                       <span className="mt-1 text-xs text-error">{referralError}</span>

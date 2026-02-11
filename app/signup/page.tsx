@@ -11,20 +11,19 @@
  * 
  * Referral Flow:
  * When a user lands on this page with ?ref=CODE:
- * 1. Server sets a cookie with the referral code (cross-platform compatible)
- * 2. Client stores code in localStorage (for OAuth redirects)
- * 3. Code is applied server-side in /auth/callback after authentication
+ * 1. Server passes the code to SignupForm
+ * 2. SignupForm stores code in localStorage (client-side)
+ * 3. Code is applied after signup completes
  */
 
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
 import AppFooter from "../components/AppFooter";
 import Link from "next/link";
 import "../globals.css";
 import { canonicalUrl } from "@/lib/seo";
-import { validateReferralCode, REFERRAL_COOKIE_NAME } from "@/lib/shared/referral";
+import { validateReferralCode } from "@/lib/shared/referral";
 
 const title = "Create your Jobelix account";
 const description =
@@ -59,26 +58,6 @@ export default async function SignupPage({
   
   // Extract and validate referral code from URL
   const referralCode = validateReferralCode(params?.ref);
-  
-  // If referral code is present, set a cookie for cross-platform compatibility.
-  // This cookie will be read by /auth/callback to apply the referral server-side.
-  // The cookie is set server-side here, making it available to both browser and Electron.
-  if (referralCode) {
-    const cookieStore = await cookies();
-    
-    // Set cookie that expires in 7 days (matches the 7-day referral application limit)
-    // SameSite=Lax allows the cookie to be sent with navigation requests
-    // httpOnly=false allows client-side JavaScript to read it if needed
-    cookieStore.set(REFERRAL_COOKIE_NAME, referralCode, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
-      httpOnly: false,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-    
-    console.log('[Signup Page] Set referral cookie:', referralCode);
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
