@@ -18,7 +18,8 @@ create table "public"."company" (
   "created_at" timestamp with time zone not null default now(),
   "company_name" text,
   "description" text,
-  "mail_adress" text not null
+  "mail_adress" text not null,
+  "has_seen_welcome_notice" boolean default false
 );
 
 alter table "public"."company" enable row level security;
@@ -977,3 +978,9 @@ using ((EXISTS ( SELECT 1
 with check ((EXISTS ( SELECT 1
    FROM public.company_offer
   WHERE ((company_offer.id = offer_skills.offer_id) AND (company_offer.company_id = (SELECT auth.uid()))))));
+
+-- =====================================================================
+-- COLUMN COMMENTS
+-- =====================================================================
+
+COMMENT ON COLUMN "public"."company"."has_seen_welcome_notice" IS 'Tracks whether user has seen the first-time login welcome notice';

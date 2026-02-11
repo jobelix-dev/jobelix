@@ -56,8 +56,8 @@ export default function ReferralList({ referrals }: ReferralListProps) {
               </div>
               
               {/* Name and date */}
-              <div>
-                <p className="text-sm font-medium text-default">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-default truncate">
                   {referral.firstName}
                 </p>
                 <p className="text-xs text-muted">

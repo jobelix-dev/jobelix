@@ -104,10 +104,8 @@ export default function AutoApplyTab() {
         </div>
       </div>
 
-      {/* Referral Bonus Banner (for referred users) */}
-      <div className="max-w-2xl mx-auto px-1 sm:px-0">
-        <ReferralBonusBanner />
-      </div>
+      {/* Referral Bonus Banner (for referred users) - renders its own container or null */}
+      <ReferralBonusBanner />
 
       {/* Credits Section */}
       <div className="max-w-2xl mx-auto px-1 sm:px-0">

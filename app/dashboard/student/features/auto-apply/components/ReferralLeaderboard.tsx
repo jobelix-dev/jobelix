@@ -86,7 +86,7 @@ export default function ReferralLeaderboard() {
             key={`${entry.rank}-${entry.firstName}`}
             className={`flex items-center justify-between p-2.5 rounded-lg ${getRankStyle(entry)}`}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {/* Rank indicator */}
               <div className="w-6 h-6 flex items-center justify-center">
                 {getRankIcon(entry.rank)}
@@ -100,7 +100,7 @@ export default function ReferralLeaderboard() {
               </div>
 
               {/* Name */}
-              <p className={`text-sm font-medium ${entry.isCurrentUser ? 'text-primary' : 'text-default'}`}>
+              <p className={`text-sm font-medium truncate ${entry.isCurrentUser ? 'text-primary' : 'text-default'}`}>
                 {entry.firstName}
                 {entry.isCurrentUser && <span className="text-xs ml-1 text-muted">(you)</span>}
               </p>
