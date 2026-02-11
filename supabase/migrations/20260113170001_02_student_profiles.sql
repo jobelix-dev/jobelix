@@ -20,8 +20,10 @@ create table "public"."student" (
   "first_name" text,
   "last_name" text,
   "phone_number" text,
+  "phone_country_code" text,
   "address" text,
-  "student_name" text
+  "student_name" text,
+  "has_seen_welcome_notice" boolean default false
 );
 
 alter table "public"."student" enable row level security;
@@ -38,6 +40,7 @@ create table "public"."student_profile_draft" (
   "created_at" timestamp with time zone not null default now(),
   "updated_at" timestamp with time zone not null default now(),
   "phone_number" text,
+  "phone_country_code" text,
   "email" text,
   "address" text,
   "projects" jsonb default '[]'::jsonb,
@@ -289,8 +292,11 @@ alter table "public"."student" add constraint "student_first_name_check" CHECK (
 alter table "public"."student" validate constraint "student_first_name_check";
 alter table "public"."student" add constraint "student_last_name_check" CHECK ((length(last_name) <= 50)) not valid;
 alter table "public"."student" validate constraint "student_last_name_check";
-alter table "public"."student" add constraint "student_phone_number_check" CHECK ((length(phone_number) <= 20)) not valid;
+alter table "public"."student" add constraint "student_phone_number_check" CHECK ((phone_number IS NULL OR length(phone_number) <= 50)) not valid;
 alter table "public"."student" validate constraint "student_phone_number_check";
+
+alter table "public"."student" add constraint "student_phone_country_code_check" CHECK ((phone_country_code IS NULL OR (length(phone_country_code) = 2 AND phone_country_code ~ '^[A-Z]{2}$'))) not valid;
+alter table "public"."student" validate constraint "student_phone_country_code_check";
 
 alter table "public"."student_profile_draft" add constraint "student_profile_draft_address_check" CHECK ((length(address) <= 200)) not valid;
 alter table "public"."student_profile_draft" validate constraint "student_profile_draft_address_check";
@@ -345,7 +351,18 @@ alter table "public"."student_profile_draft" add constraint "student_profile_dra
 
 set check_function_bodies = off;
 
-CREATE OR REPLACE FUNCTION public.finalize_student_profile(p_user_id uuid, p_profile jsonb, p_education jsonb, p_experience jsonb, p_projects jsonb, p_skills jsonb, p_languages jsonb, p_publications jsonb, p_certifications jsonb, p_social_links jsonb)
+CREATE OR REPLACE FUNCTION public.finalize_student_profile(
+  p_user_id uuid, 
+  p_profile jsonb, 
+  p_education jsonb, 
+  p_experience jsonb, 
+  p_projects jsonb, 
+  p_skills jsonb, 
+  p_languages jsonb, 
+  p_publications jsonb, 
+  p_certifications jsonb, 
+  p_social_links jsonb
+)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -361,7 +378,15 @@ DECLARE
   v_certifications_count int;
   v_social_links_count int;
 BEGIN
-  -- Upsert student record
+  -- SECURITY: Verify caller is the user being updated
+  IF (SELECT auth.uid()) IS DISTINCT FROM p_user_id THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'Unauthorized: can only update own profile'
+    );
+  END IF;
+
+  -- Upsert student record (includes phone_country_code)
   INSERT INTO student (
     id,
     student_name,
@@ -369,6 +394,7 @@ BEGIN
     last_name,
     mail_adress,
     phone_number,
+    phone_country_code,
     address
   )
   VALUES (
@@ -378,6 +404,7 @@ BEGIN
     (p_profile->>'last_name')::text,
     (p_profile->>'mail_adress')::text,
     (p_profile->>'phone_number')::text,
+    UPPER((p_profile->>'phone_country_code')::text),
     (p_profile->>'address')::text
   )
   ON CONFLICT (id) DO UPDATE SET
@@ -386,6 +413,7 @@ BEGIN
     last_name = EXCLUDED.last_name,
     mail_adress = EXCLUDED.mail_adress,
     phone_number = EXCLUDED.phone_number,
+    phone_country_code = EXCLUDED.phone_country_code,
     address = EXCLUDED.address;
   
   -- Delete existing related records before inserting new ones
@@ -550,8 +578,8 @@ BEGIN
   
   GET DIAGNOSTICS v_certifications_count = ROW_COUNT;
   
-  -- Insert social link record (NEW: platform-specific columns)
-  -- p_social_links is now an object: {github: "url", linkedin: "url", stackoverflow: "url", kaggle: "url", leetcode: "url"}
+  -- Insert social link record (platform-specific columns)
+  -- p_social_links is an object: {github: "url", linkedin: "url", stackoverflow: "url", kaggle: "url", leetcode: "url"}
   IF p_social_links IS NOT NULL AND jsonb_typeof(p_social_links) = 'object' THEN
     -- Check if at least one platform has a value
     IF (p_social_links->>'github') IS NOT NULL 
@@ -1172,3 +1200,11 @@ for update
 to authenticated
 using ((student_id = (SELECT auth.uid())))
 with check ((student_id = (SELECT auth.uid())));
+
+-- =====================================================================
+-- COLUMN COMMENTS
+-- =====================================================================
+
+COMMENT ON COLUMN "public"."student"."phone_country_code" IS 'ISO 3166-1 alpha-2 country code for phone number (e.g., US, GB, FR)';
+COMMENT ON COLUMN "public"."student_profile_draft"."phone_country_code" IS 'ISO 3166-1 alpha-2 country code for phone number (e.g., US, GB, FR)';
+COMMENT ON COLUMN "public"."student"."has_seen_welcome_notice" IS 'Tracks whether user has seen the first-time login welcome notice';

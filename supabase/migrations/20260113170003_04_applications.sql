@@ -62,7 +62,8 @@ create table "public"."student_work_preferences" (
   "willing_to_undergo_drug_tests" boolean default true,
   "willing_to_undergo_background_checks" boolean default true,
   "notice_period" text,
-  "salary_expectation_usd" integer
+  "salary_expectation_usd" integer,
+  "job_languages" text[] default ARRAY['en']::text[]
 );
 
 alter table "public"."student_work_preferences" enable row level security;
@@ -305,3 +306,10 @@ with check (((bucket_id = 'resumes'::text) AND (((SELECT auth.uid()))::text = (s
 CREATE TRIGGER update_student_work_preferences_updated_at 
   BEFORE UPDATE ON public.student_work_preferences 
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- =============================================================================
+-- COLUMN COMMENTS
+-- =============================================================================
+
+COMMENT ON COLUMN student_work_preferences.job_languages IS 
+  'ISO 639-1 language codes for acceptable job description languages. Defaults to English only. Examples: en (English), fr (French), de (German), es (Spanish)';
