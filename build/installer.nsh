@@ -12,8 +12,19 @@
 ; Run After Install
 ; ============================================================================
 ; This runs after installation completes when user clicks "Finish" with "Run app" checked
+; 
+; IMPORTANT: We add a small delay before launching to prevent crash issues:
+; 1. Windows needs time to release file locks from the installation
+; 2. Antivirus software may be scanning newly written files
+; 3. The installer process needs to complete cleanup before app starts
+;
 ; Uses "Exec" instead of "ExecWait" so installer doesn't wait for app to exit
 !macro customRunAfterInstall
+  ; Give Windows time to release file locks and complete any file system operations
+  ; This prevents crash-on-launch issues seen on some systems
+  Sleep 500
+  
+  ; Launch the app - use Exec (non-blocking) so installer can exit cleanly
   Exec '"$INSTDIR\${APP_EXECUTABLE_FILENAME}"'
 !macroend
 

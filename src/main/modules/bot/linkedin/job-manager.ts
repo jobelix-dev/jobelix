@@ -288,6 +288,22 @@ export class LinkedInJobManager {
           if (!['Continue', 'Applied', 'Apply'].includes(job.applyMethod)) {
             const result = await this.easyApplier!.apply(job);
             
+            // Check if user is out of credits - STOP THE BOT
+            if (result.outOfCredits) {
+              log.error('💳 OUT OF CREDITS - Stopping bot');
+              log.error('Please claim your daily credits or purchase more credits to continue');
+              
+              if (this.reporter) {
+                this.reporter.completeSession(
+                  false, 
+                  '💳 Insufficient credits. Please claim daily credits or purchase more to continue.'
+                );
+              }
+              
+              // Stop processing immediately
+              return jobs.length;
+            }
+            
             // If already applied, skip gracefully
             if (result.alreadyApplied) {
               log.info(`Already applied to ${job.title} at ${job.company}, skipping`);

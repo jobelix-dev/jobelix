@@ -16,7 +16,7 @@ import { getResumeSection, resumeToNarrative } from '../models/resume';
 import { tailorResumePipeline } from './resume-tailoring';
 import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
-import { BackendAPIClient } from './backend-client';
+import { BackendAPIClient, InsufficientCreditsError } from './backend-client';
 import { llmLogger } from '../utils/llm-logger';
 import { stripMarkdownCodeBlock, findBestMatch, extractNumber } from '../utils/string-utils';
 import { getLanguageName } from '../utils/language-detector';
@@ -98,6 +98,13 @@ export class GPTAnswerer {
         return response.content;
       } catch (err) {
         lastErr = err;
+        
+        // Don't retry if it's an insufficient credits error - fail immediately
+        if (err instanceof InsufficientCreditsError) {
+          log.error('🛑 Out of credits - stopping GPT requests');
+          throw err;
+        }
+        
         log.error(`Chat completion attempt ${attempt + 1} failed: ${String(err)}`);
         if (attempt === 0) log.error(`Backend URL: ${this.apiUrl}`);
         if (attempt < maxRetries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));

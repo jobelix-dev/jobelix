@@ -382,102 +382,43 @@ $function$
 -- =============================================================================
 -- GRANTS
 -- =============================================================================
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT, INSERT, UPDATE, DELETE (RLS handles authorization)
+-- service_role: full access (bypasses RLS by design)
 
-grant delete on table "public"."user_credits" to "anon";
-grant insert on table "public"."user_credits" to "anon";
-grant references on table "public"."user_credits" to "anon";
-grant select on table "public"."user_credits" to "anon";
-grant trigger on table "public"."user_credits" to "anon";
-grant truncate on table "public"."user_credits" to "anon";
-grant update on table "public"."user_credits" to "anon";
+GRANT SELECT ON TABLE "public"."user_credits" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."user_credits" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_credits" TO "service_role";
 
-grant delete on table "public"."user_credits" to "authenticated";
-grant insert on table "public"."user_credits" to "authenticated";
-grant references on table "public"."user_credits" to "authenticated";
-grant select on table "public"."user_credits" to "authenticated";
-grant trigger on table "public"."user_credits" to "authenticated";
-grant truncate on table "public"."user_credits" to "authenticated";
-grant update on table "public"."user_credits" to "authenticated";
+GRANT SELECT ON TABLE "public"."daily_credit_grants" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."daily_credit_grants" TO "authenticated";
+GRANT ALL ON TABLE "public"."daily_credit_grants" TO "service_role";
 
-grant delete on table "public"."user_credits" to "service_role";
-grant insert on table "public"."user_credits" to "service_role";
-grant references on table "public"."user_credits" to "service_role";
-grant select on table "public"."user_credits" to "service_role";
-grant trigger on table "public"."user_credits" to "service_role";
-grant truncate on table "public"."user_credits" to "service_role";
-grant update on table "public"."user_credits" to "service_role";
+GRANT SELECT ON TABLE "public"."credit_purchases" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."credit_purchases" TO "authenticated";
+GRANT ALL ON TABLE "public"."credit_purchases" TO "service_role";
 
-grant delete on table "public"."daily_credit_grants" to "anon";
-grant insert on table "public"."daily_credit_grants" to "anon";
-grant references on table "public"."daily_credit_grants" to "anon";
-grant select on table "public"."daily_credit_grants" to "anon";
-grant trigger on table "public"."daily_credit_grants" to "anon";
-grant truncate on table "public"."daily_credit_grants" to "anon";
-grant update on table "public"."daily_credit_grants" to "anon";
+GRANT SELECT ON TABLE "public"."user_feedback" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."user_feedback" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_feedback" TO "service_role";
 
-grant delete on table "public"."daily_credit_grants" to "authenticated";
-grant insert on table "public"."daily_credit_grants" to "authenticated";
-grant references on table "public"."daily_credit_grants" to "authenticated";
-grant select on table "public"."daily_credit_grants" to "authenticated";
-grant trigger on table "public"."daily_credit_grants" to "authenticated";
-grant truncate on table "public"."daily_credit_grants" to "authenticated";
-grant update on table "public"."daily_credit_grants" to "authenticated";
+-- Function grants: restrict SECURITY DEFINER functions from default PUBLIC access
+-- grant_daily_credits(uuid) - authenticated + service_role (users claim daily credits)
+REVOKE EXECUTE ON FUNCTION public.grant_daily_credits(uuid) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.grant_daily_credits(uuid) TO authenticated, service_role;
 
-grant delete on table "public"."daily_credit_grants" to "service_role";
-grant insert on table "public"."daily_credit_grants" to "service_role";
-grant references on table "public"."daily_credit_grants" to "service_role";
-grant select on table "public"."daily_credit_grants" to "service_role";
-grant trigger on table "public"."daily_credit_grants" to "service_role";
-grant truncate on table "public"."daily_credit_grants" to "service_role";
-grant update on table "public"."daily_credit_grants" to "service_role";
+-- use_credits(uuid, integer) - authenticated + service_role
+-- NOTE: This function is overwritten by referral_system.sql, but establish baseline grant here
+REVOKE EXECUTE ON FUNCTION public.use_credits(uuid, integer) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.use_credits(uuid, integer) TO authenticated, service_role;
 
-grant delete on table "public"."credit_purchases" to "anon";
-grant insert on table "public"."credit_purchases" to "anon";
-grant references on table "public"."credit_purchases" to "anon";
-grant select on table "public"."credit_purchases" to "anon";
-grant trigger on table "public"."credit_purchases" to "anon";
-grant truncate on table "public"."credit_purchases" to "anon";
-grant update on table "public"."credit_purchases" to "anon";
+-- add_purchased_credits (5-param) - service_role only (webhook/server-side)
+REVOKE EXECUTE ON FUNCTION public.add_purchased_credits(uuid, integer, integer, text, text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.add_purchased_credits(uuid, integer, integer, text, text) TO service_role;
 
-grant delete on table "public"."credit_purchases" to "authenticated";
-grant insert on table "public"."credit_purchases" to "authenticated";
-grant references on table "public"."credit_purchases" to "authenticated";
-grant select on table "public"."credit_purchases" to "authenticated";
-grant trigger on table "public"."credit_purchases" to "authenticated";
-grant truncate on table "public"."credit_purchases" to "authenticated";
-grant update on table "public"."credit_purchases" to "authenticated";
-
-grant delete on table "public"."credit_purchases" to "service_role";
-grant insert on table "public"."credit_purchases" to "service_role";
-grant references on table "public"."credit_purchases" to "service_role";
-grant select on table "public"."credit_purchases" to "service_role";
-grant trigger on table "public"."credit_purchases" to "service_role";
-grant truncate on table "public"."credit_purchases" to "service_role";
-grant update on table "public"."credit_purchases" to "service_role";
-
-grant delete on table "public"."user_feedback" to "anon";
-grant insert on table "public"."user_feedback" to "anon";
-grant references on table "public"."user_feedback" to "anon";
-grant select on table "public"."user_feedback" to "anon";
-grant trigger on table "public"."user_feedback" to "anon";
-grant truncate on table "public"."user_feedback" to "anon";
-grant update on table "public"."user_feedback" to "anon";
-
-grant delete on table "public"."user_feedback" to "authenticated";
-grant insert on table "public"."user_feedback" to "authenticated";
-grant references on table "public"."user_feedback" to "authenticated";
-grant select on table "public"."user_feedback" to "authenticated";
-grant trigger on table "public"."user_feedback" to "authenticated";
-grant truncate on table "public"."user_feedback" to "authenticated";
-grant update on table "public"."user_feedback" to "authenticated";
-
-grant delete on table "public"."user_feedback" to "service_role";
-grant insert on table "public"."user_feedback" to "service_role";
-grant references on table "public"."user_feedback" to "service_role";
-grant select on table "public"."user_feedback" to "service_role";
-grant trigger on table "public"."user_feedback" to "service_role";
-grant truncate on table "public"."user_feedback" to "service_role";
-grant update on table "public"."user_feedback" to "service_role";
+-- add_purchased_credits (7-param) - service_role only (webhook/server-side)
+REVOKE EXECUTE ON FUNCTION public.add_purchased_credits(uuid, integer, text, text, text, integer, text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.add_purchased_credits(uuid, integer, text, text, text, integer, text) TO service_role;
 
 -- =============================================================================
 -- ROW LEVEL SECURITY POLICIES

@@ -46,11 +46,13 @@ import {
 async function applyReferralCodeServerSide(userId: string, referralCode: string): Promise<boolean> {
   const supabaseAdmin = getServiceSupabase()
   
-  console.log('[Callback] Applying referral code server-side:', referralCode, 'for user:', userId)
+  console.log('[Callback] Applying referral code server-side for user:', userId)
   
   try {
+    // Use the admin version that accepts user_id as parameter
+    // The regular apply_referral_code uses auth.uid() which is NULL for service_role
     const { data: result, error } = await supabaseAdmin
-      .rpc('apply_referral_code', { p_code: referralCode })
+      .rpc('apply_referral_code_admin', { p_user_id: userId, p_code: referralCode })
     
     if (error) {
       console.error('[Callback] Failed to apply referral code (RPC error):', error)
@@ -157,7 +159,7 @@ async function ensureStudentProfile(userId: string, email: string): Promise<void
   }
   
   // No profile exists - create student profile for OAuth user
-  console.log('[Callback] Creating student profile for OAuth user:', email)
+  console.log('[Callback] Creating student profile for OAuth user')
   
   const { error: insertError } = await supabaseAdmin
     .from('student')
@@ -214,7 +216,7 @@ async function saveGitHubConnectionFromOAuth(user: User): Promise<void> {
     return
   }
   
-  console.log('[Callback] Saving GitHub OAuth connection for user:', user.email)
+  console.log('[Callback] Saving GitHub OAuth connection for user')
   
   const supabaseAdmin = getServiceSupabase()
   
@@ -303,6 +305,10 @@ export async function GET(request: NextRequest) {
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null
   const next = requestUrl.searchParams.get('next') || '/dashboard'
   const isPopup = requestUrl.searchParams.get('popup') === 'true'
+
+  // Validate the 'next' parameter to prevent open redirect attacks
+  // Must be a relative path starting with '/' but not '//' (protocol-relative URL)
+  const safeNext = (next.startsWith('/') && !next.startsWith('//')) ? next : '/dashboard'
 
   console.log('[Callback] ===== STARTING CALLBACK PROCESS =====')
   console.log('[Callback] Code present:', !!code)
@@ -398,7 +404,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/login?error=Authentication+failed`, requestUrl.origin))
     }
     
-    console.log('[Callback] Token verified for user:', data.user.email)
+    console.log('[Callback] Token verified for user:', data.user.id)
     
     // Get referral code from URL, cookie, or user metadata (for cross-browser email confirmation)
     const referralCode = getReferralCodeFromRequest(request, requestUrl, data.user)
@@ -408,7 +414,7 @@ export async function GET(request: NextRequest) {
     // This is important for email confirmation flow - the user is now authenticated
     await processPostAuth(data.user, referralCode)
     
-    return redirectTo(next)
+    return redirectTo(safeNext)
   }
 
   // ===========================================
@@ -435,7 +441,7 @@ export async function GET(request: NextRequest) {
       return redirectTo(`/login?error=Authentication+failed`)
     }
     
-    console.log('[Callback] Session created for user:', user.email)
+    console.log('[Callback] Session created for user:', user.id)
     
     // Get referral code from URL, cookie, or user metadata
     const referralCode = getReferralCodeFromRequest(request, requestUrl, user)
@@ -444,7 +450,7 @@ export async function GET(request: NextRequest) {
     // Process post-auth tasks (profile creation, referral application, GitHub connection)
     await processPostAuth(user, referralCode)
     
-    return redirectTo(next)
+    return redirectTo(safeNext)
   }
   
   // ===========================================

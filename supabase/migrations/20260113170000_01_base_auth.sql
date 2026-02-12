@@ -130,9 +130,20 @@ CREATE TRIGGER on_auth_user_created
 -- RLS is enabled but no policies created - only server-side access
 
 -- Grant permissions
-GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE 
-  ON TABLE "public"."signup_ip_tracking" TO "anon";
-GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE 
-  ON TABLE "public"."signup_ip_tracking" TO "authenticated";
-GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE 
-  ON TABLE "public"."signup_ip_tracking" TO "service_role";
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT, INSERT, UPDATE, DELETE (RLS handles authorization)
+-- service_role: full access (bypasses RLS by design)
+GRANT SELECT ON TABLE "public"."signup_ip_tracking" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."signup_ip_tracking" TO "authenticated";
+GRANT ALL ON TABLE "public"."signup_ip_tracking" TO "service_role";
+
+-- ============================================================================
+-- Function Grants
+-- ============================================================================
+-- cleanup_old_ip_tracking() - service_role only (called by cron/admin)
+REVOKE EXECUTE ON FUNCTION public.cleanup_old_ip_tracking() FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_old_ip_tracking() TO service_role;
+
+-- count_recent_signups_from_ip(text, integer) - service_role only (called from server API)
+REVOKE EXECUTE ON FUNCTION public.count_recent_signups_from_ip(text, integer) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.count_recent_signups_from_ip(text, integer) TO service_role;

@@ -554,8 +554,13 @@ DECLARE
   v_current_total_used INTEGER;
   v_new_balance INTEGER;
 BEGIN
-  IF p_user_id != auth.uid() THEN
-    RAISE EXCEPTION 'Unauthorized: can only use your own credits';
+  -- Allow service_role to use credits for any user (server-side operations)
+  -- For authenticated users, verify they can only use their own credits
+  -- Use IS DISTINCT FROM for NULL-safe comparison (auth.uid() is NULL for service_role)
+  IF NOT public.is_service_role() THEN
+    IF p_user_id IS DISTINCT FROM auth.uid() THEN
+      RAISE EXCEPTION 'Unauthorized: can only use your own credits';
+    END IF;
   END IF;
 
   SELECT balance, total_used INTO v_current_balance, v_current_total_used
@@ -602,6 +607,20 @@ GRANT EXECUTE ON FUNCTION public.get_my_leaderboard_rank() TO authenticated;
 
 -- Revoke direct access to internal function
 REVOKE EXECUTE ON FUNCTION public.complete_pending_referral(UUID) FROM authenticated, anon, public;
+
+-- Restrict use_credits to authenticated + service_role (was PUBLIC by default)
+REVOKE EXECUTE ON FUNCTION public.use_credits(uuid, integer) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.use_credits(uuid, integer) TO authenticated, service_role;
+
+-- Table grants for referral tables
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT only (writes go through SECURITY DEFINER functions)
+-- service_role: full access (bypasses RLS by design)
+GRANT SELECT ON TABLE "public"."referral_codes" TO "anon";
+GRANT ALL ON TABLE "public"."referral_codes" TO "service_role";
+
+GRANT SELECT ON TABLE "public"."referrals" TO "anon";
+GRANT ALL ON TABLE "public"."referrals" TO "service_role";
 
 -- =============================================================================
 -- COMMENTS

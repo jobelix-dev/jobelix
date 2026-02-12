@@ -200,8 +200,19 @@ export async function initAutoUpdater() {
   });
 }
 
-/** Open URL in default browser */
+/** Open URL in default browser (with validation) */
 export function openExternalUrl(url) {
+  // Validate URL to prevent opening dangerous protocols (file://, javascript:, etc.)
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      logger.warn(`Blocked opening URL with disallowed protocol: ${parsed.protocol}`);
+      return;
+    }
+  } catch {
+    logger.warn(`Blocked opening invalid URL: ${url}`);
+    return;
+  }
   logger.info(`Opening: ${url}`);
   shell.openExternal(url);
 }
