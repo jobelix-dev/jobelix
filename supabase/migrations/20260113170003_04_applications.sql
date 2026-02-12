@@ -121,54 +121,17 @@ end; $function$
 -- =============================================================================
 -- GRANTS
 -- =============================================================================
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT, INSERT, UPDATE, DELETE (RLS handles authorization)
+-- service_role: full access (bypasses RLS by design)
 
-grant delete on table "public"."application" to "anon";
-grant insert on table "public"."application" to "anon";
-grant references on table "public"."application" to "anon";
-grant select on table "public"."application" to "anon";
-grant trigger on table "public"."application" to "anon";
-grant truncate on table "public"."application" to "anon";
-grant update on table "public"."application" to "anon";
+GRANT SELECT ON TABLE "public"."application" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."application" TO "authenticated";
+GRANT ALL ON TABLE "public"."application" TO "service_role";
 
-grant delete on table "public"."application" to "authenticated";
-grant insert on table "public"."application" to "authenticated";
-grant references on table "public"."application" to "authenticated";
-grant select on table "public"."application" to "authenticated";
-grant trigger on table "public"."application" to "authenticated";
-grant truncate on table "public"."application" to "authenticated";
-grant update on table "public"."application" to "authenticated";
-
-grant delete on table "public"."application" to "service_role";
-grant insert on table "public"."application" to "service_role";
-grant references on table "public"."application" to "service_role";
-grant select on table "public"."application" to "service_role";
-grant trigger on table "public"."application" to "service_role";
-grant truncate on table "public"."application" to "service_role";
-grant update on table "public"."application" to "service_role";
-
-grant delete on table "public"."student_work_preferences" to "anon";
-grant insert on table "public"."student_work_preferences" to "anon";
-grant references on table "public"."student_work_preferences" to "anon";
-grant select on table "public"."student_work_preferences" to "anon";
-grant trigger on table "public"."student_work_preferences" to "anon";
-grant truncate on table "public"."student_work_preferences" to "anon";
-grant update on table "public"."student_work_preferences" to "anon";
-
-grant delete on table "public"."student_work_preferences" to "authenticated";
-grant insert on table "public"."student_work_preferences" to "authenticated";
-grant references on table "public"."student_work_preferences" to "authenticated";
-grant select on table "public"."student_work_preferences" to "authenticated";
-grant trigger on table "public"."student_work_preferences" to "authenticated";
-grant truncate on table "public"."student_work_preferences" to "authenticated";
-grant update on table "public"."student_work_preferences" to "authenticated";
-
-grant delete on table "public"."student_work_preferences" to "service_role";
-grant insert on table "public"."student_work_preferences" to "service_role";
-grant references on table "public"."student_work_preferences" to "service_role";
-grant select on table "public"."student_work_preferences" to "service_role";
-grant trigger on table "public"."student_work_preferences" to "service_role";
-grant truncate on table "public"."student_work_preferences" to "service_role";
-grant update on table "public"."student_work_preferences" to "service_role";
+GRANT SELECT ON TABLE "public"."student_work_preferences" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."student_work_preferences" TO "authenticated";
+GRANT ALL ON TABLE "public"."student_work_preferences" TO "service_role";
 
 -- =============================================================================
 -- ROW LEVEL SECURITY POLICIES
@@ -189,7 +152,7 @@ for insert
 to authenticated
 with check (((student_id = (SELECT auth.uid())) AND (NOT (EXISTS ( SELECT 1
    FROM public.application application_1
-  WHERE ((application_1.student_id = (SELECT auth.uid())) AND (application_1.offer_id = application_1.offer_id)))))));
+  WHERE ((application_1.student_id = (SELECT auth.uid())) AND (application_1.offer_id = application.offer_id)))))));
 
 create policy "application_select_dual"
 on "public"."application"

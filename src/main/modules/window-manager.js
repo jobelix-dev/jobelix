@@ -40,6 +40,11 @@ export async function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(basePath, FILES.PRELOAD),
+      // Memory optimization settings
+      spellcheck: false, // Disable spellcheck to save memory
+      enableWebSQL: false, // Disable deprecated WebSQL
+      backgroundThrottling: true, // Throttle background tabs
+      v8CacheOptions: 'bypassHeatCheck', // Optimize V8 code caching
     },
     icon: path.join(basePath, DIRECTORIES.BUILD, FILES.ICON)
   });

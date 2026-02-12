@@ -31,9 +31,10 @@ function CallbackSuccessContent() {
           ? { type: 'oauth-error', error: decodeURIComponent(error) }
           : { type: 'oauth-success' };
         
-        // Post to parent - use '*' since we might be on different origins
-        window.opener.postMessage(message, '*');
-        console.log('[CallbackSuccess] Sent message to parent:', message);
+        // Post to parent using same origin for security (prevents message interception)
+        const targetOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+        window.opener.postMessage(message, targetOrigin);
+        console.log('[CallbackSuccess] Sent message to parent');
       } catch (err) {
         console.error('[CallbackSuccess] Failed to send message to parent:', err);
       }

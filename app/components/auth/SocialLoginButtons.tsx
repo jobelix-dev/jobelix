@@ -209,10 +209,14 @@ export default function SocialLoginButtons({
       // Only process messages when we're in an OAuth flow
       if (!isOAuthFlowActive.current) return;
       
+      // Validate message origin - must be from our own app
+      const expectedOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      if (event.origin !== expectedOrigin) return;
+      
       // Validate message structure
       if (!event.data || typeof event.data !== 'object') return;
       
-      console.log('[OAuth] Received postMessage:', event.data);
+      console.log('[OAuth] Received postMessage from:', event.origin);
       
       if (event.data.type === 'oauth-success') {
         // Small delay to ensure cookies are propagated

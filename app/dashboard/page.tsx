@@ -69,7 +69,7 @@ export default function DashboardPage() {
       try {
         console.log('[Dashboard] Starting profile load')
         const response = await api.getProfile();
-        console.log('[Dashboard] Profile API response:', response)
+        console.log('[Dashboard] Profile loaded:', response.profile ? 'success' : 'no profile')
         
         if (!response.profile) {
           console.log('[Dashboard] No profile found, clearing cache and redirecting to /')

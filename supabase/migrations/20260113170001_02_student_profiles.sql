@@ -628,10 +628,12 @@ BEGIN
   
 EXCEPTION
   WHEN OTHERS THEN
+    -- Log the actual error server-side (visible in Supabase logs) but return
+    -- a generic message to the client to prevent information leakage
+    RAISE WARNING 'finalize_student_profile failed for user %: % (SQLSTATE: %)', p_user_id, SQLERRM, SQLSTATE;
     RETURN jsonb_build_object(
       'success', false,
-      'error', SQLERRM,
-      'detail', SQLSTATE
+      'error', 'An error occurred while saving your profile. Please try again.'
     );
 END;
 $function$
@@ -640,248 +642,58 @@ $function$
 -- =====================================================================
 -- GRANTS
 -- =====================================================================
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT, INSERT, UPDATE, DELETE (RLS handles authorization)
+-- service_role: full access (bypasses RLS by design)
 
-grant delete on table "public"."academic" to "anon";
-grant insert on table "public"."academic" to "anon";
-grant references on table "public"."academic" to "anon";
-grant select on table "public"."academic" to "anon";
-grant trigger on table "public"."academic" to "anon";
-grant truncate on table "public"."academic" to "anon";
-grant update on table "public"."academic" to "anon";
-grant delete on table "public"."academic" to "authenticated";
-grant insert on table "public"."academic" to "authenticated";
-grant references on table "public"."academic" to "authenticated";
-grant select on table "public"."academic" to "authenticated";
-grant trigger on table "public"."academic" to "authenticated";
-grant truncate on table "public"."academic" to "authenticated";
-grant update on table "public"."academic" to "authenticated";
-grant delete on table "public"."academic" to "service_role";
-grant insert on table "public"."academic" to "service_role";
-grant references on table "public"."academic" to "service_role";
-grant select on table "public"."academic" to "service_role";
-grant trigger on table "public"."academic" to "service_role";
-grant truncate on table "public"."academic" to "service_role";
-grant update on table "public"."academic" to "service_role";
+GRANT SELECT ON TABLE "public"."academic" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."academic" TO "authenticated";
+GRANT ALL ON TABLE "public"."academic" TO "service_role";
 
-grant delete on table "public"."certification" to "anon";
-grant insert on table "public"."certification" to "anon";
-grant references on table "public"."certification" to "anon";
-grant select on table "public"."certification" to "anon";
-grant trigger on table "public"."certification" to "anon";
-grant truncate on table "public"."certification" to "anon";
-grant update on table "public"."certification" to "anon";
-grant delete on table "public"."certification" to "authenticated";
-grant insert on table "public"."certification" to "authenticated";
-grant references on table "public"."certification" to "authenticated";
-grant select on table "public"."certification" to "authenticated";
-grant trigger on table "public"."certification" to "authenticated";
-grant truncate on table "public"."certification" to "authenticated";
-grant update on table "public"."certification" to "authenticated";
-grant delete on table "public"."certification" to "service_role";
-grant insert on table "public"."certification" to "service_role";
-grant references on table "public"."certification" to "service_role";
-grant select on table "public"."certification" to "service_role";
-grant trigger on table "public"."certification" to "service_role";
-grant truncate on table "public"."certification" to "service_role";
-grant update on table "public"."certification" to "service_role";
+GRANT SELECT ON TABLE "public"."certification" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."certification" TO "authenticated";
+GRANT ALL ON TABLE "public"."certification" TO "service_role";
 
-grant delete on table "public"."experience" to "anon";
-grant insert on table "public"."experience" to "anon";
-grant references on table "public"."experience" to "anon";
-grant select on table "public"."experience" to "anon";
-grant trigger on table "public"."experience" to "anon";
-grant truncate on table "public"."experience" to "anon";
-grant update on table "public"."experience" to "anon";
-grant delete on table "public"."experience" to "authenticated";
-grant insert on table "public"."experience" to "authenticated";
-grant references on table "public"."experience" to "authenticated";
-grant select on table "public"."experience" to "authenticated";
-grant trigger on table "public"."experience" to "authenticated";
-grant truncate on table "public"."experience" to "authenticated";
-grant update on table "public"."experience" to "authenticated";
-grant delete on table "public"."experience" to "service_role";
-grant insert on table "public"."experience" to "service_role";
-grant references on table "public"."experience" to "service_role";
-grant select on table "public"."experience" to "service_role";
-grant trigger on table "public"."experience" to "service_role";
-grant truncate on table "public"."experience" to "service_role";
-grant update on table "public"."experience" to "service_role";
+GRANT SELECT ON TABLE "public"."experience" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."experience" TO "authenticated";
+GRANT ALL ON TABLE "public"."experience" TO "service_role";
 
-grant delete on table "public"."language" to "anon";
-grant insert on table "public"."language" to "anon";
-grant references on table "public"."language" to "anon";
-grant select on table "public"."language" to "anon";
-grant trigger on table "public"."language" to "anon";
-grant truncate on table "public"."language" to "anon";
-grant update on table "public"."language" to "anon";
-grant delete on table "public"."language" to "authenticated";
-grant insert on table "public"."language" to "authenticated";
-grant references on table "public"."language" to "authenticated";
-grant select on table "public"."language" to "authenticated";
-grant trigger on table "public"."language" to "authenticated";
-grant truncate on table "public"."language" to "authenticated";
-grant update on table "public"."language" to "authenticated";
-grant delete on table "public"."language" to "service_role";
-grant insert on table "public"."language" to "service_role";
-grant references on table "public"."language" to "service_role";
-grant select on table "public"."language" to "service_role";
-grant trigger on table "public"."language" to "service_role";
-grant truncate on table "public"."language" to "service_role";
-grant update on table "public"."language" to "service_role";
+GRANT SELECT ON TABLE "public"."language" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."language" TO "authenticated";
+GRANT ALL ON TABLE "public"."language" TO "service_role";
 
-grant delete on table "public"."project" to "anon";
-grant insert on table "public"."project" to "anon";
-grant references on table "public"."project" to "anon";
-grant select on table "public"."project" to "anon";
-grant trigger on table "public"."project" to "anon";
-grant truncate on table "public"."project" to "anon";
-grant update on table "public"."project" to "anon";
-grant delete on table "public"."project" to "authenticated";
-grant insert on table "public"."project" to "authenticated";
-grant references on table "public"."project" to "authenticated";
-grant select on table "public"."project" to "authenticated";
-grant trigger on table "public"."project" to "authenticated";
-grant truncate on table "public"."project" to "authenticated";
-grant update on table "public"."project" to "authenticated";
-grant delete on table "public"."project" to "service_role";
-grant insert on table "public"."project" to "service_role";
-grant references on table "public"."project" to "service_role";
-grant select on table "public"."project" to "service_role";
-grant trigger on table "public"."project" to "service_role";
-grant truncate on table "public"."project" to "service_role";
-grant update on table "public"."project" to "service_role";
+GRANT SELECT ON TABLE "public"."project" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."project" TO "authenticated";
+GRANT ALL ON TABLE "public"."project" TO "service_role";
 
-grant delete on table "public"."publication" to "anon";
-grant insert on table "public"."publication" to "anon";
-grant references on table "public"."publication" to "anon";
-grant select on table "public"."publication" to "anon";
-grant trigger on table "public"."publication" to "anon";
-grant truncate on table "public"."publication" to "anon";
-grant update on table "public"."publication" to "anon";
-grant delete on table "public"."publication" to "authenticated";
-grant insert on table "public"."publication" to "authenticated";
-grant references on table "public"."publication" to "authenticated";
-grant select on table "public"."publication" to "authenticated";
-grant trigger on table "public"."publication" to "authenticated";
-grant truncate on table "public"."publication" to "authenticated";
-grant update on table "public"."publication" to "authenticated";
-grant delete on table "public"."publication" to "service_role";
-grant insert on table "public"."publication" to "service_role";
-grant references on table "public"."publication" to "service_role";
-grant select on table "public"."publication" to "service_role";
-grant trigger on table "public"."publication" to "service_role";
-grant truncate on table "public"."publication" to "service_role";
-grant update on table "public"."publication" to "service_role";
+GRANT SELECT ON TABLE "public"."publication" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."publication" TO "authenticated";
+GRANT ALL ON TABLE "public"."publication" TO "service_role";
 
-grant delete on table "public"."resume" to "anon";
-grant insert on table "public"."resume" to "anon";
-grant references on table "public"."resume" to "anon";
-grant select on table "public"."resume" to "anon";
-grant trigger on table "public"."resume" to "anon";
-grant truncate on table "public"."resume" to "anon";
-grant update on table "public"."resume" to "anon";
-grant delete on table "public"."resume" to "authenticated";
-grant insert on table "public"."resume" to "authenticated";
-grant references on table "public"."resume" to "authenticated";
-grant select on table "public"."resume" to "authenticated";
-grant trigger on table "public"."resume" to "authenticated";
-grant truncate on table "public"."resume" to "authenticated";
-grant update on table "public"."resume" to "authenticated";
-grant delete on table "public"."resume" to "service_role";
-grant insert on table "public"."resume" to "service_role";
-grant references on table "public"."resume" to "service_role";
-grant select on table "public"."resume" to "service_role";
-grant trigger on table "public"."resume" to "service_role";
-grant truncate on table "public"."resume" to "service_role";
-grant update on table "public"."resume" to "service_role";
+GRANT SELECT ON TABLE "public"."resume" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."resume" TO "authenticated";
+GRANT ALL ON TABLE "public"."resume" TO "service_role";
 
-grant delete on table "public"."skill" to "anon";
-grant insert on table "public"."skill" to "anon";
-grant references on table "public"."skill" to "anon";
-grant select on table "public"."skill" to "anon";
-grant trigger on table "public"."skill" to "anon";
-grant truncate on table "public"."skill" to "anon";
-grant update on table "public"."skill" to "anon";
-grant delete on table "public"."skill" to "authenticated";
-grant insert on table "public"."skill" to "authenticated";
-grant references on table "public"."skill" to "authenticated";
-grant select on table "public"."skill" to "authenticated";
-grant trigger on table "public"."skill" to "authenticated";
-grant truncate on table "public"."skill" to "authenticated";
-grant update on table "public"."skill" to "authenticated";
-grant delete on table "public"."skill" to "service_role";
-grant insert on table "public"."skill" to "service_role";
-grant references on table "public"."skill" to "service_role";
-grant select on table "public"."skill" to "service_role";
-grant trigger on table "public"."skill" to "service_role";
-grant truncate on table "public"."skill" to "service_role";
-grant update on table "public"."skill" to "service_role";
+GRANT SELECT ON TABLE "public"."skill" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."skill" TO "authenticated";
+GRANT ALL ON TABLE "public"."skill" TO "service_role";
 
-grant delete on table "public"."social_link" to "anon";
-grant insert on table "public"."social_link" to "anon";
-grant references on table "public"."social_link" to "anon";
-grant select on table "public"."social_link" to "anon";
-grant trigger on table "public"."social_link" to "anon";
-grant truncate on table "public"."social_link" to "anon";
-grant update on table "public"."social_link" to "anon";
-grant delete on table "public"."social_link" to "authenticated";
-grant insert on table "public"."social_link" to "authenticated";
-grant references on table "public"."social_link" to "authenticated";
-grant select on table "public"."social_link" to "authenticated";
-grant trigger on table "public"."social_link" to "authenticated";
-grant truncate on table "public"."social_link" to "authenticated";
-grant update on table "public"."social_link" to "authenticated";
-grant delete on table "public"."social_link" to "service_role";
-grant insert on table "public"."social_link" to "service_role";
-grant references on table "public"."social_link" to "service_role";
-grant select on table "public"."social_link" to "service_role";
-grant trigger on table "public"."social_link" to "service_role";
-grant truncate on table "public"."social_link" to "service_role";
-grant update on table "public"."social_link" to "service_role";
+GRANT SELECT ON TABLE "public"."social_link" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."social_link" TO "authenticated";
+GRANT ALL ON TABLE "public"."social_link" TO "service_role";
 
-grant delete on table "public"."student" to "anon";
-grant insert on table "public"."student" to "anon";
-grant references on table "public"."student" to "anon";
-grant select on table "public"."student" to "anon";
-grant trigger on table "public"."student" to "anon";
-grant truncate on table "public"."student" to "anon";
-grant update on table "public"."student" to "anon";
-grant delete on table "public"."student" to "authenticated";
-grant insert on table "public"."student" to "authenticated";
-grant references on table "public"."student" to "authenticated";
-grant select on table "public"."student" to "authenticated";
-grant trigger on table "public"."student" to "authenticated";
-grant truncate on table "public"."student" to "authenticated";
-grant update on table "public"."student" to "authenticated";
-grant delete on table "public"."student" to "service_role";
-grant insert on table "public"."student" to "service_role";
-grant references on table "public"."student" to "service_role";
-grant select on table "public"."student" to "service_role";
-grant trigger on table "public"."student" to "service_role";
-grant truncate on table "public"."student" to "service_role";
-grant update on table "public"."student" to "service_role";
+GRANT SELECT ON TABLE "public"."student" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."student" TO "authenticated";
+GRANT ALL ON TABLE "public"."student" TO "service_role";
 
-grant delete on table "public"."student_profile_draft" to "anon";
-grant insert on table "public"."student_profile_draft" to "anon";
-grant references on table "public"."student_profile_draft" to "anon";
-grant select on table "public"."student_profile_draft" to "anon";
-grant trigger on table "public"."student_profile_draft" to "anon";
-grant truncate on table "public"."student_profile_draft" to "anon";
-grant update on table "public"."student_profile_draft" to "anon";
-grant delete on table "public"."student_profile_draft" to "authenticated";
-grant insert on table "public"."student_profile_draft" to "authenticated";
-grant references on table "public"."student_profile_draft" to "authenticated";
-grant select on table "public"."student_profile_draft" to "authenticated";
-grant trigger on table "public"."student_profile_draft" to "authenticated";
-grant truncate on table "public"."student_profile_draft" to "authenticated";
-grant update on table "public"."student_profile_draft" to "authenticated";
-grant delete on table "public"."student_profile_draft" to "service_role";
-grant insert on table "public"."student_profile_draft" to "service_role";
-grant references on table "public"."student_profile_draft" to "service_role";
-grant select on table "public"."student_profile_draft" to "service_role";
-grant trigger on table "public"."student_profile_draft" to "service_role";
-grant truncate on table "public"."student_profile_draft" to "service_role";
-grant update on table "public"."student_profile_draft" to "service_role";
+GRANT SELECT ON TABLE "public"."student_profile_draft" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."student_profile_draft" TO "authenticated";
+GRANT ALL ON TABLE "public"."student_profile_draft" TO "service_role";
+
+-- Function grants
+-- finalize_student_profile - callable by authenticated (students finalize their profile)
+REVOKE EXECUTE ON FUNCTION public.finalize_student_profile(uuid, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.finalize_student_profile(uuid, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb) TO authenticated, service_role;
 
 -- =====================================================================
 -- ROW LEVEL SECURITY POLICIES
