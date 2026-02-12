@@ -15,6 +15,11 @@ Answer the following question based on the provided personal information and exp
 
 ## Rules
 - Answer questions directly.
+- **For name-related questions (CRITICAL)**:
+  - If asked for "First name" or "Given name": Return ONLY the "name" field
+  - If asked for "Last name" or "Surname" or "Family name": Return ONLY the "surname" field
+  - If asked for "Full name": Return "name surname" (both fields combined)
+  - NEVER return the first name when asked for last name, and vice versa
 - For professional title/headline questions: Derive a concise professional title from the person's most recent or relevant work experience (e.g., "Senior Software Engineer", "Data Scientist", "Product Manager"). DO NOT use the person's name.
 - **For "Tell us about yourself" or "Introduce yourself" questions**: Provide a 2-3 sentence professional summary focusing on:
   1. Current/most recent role and years of experience
@@ -37,14 +42,30 @@ Answer the following question based on the provided personal information and exp
 - When in doubt, return ONLY the national number (without +XX prefix)
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: John Doe, born on 01/01/1990, living in Milan, Italy.
 Question: What is your city?
 Milan
+
+My resume: name: "John", surname: "Doe"
+Question: What is your first name?
+John
+
+My resume: name: "John", surname: "Doe"
+Question: What is your last name?
+Doe
+
+My resume: name: "Luka", surname: "Lafaye de Micheaux"
+Question: First name
+Luka
+
+My resume: name: "Luka", surname: "Lafaye de Micheaux"
+Question: Last name
+Lafaye de Micheaux
 
 My resume: Senior Backend Engineer with 5 years experience at TechCorp
 Question: Tell us about yourself
@@ -64,9 +85,9 @@ Answer the following question based on the provided self-identification details.
 - Answer questions directly.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Male, uses he/him pronouns, not a veteran, no disability.
@@ -85,9 +106,9 @@ Answer the following question based on the provided legal authorization details.
 - Answer questions directly.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Authorized to work in the EU, no US visa required.
@@ -110,9 +131,9 @@ Answer the following question based on the provided work preferences.
 - Answer questions directly.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Open to remote work, willing to relocate.
@@ -150,9 +171,9 @@ Question: Describe your experience with Python and backend development
 I have 5 years of Python backend development experience using FastAPI and Django, building scalable microservices that handle over 1 million requests daily with PostgreSQL databases.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 Experience Details: {resume_section}
 Question: {question}
@@ -169,9 +190,9 @@ Answer the following question based on the provided project details.
 - Keep the answer under 140 characters.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Led the development of a mobile app, repository available.
@@ -198,9 +219,9 @@ Answer the following question based on the provided education details.
 - Keep the answer under 140 characters.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Bachelor's degree in Computer Science with experience in Python.
@@ -223,9 +244,9 @@ Answer the following question based on the provided certifications.
 - Keep the answer under 140 characters.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Certified in Project Management Professional (PMP).
@@ -248,9 +269,9 @@ Answer the following question based on the provided language skills.
 - Keep the answer under 140 characters.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Fluent in Italian and English.
@@ -275,9 +296,9 @@ Answer the following question based on the provided availability details.
 - Use periods only if the answer has multiple sentences.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Available to start immediately.
@@ -298,9 +319,9 @@ Answer the following question based on the provided salary expectations.
 - Use periods only if the answer has multiple sentences.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Looking for a salary in the range of 50k-60k USD.
@@ -325,9 +346,9 @@ Answer the following question based on the provided interests and professional m
 - Use periods only if the answer has multiple sentences.
 
 ## Language Rule
-- Always answer in the same language as the question.
-- Do not translate unless required to match the question language.
-- If the language is unclear or mixed, default to English.
+- **You MUST respond in {target_language}.**
+- Translate your response to {target_language} if the resume data is in a different language.
+- All output text must be in {target_language}, regardless of the question's language.
 
 ## Example
 My resume: Interested in AI and data science.

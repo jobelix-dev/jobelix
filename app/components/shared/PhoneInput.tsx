@@ -107,9 +107,6 @@ function CountrySelector({
     if (isOpen && searchInputRef.current) {
       searchInputRef.current.focus();
     }
-    if (!isOpen) {
-      setSearchQuery('');
-    }
   }, [isOpen]);
 
   // Handle country selection
@@ -118,12 +115,18 @@ function CountrySelector({
     setSearchQuery('');
   }, [onSelect]);
 
+  // Handle close - reset search query
+  const handleClose = useCallback(() => {
+    setSearchQuery('');
+    onClose();
+  }, [onClose]);
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      onClose();
+      handleClose();
     }
-  }, [onClose]);
+  }, [handleClose]);
 
   return (
     <div className="relative" ref={dropdownRef}>

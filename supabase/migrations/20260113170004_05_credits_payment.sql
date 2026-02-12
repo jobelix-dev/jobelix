@@ -132,6 +132,7 @@ alter table "public"."user_feedback" validate constraint "user_feedback_user_id_
 set check_function_bodies = off;
 
 -- Grant daily credits (50 credits per day, once per day per user)
+-- SECURITY: User can only grant credits to themselves
 CREATE OR REPLACE FUNCTION public.grant_daily_credits(p_user_id uuid)
  RETURNS TABLE(success boolean, credits_granted integer, new_balance integer)
  LANGUAGE plpgsql
@@ -142,6 +143,11 @@ DECLARE
   v_credits_amount INTEGER := 50;
   v_new_balance INTEGER;
 BEGIN
+  -- SECURITY: Verify user can only grant credits to themselves
+  IF p_user_id != auth.uid() THEN
+    RAISE EXCEPTION 'Unauthorized: can only grant daily credits to yourself';
+  END IF;
+
   -- Try to insert daily grant (will fail if already claimed today)
   INSERT INTO public.daily_credit_grants (user_id, granted_date, credits_amount)
   VALUES (p_user_id, CURRENT_DATE, v_credits_amount)
@@ -173,6 +179,8 @@ $function$
 ;
 
 -- Use credits (deduct from balance)
+-- SECURITY: User can only use their own credits
+-- NOTE: This function is overwritten by referral_system migration to add referral completion
 CREATE OR REPLACE FUNCTION public.use_credits(p_user_id uuid, p_amount integer DEFAULT 1)
  RETURNS TABLE(success boolean, new_balance integer)
  LANGUAGE plpgsql
@@ -183,6 +191,11 @@ DECLARE
   v_current_balance INTEGER;
   v_new_balance INTEGER;
 BEGIN
+  -- SECURITY: Verify user can only use their own credits
+  IF p_user_id != auth.uid() THEN
+    RAISE EXCEPTION 'Unauthorized: can only use your own credits';
+  END IF;
+
   -- Get current balance
   SELECT balance INTO v_current_balance
   FROM public.user_credits
@@ -210,6 +223,7 @@ $function$
 ;
 
 -- Add purchased credits (legacy version with fewer parameters)
+-- SECURITY: Requires service_role (webhook/server-side only)
 CREATE OR REPLACE FUNCTION public.add_purchased_credits(p_user_id uuid, p_credits integer, p_amount_cents integer, p_stripe_event_id text DEFAULT NULL::text, p_stripe_session_id text DEFAULT NULL::text)
  RETURNS void
  LANGUAGE plpgsql
@@ -217,11 +231,16 @@ CREATE OR REPLACE FUNCTION public.add_purchased_credits(p_user_id uuid, p_credit
  SET search_path TO 'public'
 AS $function$
 BEGIN
+  -- SECURITY: This function should only be called from server-side (webhooks)
+  IF NOT public.is_service_role() THEN
+    RAISE EXCEPTION 'Unauthorized: service role required for credit purchases';
+  END IF;
+
   -- Insert purchase record (will fail if event_id or session_id already exists)
   INSERT INTO public.credit_purchases (
     user_id, 
-    credits, 
-    amount_cents, 
+    credits_amount, 
+    price_cents, 
     stripe_event_id, 
     stripe_checkout_session_id
   )
@@ -250,6 +269,7 @@ $function$
 ;
 
 -- Add purchased credits (full version with idempotency and proper error handling)
+-- SECURITY: Requires service_role (webhook/server-side only)
 CREATE OR REPLACE FUNCTION public.add_purchased_credits(p_user_id uuid, p_credits_amount integer, p_payment_intent_id text, p_stripe_event_id text, p_session_id text, p_amount_cents integer, p_currency text)
  RETURNS TABLE(success boolean, new_balance integer, error_message text)
  LANGUAGE plpgsql
@@ -260,6 +280,11 @@ DECLARE
   v_new_balance INTEGER;
   v_purchase_id UUID;
 BEGIN
+  -- SECURITY: This function should only be called from server-side (webhooks)
+  IF NOT public.is_service_role() THEN
+    RAISE EXCEPTION 'Unauthorized: service role required for credit purchases';
+  END IF;
+
   -- SECURITY: Check if this event was already processed (idempotency)
   -- This check happens INSIDE the transaction with row lock
   SELECT id INTO v_purchase_id

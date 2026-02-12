@@ -8,19 +8,31 @@
  * 1. User clicks OAuth button
  * 2. Popup opens with provider's login page
  * 3. After auth, popup redirects to /auth/callback
- * 4. Callback page closes popup and signals success to opener
- * 5. Parent window detects auth and redirects to dashboard
+ * 4. Callback sets session cookies and redirects to /auth/callback-success
+ * 5. callback-success page sends postMessage to this window
+ * 6. This window receives message, refreshes page to pick up session
+ * 
+ * Referral Code Handling:
+ * - Reads referral code from localStorage/cookie
+ * - Passes it through the OAuth redirect URL (?referral_code=XXX)
+ * - Server applies it in /auth/callback after successful auth
+ * - This ensures referral works even across different origins/platforms
  * 
  * Used by: LoginForm, SignupForm
- * Callback: /auth/callback (handles code exchange)
+ * Callback: /auth/callback (handles code exchange and referral application)
  */
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
 import { useRouter } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
+import { 
+  getReferralCodeFromAnySource, 
+  clearAllReferralStorage,
+  addReferralCodeToUrl 
+} from '@/lib/shared/referral';
 
 interface SocialLoginButtonsProps {
   /** Optional text prefix for buttons (e.g., "Sign up" vs "Log in") */
@@ -92,37 +104,6 @@ const providers: ProviderConfig[] = [
 const POPUP_WIDTH = 500;
 const POPUP_HEIGHT = 600;
 
-/** Storage key for referral code */
-const REFERRAL_STORAGE_KEY = 'jobelix_referral_code';
-
-/**
- * Apply a referral code after successful OAuth signup
- */
-async function applyStoredReferralCode(): Promise<void> {
-  const storedCode = localStorage.getItem(REFERRAL_STORAGE_KEY);
-  if (!storedCode) return;
-  
-  try {
-    const response = await fetch('/api/student/referral/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: storedCode }),
-    });
-    
-    if (response.ok) {
-      console.log('[OAuth] Referral code applied successfully');
-    } else {
-      const data = await response.json();
-      console.warn('[OAuth] Failed to apply referral code:', data.error);
-    }
-  } catch (err) {
-    console.error('[OAuth] Error applying referral code:', err);
-  } finally {
-    // Clear stored code regardless of result
-    localStorage.removeItem(REFERRAL_STORAGE_KEY);
-  }
-}
-
 /**
  * Opens a centered popup window for OAuth
  */
@@ -153,6 +134,9 @@ export default function SocialLoginButtons({
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [popup, setPopup] = useState<Window | null>(null);
   const router = useRouter();
+  
+  // Track if we're in the middle of an OAuth flow
+  const isOAuthFlowActive = useRef(false);
 
   // Save auth tokens to Electron cache for automatic login
   const saveAuthCacheIfElectron = useCallback(async (session: { 
@@ -173,94 +157,138 @@ export default function SocialLoginButtons({
         console.log('[OAuth] Auth cache saved for Electron');
       } catch (cacheError) {
         console.warn('[OAuth] Failed to save auth cache:', cacheError);
-        // Don't fail login if cache save fails
       }
     }
   }, []);
 
-  // Listen for auth state changes (popup will trigger this after successful login)
-  const checkAuthAndRedirect = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+  // Handle successful authentication
+  const handleAuthSuccess = useCallback(async () => {
+    console.log('[OAuth] Handling auth success - refreshing page');
     
-    if (session) {
-      console.log('[OAuth] Session detected, redirecting to dashboard');
-      
-      // Save auth cache for Electron auto-login
-      await saveAuthCacheIfElectron(session);
-      
-      onSuccess?.();
-      router.push('/dashboard');
-      return true;
+    // Clear referral storage - it was already applied server-side in /auth/callback
+    clearAllReferralStorage();
+    
+    // Close popup if still open
+    if (popup && !popup.closed) {
+      popup.close();
     }
-    return false;
-  }, [router, onSuccess, saveAuthCacheIfElectron]);
+    
+    // Reset state
+    setLoadingProvider(null);
+    setPopup(null);
+    isOAuthFlowActive.current = false;
+    
+    onSuccess?.();
+    
+    // Refresh the page to pick up the session cookies set by the popup
+    // This is more reliable than trying to sync session between windows
+    router.refresh();
+    router.push('/dashboard');
+  }, [popup, router, onSuccess]);
 
-  // Poll for popup close and check auth
+  // Handle auth error from popup
+  const handleAuthError = useCallback((errorMessage: string) => {
+    console.log('[OAuth] Handling auth error:', errorMessage);
+    
+    // Close popup if still open
+    if (popup && !popup.closed) {
+      popup.close();
+    }
+    
+    // Reset state
+    setLoadingProvider(null);
+    setPopup(null);
+    isOAuthFlowActive.current = false;
+    
+    onError?.(errorMessage);
+  }, [popup, onError]);
+
+  // Listen for postMessage from popup
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      // Only process messages when we're in an OAuth flow
+      if (!isOAuthFlowActive.current) return;
+      
+      // Validate message structure
+      if (!event.data || typeof event.data !== 'object') return;
+      
+      console.log('[OAuth] Received postMessage:', event.data);
+      
+      if (event.data.type === 'oauth-success') {
+        // Small delay to ensure cookies are propagated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Try to get session and save to Electron cache if available
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await saveAuthCacheIfElectron(session);
+        }
+        
+        await handleAuthSuccess();
+      } else if (event.data.type === 'oauth-error') {
+        handleAuthError(event.data.error || 'Authentication failed');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleAuthSuccess, handleAuthError, saveAuthCacheIfElectron]);
+
+  // Poll for popup close (fallback if postMessage fails)
   useEffect(() => {
     if (!popup || !loadingProvider) return;
 
     const pollInterval = setInterval(async () => {
-      // Check if popup was closed
       if (popup.closed) {
         console.log('[OAuth] Popup closed');
         clearInterval(pollInterval);
         
-        // Check if authentication succeeded
-        const authenticated = await checkAuthAndRedirect();
-        
-        if (!authenticated) {
-          // Popup was closed without completing auth
-          console.log('[OAuth] Auth not completed');
-          setLoadingProvider(null);
-          setPopup(null);
+        // If we're still in OAuth flow (message wasn't received), check session
+        if (isOAuthFlowActive.current) {
+          // Give a moment for cookies to sync
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            console.log('[OAuth] Session found after popup closed (fallback)');
+            await saveAuthCacheIfElectron(session);
+            await handleAuthSuccess();
+          } else {
+            // Popup was closed without completing auth
+            console.log('[OAuth] Auth not completed');
+            setLoadingProvider(null);
+            setPopup(null);
+            isOAuthFlowActive.current = false;
+          }
         }
       }
     }, 500);
 
     return () => clearInterval(pollInterval);
-  }, [popup, loadingProvider, checkAuthAndRedirect]);
-
-  // Also listen for Supabase auth state changes
-  useEffect(() => {
-    const supabase = createClient();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[OAuth] Auth state changed:', event);
-      
-      if (event === 'SIGNED_IN' && session && loadingProvider) {
-        console.log('[OAuth] Sign in detected via auth state change');
-        
-        // Close popup if still open
-        if (popup && !popup.closed) {
-          popup.close();
-        }
-        
-        // Apply referral code if one was stored (for signups)
-        await applyStoredReferralCode();
-        
-        // Save auth cache for Electron auto-login
-        await saveAuthCacheIfElectron(session);
-        
-        onSuccess?.();
-        router.push('/dashboard');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [loadingProvider, popup, router, onSuccess, saveAuthCacheIfElectron]);
+  }, [popup, loadingProvider, handleAuthSuccess, saveAuthCacheIfElectron]);
 
   async function handleOAuthLogin(provider: Provider) {
     setLoadingProvider(provider);
+    isOAuthFlowActive.current = true;
     onStart?.();
 
     try {
       const supabase = createClient();
 
       // Build the redirect URL for after OAuth completes
-      // Use popup=true to tell the callback to redirect to the success page
+      // Include popup=true so callback knows to redirect to callback-success
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-      const redirectTo = `${baseUrl}/auth/callback?popup=true`;
+      let redirectTo = `${baseUrl}/auth/callback?popup=true`;
+      
+      // Get referral code from any available source and add to redirect URL
+      const referralCode = getReferralCodeFromAnySource();
+      if (referralCode) {
+        redirectTo = addReferralCodeToUrl(redirectTo, referralCode);
+        console.log('[OAuth] Added referral code to redirect URL:', referralCode);
+      }
 
       // For GitHub, request additional scopes for profile import
       const scopes = provider === 'github' ? 'read:user public_repo' : undefined;
@@ -279,6 +307,7 @@ export default function SocialLoginButtons({
         console.error(`[OAuth] ${provider} error:`, error.message);
         onError?.(error.message);
         setLoadingProvider(null);
+        isOAuthFlowActive.current = false;
         return;
       }
 
@@ -286,6 +315,7 @@ export default function SocialLoginButtons({
         console.error(`[OAuth] No URL returned for ${provider}`);
         onError?.('Failed to start OAuth flow');
         setLoadingProvider(null);
+        isOAuthFlowActive.current = false;
         return;
       }
 
@@ -297,18 +327,18 @@ export default function SocialLoginButtons({
         console.error('[OAuth] Failed to open popup - blocked by browser?');
         onError?.('Popup was blocked. Please allow popups for this site.');
         setLoadingProvider(null);
+        isOAuthFlowActive.current = false;
         return;
       }
 
       setPopup(oauthPopup);
-      
-      // Focus the popup
       oauthPopup.focus();
       
     } catch (err) {
       console.error(`[OAuth] ${provider} unexpected error:`, err);
       onError?.(err instanceof Error ? err.message : 'OAuth failed');
       setLoadingProvider(null);
+      isOAuthFlowActive.current = false;
     }
   }
 

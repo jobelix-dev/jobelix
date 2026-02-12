@@ -100,7 +100,7 @@ export default function ValidationTour({
       window.removeEventListener('scroll', handle, true);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [isOpen, stepTargetId, overlayReady, updateRect]);
+  }, [isOpen, step, stepTargetId, overlayReady, updateRect]);
 
   // Reset state when step changes or tour closes
   // Use a key derived from isOpen and step.id to track valid state

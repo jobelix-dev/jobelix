@@ -26,7 +26,7 @@ const VALID_TABS = ['profile', 'matches', 'job-preferences', 'auto-apply'] as co
 // Inner component that uses useSearchParams
 function StudentDashboardContent() {
   const searchParams = useSearchParams();
-  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  const { confirm: _confirm, ConfirmDialogComponent } = useConfirmDialog();
   
   // Derive initial tab from URL param (computed once on mount via useMemo)
   const initialTab = useMemo(() => {

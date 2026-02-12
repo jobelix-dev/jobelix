@@ -19,6 +19,7 @@ import { StatusReporter } from '../utils/status-reporter';
 import { BackendAPIClient, InsufficientCreditsError } from './backend-client';
 import { llmLogger } from '../utils/llm-logger';
 import { stripMarkdownCodeBlock, findBestMatch, extractNumber } from '../utils/string-utils';
+import { getLanguageName } from '../utils/language-detector';
 import * as prompts from './prompts';
 
 const log = createLogger('GPTAnswerer');
@@ -64,6 +65,22 @@ export class GPTAnswerer {
    */
   get jobDescription(): string {
     return this.job?.description || '';
+  }
+
+  /**
+   * Get the detected language of the current job description
+   * Returns ISO 639-1 code (e.g., 'en', 'fr', 'de') or 'en' as default
+   */
+  get jobLanguage(): string {
+    return this.job?.detectedLanguage || 'en';
+  }
+
+  /**
+   * Get the human-readable name of the target language for prompts
+   * e.g., 'en' → 'English', 'fr' → 'French'
+   */
+  get targetLanguageName(): string {
+    return getLanguageName(this.jobLanguage);
   }
 
   /** Make a chat completion request with automatic retry */
@@ -191,6 +208,7 @@ Please select a DIFFERENT option that addresses the error. Respond with ONLY the
    */
   async answerTextual(question: string): Promise<string> {
     log.debug(`Answering textual: ${question.substring(0, 50)}...`);
+    log.debug(`Target language: ${this.targetLanguageName} (${this.jobLanguage})`);
 
     // Determine which resume section is relevant
     const section = await this.determineResumeSection(question);
@@ -205,6 +223,7 @@ Please select a DIFFERENT option that addresses the error. Respond with ONLY the
     const template = this.getTemplateForSection(section);
 
     const prompt = template
+      .replace(/{target_language}/g, this.targetLanguageName)
       .replace('{resume_section}', resumeSection)
       .replace('{question}', question)
       .replace('{resume}', resumeToNarrative(this.resume!))
@@ -322,9 +341,10 @@ Respond with ONLY a number (no explanation, no text, just the number).`;
    * Legacy single-prompt resume tailoring (fallback only)
    */
   private async tailorResumeOldMethod(jobDescription: string, baseConfig: string): Promise<string> {
-    log.info('Using legacy single-prompt tailoring');
+    log.info(`Using legacy single-prompt tailoring (target language: ${this.targetLanguageName})`);
 
     const prompt = prompts.resumeTailoringTemplate
+      .replace(/{target_language}/g, this.targetLanguageName)
       .replace('{job_description}', jobDescription)
       .replace('{base_config}', baseConfig);
 
@@ -388,9 +408,10 @@ Respond with ONLY a number (no explanation, no text, just the number).`;
     filteredConfig: string,
     extractedKeywords = ''
   ): Promise<string> {
-    log.info('Optimizing resume keywords');
+    log.info(`Optimizing resume keywords (target language: ${this.targetLanguageName})`);
 
     const prompt = prompts.resumeKeywordOptimizationTemplate
+      .replace(/{target_language}/g, this.targetLanguageName)
       .replace('{job_description}', jobDescription)
       .replace('{filtered_config}', filteredConfig)
       .replace('{extracted_keywords}', extractedKeywords || '(none)');
@@ -455,7 +476,9 @@ Respond with ONLY the section name.`;
 
   /** Generate a cover letter */
   private async generateCoverLetter(): Promise<string> {
+    log.debug(`Generating cover letter in ${this.targetLanguageName}`);
     const prompt = prompts.coverLetterTemplate
+      .replace(/{target_language}/g, this.targetLanguageName)
       .replace('{resume}', resumeToNarrative(this.resume!))
       .replace('{job_description}', this.jobDescription);
     return this.chatCompletion([{ role: 'user', content: prompt }]);

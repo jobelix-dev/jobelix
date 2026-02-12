@@ -36,7 +36,7 @@ export default function JobPreferencesTab({ onUnsavedChanges }: JobPreferencesTa
               Job Preferences
             </h2>
             <p className="text-sm text-muted mt-1">
-              Set your job preferences to receive better startup matches <br className="hidden sm:block" /> and enable the LinkedIn Auto-Apply bot.
+              Set your job preferences to receive better startup matches <br className="hidden sm:block" /> and enable the LinkedIn Auto-Apply bot
             </p>
           </div>
           

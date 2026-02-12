@@ -94,20 +94,20 @@ export default function JobLanguagesSection({
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border border-dashed border-border text-muted hover:text-primary-hover hover:border-primary-subtle transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-primary-subtle/30 text-default border border-transparent hover:border-primary/30 transition-all"
             >
               <Plus className="w-3 h-3" />
               Add Language
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 z-10 w-40 bg-panel border border-border rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-1 z-50 w-44 bg-surface border border-border/50 rounded-lg shadow-lg py-1">
                 {availableLanguages.map((lang) => (
                   <button
                     key={lang.code}
                     type="button"
                     onClick={() => handleAddLanguage(lang.code)}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-primary-subtle/20 text-primary-hover transition-colors"
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-default hover:bg-primary-subtle/50 transition-colors"
                   >
                     {lang.name}
                   </button>

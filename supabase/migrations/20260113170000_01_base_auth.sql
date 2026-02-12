@@ -26,6 +26,25 @@ ALTER TABLE "public"."signup_ip_tracking"
   ADD CONSTRAINT "signup_ip_tracking_pkey" PRIMARY KEY USING INDEX "signup_ip_tracking_pkey";
 
 -- ============================================================================
+-- Helper Functions
+-- ============================================================================
+
+-- Check if current request is using service_role (for SECURITY DEFINER functions)
+CREATE OR REPLACE FUNCTION public.is_service_role()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $$
+  SELECT COALESCE(current_setting('request.jwt.claims', true)::json->>'role', '') = 'service_role'
+    OR COALESCE(current_setting('role', true), '') = 'service_role';
+$$;
+
+COMMENT ON FUNCTION public.is_service_role() IS 
+'Helper function to check if the current request is using service_role. Used for authorization in SECURITY DEFINER functions.';
+
+-- ============================================================================
 -- Utility Functions for Authentication
 -- ============================================================================
 

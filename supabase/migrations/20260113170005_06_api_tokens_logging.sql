@@ -85,6 +85,12 @@ AS $function$
 DECLARE
   v_log_id UUID;
 BEGIN
+  -- SECURITY: Verify user can only log calls for themselves
+  -- Allow service_role to log for any user (needed for server-side operations)
+  IF NOT public.is_service_role() AND p_user_id != auth.uid() THEN
+    RAISE EXCEPTION 'Unauthorized: can only log API calls for yourself';
+  END IF;
+
   INSERT INTO api_call_log (user_id, endpoint)
   VALUES (p_user_id, p_endpoint)
   RETURNING id INTO v_log_id;
@@ -157,6 +163,11 @@ CREATE OR REPLACE FUNCTION public.update_token_last_used(p_token text)
  SET search_path TO 'public'
 AS $function$
 BEGIN
+  -- SECURITY: This function should only be called from server-side
+  IF NOT public.is_service_role() THEN
+    RAISE EXCEPTION 'Unauthorized: service role required for token operations';
+  END IF;
+
   UPDATE public.api_tokens
   SET last_used_at = now()
   WHERE token = p_token;
@@ -172,6 +183,11 @@ CREATE OR REPLACE FUNCTION public.update_token_usage(p_token text, p_tokens_used
  SET search_path TO 'public'
 AS $function$
 BEGIN
+  -- SECURITY: This function should only be called from server-side
+  IF NOT public.is_service_role() THEN
+    RAISE EXCEPTION 'Unauthorized: service role required for token operations';
+  END IF;
+
   UPDATE public.api_tokens
   SET 
     total_tokens_used = total_tokens_used + p_tokens_used,

@@ -7,6 +7,12 @@
  * Creates user account and initializes talent/employer profile.
  * Note: DB stores role as student/company, UI displays as talent/employer
  * Supports email/password and OAuth (Google, LinkedIn, GitHub).
+ * 
+ * Referral Flow:
+ * - Referral code comes from URL (?ref=CODE) and is passed as prop
+ * - Code is stored in localStorage (survives OAuth redirects)
+ * - Code is applied server-side after email confirmation or OAuth completion
+ * - For email signup without confirmation, code is applied immediately
  */
 
 'use client';
@@ -16,6 +22,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
+import { storeReferralCode, validateReferralCode, getStoredReferralCode } from '@/lib/shared/referral';
 
 /** Valid user roles for the platform */
 type UserRole = 'student' | 'company';
@@ -27,13 +34,13 @@ interface SignupFormProps {
   referralCode?: string | null;
 }
 
-/** Storage key for referral code */
-const REFERRAL_STORAGE_KEY = 'jobelix_referral_code';
-
 /**
- * Apply a referral code after successful signup
+ * Apply a referral code after successful signup (when user is authenticated).
+ * This should only be called when the user is definitely logged in.
+ * 
+ * @returns true if applied successfully, false otherwise
  */
-async function applyReferralCode(code: string): Promise<void> {
+async function applyReferralCode(code: string): Promise<boolean> {
   try {
     const response = await fetch('/api/student/referral/apply', {
       method: 'POST',
@@ -42,16 +49,16 @@ async function applyReferralCode(code: string): Promise<void> {
     });
     
     if (response.ok) {
-      console.log('Referral code applied successfully');
+      console.log('[Signup] Referral code applied successfully');
+      return true;
     } else {
       const data = await response.json();
-      console.warn('Failed to apply referral code:', data.error);
+      console.warn('[Signup] Failed to apply referral code:', data.error);
+      return false;
     }
   } catch (err) {
-    console.error('Error applying referral code:', err);
-  } finally {
-    // Clear stored code regardless of result
-    localStorage.removeItem(REFERRAL_STORAGE_KEY);
+    console.error('[Signup] Error applying referral code:', err);
+    return false;
   }
 }
 
@@ -70,14 +77,52 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  
+  // Manual referral code input (for Electron users who can't receive code via URL)
+  const [showReferralInput, setShowReferralInput] = useState(false);
+  const [manualReferralCode, setManualReferralCode] = useState('');
+  const [referralError, setReferralError] = useState('');
 
-  // Store referral code in localStorage when component mounts
-  // This preserves the code through OAuth redirects and email verification
+  // Effective referral code: prefer URL param, fall back to manual input or localStorage
+  const effectiveReferralCode = referralCode || (manualReferralCode && validateReferralCode(manualReferralCode) ? manualReferralCode : null);
+
+  // Store referral code in localStorage when component mounts.
+  // This preserves the code through OAuth redirects and for email confirmation flow.
+  // The code will be applied:
+  // 1. Server-side in /auth/callback for OAuth and email confirmation
+  // 2. Client-side here for auto-confirmed email signup
   useEffect(() => {
     if (referralCode) {
-      localStorage.setItem(REFERRAL_STORAGE_KEY, referralCode);
+      storeReferralCode(referralCode);
     }
   }, [referralCode]);
+  
+  // Check for existing referral code in localStorage on mount (for Electron users)
+  useEffect(() => {
+    if (!referralCode) {
+      const storedCode = getStoredReferralCode();
+      if (storedCode) {
+        setManualReferralCode(storedCode);
+      }
+    }
+  }, [referralCode]);
+  
+  // Validate manual referral code as user types
+  // Note: Referral codes are 8 lowercase alphanumeric characters
+  const handleReferralCodeChange = (value: string) => {
+    const lowerValue = value.toLowerCase();
+    setManualReferralCode(lowerValue);
+    
+    if (lowerValue && !validateReferralCode(lowerValue)) {
+      setReferralError('Invalid format. Code should be 8 characters (e.g., abc12345)');
+    } else {
+      setReferralError('');
+      // Store valid code in localStorage for OAuth flow
+      if (lowerValue && validateReferralCode(lowerValue)) {
+        storeReferralCode(lowerValue);
+      }
+    }
+  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -91,24 +136,32 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
         password,
         role,
         captchaToken: captchaToken || undefined,
+        referralCode: effectiveReferralCode || undefined,
       });
 
       if (response.success) {
-        // Apply referral code if one was stored
-        const storedReferralCode = localStorage.getItem(REFERRAL_STORAGE_KEY);
-        if (storedReferralCode) {
-          await applyReferralCode(storedReferralCode);
-        }
-        
         if (response.loggedIn) {
-          // User already existed and was logged in with provided credentials
+          // User already existed and was logged in with provided credentials,
+          // OR auto-confirm is enabled and user is now logged in.
+          // In both cases, we can try to apply the referral code now.
+          if (effectiveReferralCode) {
+            console.log('[Signup] User logged in immediately, applying referral code');
+            await applyReferralCode(effectiveReferralCode);
+          }
           router.refresh();
           router.push('/dashboard');
         } else if (response.message) {
-          // Email confirmation required
+          // Email confirmation required - user is NOT authenticated yet.
+          // The referral code will be applied server-side in /auth/callback
+          // when the user clicks the confirmation link.
+          // Code is stored in user_metadata by the signup API.
+          console.log('[Signup] Email confirmation required, referral will be applied on confirmation');
           setMessage(response.message);
         } else {
-          // Auto-confirm enabled, redirect to dashboard
+          // Auto-confirm enabled but loggedIn wasn't set - try applying referral anyway
+          if (effectiveReferralCode) {
+            await applyReferralCode(effectiveReferralCode);
+          }
           router.refresh();
           router.push('/dashboard');
         }
@@ -192,6 +245,46 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
               />
               <span className="mt-1 text-xs text-muted">At least 8 characters</span>
             </label>
+
+            {/* Referral code section - collapsible for manual entry */}
+            {!referralCode && (
+              <div className="flex flex-col gap-2">
+                {!showReferralInput ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowReferralInput(true)}
+                    className="text-sm text-primary hover:text-primary-hover transition-colors text-left"
+                  >
+                    Have a referral code?
+                  </button>
+                ) : (
+                  <label className="flex flex-col">
+                    <span className="text-sm text-muted">Referral Code (optional)</span>
+                    <input
+                      type="text"
+                      value={manualReferralCode}
+                      onChange={(e) => handleReferralCodeChange(e.target.value)}
+                      className="mt-1 rounded border border-primary-subtle bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary lowercase"
+                      placeholder="abc12345"
+                      maxLength={8}
+                    />
+                    {referralError && (
+                      <span className="mt-1 text-xs text-error">{referralError}</span>
+                    )}
+                    {effectiveReferralCode && !referralError && (
+                      <span className="mt-1 text-xs text-success">Valid referral code</span>
+                    )}
+                  </label>
+                )}
+              </div>
+            )}
+            
+            {/* Show active referral code if provided via URL */}
+            {referralCode && (
+              <div className="rounded bg-success-subtle px-3 py-2 text-sm text-success border border-success/20">
+                Referral code applied: <span className="font-mono font-medium">{referralCode}</span>
+              </div>
+            )}
 
             <div className="flex justify-center">
               {hasCaptcha && (

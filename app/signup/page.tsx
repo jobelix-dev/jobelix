@@ -3,9 +3,17 @@
  * 
  * User registration interface for talents and employers.
  * Route: /signup?role=talent or /signup?role=employer
+ * Route: /signup?ref=CODE for referral signups
+ * 
  * Uses: SignupForm component for account creation.
  * Defaults to talent role if not specified.
  * Note: UI uses "talent/employer" but DB stores as "student/company"
+ * 
+ * Referral Flow:
+ * When a user lands on this page with ?ref=CODE:
+ * 1. Server passes the code to SignupForm
+ * 2. SignupForm stores code in localStorage (client-side)
+ * 3. Code is applied after signup completes
  */
 
 import type { Metadata } from "next";
@@ -15,6 +23,7 @@ import AppFooter from "../components/AppFooter";
 import Link from "next/link";
 import "../globals.css";
 import { canonicalUrl } from "@/lib/seo";
+import { validateReferralCode } from "@/lib/shared/referral";
 
 const title = "Create your Jobelix account";
 const description =
@@ -41,12 +50,14 @@ export default async function SignupPage({
 }) {
   // Await searchParams (Next.js 15 requirement)
   const params = await searchParams;
+  
   // Map URL role to DB role: talent->student, employer->company
   // Default to student/talent if role is missing/invalid
   const dbRole = (params?.role === "company" || params?.role === "employer") ? "company" : "student";
   const displayRole = dbRole === 'student' ? 'talent' : 'employer';
-  // Extract referral code from URL
-  const referralCode = params?.ref || null;
+  
+  // Extract and validate referral code from URL
+  const referralCode = validateReferralCode(params?.ref);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

@@ -60,10 +60,10 @@ export function useReferral(): UseReferralReturn {
       
       setStats({
         code: codeData.code,
-        totalReferrals: codeData.total_referrals,
-        pendingReferrals: codeData.pending_referrals,
-        completedReferrals: codeData.completed_referrals,
-        totalCreditsEarned: codeData.total_credits_earned,
+        totalReferrals: codeData.totalReferrals,
+        pendingReferrals: codeData.pendingReferrals,
+        completedReferrals: codeData.completedReferrals,
+        totalCreditsEarned: codeData.totalCreditsEarned,
       });
 
       // Handle referrals list response

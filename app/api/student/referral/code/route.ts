@@ -68,10 +68,10 @@ export async function GET() {
 
     return NextResponse.json({
       code: stats.referral_code || code,
-      total_referrals: stats.total_referrals,
-      pending_referrals: stats.pending_referrals,
-      completed_referrals: stats.completed_referrals,
-      total_credits_earned: stats.total_credits_earned,
+      totalReferrals: stats.total_referrals,
+      pendingReferrals: stats.pending_referrals,
+      completedReferrals: stats.completed_referrals,
+      totalCreditsEarned: stats.total_credits_earned,
     });
   } catch (error) {
     console.error('Referral code error:', error);

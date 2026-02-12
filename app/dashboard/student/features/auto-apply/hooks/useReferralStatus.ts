@@ -31,8 +31,14 @@ export function useReferralStatus(): UseReferralStatusReturn {
       const response = await fetch('/api/student/referral/status');
       
       if (!response.ok) {
-        // Don't show error for non-students
-        if (response.status === 403) {
+        // Don't show error for auth issues or non-students - just return empty status
+        if (response.status === 401 || response.status === 403) {
+          setStatus({ isReferred: false, status: null, bonusCredits: null, referrerFirstName: null });
+          return;
+        }
+        // Log 500 errors but still return empty status (non-critical feature)
+        if (response.status === 500) {
+          console.error('Referral status: Server error (500), treating as not referred');
           setStatus({ isReferred: false, status: null, bonusCredits: null, referrerFirstName: null });
           return;
         }
