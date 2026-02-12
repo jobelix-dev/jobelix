@@ -9,6 +9,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Tree-shake barrel exports for heavy icon/component libraries
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'libphonenumber-js',
+    ],
+  },
   async headers() {
     return [
       {

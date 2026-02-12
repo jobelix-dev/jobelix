@@ -164,7 +164,7 @@ export function useProfileData() {
       } catch (error) {
         console.error('Failed to auto-save draft:', error);
       }
-    }, 300); // 0.3 second debounce
+    }, 1000); // 1 second debounce - balances responsiveness with network efficiency
 
     return () => clearTimeout(timeoutId);
   }, [profileData, draftId, isDataLoaded]);

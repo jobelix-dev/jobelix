@@ -118,7 +118,7 @@ export default function ProfileEditorSection({
           <div className="space-y-6">
             {data.education.map((edu, index) => (
               <EducationForm
-                key={index}
+                key={`edu-${index}-${edu.school_name || ''}-${edu.degree || ''}`}
                 data={edu}
                 onChange={(field, value) => handlers.updateEducation(index, field, value)}
                 onRemove={() => handlers.removeEducation(index)}
@@ -144,7 +144,7 @@ export default function ProfileEditorSection({
           <div className="space-y-6">
             {data.experience.map((exp, index) => (
               <ExperienceForm
-                key={index}
+                key={`exp-${index}-${exp.organisation_name || ''}-${exp.position_name || ''}`}
                 data={exp}
                 onChange={(field, value) => handlers.updateExperience(index, field, value)}
                 onRemove={() => handlers.removeExperience(index)}
@@ -172,7 +172,7 @@ export default function ProfileEditorSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.projects.map((project, index) => (
               <ProjectCard
-                key={index}
+                key={`proj-${index}-${project.project_name || ''}`}
                 data={project}
                 onClick={() => setActiveProjectIndex(index)}
                 onRemove={() => handlers.removeProject(index)}
@@ -240,7 +240,7 @@ export default function ProfileEditorSection({
           <div className="space-y-4">
             {data.publications.map((publication, index) => (
               <PublicationForm
-                key={index}
+                key={`pub-${index}-${publication.title || ''}`}
                 data={publication}
                 onChange={(field, value) => handlers.updatePublication(index, field, value)}
                 onRemove={() => handlers.removePublication(index)}
@@ -266,7 +266,7 @@ export default function ProfileEditorSection({
           <div className="space-y-4">
             {data.certifications.map((certification, index) => (
               <CertificationForm
-                key={index}
+                key={`cert-${index}-${certification.name || ''}`}
                 data={certification}
                 onChange={(field, value) => handlers.updateCertification(index, field, value)}
                 onRemove={() => handlers.removeCertification(index)}
