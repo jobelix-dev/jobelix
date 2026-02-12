@@ -8,6 +8,7 @@ import type { Page } from 'playwright-core';
 import type { SavedAnswer, Job } from '../../types';
 import type { StatusReporter } from '../../utils/status-reporter';
 import { createLogger } from '../../utils/logger';
+import { InsufficientCreditsError } from '../../ai/backend-client';
 import { saveDebugHtml } from '../../utils/debug-html';
 import { detectLanguage, isLanguageAccepted, getLanguageName } from '../../utils/language-detector';
 import { FormHandler, AnswerRecordCallback, GPTAnswererLike } from './form-handler';
@@ -28,6 +29,7 @@ export interface EasyApplyResult {
   alreadyApplied?: boolean;
   languageSkipped?: boolean;
   detectedLanguage?: string;
+  outOfCredits?: boolean;
   pagesCompleted: number;
   totalFields: number;
   failedFields: number;
@@ -151,6 +153,15 @@ export class EasyApplier {
       }
 
     } catch (error) {
+      // Check if this is an insufficient credits error
+      if (error instanceof InsufficientCreditsError) {
+        result.outOfCredits = true;
+        result.error = 'Insufficient credits - please claim daily credits or purchase more';
+        log.error('💳 Out of credits - cannot continue with application');
+        // Don't increment failed counter for credits issue
+        return result;
+      }
+      
       result.error = String(error);
       log.error(`Error during Easy Apply: ${error}`);
       await this.saveHtml('apply_error', result.jobTitle);

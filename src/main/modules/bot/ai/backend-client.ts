@@ -13,6 +13,20 @@ import { getDataFolderPath } from '../utils/paths';
 const log = createLogger('BackendClient');
 
 /**
+ * Custom error for insufficient credits (HTTP 402)
+ */
+export class InsufficientCreditsError extends Error {
+  public readonly statusCode = 402;
+  public readonly code = 'INSUFFICIENT_CREDITS';
+  
+  constructor(message: string = 'Insufficient credits') {
+    super(message);
+    this.name = 'InsufficientCreditsError';
+    Object.setPrototypeOf(this, InsufficientCreditsError.prototype);
+  }
+}
+
+/**
  * Message format for chat completion
  */
 export interface ChatMessage {
@@ -114,6 +128,13 @@ export class BackendAPIClient {
       if (!response.ok) {
         const errorText = await response.text();
         log.error(`HTTP error ${response.status}: ${errorText}`);
+        
+        // Detect insufficient credits (HTTP 402 Payment Required)
+        if (response.status === 402) {
+          log.error('💳 INSUFFICIENT CREDITS - User needs to claim or purchase credits');
+          throw new InsufficientCreditsError(errorText);
+        }
+        
         throw new Error(`Backend API error: ${response.status} ${errorText}`);
       }
 
