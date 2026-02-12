@@ -11,21 +11,20 @@
  * 
  * Referral Flow:
  * When a user lands on this page with ?ref=CODE:
- * 1. Server sets referral cookie (for cross-browser email confirmation)
- * 2. Server passes the code to SignupForm
- * 3. SignupForm stores code in localStorage (client-side backup)
- * 4. Code is applied after signup completes (in /auth/callback)
+ * 1. Server validates the code and passes it to SignupForm
+ * 2. SignupForm stores code in localStorage (client-side backup)
+ * 3. Code is included in user_metadata during signup
+ * 4. Code is applied after signup completes (in /auth/callback via user_metadata)
  */
 
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
 import AppFooter from "../components/AppFooter";
 import Link from "next/link";
 import "../globals.css";
 import { canonicalUrl } from "@/lib/seo";
-import { validateReferralCode, REFERRAL_COOKIE_NAME } from "@/lib/shared/referral";
+import { validateReferralCode } from "@/lib/shared/referral";
 
 const title = "Create your Jobelix account";
 const description =
@@ -61,18 +60,10 @@ export default async function SignupPage({
   // Extract and validate referral code from URL
   const referralCode = validateReferralCode(params?.ref);
   
-  // Set referral cookie if valid code is present
-  // This ensures the code survives cross-browser email confirmation
-  if (referralCode) {
-    const cookieStore = await cookies();
-    cookieStore.set(REFERRAL_COOKIE_NAME, referralCode, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days (matches the referral time limit)
-      httpOnly: false, // Readable by client-side JS for OAuth flow
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-  }
+  // Note: The referral code is passed to SignupForm which stores it in localStorage
+  // and includes it in user_metadata during signup. The /auth/callback route reads
+  // from user_metadata, so no server-side cookie is needed here.
+  // (cookies().set() is not allowed in Server Components in Next.js 16)
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
