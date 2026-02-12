@@ -11,15 +11,22 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { UserProfile } from '@/lib/shared/types';
 import { api } from '@/lib/client/api';
 import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriangle, Info } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import WelcomeNotice from '@/app/components/WelcomeNotice';
 import OnboardingSteps from '@/app/components/OnboardingSteps';
-import StudentDashboard from './student/page';
-import CompanyDashboard from './company/page';
 import { useIsElectron } from '@/app/hooks/useClientSide';
+
+// Code-split role-specific dashboards - only the active role's bundle is loaded
+const StudentDashboard = dynamic(() => import('./student/page'), {
+  loading: () => <div className="flex justify-center py-12"><p className="text-muted">Loading dashboard...</p></div>,
+});
+const CompanyDashboard = dynamic(() => import('./company/page'), {
+  loading: () => <div className="flex justify-center py-12"><p className="text-muted">Loading dashboard...</p></div>,
+});
 
 // Map DB role to display role
 function getDisplayRole(dbRole: string): string {

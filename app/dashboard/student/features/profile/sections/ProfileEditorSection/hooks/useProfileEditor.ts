@@ -3,8 +3,10 @@
  * 
  * Manages all state manipulation logic for the profile editor.
  * Uses factory pattern for DRY CRUD operations.
+ * Callbacks are referentially stable via useRef to prevent child re-renders.
  */
 
+import { useCallback, useRef } from 'react';
 import { 
   ExtractedResumeData, 
   EducationEntry, 
@@ -20,33 +22,6 @@ import {
 interface UseProfileEditorProps {
   data: ExtractedResumeData;
   onChange: (data: ExtractedResumeData) => void;
-}
-
-// Factory for creating array CRUD handlers
-function createArrayHandlers<T>(
-  data: ExtractedResumeData,
-  onChange: (data: ExtractedResumeData) => void,
-  key: keyof ExtractedResumeData,
-  defaultItem: T
-) {
-  return {
-    add: () => {
-      const currentArray = data[key] as T[];
-      onChange({ ...data, [key]: [...currentArray, defaultItem] });
-    },
-    update: (index: number, field: keyof T, value: unknown) => {
-      const currentArray = [...(data[key] as T[])];
-      currentArray[index] = { ...currentArray[index], [field]: value };
-      onChange({ ...data, [key]: currentArray });
-    },
-    remove: (index: number) => {
-      const currentArray = data[key] as T[];
-      onChange({ ...data, [key]: currentArray.filter((_, i) => i !== index) });
-    },
-    set: (items: T[]) => {
-      onChange({ ...data, [key]: items });
-    },
-  };
 }
 
 // Default items for each entry type
@@ -104,29 +79,101 @@ const defaultSkill: SkillEntry = {
 };
 
 export function useProfileEditor({ data, onChange }: UseProfileEditorProps) {
-  // Basic field update
-  const updateField = (field: keyof ExtractedResumeData, value: unknown) => {
-    onChange({ ...data, [field]: value });
-  };
-  
-  // Update multiple fields at once (avoids stale closure issues)
-  const updateFields = (updates: Partial<ExtractedResumeData>) => {
-    onChange({ ...data, ...updates });
-  };
+  // Keep latest data/onChange in refs so callbacks remain stable
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
-  // Create handlers for each array type
-  const education = createArrayHandlers<EducationEntry>(data, onChange, 'education', defaultEducation);
-  const experience = createArrayHandlers<ExperienceEntry>(data, onChange, 'experience', defaultExperience);
-  const projects = createArrayHandlers<ProjectEntry>(data, onChange, 'projects', defaultProject);
-  const publications = createArrayHandlers<PublicationEntry>(data, onChange, 'publications', defaultPublication);
-  const certifications = createArrayHandlers<CertificationEntry>(data, onChange, 'certifications', defaultCertification);
-  const languages = createArrayHandlers<LanguageEntry>(data, onChange, 'languages', defaultLanguage);
-  const skills = createArrayHandlers<SkillEntry>(data, onChange, 'skills', defaultSkill);
+  // Basic field update - stable reference
+  const updateField = useCallback((field: keyof ExtractedResumeData, value: unknown) => {
+    onChangeRef.current({ ...dataRef.current, [field]: value });
+  }, []);
+  
+  // Update multiple fields at once - stable reference
+  const updateFields = useCallback((updates: Partial<ExtractedResumeData>) => {
+    onChangeRef.current({ ...dataRef.current, ...updates });
+  }, []);
+
+  // Stable array CRUD handlers using refs
+  const addEducation = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, education: [...dataRef.current.education, defaultEducation] });
+  }, []);
+  const updateEducation = useCallback((index: number, field: keyof EducationEntry, value: unknown) => {
+    const arr = [...dataRef.current.education];
+    arr[index] = { ...arr[index], [field]: value };
+    onChangeRef.current({ ...dataRef.current, education: arr });
+  }, []);
+  const removeEducation = useCallback((index: number) => {
+    onChangeRef.current({ ...dataRef.current, education: dataRef.current.education.filter((_, i) => i !== index) });
+  }, []);
+
+  const addExperience = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, experience: [...dataRef.current.experience, defaultExperience] });
+  }, []);
+  const updateExperience = useCallback((index: number, field: keyof ExperienceEntry, value: unknown) => {
+    const arr = [...dataRef.current.experience];
+    arr[index] = { ...arr[index], [field]: value };
+    onChangeRef.current({ ...dataRef.current, experience: arr });
+  }, []);
+  const removeExperience = useCallback((index: number) => {
+    onChangeRef.current({ ...dataRef.current, experience: dataRef.current.experience.filter((_, i) => i !== index) });
+  }, []);
+
+  const addProject = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, projects: [...dataRef.current.projects, defaultProject] });
+  }, []);
+  const updateProject = useCallback((index: number, field: keyof ProjectEntry, value: unknown) => {
+    const arr = [...dataRef.current.projects];
+    arr[index] = { ...arr[index], [field]: value };
+    onChangeRef.current({ ...dataRef.current, projects: arr });
+  }, []);
+  const removeProject = useCallback((index: number) => {
+    onChangeRef.current({ ...dataRef.current, projects: dataRef.current.projects.filter((_, i) => i !== index) });
+  }, []);
+
+  const updateSkills = useCallback((items: SkillEntry[]) => {
+    onChangeRef.current({ ...dataRef.current, skills: items });
+  }, []);
+  const addSkill = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, skills: [...dataRef.current.skills, defaultSkill] });
+  }, []);
+
+  const addLanguage = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, languages: [...dataRef.current.languages, defaultLanguage] });
+  }, []);
+  const updateLanguages = useCallback((items: LanguageEntry[]) => {
+    onChangeRef.current({ ...dataRef.current, languages: items });
+  }, []);
+
+  const addPublication = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, publications: [...dataRef.current.publications, defaultPublication] });
+  }, []);
+  const updatePublication = useCallback((index: number, field: keyof PublicationEntry, value: unknown) => {
+    const arr = [...dataRef.current.publications];
+    arr[index] = { ...arr[index], [field]: value };
+    onChangeRef.current({ ...dataRef.current, publications: arr });
+  }, []);
+  const removePublication = useCallback((index: number) => {
+    onChangeRef.current({ ...dataRef.current, publications: dataRef.current.publications.filter((_, i) => i !== index) });
+  }, []);
+
+  const addCertification = useCallback(() => {
+    onChangeRef.current({ ...dataRef.current, certifications: [...dataRef.current.certifications, defaultCertification] });
+  }, []);
+  const updateCertification = useCallback((index: number, field: keyof CertificationEntry, value: unknown) => {
+    const arr = [...dataRef.current.certifications];
+    arr[index] = { ...arr[index], [field]: value };
+    onChangeRef.current({ ...dataRef.current, certifications: arr });
+  }, []);
+  const removeCertification = useCallback((index: number) => {
+    onChangeRef.current({ ...dataRef.current, certifications: dataRef.current.certifications.filter((_, i) => i !== index) });
+  }, []);
 
   // Social links (single object, not array)
-  const updateSocialLinks = (social_links: SocialLinkEntry) => {
-    onChange({ ...data, social_links });
-  };
+  const updateSocialLinks = useCallback((social_links: SocialLinkEntry) => {
+    onChangeRef.current({ ...dataRef.current, social_links });
+  }, []);
 
   return {
     // Basic fields
@@ -134,37 +181,37 @@ export function useProfileEditor({ data, onChange }: UseProfileEditorProps) {
     updateFields,
     
     // Education
-    addEducation: education.add,
-    updateEducation: education.update,
-    removeEducation: education.remove,
+    addEducation,
+    updateEducation,
+    removeEducation,
     
     // Experience
-    addExperience: experience.add,
-    updateExperience: experience.update,
-    removeExperience: experience.remove,
+    addExperience,
+    updateExperience,
+    removeExperience,
     
     // Projects
-    addProject: projects.add,
-    updateProject: projects.update,
-    removeProject: projects.remove,
+    addProject,
+    updateProject,
+    removeProject,
     
     // Skills
-    updateSkills: skills.set,
-    addSkill: skills.add,
+    updateSkills,
+    addSkill,
     
     // Languages
-    addLanguage: languages.add,
-    updateLanguages: languages.set,
+    addLanguage,
+    updateLanguages,
     
     // Publications
-    addPublication: publications.add,
-    updatePublication: publications.update,
-    removePublication: publications.remove,
+    addPublication,
+    updatePublication,
+    removePublication,
     
     // Certifications
-    addCertification: certifications.add,
-    updateCertification: certifications.update,
-    removeCertification: certifications.remove,
+    addCertification,
+    updateCertification,
+    removeCertification,
     
     // Social Links
     updateSocialLinks,

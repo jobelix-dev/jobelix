@@ -10,14 +10,28 @@
 'use client';
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
-import { MatchesTab } from './features/matches';
-import { JobPreferencesTab } from './features/job-preferences';
-import { AutoApplyTab } from './features/auto-apply';
 import { useProfileData, useResumeUpload, useGitHubImportDashboard } from './hooks';
 import { useConfirmDialog } from '@/app/components/useConfirmDialog';
 import { restoreFocusAfterDialog } from '@/lib/client/focusRestore';
+
+// Lazy-load non-default tabs - only fetched when user navigates to them
+// Import directly from component files (not barrels) for clean code splitting
+const MatchesTab = dynamic(() => import('./features/matches/MatchesTab'), {
+  loading: () => <TabSkeleton />,
+});
+const JobPreferencesTab = dynamic(() => import('./features/job-preferences/JobPreferencesTab'), {
+  loading: () => <TabSkeleton />,
+});
+const AutoApplyTab = dynamic(() => import('./features/auto-apply/AutoApplyTab'), {
+  loading: () => <TabSkeleton />,
+});
+
+function TabSkeleton() {
+  return <div className="flex justify-center py-8"><p className="text-muted">Loading...</p></div>;
+}
 
 type DashboardTab = 'profile' | 'matches' | 'job-preferences' | 'auto-apply';
 
@@ -74,16 +88,12 @@ function StudentDashboardContent() {
     };
   }, [jobPreferencesUnsaved]);
 
-  const handleTabChange = (nextTab: DashboardTab) => {
-    setActiveTab(nextTab);
-  };
-
   return (
     <div>
       {/* Dashboard Navigation */}
       <DashboardNav 
         activeTab={activeTab} 
-        onTabChange={handleTabChange}
+        onTabChange={setActiveTab}
         profileHasUnsaved={profileState.draftStatus === 'editing'}
         preferencesHasUnsaved={jobPreferencesUnsaved}
       />
