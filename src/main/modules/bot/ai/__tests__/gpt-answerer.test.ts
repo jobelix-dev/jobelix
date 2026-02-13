@@ -273,7 +273,7 @@ describe('GPTAnswerer', () => {
 
       await expect(
         gptAnswerer.answerNumeric('Test question')
-      ).rejects.toThrow('API request failed');
+      ).rejects.toThrow('Backend API error');
     });
 
     it('should throw error on network failure', async () => {

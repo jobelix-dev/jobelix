@@ -32,7 +32,12 @@ const mockWindow = {
 };
 
 // We need to mock electron before importing StatusReporter
+// Must include 'app' since logger.ts calls app.getPath() and app.on() at module level
 vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn(() => '/tmp/jobelix-test'),
+    on: vi.fn(),
+  },
   BrowserWindow: vi.fn(() => mockWindow),
 }));
 
