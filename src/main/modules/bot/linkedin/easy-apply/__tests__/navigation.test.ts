@@ -134,14 +134,14 @@ describe('NavigationHandler', () => {
 
   describe('isModalOpen', () => {
     it('should return true when modal is visible', async () => {
-      page._setLocator('[data-test-modal]', createMockLocator({ count: 1, visible: true }));
+      page._setLocator('div.jobs-easy-apply-modal', createMockLocator({ count: 1, visible: true }));
       
       const isOpen = await handler.isModalOpen();
       expect(isOpen).toBe(true);
     });
 
     it('should return false when modal is not visible', async () => {
-      page._setLocator('[data-test-modal]', createMockLocator({ count: 1, visible: false }));
+      page._setLocator('div.jobs-easy-apply-modal', createMockLocator({ count: 1, visible: false }));
       
       const isOpen = await handler.isModalOpen();
       expect(isOpen).toBe(false);
