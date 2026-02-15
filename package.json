@@ -69,7 +69,11 @@
       },
       {
         "from": "public",
-        "to": "next/standalone/public"
+        "to": "next/standalone/public",
+        "filter": [
+          "**/*",
+          "!hero-demo.mp4"
+        ]
       }
     ],
     "electronLanguages": [

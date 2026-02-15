@@ -27,6 +27,7 @@ export default async function afterPack(context) {
   const { appOutDir, electronPlatformName } = context;
   
   console.log(`\n🔧 After-pack: Processing ${electronPlatformName}...`);
+  await pruneBundledStandalone(appOutDir);
 
   if (electronPlatformName === 'linux') {
     await stripLinux(appOutDir);
@@ -36,6 +37,61 @@ export default async function afterPack(context) {
   // Windows binaries are already stripped by default in release builds
   
   console.log('✅ After-pack complete\n');
+}
+
+/**
+ * Remove non-runtime files from bundled Next standalone output.
+ * This keeps runtime behavior unchanged while shrinking installer size.
+ */
+async function pruneBundledStandalone(appOutDir) {
+  const standaloneDir = path.join(appOutDir, 'resources', 'next', 'standalone');
+  if (!fs.existsSync(standaloneDir)) {
+    return;
+  }
+
+  let removedCount = 0;
+  let removedBytes = 0;
+
+  const shouldRemove = (filePath) => {
+    const basename = path.basename(filePath).toLowerCase();
+
+    if (basename.endsWith('.map')) return true;
+    if (basename === '.npmignore') return true;
+    if (basename === 'readme' || basename.startsWith('readme.')) return true;
+    if (basename === 'changelog' || basename.startsWith('changelog.')) return true;
+    if (basename === 'history' || basename.startsWith('history.')) return true;
+    return false;
+  };
+
+  const walk = (dirPath) => {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+        continue;
+      }
+
+      if (!shouldRemove(fullPath)) continue;
+
+      try {
+        const size = fs.statSync(fullPath).size;
+        fs.rmSync(fullPath, { force: true });
+        removedCount += 1;
+        removedBytes += size;
+      } catch {
+        // Ignore best-effort cleanup failures.
+      }
+    }
+  };
+
+  walk(standaloneDir);
+
+  if (removedCount > 0) {
+    const removedMb = (removedBytes / 1024 / 1024).toFixed(2);
+    console.log(`  ✓ Pruned Next standalone: removed ${removedCount} files (${removedMb}MB)`);
+  }
 }
 
 /**
