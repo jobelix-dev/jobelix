@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
       }
       
       console.log('[Signup] Session established successfully')
-      return NextResponse.json({ success: true, userId: data.user.id })
+      return NextResponse.json({ success: true, userId: data.user.id, loggedIn: true })
     }
 
     return NextResponse.json({

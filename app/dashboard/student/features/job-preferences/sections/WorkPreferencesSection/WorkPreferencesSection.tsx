@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, MutableRefObject } from 'react';
 import { Save, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
 import SearchCriteriaSection, { SearchCriteriaSectionRef } from './components/SearchCriteriaSection';
@@ -27,9 +27,15 @@ import type { ValidationErrors } from './types';
 interface WorkPreferencesEditorProps {
   onSave?: () => void;
   onUnsavedChanges?: (hasChanges: boolean) => void;
+  /** When true, hides the inline Save button (e.g. in wizard mode where Continue = Save) */
+  hideSaveButton?: boolean;
+  /** Ref that parent sets to trigger save from its own button (e.g. wizard Continue) */
+  saveRef?: MutableRefObject<(() => void) | null>;
+  /** Reports save state changes (saving in progress, success) to parent */
+  onSaveStateChange?: (state: { saving: boolean; saveSuccess: boolean }) => void;
 }
 
-export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: WorkPreferencesEditorProps) {
+export default function WorkPreferencesEditor({ onSave, onUnsavedChanges, hideSaveButton = false, saveRef, onSaveStateChange }: WorkPreferencesEditorProps) {
   const {
     preferences,
     setPreferences: _setPreferences,
@@ -110,6 +116,23 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
       updateValidationErrors(preferences);
     }
   }, [preferences, tourOpen, updateValidationErrors]);
+
+  // Expose handleSave to parent via ref (for wizard Continue = Save)
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = handleSave;
+    }
+    return () => {
+      if (saveRef) {
+        saveRef.current = null;
+      }
+    };
+  }, [saveRef, handleSave]);
+
+  // Report save state to parent (for StickyActionBar in wizard mode)
+  useEffect(() => {
+    onSaveStateChange?.({ saving, saveSuccess });
+  }, [saving, saveSuccess, onSaveStateChange]);
 
   if (loading) {
     return (
@@ -227,14 +250,16 @@ export default function WorkPreferencesEditor({ onSave, onUnsavedChanges }: Work
         </div>
       </div>
 
-      <SaveButton saving={saving} saveSuccess={saveSuccess} onSave={handleSave} />
+      {!hideSaveButton && <SaveButton saving={saving} saveSuccess={saveSuccess} onSave={handleSave} />}
 
       <ValidationTour
         isOpen={tourOpen}
         step={currentTourStep}
-        onNext={isCompletionStep ? handleTourExit : handleTourNext}
+        onNext={isCompletionStep ? handleSave : handleTourNext}
         onBack={handleTourBack}
         onExit={handleTourExit}
+        nextLabel={isCompletionStep ? 'Save' : 'Next'}
+        allowScroll={isCompletionStep}
       />
     </div>
   );

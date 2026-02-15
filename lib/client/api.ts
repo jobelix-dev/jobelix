@@ -22,6 +22,54 @@ import {
 } from '../shared/types'
 
 class ApiClient {
+  /**
+   * Safely parse a response as JSON.
+   * Returns null if the response body is not valid JSON (e.g. HTML error pages).
+   */
+  private async safeJson<T>(response: Response): Promise<T | null> {
+    const text = await response.text()
+    try {
+      return JSON.parse(text) as T
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Extract a human-readable error message from a failed response.
+   * Handles JSON error bodies, HTML error pages, and unexpected formats.
+   */
+  private extractErrorMessage(status: number, data: Record<string, unknown> | null): string {
+    if (!data) {
+      // Non-JSON response (e.g. HTML error page) – provide a status-aware message
+      if (status === 401) return 'Your session has expired. Please log in again.'
+      if (status === 413) return 'The request is too large.'
+      if (status === 429) return 'Too many requests. Please try again later.'
+      if (status >= 500) return 'A server error occurred. Please try again later.'
+      return `Request failed (${status})`
+    }
+
+    // Handle different JSON error response formats:
+    // 1. { error: "message" }
+    // 2. { message: "Validation failed", errors: [...] }
+    // 3. { error: "message", code: "ERROR_CODE" }
+    if (data.error && typeof data.error === 'string') {
+      return data.error
+    }
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const firstError = data.errors[0]
+      if (firstError) {
+        return firstError.path
+          ? `${this.formatFieldName(firstError.path)}: ${firstError.message}`
+          : firstError.message
+      }
+    }
+    if (data.message && typeof data.message === 'string') {
+      return data.message
+    }
+    return 'Request failed'
+  }
+
   private async request<T>(
     endpoint: string,
     options?: RequestInit
@@ -34,36 +82,15 @@ class ApiClient {
       ...options,
     })
 
-    const data = await response.json()
+    const data = await this.safeJson<T>(response)
 
     if (!response.ok) {
-      // Handle different error response formats:
-      // 1. { error: "message" } - simple error
-      // 2. { message: "Validation failed", errors: [...] } - validation errors
-      // 3. { error: "message", code: "ERROR_CODE" } - error with code
-      
-      let errorMessage = 'Request failed';
-      
-      if (data.error) {
-        // Simple error message
-        errorMessage = data.error;
-      } else if (data.errors && Array.isArray(data.errors)) {
-        // Validation errors - extract the first one for display
-        // Format: "Field: message" or just "message" if path is empty
-        const firstError = data.errors[0];
-        if (firstError) {
-          errorMessage = firstError.path 
-            ? `${this.formatFieldName(firstError.path)}: ${firstError.message}`
-            : firstError.message;
-        } else if (data.message) {
-          errorMessage = data.message;
-        }
-      } else if (data.message) {
-        // Fallback to message field
-        errorMessage = data.message;
-      }
-      
-      throw new Error(errorMessage);
+      throw new Error(this.extractErrorMessage(response.status, data as Record<string, unknown> | null))
+    }
+
+    if (data === null) {
+      // Successful status but non-JSON body – this shouldn't happen for our API
+      throw new Error('Received an unexpected response from the server.')
     }
 
     return data
@@ -163,10 +190,14 @@ class ApiClient {
       body: formData,
     })
 
-    const data = await response.json()
+    const data = await this.safeJson<UploadResponse>(response)
 
     if (!response.ok) {
-      throw new Error(data.error || 'Upload failed')
+      throw new Error(this.extractErrorMessage(response.status, data as Record<string, unknown> | null))
+    }
+
+    if (data === null) {
+      throw new Error('Received an unexpected response from the server.')
     }
 
     return data
@@ -176,8 +207,8 @@ class ApiClient {
     const response = await fetch('/api/student/resume/download')
 
     if (!response.ok) {
-      const data = await response.json()
-      throw new Error(data.error || 'Download failed')
+      const data = await this.safeJson<Record<string, unknown>>(response)
+      throw new Error(this.extractErrorMessage(response.status, data))
     }
 
     return response.blob()

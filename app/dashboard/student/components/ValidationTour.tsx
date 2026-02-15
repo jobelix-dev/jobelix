@@ -48,6 +48,8 @@ interface ValidationTourProps {
   onBack?: () => void;
   onExit: () => void;
   nextLabel?: string;
+  /** When true, page scrolling is allowed while the tour is open (e.g. on the completion step) */
+  allowScroll?: boolean;
 }
 
 export default function ValidationTour({
@@ -57,6 +59,7 @@ export default function ValidationTour({
   onBack,
   onExit,
   nextLabel = 'Next',
+  allowScroll = false,
 }: ValidationTourProps) {
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   // Derive overlayReady from targetRect presence - avoids synchronous setState
@@ -64,7 +67,7 @@ export default function ValidationTour({
   const [popoverHeight, setPopoverHeight] = useState(160);
   const { width: viewportWidth, height: viewportHeight } = useViewportDimensions();
 
-  const { previousOverflow } = useScrollLock({ isActive: isOpen });
+  const { releaseLock, acquireLock } = useScrollLock({ isActive: isOpen && !allowScroll });
 
   // Track if we're ready to show the overlay (step has been processed)
   const overlayReady = stepKey === step?.id && targetRect !== null;
@@ -141,10 +144,8 @@ export default function ValidationTour({
         return;
       }
 
-      const originalOverflow = document.body.style.overflow;
-      if (originalOverflow === 'hidden') {
-        document.body.style.overflow = previousOverflow.current ?? '';
-      }
+      // Temporarily release scroll lock so scrollIntoView can work
+      releaseLock();
 
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       await waitForScrollIdle();
@@ -152,8 +153,9 @@ export default function ValidationTour({
 
       if (cancelled) return;
 
-      if (document.body.style.overflow !== 'hidden') {
-        document.body.style.overflow = 'hidden';
+      // Re-acquire scroll lock after scrolling completes (skip if scrolling is allowed, e.g. completion step)
+      if (!allowScroll) {
+        acquireLock();
       }
 
       const focusTarget = target.matches('input, select, textarea, button, [tabindex]')
@@ -175,7 +177,7 @@ export default function ValidationTour({
       setStepKey(null);
       setTargetRect(null);
     };
-  }, [currentStepId, stepTargetId, stepTargetIds, updateRect, previousOverflow]);
+  }, [currentStepId, stepTargetId, stepTargetIds, updateRect, releaseLock, acquireLock, allowScroll]);
 
   // Callback ref to measure popover height - called by React when element mounts/unmounts
   const popoverRefCallback = useCallback((node: HTMLDivElement | null) => {
@@ -187,6 +189,31 @@ export default function ValidationTour({
     }
   }, [popoverHeight]);
 
+  // Handle Enter key to advance to next step
+  useEffect(() => {
+    if (!isOpen || !overlayReady) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        // Don't intercept Enter on editable elements (inputs, textareas, selects)
+        const target = e.target as HTMLElement | null;
+        const isEditable = !!target && (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable
+        );
+        if (isEditable) return;
+
+        e.preventDefault();
+        onNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, overlayReady, onNext]);
+
   if (!isOpen || !step || !overlayReady || !targetRect) return null;
 
   const spotlight = calculateSpotlightPosition(targetRect);
@@ -197,7 +224,7 @@ export default function ValidationTour({
       className="fixed inset-0 z-[1000] pointer-events-none"
       style={{ width: '100vw', height: '100vh' }}
     >
-      <DimmingOverlay spotlight={spotlight} viewportWidth={viewportWidth} viewportHeight={viewportHeight} />
+      <DimmingOverlay spotlight={spotlight} viewportWidth={viewportWidth} viewportHeight={viewportHeight} passThrough={allowScroll} />
       <SpotlightOutline spotlight={spotlight} />
       <TourPopover
         ref={popoverRefCallback}
@@ -221,19 +248,22 @@ interface DimmingOverlayProps {
   spotlight: SpotlightPosition;
   viewportWidth: number;
   viewportHeight: number;
+  /** When true, the overlay doesn't block pointer events (allows scrolling/clicking through) */
+  passThrough?: boolean;
 }
 
-function DimmingOverlay({ spotlight, viewportWidth, viewportHeight }: DimmingOverlayProps) {
+function DimmingOverlay({ spotlight, viewportWidth, viewportHeight, passThrough = false }: DimmingOverlayProps) {
+  const pointerClass = passThrough ? 'pointer-events-none' : 'pointer-events-auto';
   return (
     <>
       {/* Top */}
       <div
-        className="absolute left-0 right-0 top-0 bg-black/55 pointer-events-auto"
+        className={`absolute left-0 right-0 top-0 bg-black/55 ${pointerClass}`}
         style={{ height: Math.max(0, spotlight.top) }}
       />
       {/* Left */}
       <div
-        className="absolute left-0 bg-black/55 pointer-events-auto"
+        className={`absolute left-0 bg-black/55 ${pointerClass}`}
         style={{
           top: spotlight.top,
           height: spotlight.height,
@@ -242,7 +272,7 @@ function DimmingOverlay({ spotlight, viewportWidth, viewportHeight }: DimmingOve
       />
       {/* Right */}
       <div
-        className="absolute bg-black/55 pointer-events-auto"
+        className={`absolute bg-black/55 ${pointerClass}`}
         style={{
           top: spotlight.top,
           left: spotlight.left + spotlight.width,
@@ -252,7 +282,7 @@ function DimmingOverlay({ spotlight, viewportWidth, viewportHeight }: DimmingOve
       />
       {/* Bottom */}
       <div
-        className="absolute left-0 right-0 bg-black/55 pointer-events-auto"
+        className={`absolute left-0 right-0 bg-black/55 ${pointerClass}`}
         style={{
           top: spotlight.top + spotlight.height,
           height: Math.max(0, viewportHeight - (spotlight.top + spotlight.height)),

@@ -149,6 +149,7 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
             await applyReferralCode(effectiveReferralCode);
           }
           router.refresh();
+          await new Promise(resolve => setTimeout(resolve, 100));
           router.push('/dashboard');
         } else if (response.message) {
           // Email confirmation required - user is NOT authenticated yet.
@@ -163,6 +164,7 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
             await applyReferralCode(effectiveReferralCode);
           }
           router.refresh();
+          await new Promise(resolve => setTimeout(resolve, 100));
           router.push('/dashboard');
         }
       }

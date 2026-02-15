@@ -306,6 +306,10 @@ export async function GET(request: NextRequest) {
   const next = requestUrl.searchParams.get('next') || '/dashboard'
   const isPopup = requestUrl.searchParams.get('popup') === 'true'
 
+  // Supabase may redirect here with an error (e.g., duplicate email across providers)
+  const errorParam = requestUrl.searchParams.get('error')
+  const errorDescription = requestUrl.searchParams.get('error_description')
+
   // Validate the 'next' parameter to prevent open redirect attacks
   // Must be a relative path starting with '/' but not '//' (protocol-relative URL)
   const safeNext = (next.startsWith('/') && !next.startsWith('//')) ? next : '/dashboard'
@@ -315,6 +319,9 @@ export async function GET(request: NextRequest) {
   console.log('[Callback] Token present:', !!token || !!token_hash)
   console.log('[Callback] Type:', type)
   console.log('[Callback] Is Popup:', isPopup)
+  if (errorParam) {
+    console.log('[Callback] Error from Supabase:', errorParam, errorDescription)
+  }
 
   // Helper to redirect appropriately based on popup mode
   // Also clears the referral cookie after processing
@@ -325,7 +332,9 @@ export async function GET(request: NextRequest) {
       // For popups, redirect to a page that closes the popup
       const popupUrl = new URL('/auth/callback-success', requestUrl.origin)
       if (path.includes('error=')) {
-        popupUrl.searchParams.set('error', new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error')
+        // Extract the error message from the path and pass it to callback-success
+        const errorMsg = new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error'
+        popupUrl.searchParams.set('error', errorMsg)
       }
       response = NextResponse.redirect(popupUrl)
     } else {
@@ -334,6 +343,16 @@ export async function GET(request: NextRequest) {
     
     // Clear the referral cookie after processing
     return clearReferralCookie(response)
+  }
+
+  // ===========================================
+  // EARLY EXIT: Supabase returned an error via URL params
+  // This happens e.g. when duplicate emails exist across providers
+  // ===========================================
+  if (errorParam) {
+    const errorMessage = errorDescription || errorParam
+    console.error('[Callback] Supabase auth error:', errorMessage)
+    return redirectTo(`/login?error=${encodeURIComponent(errorMessage)}`)
   }
 
   // WORKAROUND: If we're on the wrong domain, redirect to the correct one

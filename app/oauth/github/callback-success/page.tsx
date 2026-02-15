@@ -34,8 +34,8 @@ function CallbackContent() {
     } else {
       // If not in popup, redirect to dashboard (fallback for direct navigation)
       const redirectUrl = error 
-        ? `/dashboard/student?github_error=${error}`
-        : '/dashboard/student?github_connected=true&auto_sync=true';
+        ? `/dashboard?github_error=${error}`
+        : '/dashboard?github_connected=true&auto_sync=true';
       
       window.location.href = redirectUrl;
     }
