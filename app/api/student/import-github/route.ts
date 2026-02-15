@@ -19,6 +19,7 @@ import { setGitHubImportProgress } from '@/lib/server/githubImportProgress';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
 export const runtime = 'nodejs';
 
@@ -50,12 +51,31 @@ const GitHubMergeSchema = z.object({
   })),
 });
 
+const CurrentProjectSchema = z.object({
+  project_name: z.string().max(200).optional(),
+  description: z.string().max(5000).nullable().optional(),
+  link: z.string().max(1000).nullable().optional(),
+}).passthrough();
+
+const CurrentSkillSchema = z.object({
+  skill_name: z.string().max(200).optional(),
+  skill_slug: z.string().max(200).optional(),
+}).passthrough();
+
+const importRequestSchema = z.object({
+  current_projects: z.array(CurrentProjectSchema).max(300).optional().default([]),
+  current_skills: z.array(CurrentSkillSchema).max(500).optional().default([]),
+});
+
 /**
  * POST handler for GitHub import
  * Expects: { current_projects, current_skills } in request body
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
     // Authenticate user
     const auth = await authenticateRequest();
     if (auth.error) return auth.error;
@@ -102,22 +122,32 @@ export async function POST(request: NextRequest) {
     // Rate limiting: 3 imports per hour, 6 per day (this is expensive with OpenAI)
     const rateLimitResult = await checkRateLimit(user.id, {
       endpoint: 'github-import',
-      hourlyLimit: 15,
-      dailyLimit: 15,
+      hourlyLimit: 3,
+      dailyLimit: 6,
     })
 
     if (rateLimitResult.error) return rateLimitResult.error
     if (!rateLimitResult.data.allowed) {
       return rateLimitExceededResponse(
-        { endpoint: 'github-import', hourlyLimit: 15, dailyLimit: 15 },
+        { endpoint: 'github-import', hourlyLimit: 3, dailyLimit: 6 },
         rateLimitResult.data
       )
     }
 
-    // Get request body
-    const body = await request.json();
-    const currentProjects = body.current_projects || [];
-    const currentSkills = body.current_skills || [];
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    }
+
+    const parsedBody = importRequestSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: 'Invalid import payload' }, { status: 400 });
+    }
+
+    const currentProjects = parsedBody.data.current_projects;
+    const currentSkills = parsedBody.data.current_skills;
 
     // Get GitHub connection
     const connection = await getGitHubConnection(user.id);
@@ -131,7 +161,6 @@ export async function POST(request: NextRequest) {
     const BATCH_SIZE = 10;
 
     // Fetch GitHub repositories with README excerpts for better descriptions
-    console.log('Fetching GitHub repositories with README content...');
     updateProgress({
       step: 'Fetching repositories',
       reposProcessed: 0,
@@ -148,7 +177,6 @@ export async function POST(request: NextRequest) {
     });
     }
     
-    console.log(`Processing ${repos.length} repositories (fetching languages + READMEs)...`);
     updateProgress({
       step: 'Preparing repository analysis',
       reposProcessed: 0,
@@ -156,9 +184,6 @@ export async function POST(request: NextRequest) {
       batchRepos: [],
     });
     const transformedRepos = await transformReposForLLM(connection.access_token, repos, true); // Enable README fetching
-
-    const reposWithReadme = transformedRepos.filter(r => r.readme_summary).length;
-    console.log(`✓ Fetched ${transformedRepos.length} repositories (${reposWithReadme} with README excerpts)`);
 
     if (transformedRepos.length === 0) {
       return NextResponse.json({
@@ -178,8 +203,6 @@ export async function POST(request: NextRequest) {
              repo.readme_summary;
     });
 
-    console.log(`Filtered to ${significantRepos.length} significant repositories (removed forks without stars/description)`);
-
     // Sort by importance: stars, has README, recently updated
     const sortedRepos = significantRepos.sort((a, b) => {
       const scoreA = (a.stars || 0) * 10 + (a.readme_summary ? 5 : 0) + (a.description ? 2 : 0);
@@ -192,13 +215,10 @@ export async function POST(request: NextRequest) {
     let mergedSkills = [...currentSkills];
     const totalBatches = Math.ceil(sortedRepos.length / BATCH_SIZE);
 
-    console.log(`Processing ${sortedRepos.length} repos in ${totalBatches} batches of ${BATCH_SIZE}`);
-
     for (let i = 0; i < sortedRepos.length; i += BATCH_SIZE) {
       const batch = sortedRepos.slice(i, i + BATCH_SIZE);
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-      
-      console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} repos)...`);
+
       updateProgress({
         step: 'Parsing repositories',
         reposProcessed: i,
@@ -290,15 +310,12 @@ Process ALL ${batch.length} repositories in this batch.`,
       // Parse the batch merge result
       const batchResult = JSON.parse(completion.choices[0].message.content || '{}');
       
-      console.log(`  Batch ${batchNum}: ${mergedProjects.length} → ${batchResult.projects.length} projects (+${batchResult.projects.length - mergedProjects.length})`);
-      console.log(`  Batch ${batchNum}: ${mergedSkills.length} → ${batchResult.skills.length} skills (+${batchResult.skills.length - mergedSkills.length})`);
-      
       // Validation check
       if (batchResult.projects.length < mergedProjects.length) {
-        console.error(`⚠️ WARNING: Batch ${batchNum} LOST projects! ${mergedProjects.length} → ${batchResult.projects.length}`);
+        console.warn(`[GitHub Import] Batch ${batchNum} reduced project count unexpectedly`);
       }
       if (batchResult.skills.length < mergedSkills.length) {
-        console.error(`⚠️ WARNING: Batch ${batchNum} LOST skills! ${mergedSkills.length} → ${batchResult.skills.length}`);
+        console.warn(`[GitHub Import] Batch ${batchNum} reduced skill count unexpectedly`);
       }
       
       // Update merged data for next iteration
@@ -313,31 +330,13 @@ Process ALL ${batch.length} repositories in this batch.`,
       });
     }
 
-    // Final debug logging
-    console.log('=== GITHUB IMPORT MERGE DEBUG (FINAL) ===');
-    console.log('Initial projects count:', currentProjects.length);
-    console.log('Initial skills count:', currentSkills.length);
-    console.log('GitHub repos count:', sortedRepos.length);
-    console.log('Final merged projects count:', mergedProjects.length);
-    console.log('Final merged skills count:', mergedSkills.length);
-    console.log('Projects added:', mergedProjects.length - currentProjects.length);
-    console.log('Skills added:', mergedSkills.length - currentSkills.length);
-    
-    if (currentProjects.length > 0) {
-      console.log('Sample current projects:', currentProjects.slice(0, 2).map((p: { project_name?: string }) => p.project_name));
-    }
-    if (mergedProjects.length > 0) {
-      console.log('Sample merged projects:', mergedProjects.slice(0, 2).map((p: { project_name?: string }) => p.project_name));
-    }
-    
     // Final validation check
     if (mergedProjects.length < currentProjects.length) {
-      console.error('⚠️ CRITICAL: Final merged projects count is LESS than initial count!');
+      console.warn('[GitHub Import] Final merge reduced project count unexpectedly');
     }
     if (mergedSkills.length < currentSkills.length) {
-      console.error('⚠️ CRITICAL: Final merged skills count is LESS than initial count!');
+      console.warn('[GitHub Import] Final merge reduced skill count unexpectedly');
     }
-    console.log('==========================================');
 
     // Update the draft with merged projects and skills
     updateProgress({
@@ -368,8 +367,6 @@ Process ALL ${batch.length} repositories in this batch.`,
 
     // Log the API call for rate limiting
     await logApiCall(user.id, 'github-import')
-
-    console.log(`GitHub import successful: Total added ${mergedProjects.length - currentProjects.length} projects, ${mergedSkills.length - currentSkills.length} skills`);
 
     updateProgress({
       step: 'Import complete',

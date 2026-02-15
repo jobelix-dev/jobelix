@@ -13,6 +13,7 @@ import { OfferDraftData, CompanyOfferDraft } from '@/lib/shared/types';
 import BasicInfoForm from './components/BasicInfoForm';
 import CompensationForm from './components/CompensationForm';
 import RoleRequirementsForm from './components/RoleRequirementsForm';
+import { apiFetch } from '@/lib/client/http';
 
 interface OfferEditorProps {
   draftId: string; // The specific draft to edit
@@ -33,7 +34,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`/api/company/offer/draft/${draftId}`);
+      const res = await apiFetch(`/api/company/offer/draft/${draftId}`);
       if (!res.ok) throw new Error('Failed to load draft');
 
       const { draft: loadedDraft } = await res.json();
@@ -68,7 +69,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
 
     try {
       setSaving(true);
-      const res = await fetch(`/api/company/offer/draft/${draft.id}`, {
+      const res = await apiFetch(`/api/company/offer/draft/${draft.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData),
@@ -136,7 +137,7 @@ export default function OfferEditor({ draftId, onClose }: OfferEditorProps) {
       console.log('Publishing draft:', draft.id);
 
       // Call publish API
-      const res = await fetch('/api/company/offer/publish', {
+      const res = await apiFetch('/api/company/offer/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft_id: draft.id }),

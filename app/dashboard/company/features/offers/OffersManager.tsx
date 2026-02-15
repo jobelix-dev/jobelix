@@ -14,6 +14,7 @@ import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
 import { useConfirmDialog } from '@/app/components/useConfirmDialog';
+import { apiFetch } from '@/lib/client/http';
 
 type ViewState = 'list' | 'editor';
 
@@ -35,7 +36,7 @@ export default function OffersManager() {
   async function fetchOffersAndDrafts() {
     setLoading(true);
     try {
-      const res = await fetch('/api/company/offer');
+      const res = await apiFetch('/api/company/offer');
       if (!res.ok) throw new Error('Failed to fetch offers');
       
       const data = await res.json();
@@ -50,7 +51,7 @@ export default function OffersManager() {
 
   async function handleDeleteOffer(offerId: string) {
     try {
-      const res = await fetch(`/api/company/offer/${offerId}`, {
+      const res = await apiFetch(`/api/company/offer/${offerId}`, {
         method: 'DELETE',
       });
       
@@ -66,7 +67,7 @@ export default function OffersManager() {
 
   async function handleDeleteDraft(draftId: string) {
     try {
-      const res = await fetch(`/api/company/offer/draft/${draftId}`, {
+      const res = await apiFetch(`/api/company/offer/draft/${draftId}`, {
         method: 'DELETE',
       });
       
@@ -85,7 +86,7 @@ export default function OffersManager() {
    */
   async function handleCreateNew() {
     try {
-      const res = await fetch('/api/company/offer/draft/new', {
+      const res = await apiFetch('/api/company/offer/draft/new', {
         method: 'POST',
       });
       
@@ -106,7 +107,7 @@ export default function OffersManager() {
    */
   async function handleEditOffer(offerId: string) {
     try {
-      const res = await fetch(`/api/company/offer/draft/for-offer/${offerId}`);
+      const res = await apiFetch(`/api/company/offer/draft/for-offer/${offerId}`);
       
       if (!res.ok) throw new Error('Failed to load draft for offer');
       

@@ -58,7 +58,24 @@
     "asarUnpack": [
       "node_modules/playwright-core/**/*"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "next/standalone"
+      },
+      {
+        "from": ".next/static",
+        "to": "next/standalone/.next/static"
+      },
+      {
+        "from": "public",
+        "to": "next/standalone/public",
+        "filter": [
+          "**/*",
+          "!hero-demo.mp4"
+        ]
+      }
+    ],
     "electronLanguages": [
       "en-US",
       "en-GB",

@@ -7,12 +7,17 @@
 
 import "server-only";
 
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { deleteGitHubConnection } from '@/lib/server/githubOAuth';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
-export async function POST() {
+export async function POST(request?: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
     // Get authenticated user
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();

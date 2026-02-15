@@ -63,6 +63,7 @@ const mockUser = {
   aud: 'authenticated',
   created_at: '2024-01-01T00:00:00.000Z',
 };
+const VALID_DRAFT_ID = '11111111-1111-1111-1111-111111111111';
 
 /** Build a chainable Supabase mock. Every query-builder method returns `this`. */
 function createMockSupabase() {
@@ -381,7 +382,7 @@ describe('POST /api/student/referral/apply', () => {
     const res = await postReferralApply(req);
     expect(res.status).toBe(400);
     const body = await json(res);
-    expect(body.error).toBe('Code expired');
+    expect(body.error).toBe('Invalid or expired referral code');
   });
 
   it('returns 400 for non-JSON request body', async () => {
@@ -543,7 +544,7 @@ describe('GET /api/student/profile/draft', () => {
 describe('PUT /api/student/profile/draft', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const req = createJsonRequest({ draftId: 'd1', updates: {} }, 'PUT');
+    const req = createJsonRequest({ draftId: VALID_DRAFT_ID, updates: {} }, 'PUT');
     const res = await putDraft(req);
     expect(res.status).toBe(401);
   });
@@ -561,11 +562,11 @@ describe('PUT /api/student/profile/draft', () => {
     const supabase = createMockSupabase();
     mockAuthSuccess(supabase);
 
-    const updatedDraft = { id: 'd1', student_name: 'Updated', status: 'editing' };
+    const updatedDraft = { id: VALID_DRAFT_ID, student_name: 'Updated', status: 'editing' };
     supabase._chain.single.mockResolvedValue({ data: updatedDraft, error: null });
 
     const req = createJsonRequest(
-      { draftId: 'd1', updates: { student_name: 'Updated' } },
+      { draftId: VALID_DRAFT_ID, updates: { student_name: 'Updated' } },
       'PUT',
     );
     const res = await putDraft(req);
@@ -579,12 +580,12 @@ describe('PUT /api/student/profile/draft', () => {
     const supabase = createMockSupabase();
     mockAuthSuccess(supabase);
 
-    const updatedDraft = { id: 'd1', student_name: 'Updated' };
+    const updatedDraft = { id: VALID_DRAFT_ID, student_name: 'Updated' };
     supabase._chain.single.mockResolvedValue({ data: updatedDraft, error: null });
 
     const req = createJsonRequest(
       {
-        draftId: 'd1',
+        draftId: VALID_DRAFT_ID,
         updates: {
           student_name: 'Updated',
           malicious_field: 'should be stripped',
@@ -611,7 +612,10 @@ describe('PUT /api/student/profile/draft', () => {
 
     supabase._chain.single.mockResolvedValue({ data: null, error: { message: 'fail' } });
 
-    const req = createJsonRequest({ draftId: 'd1', updates: {} }, 'PUT');
+    const req = createJsonRequest(
+      { draftId: VALID_DRAFT_ID, updates: { student_name: 'X' } },
+      'PUT',
+    );
     const res = await putDraft(req);
     expect(res.status).toBe(500);
   });
@@ -906,10 +910,23 @@ describe('POST /api/student/resume', () => {
 // 9. GET /api/student/token
 // =========================================================================
 describe('GET /api/student/token', () => {
+  const tokenUrl = 'http://localhost:3000/api/student/token';
+
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getToken();
+    const req = new NextRequest(tokenUrl, {
+      headers: { 'user-agent': 'Electron/30.0.0' },
+    });
+    const res = await getToken(req);
     expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when called from non-Electron user-agent', async () => {
+    const req = new NextRequest(tokenUrl, {
+      headers: { 'user-agent': 'Mozilla/5.0' },
+    });
+    const res = await getToken(req);
+    expect(res.status).toBe(403);
   });
 
   it('returns token on success', async () => {
@@ -921,11 +938,14 @@ describe('GET /api/student/token', () => {
       error: null,
     });
 
-    const res = await getToken();
+    const req = new NextRequest(tokenUrl, {
+      headers: { 'user-agent': 'Electron/30.0.0' },
+    });
+    const res = await getToken(req);
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.token).toBe('tok_abc123');
-    expect(body.user_id).toBe('user-123');
+    expect(body.user_id).toBeUndefined();
   });
 
   it('returns 404 when no token found', async () => {
@@ -937,7 +957,10 @@ describe('GET /api/student/token', () => {
       error: { message: 'no rows' },
     });
 
-    const res = await getToken();
+    const req = new NextRequest(tokenUrl, {
+      headers: { 'user-agent': 'Electron/30.0.0' },
+    });
+    const res = await getToken(req);
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error).toContain('No API token');

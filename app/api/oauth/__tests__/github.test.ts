@@ -190,14 +190,14 @@ describe('GET /api/oauth/github/authorize', () => {
     expect(decoded.sig).toBe(expectedSig);
   });
 
-  it('returns 500 when an unexpected error is thrown', async () => {
+  it('returns 503 when authorization is unavailable', async () => {
     mockGetUser.mockRejectedValueOnce(new Error('unexpected'));
 
     const req = new NextRequest('http://localhost:3000/api/oauth/github/authorize');
     const res = await GET(req);
 
-    expect(res.status).toBe(500);
-    expect(await json(res)).toEqual({ error: 'Failed to initiate GitHub authorization' });
+    expect(res.status).toBe(503);
+    expect(await json(res)).toEqual({ error: 'GitHub authorization is currently unavailable' });
   });
 });
 

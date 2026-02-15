@@ -19,6 +19,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
 /** UUID validation regex */
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,6 +30,9 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const csrfError = enforceSameOrigin(req);
+    if (csrfError) return csrfError;
+
     /**
      * 1) Authenticate the request (server-side)
      *

@@ -67,6 +67,24 @@ vi.mock('@/lib/server/emailTemplates', () => ({
   getFeedbackEmailSubject: vi.fn().mockReturnValue('[Bug] Test Subject'),
 }));
 
+const mockCheckRateLimit = vi.fn();
+const mockLogApiCall = vi.fn();
+
+vi.mock('@/lib/server/rateLimiting', () => ({
+  checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  logApiCall: (...args: unknown[]) => mockLogApiCall(...args),
+  rateLimitExceededResponse: () =>
+    NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 }),
+}));
+
+const mockGetClientIp = vi.fn().mockReturnValue('1.2.3.4');
+const mockHashToPseudoUuid = vi.fn().mockResolvedValue('00000000-0000-0000-0000-123456789abc');
+
+vi.mock('@/lib/server/requestSecurity', () => ({
+  getClientIp: (...args: unknown[]) => mockGetClientIp(...args),
+  hashToPseudoUuid: (...args: unknown[]) => mockHashToPseudoUuid(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -106,6 +124,17 @@ const MOCK_EMAIL = 'test@example.com';
 // ---------------------------------------------------------------------------
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCheckRateLimit.mockResolvedValue({
+    data: {
+      allowed: true,
+      hourly_count: 1,
+      daily_count: 1,
+      hourly_remaining: 9,
+      daily_remaining: 49,
+    },
+    error: null,
+  });
+  mockLogApiCall.mockResolvedValue(undefined);
 });
 
 // ===========================================================================
@@ -209,6 +238,24 @@ describe('POST /api/newsletter', () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toBe('Failed to subscribe');
+  });
+
+  it('returns 429 when newsletter rate limit is exceeded', async () => {
+    mockCheckRateLimit.mockResolvedValueOnce({
+      data: {
+        allowed: false,
+        hourly_count: 5,
+        daily_count: 20,
+        hourly_remaining: 0,
+        daily_remaining: 0,
+      },
+      error: null,
+    });
+
+    const res = await POST(createMockRequest({ email: MOCK_EMAIL }));
+    expect(res.status).toBe(429);
+    const json = await res.json();
+    expect(json.error).toBe('Rate limit exceeded');
   });
 });
 
@@ -450,5 +497,26 @@ describe('POST /api/feedback', () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toBe('Internal server error');
+  });
+
+  it('returns 429 when feedback rate limit is exceeded', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+    });
+    mockCheckRateLimit.mockResolvedValueOnce({
+      data: {
+        allowed: false,
+        hourly_count: 10,
+        daily_count: 50,
+        hourly_remaining: 0,
+        daily_remaining: 0,
+      },
+      error: null,
+    });
+
+    const res = await POST(createMockRequest(validFeedbackBody));
+    expect(res.status).toBe(429);
+    const json = await res.json();
+    expect(json.error).toBe('Rate limit exceeded');
   });
 });

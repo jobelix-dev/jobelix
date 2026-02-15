@@ -10,6 +10,7 @@
 import { useState, useRef } from 'react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
+import { apiFetch } from '@/lib/client/http';
 
 export default function ResetPasswordForm() {
   const hCaptchaSiteKey = getHCaptchaSiteKey();
@@ -32,7 +33,7 @@ export default function ResetPasswordForm() {
       // Call server API instead of client-side Supabase
       // This avoids PKCE code_verifier storage issues when the reset link
       // is opened in a different browser/app (e.g., Electron -> Chrome)
-      const response = await fetch('/api/auth/reset-password', {
+      const response = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

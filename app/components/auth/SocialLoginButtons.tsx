@@ -25,6 +25,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import type { Provider } from '@supabase/supabase-js';
 import { 
@@ -143,19 +144,13 @@ export default function SocialLoginButtons({
     expires_at?: number;
     user: { id: string };
   }) => {
-    if (typeof window !== 'undefined' && window.electronAPI?.saveAuthCache) {
-      try {
-        const tokens = {
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at: session.expires_at,
-          user_id: session.user.id
-        };
-        await window.electronAPI.saveAuthCache(tokens);
+    try {
+      const saved = await saveSessionToAuthCache(session);
+      if (saved) {
         console.log('[OAuth] Auth cache saved for Electron');
-      } catch (cacheError) {
-        console.warn('[OAuth] Failed to save auth cache:', cacheError);
       }
+    } catch (cacheError) {
+      console.warn('[OAuth] Failed to save auth cache:', cacheError);
     }
   }, []);
 
@@ -310,7 +305,10 @@ export default function SocialLoginButtons({
 
       // Build the redirect URL for after OAuth completes
       // Include popup=true so callback knows to redirect to callback-success
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      const isLocalDesktopHost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(window.location.origin);
+      const baseUrl = isLocalDesktopHost
+        ? window.location.origin
+        : (process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
       let redirectTo = `${baseUrl}/auth/callback?popup=true`;
       
       // Get referral code from any available source and add to redirect URL

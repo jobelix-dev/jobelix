@@ -87,6 +87,20 @@ function createMockRequest(
   });
 }
 
+function createDeleteRequest(
+  body?: unknown,
+  options?: { headers?: Record<string, string> },
+): NextRequest {
+  return new NextRequest('http://localhost:3000/api/auth/account', {
+    method: 'DELETE',
+    body: body ? JSON.stringify(body) : undefined,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+}
+
 /** Build a chainable `.from().select().eq().maybeSingle()` mock */
 function chainable(result: { data: unknown; error: unknown }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -288,15 +302,15 @@ describe('POST /api/auth/signup', () => {
     expect((await res.json()).code).toBe('WEAK_PASSWORD');
   });
 
-  it('returns 400 when user already exists', async () => {
+  it('returns generic success when user already exists (no enumeration)', async () => {
     mockServiceSignUp.mockResolvedValueOnce({
       data: { user: null, session: null },
       error: { message: 'User already exists', status: 400 },
     });
 
     const res = await POST(createMockRequest(validBody));
-    expect(res.status).toBe(400);
-    expect((await res.json()).code).toBe('USER_ALREADY_EXISTS');
+    expect(res.status).toBe(200);
+    expect((await res.json()).success).toBe(true);
   });
 
   it('returns 400 for generic Supabase signup error', async () => {
@@ -745,25 +759,62 @@ describe('POST /api/auth/reset-password', () => {
 // 7. DELETE /api/auth/account
 // ===========================================================================
 describe('DELETE /api/auth/account', () => {
-  let DELETE: () => Promise<NextResponse>;
+  let DELETE: (req: NextRequest) => Promise<NextResponse>;
 
   beforeEach(async () => {
     const mod = await import('../account/route');
     DELETE = mod.DELETE;
   });
 
-  it('returns 200 after successful account deletion (no files)', async () => {
+  const validBody = { confirmation: 'DELETE', password: MOCK_PASSWORD };
+  const emailUser = {
+    id: MOCK_USER_ID,
+    email: MOCK_EMAIL,
+    app_metadata: { providers: ['email'] },
+  };
+
+  it('returns 400 when confirmation is missing', async () => {
+    const res = await DELETE(createDeleteRequest({ password: MOCK_PASSWORD }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('Confirmation is required');
+  });
+
+  it('returns 400 when email/password account password is missing', async () => {
     mockGetUser.mockResolvedValueOnce({
-      data: { user: { id: MOCK_USER_ID } },
+      data: { user: emailUser },
       error: null,
     });
+
+    const res = await DELETE(createDeleteRequest({ confirmation: 'DELETE' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('Password is required to delete your account');
+  });
+
+  it('returns 401 when re-authentication password is invalid', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: emailUser },
+      error: null,
+    });
+    mockSignInWithPassword.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } });
+
+    const res = await DELETE(createDeleteRequest(validBody));
+    expect(res.status).toBe(401);
+    expect((await res.json()).error).toBe('Invalid password');
+  });
+
+  it('returns 200 after successful account deletion (no files)', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: emailUser },
+      error: null,
+    });
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
     mockServiceStorageFrom.mockReturnValue({
       list: vi.fn().mockResolvedValue({ data: [], error: null }),
       remove: vi.fn(),
     });
     mockServiceDeleteUser.mockResolvedValueOnce({ error: null });
 
-    const res = await DELETE();
+    const res = await DELETE(createDeleteRequest(validBody));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true });
     expect(mockServiceDeleteUser).toHaveBeenCalledWith(MOCK_USER_ID);
@@ -771,9 +822,10 @@ describe('DELETE /api/auth/account', () => {
 
   it('deletes storage files before deleting user', async () => {
     mockGetUser.mockResolvedValueOnce({
-      data: { user: { id: MOCK_USER_ID } },
+      data: { user: emailUser },
       error: null,
     });
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
     const removeMock = vi.fn().mockResolvedValue({ error: null });
     mockServiceStorageFrom.mockReturnValue({
       list: vi.fn().mockResolvedValue({
@@ -784,7 +836,7 @@ describe('DELETE /api/auth/account', () => {
     });
     mockServiceDeleteUser.mockResolvedValueOnce({ error: null });
 
-    const res = await DELETE();
+    const res = await DELETE(createDeleteRequest(validBody));
     expect(res.status).toBe(200);
     expect(removeMock).toHaveBeenCalledWith([
       `${MOCK_USER_ID}/resume.pdf`,
@@ -798,16 +850,17 @@ describe('DELETE /api/auth/account', () => {
       error: { message: 'Not authenticated' },
     });
 
-    const res = await DELETE();
+    const res = await DELETE(createDeleteRequest(validBody));
     expect(res.status).toBe(401);
     expect((await res.json()).error).toBe('Unauthorized');
   });
 
   it('returns 500 when user deletion fails', async () => {
     mockGetUser.mockResolvedValueOnce({
-      data: { user: { id: MOCK_USER_ID } },
+      data: { user: emailUser },
       error: null,
     });
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
     mockServiceStorageFrom.mockReturnValue({
       list: vi.fn().mockResolvedValue({ data: [], error: null }),
       remove: vi.fn(),
@@ -816,23 +869,24 @@ describe('DELETE /api/auth/account', () => {
       error: { message: 'Delete failed' },
     });
 
-    const res = await DELETE();
+    const res = await DELETE(createDeleteRequest(validBody));
     expect(res.status).toBe(500);
     expect((await res.json()).error).toBe('Failed to delete account');
   });
 
   it('continues deletion even when storage cleanup fails', async () => {
     mockGetUser.mockResolvedValueOnce({
-      data: { user: { id: MOCK_USER_ID } },
+      data: { user: emailUser },
       error: null,
     });
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
     mockServiceStorageFrom.mockReturnValue({
       list: vi.fn().mockRejectedValue(new Error('storage error')),
       remove: vi.fn(),
     });
     mockServiceDeleteUser.mockResolvedValueOnce({ error: null });
 
-    const res = await DELETE();
+    const res = await DELETE(createDeleteRequest(validBody));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true });
   });
@@ -840,7 +894,7 @@ describe('DELETE /api/auth/account', () => {
   it('returns 500 on unexpected exception', async () => {
     mockGetUser.mockRejectedValueOnce(new Error('unexpected'));
 
-    const res = await DELETE();
+    const res = await DELETE(createDeleteRequest(validBody));
     expect(res.status).toBe(500);
     expect((await res.json()).error).toBe('Failed to delete account');
   });

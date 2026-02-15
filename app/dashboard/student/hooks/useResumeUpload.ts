@@ -11,6 +11,7 @@
 
 import { useEffect, useState, useCallback, Dispatch, SetStateAction, useRef } from 'react';
 import { api } from '@/lib/client/api';
+import { apiEventSource } from '@/lib/client/http';
 import type { ExtractedResumeData } from '@/lib/shared/types';
 
 interface ResumeInfo {
@@ -84,7 +85,7 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
       progressSourceRef.current = null;
     }
 
-    const progressSource = new EventSource('/api/student/profile/draft/extract/progress');
+    const progressSource = apiEventSource('/api/student/profile/draft/extract/progress');
     progressSourceRef.current = progressSource;
 
     progressSource.onmessage = (event) => {

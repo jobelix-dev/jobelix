@@ -20,6 +20,8 @@ import {
   DraftProfileData,
   FinalizeProfileResponse,
 } from '../shared/types'
+import { clearCachedAuthTokens } from './authCache'
+import { apiFetch } from './http'
 
 class ApiClient {
   /**
@@ -74,7 +76,7 @@ class ApiClient {
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       headers: {
         'Content-Type': 'application/json',
         ...options?.headers,
@@ -128,9 +130,9 @@ class ApiClient {
     });
 
     // Clear auth cache on logout
-    if (result.success && typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+    if (result.success) {
       try {
-        await window.electronAPI.clearAuthCache();
+        await clearCachedAuthTokens();
       } catch (error) {
         console.warn('Failed to clear auth cache on logout:', error);
         // Don't fail logout if cache clear fails
@@ -155,15 +157,19 @@ class ApiClient {
     })
   }
 
-  async deleteAccount(): Promise<{ success: boolean }> {
+  async deleteAccount(password?: string): Promise<{ success: boolean }> {
     const result = await this.request<{ success: boolean }>('/api/auth/account', {
       method: 'DELETE',
+      body: JSON.stringify({
+        confirmation: 'DELETE',
+        ...(password ? { password } : {}),
+      }),
     });
 
     // Clear auth cache after account deletion
-    if (result.success && typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
+    if (result.success) {
       try {
-        await window.electronAPI.clearAuthCache();
+        await clearCachedAuthTokens();
       } catch (error) {
         console.warn('Failed to clear auth cache after account deletion:', error);
       }
@@ -185,7 +191,7 @@ class ApiClient {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch('/api/student/resume', {
+    const response = await apiFetch('/api/student/resume', {
       method: 'POST',
       body: formData,
     })
@@ -204,7 +210,7 @@ class ApiClient {
   }
 
   async downloadResume(): Promise<Blob> {
-    const response = await fetch('/api/student/resume/download')
+    const response = await apiFetch('/api/student/resume/download')
 
     if (!response.ok) {
       const data = await this.safeJson<Record<string, unknown>>(response)

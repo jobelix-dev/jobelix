@@ -267,6 +267,29 @@ async function main() {
 
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
+  // Build local desktop UI bundle (Next standalone)
+  console.log('\nBuilding local desktop UI bundle (Next standalone)...');
+  const nextBuildResult = spawnSync(cmd, ['next', 'build'], {
+    stdio: 'inherit',
+    env: {
+      ...env,
+      JOBELIX_DESKTOP_BUNDLE: '1',
+      NEXT_DESKTOP_BACKEND_ORIGIN: 'https://www.jobelix.fr',
+    },
+    shell: true,
+  });
+
+  if (nextBuildResult.error) {
+    console.error('\n❌ Error spawning Next.js build:');
+    console.error(nextBuildResult.error);
+    process.exit(1);
+  }
+
+  if (nextBuildResult.status !== 0) {
+    console.error(`\n❌ Next.js build exited with code ${nextBuildResult.status}`);
+    process.exit(nextBuildResult.status ?? 1);
+  }
+
   // Build electron-builder command
   const builderArgs = ['electron-builder'];
 

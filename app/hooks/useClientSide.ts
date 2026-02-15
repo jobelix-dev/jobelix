@@ -8,6 +8,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { detectPlatform, type Platform } from '@/lib/client/platformDetection';
+import { isElectronRuntime } from '@/lib/client/runtime';
 
 // No-op subscribe - these values don't change after initial load
 const subscribeNoop = () => () => {};
@@ -17,7 +18,7 @@ const getIsClient = () => true;
 const getIsClientServer = () => false;
 
 // Electron detection  
-const getIsElectron = () => typeof window !== 'undefined' && window.electronAPI !== undefined;
+const getIsElectron = () => isElectronRuntime();
 const getIsElectronServer = () => false;
 
 // Platform detection

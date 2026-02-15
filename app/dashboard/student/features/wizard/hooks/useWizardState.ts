@@ -17,6 +17,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef, MutableRefObject } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -167,8 +168,8 @@ export function useWizardState(): WizardState & WizardActions {
     async function loadState() {
       try {
         const [draftRes, prefsRes] = await Promise.all([
-          fetch('/api/student/profile/draft', { credentials: 'include' }),
-          fetch('/api/student/work-preferences', { credentials: 'include' }),
+          apiFetch('/api/student/profile/draft'),
+          apiFetch('/api/student/work-preferences'),
         ]);
 
         let hasData = false;

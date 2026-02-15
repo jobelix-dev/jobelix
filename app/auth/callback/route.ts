@@ -25,6 +25,8 @@
  * - Saves GitHub OAuth connection for profile import
  */
 
+import "server-only";
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
@@ -46,7 +48,7 @@ import {
 async function applyReferralCodeServerSide(userId: string, referralCode: string): Promise<boolean> {
   const supabaseAdmin = getServiceSupabase()
   
-  console.log('[Callback] Applying referral code server-side for user:', userId)
+  console.log('[Callback] Applying referral code server-side')
   
   try {
     // Use the admin version that accepts user_id as parameter
@@ -90,7 +92,7 @@ function getReferralCodeFromRequest(
   // Try URL parameter first (passed through OAuth redirect)
   const fromUrl = extractReferralCodeFromUrl(url.searchParams)
   if (fromUrl) {
-    console.log('[Callback] Found referral code in URL:', fromUrl)
+    console.log('[Callback] Found referral code in URL')
     return fromUrl
   }
   
@@ -98,7 +100,7 @@ function getReferralCodeFromRequest(
   const fromCookie = request.cookies.get(REFERRAL_COOKIE_NAME)?.value
   const validatedCookie = validateReferralCode(fromCookie)
   if (validatedCookie) {
-    console.log('[Callback] Found referral code in cookie:', validatedCookie)
+    console.log('[Callback] Found referral code in cookie')
     return validatedCookie
   }
   
@@ -106,7 +108,7 @@ function getReferralCodeFromRequest(
   if (user?.user_metadata?.referral_code) {
     const fromMetadata = validateReferralCode(user.user_metadata.referral_code)
     if (fromMetadata) {
-      console.log('[Callback] Found referral code in user metadata:', fromMetadata)
+      console.log('[Callback] Found referral code in user metadata')
       return fromMetadata
     }
   }
@@ -355,26 +357,21 @@ export async function GET(request: NextRequest) {
     return redirectTo(`/login?error=${encodeURIComponent(errorMessage)}`)
   }
 
-  // WORKAROUND: If we're on the wrong domain, redirect to the correct one
-  const currentHost = request.headers.get('host')
-  const isWrongDomain = currentHost === 'www.jobelix.fr' || currentHost?.includes('jobelix.fr')
-  
-  if (isWrongDomain) {
-    let correctUrl = process.env.NEXT_PUBLIC_APP_URL
-    
-    if (!correctUrl) {
-      const forwardedHost = request.headers.get('x-forwarded-host')
-      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
-      
-      if (forwardedHost) {
-        correctUrl = `${forwardedProto}://${forwardedHost}`
+  // Domain safety: only redirect to explicitly configured canonical origin.
+  // Never construct redirect targets from request headers.
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (configuredAppUrl) {
+    try {
+      const canonicalOrigin = new URL(configuredAppUrl).origin
+      const legacyHosts = new Set(['www.jobelix.fr', 'jobelix.fr'])
+
+      if (legacyHosts.has(requestUrl.hostname) && requestUrl.origin !== canonicalOrigin) {
+        console.log('[Callback] Redirecting callback to canonical origin')
+        const correctCallbackUrl = new URL(requestUrl.pathname + requestUrl.search, canonicalOrigin)
+        return NextResponse.redirect(correctCallbackUrl)
       }
-    }
-    
-    if (correctUrl && correctUrl !== requestUrl.origin) {
-      console.log('[Callback] Wrong domain detected! Redirecting to', correctUrl)
-      const correctCallbackUrl = new URL(requestUrl.pathname + requestUrl.search, correctUrl)
-      return NextResponse.redirect(correctCallbackUrl)
+    } catch {
+      console.warn('[Callback] NEXT_PUBLIC_APP_URL is invalid; skipping canonical-origin redirect')
     }
   }
 
@@ -414,7 +411,7 @@ export async function GET(request: NextRequest) {
       }
       
       return NextResponse.redirect(
-        new URL(`/login?error=${encodeURIComponent(error.message || 'Authentication failed')}`, requestUrl.origin)
+        new URL('/login?error=Authentication+failed', requestUrl.origin)
       )
     }
     
@@ -423,11 +420,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/login?error=Authentication+failed`, requestUrl.origin))
     }
     
-    console.log('[Callback] Token verified for user:', data.user.id)
+    console.log('[Callback] Token verified')
     
     // Get referral code from URL, cookie, or user metadata (for cross-browser email confirmation)
     const referralCode = getReferralCodeFromRequest(request, requestUrl, data.user)
-    console.log('[Callback] Referral code:', referralCode || '(none)')
+    console.log('[Callback] Referral code present:', Boolean(referralCode))
     
     // Process post-auth tasks (profile creation, referral application)
     // This is important for email confirmation flow - the user is now authenticated
@@ -449,7 +446,7 @@ export async function GET(request: NextRequest) {
       if (error.message?.includes('expired') || error.message?.includes('invalid') || error.code === 'invalid_grant') {
         return redirectTo(`/login?error=This+link+has+expired.+Please+request+a+new+one.`)
       }
-      return redirectTo(`/login?error=${encodeURIComponent(error.message)}`)
+      return redirectTo('/login?error=Authentication+failed')
     }
 
     // Verify the session was created by getting the user
@@ -460,11 +457,11 @@ export async function GET(request: NextRequest) {
       return redirectTo(`/login?error=Authentication+failed`)
     }
     
-    console.log('[Callback] Session created for user:', user.id)
+    console.log('[Callback] Session created')
     
     // Get referral code from URL, cookie, or user metadata
     const referralCode = getReferralCodeFromRequest(request, requestUrl, user)
-    console.log('[Callback] Referral code:', referralCode || '(none)')
+    console.log('[Callback] Referral code present:', Boolean(referralCode))
     
     // Process post-auth tasks (profile creation, referral application, GitHub connection)
     await processPostAuth(user, referralCode)

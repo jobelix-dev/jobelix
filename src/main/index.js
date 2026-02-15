@@ -8,20 +8,24 @@
  * - Memory optimizations to reduce RAM footprint
  */
 
-// CRITICAL: Must disable GPU before any other Electron imports
+// CRITICAL: Must configure GPU before any other Electron imports
 import { app } from 'electron';
-app.disableHardwareAcceleration();
 
-// Suppress GPU-related errors on Linux when hardware acceleration is disabled
-// These SharedImageManager errors are harmless but noisy
-// Note: --disable-software-rasterizer is intentionally NOT set - it disables the
-// CPU fallback renderer, causing jank in CSS animations and scrolling
-app.commandLine.appendSwitch('disable-gpu');
+// GPU acceleration: only disable on Linux where driver issues are common
+// On Windows/macOS, GPU compositing is essential for smooth scrolling,
+// CSS animations, and canvas rendering. Disabling it forces everything
+// to CPU, making the app noticeably slower.
+// Users can force-disable via env var: JOBELIX_DISABLE_GPU=1
+if (process.platform === 'linux' || process.env.JOBELIX_DISABLE_GPU) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch('disable-gpu');
+}
 
 // Memory optimization switches
-// Reduce memory footprint by limiting caches and disabling unused features
-// Note: 512MB is a reasonable limit - 256MB caused GC pressure and "not responding" on some systems
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512 --optimize-for-size');
+// 512MB heap limit is sufficient for memory control without sacrificing JS execution speed
+// Note: --optimize-for-size was removed — it causes 5-15% slower JS execution by
+// disabling JIT optimizations, which is not worth the marginal memory savings
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 app.commandLine.appendSwitch('disable-background-networking');
 app.commandLine.appendSwitch('disable-default-apps');
 app.commandLine.appendSwitch('disable-extensions');
@@ -53,6 +57,7 @@ if (!app.isPackaged) {
 
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { createMainWindow, onMainWindowReady, getMainWindow } from './modules/window-manager.js';
+import { stopLocalUiServer } from './modules/local-ui-server.js';
 import { initAutoUpdater } from './modules/update-manager.js';
 import { logPlatformInfo, initializeDataDirectories, isMac } from './modules/platform-utils.js';
 import { waitForNextJs } from './utils/dev-utils.js';
@@ -88,7 +93,7 @@ async function initializeApp() {
     setupIpcHandlers();
     logger.info(`⏱️ [${elapsed()}ms] IPC handlers registered`);
     
-    initializeDataDirectories();
+    await initializeDataDirectories();
     logger.info(`⏱️ [${elapsed()}ms] Data directories initialized`);
     
     logPlatformInfo();
@@ -128,9 +133,14 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopLocalUiServer();
   if (!isMac()) {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  stopLocalUiServer();
 });
 
 // Error handlers

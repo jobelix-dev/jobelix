@@ -8,6 +8,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 export interface GitHubConnectionStatus {
   connected: boolean;
@@ -53,7 +54,7 @@ export function useGitHubConnection(options: UseGitHubConnectionOptions = {}) {
       setError(null);
 
       // Add cache-busting timestamp to ensure fresh data
-      const response = await fetch(`/api/oauth/github/status?t=${Date.now()}`, {
+      const response = await apiFetch(`/api/oauth/github/status?t=${Date.now()}`, {
         cache: 'no-store'
       });
       const data = await response.json();
@@ -110,8 +111,10 @@ export function useGitHubConnection(options: UseGitHubConnectionOptions = {}) {
     let messageHandled = false;
     const handleMessage = (event: MessageEvent) => {
       // Validate origin to prevent spoofing
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-      if (event.origin !== appUrl) return;
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const allowedOrigins = new Set([window.location.origin]);
+      if (appUrl) allowedOrigins.add(appUrl.replace(/\/+$/, ''));
+      if (!allowedOrigins.has(event.origin)) return;
 
       if (event.data?.type === 'github-oauth-success') {
         messageHandled = true;
@@ -141,7 +144,7 @@ export function useGitHubConnection(options: UseGitHubConnectionOptions = {}) {
           setTimeout(async () => {
             await checkStatus();
             // Re-read status from server (checkStatus updated it)
-            const res = await fetch(`/api/oauth/github/status?t=${Date.now()}`, { cache: 'no-store' });
+            const res = await apiFetch(`/api/oauth/github/status?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.success && data.connected) {
               onConnectedRef.current?.();
@@ -158,7 +161,7 @@ export function useGitHubConnection(options: UseGitHubConnectionOptions = {}) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/oauth/github/disconnect', {
+      const response = await apiFetch('/api/oauth/github/disconnect', {
         method: 'POST',
       });
 

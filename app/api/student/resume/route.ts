@@ -12,6 +12,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
 // GET - Fetch resume metadata
 export async function GET() {
@@ -53,6 +54,9 @@ export async function GET() {
 // POST - Upload resume
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     // Authenticate user
     const auth = await authenticateRequest()
     if (auth.error) return auth.error

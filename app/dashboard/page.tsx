@@ -16,6 +16,9 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { UserProfile } from '@/lib/shared/types';
 import { api } from '@/lib/client/api';
+import { clearCachedAuthTokens } from '@/lib/client/authCache';
+import { apiFetch } from '@/lib/client/http';
+import { getElectronAPI } from '@/lib/client/runtime';
 import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriangle, Info } from 'lucide-react';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import WelcomeNotice from '@/app/components/WelcomeNotice';
@@ -59,6 +62,8 @@ export default function DashboardPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,21 +89,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadProfile() {
+      const redirectToHomeWithClearedCache = async (reason: string) => {
+        console.log(`[Dashboard] ${reason}`);
+        try {
+          await clearCachedAuthTokens();
+        } catch (cacheError) {
+          console.warn('Failed to clear auth cache on session invalidation:', cacheError);
+        }
+        router.push('/');
+      };
+
       try {
         console.log('[Dashboard] Starting profile load')
         const response = await api.getProfile();
         console.log('[Dashboard] Profile loaded:', response.profile ? 'success' : 'no profile')
         
         if (!response.profile) {
-          console.log('[Dashboard] No profile found, clearing cache and redirecting to /')
-          if (typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
-            try {
-              await window.electronAPI.clearAuthCache();
-            } catch (cacheError) {
-              console.warn('Failed to clear auth cache on session invalidation:', cacheError);
-            }
-          }
-          router.push('/');
+          await redirectToHomeWithClearedCache('No profile found, clearing cache and redirecting to /');
           return;
         }
 
@@ -112,22 +119,13 @@ export default function DashboardPage() {
 
         // Dismiss welcome notice for students automatically
         if (response.profile.role === 'student' && !response.profile.has_seen_welcome_notice) {
-          fetch('/api/auth/welcome-notice-seen', {
+          apiFetch('/api/auth/welcome-notice-seen', {
             method: 'POST',
-            credentials: 'include',
           }).catch(() => {}); // fire-and-forget
         }
       } catch (error) {
         console.error('[Dashboard] Failed to load profile:', error);
-        console.log('[Dashboard] Clearing cache and redirecting to / due to error')
-        if (typeof window !== 'undefined' && window.electronAPI?.clearAuthCache) {
-          try {
-            await window.electronAPI.clearAuthCache();
-          } catch (cacheError) {
-            console.warn('Failed to clear auth cache on session invalidation:', cacheError);
-          }
-        }
-        router.push('/');
+        await redirectToHomeWithClearedCache('Clearing cache and redirecting to / due to error');
       } finally {
         setLoading(false);
       }
@@ -139,9 +137,10 @@ export default function DashboardPage() {
   // Fetch app version in Electron
   useEffect(() => {
     async function fetchAppVersion() {
-      if (typeof window !== 'undefined' && window.electronAPI?.getAppVersion) {
+      const electronAPI = getElectronAPI();
+      if (electronAPI?.getAppVersion) {
         try {
-          const version = await window.electronAPI.getAppVersion();
+          const version = await electronAPI.getAppVersion();
           setAppVersion(version);
         } catch (error) {
           console.warn('Failed to get app version:', error);
@@ -163,21 +162,22 @@ export default function DashboardPage() {
   async function handleDeleteAccount() {
     if (isDeleting) return;
     
+    setDeleteError(null);
     setIsDeleting(true);
     try {
-      await api.deleteAccount();
+      await api.deleteAccount(deletePassword || undefined);
       router.push(isElectron ? '/desktop' : '/');
     } catch (error) {
       console.error('Delete account failed:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete account');
       setIsDeleting(false);
     }
   }
 
   async function handleWelcomeNoticeDismiss() {
     try {
-      const response = await fetch('/api/auth/welcome-notice-seen', {
+      const response = await apiFetch('/api/auth/welcome-notice-seen', {
         method: 'POST',
-        credentials: 'include',
       });
 
       if (response.ok && profile) {
@@ -493,6 +493,8 @@ export default function DashboardPage() {
                 <button
                   onClick={() => {
                     setShowSettingsModal(false);
+                    setDeletePassword('');
+                    setDeleteError(null);
                     setShowDeleteConfirm(true);
                   }}
                   className="w-full px-4 py-2.5 bg-error/10 hover:bg-error/20 text-error text-sm font-medium rounded-lg transition-colors"
@@ -512,7 +514,13 @@ export default function DashboardPage() {
     return (
       <div 
         className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[60] px-4"
-        onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+        onClick={() => {
+          if (!isDeleting) {
+            setShowDeleteConfirm(false);
+            setDeletePassword('');
+            setDeleteError(null);
+          }
+        }}
       >
         <div 
           className="bg-surface rounded-2xl shadow-xl p-6 max-w-sm w-full relative animate-scale-in"
@@ -534,10 +542,33 @@ export default function DashboardPage() {
             <p className="text-xs text-error font-medium mb-6">
               This action cannot be undone.
             </p>
+
+            <div className="text-left mb-4">
+              <label htmlFor="delete-account-password" className="block text-xs text-muted mb-1">
+                Password (required for email/password accounts)
+              </label>
+              <input
+                id="delete-account-password"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                disabled={isDeleting}
+                className="w-full px-3 py-2 bg-background border border-border/30 rounded-lg text-sm text-default focus:outline-none focus:ring-2 focus:ring-error/40"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-xs text-error mb-4 text-left">{deleteError}</p>
+            )}
             
             <div className="flex gap-3">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError(null);
+                }}
                 disabled={isDeleting}
                 className="flex-1 px-4 py-2.5 bg-background hover:bg-primary-subtle/50 text-default text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >

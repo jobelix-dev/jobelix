@@ -1,11 +1,35 @@
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
+const isDesktopBundle = process.env.JOBELIX_DESKTOP_BUNDLE === "1";
+const desktopBackendOrigin = (process.env.NEXT_DESKTOP_BACKEND_ORIGIN || "https://www.jobelix.fr").replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
+  output: isDesktopBundle ? "standalone" : undefined,
   serverExternalPackages: ["pdfjs-dist"],
   experimental: {
     optimizePackageImports: ["lucide-react", "libphonenumber-js"],
+  },
+
+  async rewrites() {
+    if (!isDesktopBundle) {
+      return [];
+    }
+
+    // Desktop local bundle: proxy backend/auth endpoints to production backend.
+    // This keeps one shared UI codebase while avoiding bundling server secrets.
+    return {
+      beforeFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${desktopBackendOrigin}/api/:path*`,
+        },
+        {
+          source: "/auth/callback",
+          destination: `${desktopBackendOrigin}/auth/callback`,
+        },
+      ],
+    };
   },
 
   async headers() {

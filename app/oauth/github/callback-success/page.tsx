@@ -20,11 +20,18 @@ function CallbackContent() {
   useEffect(() => {
     // If this page is opened in a popup, close it and notify parent
     if (window.opener) {
+      const origins = new Set<string>();
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      if (appUrl) origins.add(appUrl.replace(/\/+$/, ''));
+      origins.add(window.location.origin);
+
       // Notify parent window of success/error
-      if (error) {
-        window.opener.postMessage({ type: 'github-oauth-error', error }, process.env.NEXT_PUBLIC_APP_URL);
-      } else {
-        window.opener.postMessage({ type: 'github-oauth-success' }, process.env.NEXT_PUBLIC_APP_URL);
+      for (const origin of origins) {
+        if (error) {
+          window.opener.postMessage({ type: 'github-oauth-error', error }, origin);
+        } else {
+          window.opener.postMessage({ type: 'github-oauth-success' }, origin);
+        }
       }
       
       // Close popup after a short delay

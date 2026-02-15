@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
+import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
@@ -64,25 +65,16 @@ export default function LoginForm() {
       await api.login({ email, password, captchaToken: captchaToken || undefined });
       
       // Save auth tokens to cache for automatic login
-      if (typeof window !== 'undefined' && window.electronAPI?.saveAuthCache) {
-        try {
-          const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            const tokens = {
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-              expires_at: session.expires_at,
-              user_id: session.user.id
-            };
-            
-            await window.electronAPI.saveAuthCache(tokens);
-          }
-        } catch (cacheError) {
-          console.warn('Failed to save auth cache:', cacheError);
-          // Don't fail login if cache save fails
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          await saveSessionToAuthCache(session);
         }
+      } catch (cacheError) {
+        console.warn('Failed to save auth cache:', cacheError);
+        // Don't fail login if cache save fails
       }
       
       router.refresh();
@@ -186,4 +178,3 @@ export default function LoginForm() {
     </div>
   );
 }
-

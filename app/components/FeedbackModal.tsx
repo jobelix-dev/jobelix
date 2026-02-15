@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { X, Bug, Lightbulb, Send, MessageSquare } from 'lucide-react';
+import { apiFetch } from '@/lib/client/http';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/feedback', {
+      const response = await apiFetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feedback_type: type, subject, description }),

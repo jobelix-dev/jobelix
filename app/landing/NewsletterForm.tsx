@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { Sparkles, CheckCircle, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/client/http';
 
 export default function NewsletterForm() {
   const [email, setEmail] = useState('');
@@ -21,7 +22,7 @@ export default function NewsletterForm() {
 
     setStatus('loading');
     try {
-      const res = await fetch('/api/newsletter', {
+      const res = await apiFetch('/api/newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

@@ -10,6 +10,10 @@ const log = logPkg.default || logPkg;
 log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
 
+// Use async file writes to avoid blocking the main process event loop.
+// Default is synchronous, which stalls the event loop on every log call.
+log.transports.file.sync = false;
+
 /**
  * Logger wrapper providing consistent interface
  */

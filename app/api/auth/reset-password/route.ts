@@ -24,6 +24,8 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/server/supabaseService';
 import { resetPasswordSchema } from '@/lib/server/validation';
+import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
 /**
  * IP-based rate limiting using database
@@ -35,7 +37,7 @@ async function checkIpRateLimit(ip: string): Promise<{ allowed: boolean; retryAf
   // Use the existing rate limit RPC with a synthetic "user ID" based on IP hash
   // This is a pragmatic approach - we're reusing existing infrastructure
   // The IP is hashed to avoid storing raw IPs in the database
-  const ipHash = await hashIp(ip);
+  const ipHash = await hashToPseudoUuid('password-reset', ip);
   
   const { data, error } = await supabase.rpc('check_api_rate_limit', {
     p_user_id: ipHash,
@@ -64,43 +66,11 @@ async function checkIpRateLimit(ip: string): Promise<{ allowed: boolean; retryAf
   return { allowed: true };
 }
 
-/**
- * Hash IP address for privacy-preserving rate limiting
- * We don't want to store raw IPs in the database
- */
-async function hashIp(ip: string): Promise<string> {
-  // Use a consistent prefix so these don't collide with real user IDs
-  const encoder = new TextEncoder();
-  const data = encoder.encode(`password-reset:${ip}`);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  // Return as UUID format for compatibility with existing RPC
-  return `00000000-0000-0000-0000-${hashHex.slice(0, 12)}`;
-}
-
-/**
- * Get client IP from request headers
- */
-function getClientIp(request: NextRequest): string {
-  // Check common proxy headers
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    // x-forwarded-for can contain multiple IPs, take the first (client)
-    return forwardedFor.split(',')[0].trim();
-  }
-  
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
-  }
-  
-  // Fallback - this may not be accurate behind proxies
-  return '127.0.0.1';
-}
-
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
     const body = await request.json();
 
     /**
@@ -171,7 +141,7 @@ export async function POST(request: NextRequest) {
     // Log the API call for rate limiting tracking
     try {
       const supabase = getServiceSupabase();
-      const ipHash = await hashIp(clientIp);
+      const ipHash = await hashToPseudoUuid('password-reset', clientIp);
       await supabase.rpc('log_api_call', {
         p_user_id: ipHash,
         p_endpoint: 'password-reset',

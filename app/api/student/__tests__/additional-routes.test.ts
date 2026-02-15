@@ -28,6 +28,7 @@ vi.mock('@/lib/server/rateLimiting', () => ({
 }));
 
 vi.mock('fs/promises', () => ({
+  mkdir: vi.fn(),
   writeFile: vi.fn(),
 }));
 
@@ -52,8 +53,9 @@ vi.mock('@/lib/server/draftMappers', () => ({
 // ---------------------------------------------------------------------------
 
 import { authenticateRequest } from '@/lib/server/auth';
-import { writeFile } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import { parse as parseYaml } from 'yaml';
+import { checkRateLimit, logApiCall } from '@/lib/server/rateLimiting';
 import {
   mapDraftToStudent,
   mapDraftToAcademic,
@@ -151,6 +153,17 @@ async function json(res: Response) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  (checkRateLimit as Mock).mockResolvedValue({
+    data: {
+      allowed: true,
+      hourly_count: 0,
+      daily_count: 0,
+      hourly_remaining: 10,
+      daily_remaining: 30,
+    },
+    error: null,
+  });
+  (logApiCall as Mock).mockResolvedValue(undefined);
 });
 
 // =========================================================================
@@ -712,6 +725,7 @@ describe('POST /api/student/work-preferences/export-yaml', () => {
     mockAuthSuccess(supabase);
 
     (parseYaml as Mock).mockReturnValue({ key: 'value', nested: { a: 1 } });
+    (mkdir as Mock).mockResolvedValue(undefined);
     (writeFile as Mock).mockResolvedValue(undefined);
 
     const yamlContent = 'key: value\nnested:\n  a: 1';
@@ -721,10 +735,9 @@ describe('POST /api/student/work-preferences/export-yaml', () => {
     const body = await json(res);
 
     expect(body.success).toBe(true);
-    expect(body.message).toContain('config.yaml');
-    expect(body.path).toContain('config.yaml');
+    expect(body.message).toContain('saved');
 
-    // Verify writeFile was called with the content
+    expect(mkdir).toHaveBeenCalled();
     expect(writeFile).toHaveBeenCalledWith(
       expect.stringContaining('config.yaml'),
       yamlContent,
@@ -737,6 +750,7 @@ describe('POST /api/student/work-preferences/export-yaml', () => {
     mockAuthSuccess(supabase);
 
     (parseYaml as Mock).mockReturnValue({ key: 'value' });
+    (mkdir as Mock).mockResolvedValue(undefined);
     (writeFile as Mock).mockRejectedValue(new Error('Permission denied'));
 
     const req = createJsonRequest({ yamlContent: 'key: value' }, yamlUrl);
@@ -752,6 +766,7 @@ describe('POST /api/student/work-preferences/export-yaml', () => {
 
     const exactContent = 'a'.repeat(100 * 1024);
     (parseYaml as Mock).mockReturnValue({ data: 'ok' });
+    (mkdir as Mock).mockResolvedValue(undefined);
     (writeFile as Mock).mockResolvedValue(undefined);
 
     const req = createJsonRequest({ yamlContent: exactContent }, yamlUrl);
@@ -854,7 +869,7 @@ describe('POST /api/student/profile/draft/finalize', () => {
     expect(res.status).toBe(500);
     const body = await json(res);
     expect(body.error).toBe('Failed to save profile');
-    expect(body.details).toBe('Transaction failed');
+    expect(body.details).toBeUndefined();
   });
 
   it('returns 500 when RPC returns { success: false }', async () => {
@@ -873,7 +888,7 @@ describe('POST /api/student/profile/draft/finalize', () => {
     expect(res.status).toBe(500);
     const body = await json(res);
     expect(body.error).toBe('Validation failed');
-    expect(body.details).toBe('Missing name');
+    expect(body.details).toBeUndefined();
   });
 
   it('calls all 9 mapDraftTo* functions with draft and user id', async () => {

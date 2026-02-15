@@ -10,6 +10,12 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/client/supabaseClient';
+import {
+  clearCachedAuthTokens,
+  isAuthCacheAvailable,
+  loadCachedAuthTokens,
+  saveSessionToAuthCache,
+} from '@/lib/client/authCache';
 
 export default function AutoLogin() {
   const router = useRouter();
@@ -18,7 +24,7 @@ export default function AutoLogin() {
   useEffect(() => {
     async function checkAutoLogin() {
       // Only run in Electron environment
-      if (typeof window === 'undefined' || !window.electronAPI?.loadAuthCache) {
+      if (!isAuthCacheAvailable()) {
         return;
       }
 
@@ -29,7 +35,7 @@ export default function AutoLogin() {
 
       try {
         // Load cached tokens
-        const cachedTokens = await window.electronAPI.loadAuthCache();
+        const cachedTokens = await loadCachedAuthTokens();
 
         if (!cachedTokens) {
           console.log('[AutoLogin] No cached auth tokens found');
@@ -61,7 +67,7 @@ export default function AutoLogin() {
           console.warn('[AutoLogin] Failed to restore session from cache:', error.message);
           console.warn('[AutoLogin] Error details:', error);
           // Clear invalid cache
-          await window.electronAPI.clearAuthCache();
+          await clearCachedAuthTokens();
           return;
         }
 
@@ -72,12 +78,7 @@ export default function AutoLogin() {
           if (data.session.access_token !== cachedTokens.access_token) {
             console.log('[AutoLogin] Tokens were refreshed, updating cache');
             try {
-              await window.electronAPI.saveAuthCache({
-                access_token: data.session.access_token,
-                refresh_token: data.session.refresh_token,
-                expires_at: data.session.expires_at,
-                user_id: data.session.user.id
-              });
+              await saveSessionToAuthCache(data.session);
             } catch (saveError) {
               console.warn('[AutoLogin] Failed to update cache with refreshed tokens:', saveError);
             }
@@ -88,20 +89,33 @@ export default function AutoLogin() {
         } else {
           console.warn('[AutoLogin] No valid session after auto-login attempt');
           // Clear invalid cache
-          await window.electronAPI.clearAuthCache();
+          await clearCachedAuthTokens();
         }
       } catch (error) {
         console.error('[AutoLogin] Auto-login check failed:', error);
         // Clear potentially corrupted cache
         try {
-          await window.electronAPI.clearAuthCache();
+          await clearCachedAuthTokens();
         } catch (clearError) {
           console.error('[AutoLogin] Failed to clear cache:', clearError);
         }
       }
     }
 
-    checkAutoLogin();
+    // Defer auto-login until the browser is idle so it doesn't block
+    // the first meaningful paint. Falls back to setTimeout for environments
+    // that don't support requestIdleCallback.
+    const schedule = typeof requestIdleCallback === 'function'
+      ? requestIdleCallback
+      : (cb: () => void) => setTimeout(cb, 100);
+
+    const id = schedule(checkAutoLogin);
+
+    return () => {
+      if (typeof cancelIdleCallback === 'function' && typeof id === 'number') {
+        cancelIdleCallback(id);
+      }
+    };
   }, [router, pathname]);
 
   // This component doesn't render anything

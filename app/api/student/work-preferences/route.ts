@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import { validateRequest, workPreferencesSchema } from '@/lib/server/validation'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
 export async function GET() {
   try {
@@ -39,6 +40,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
 
