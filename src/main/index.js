@@ -14,18 +14,20 @@ app.disableHardwareAcceleration();
 
 // Suppress GPU-related errors on Linux when hardware acceleration is disabled
 // These SharedImageManager errors are harmless but noisy
+// Note: --disable-software-rasterizer is intentionally NOT set - it disables the
+// CPU fallback renderer, causing jank in CSS animations and scrolling
 app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
 
 // Memory optimization switches
 // Reduce memory footprint by limiting caches and disabling unused features
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --optimize-for-size');
+// Note: 512MB is a reasonable limit - 256MB caused GC pressure and "not responding" on some systems
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512 --optimize-for-size');
 app.commandLine.appendSwitch('disable-background-networking');
 app.commandLine.appendSwitch('disable-default-apps');
 app.commandLine.appendSwitch('disable-extensions');
 app.commandLine.appendSwitch('disable-sync');
 app.commandLine.appendSwitch('disable-translate');
-app.commandLine.appendSwitch('disable-features', 'TranslateUI,BlinkGenPropertyTrees,MediaRouter');
+app.commandLine.appendSwitch('disable-features', 'TranslateUI,MediaRouter');
 app.commandLine.appendSwitch('disk-cache-size', '52428800'); // 50MB disk cache instead of default
 app.commandLine.appendSwitch('media-cache-size', '10485760'); // 10MB media cache
 app.commandLine.appendSwitch('disable-component-update'); // Disable background component updates
@@ -35,12 +37,19 @@ app.commandLine.appendSwitch('disable-domain-reliability'); // Disable domain re
 // This is especially important during install when installer might launch the app
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
-  // Another instance is already running - exit silently
+  // Another instance is already running - exit immediately
+  // process.exit() is needed because app.quit() is async and the rest of the
+  // module would continue executing (imports, event handlers, etc.)
   app.quit();
+  process.exit(0);
 }
 
+// Only load .env.local in development mode
+// In production, CWD is unpredictable on Windows (often C:\Windows\System32)
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+if (!app.isPackaged) {
+  dotenv.config({ path: '.env.local' });
+}
 
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { createMainWindow, onMainWindowReady, getMainWindow } from './modules/window-manager.js';
