@@ -33,6 +33,15 @@ export const STEP = {
 
 export const TOTAL_STEPS = 5;
 
+/** Map URL ?tab= values to step indices for deep-linking (e.g. Stripe redirect) */
+const TAB_TO_STEP: Record<string, number> = {
+  'resume': STEP.RESUME,
+  'github': STEP.GITHUB,
+  'profile': STEP.PROFILE,
+  'preferences': STEP.PREFERENCES,
+  'auto-apply': STEP.AUTO_APPLY,
+};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -202,7 +211,14 @@ export function useWizardState(): WizardState & WizardActions {
         const initial = deriveInitialStep(hasData, published, prefsComplete);
         const completed = deriveCompletedSteps(hasData, published, prefsComplete);
 
-        setCurrentStep(initial);
+        // Allow URL ?tab= to override the derived step (e.g. Stripe redirect
+        // sends ?tab=auto-apply&success=true). Navigate directly to that step
+        // so the user returns where they left off.
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        const tabStep = tabParam != null ? TAB_TO_STEP[tabParam] : undefined;
+
+        setCurrentStep(tabStep !== undefined ? tabStep : initial);
         setCompletedSteps(completed);
       } catch (error) {
         console.error('[Wizard] Failed to load initial state:', error);
