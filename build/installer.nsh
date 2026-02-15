@@ -9,28 +9,6 @@
 !macroend
 
 ; ============================================================================
-; Run After Install
-; ============================================================================
-; This runs after installation completes when user clicks "Finish" with "Run app" checked
-; 
-; IMPORTANT: We add a delay before launching to prevent crash/freeze issues:
-; 1. Windows needs time to release file locks from the installation
-; 2. Antivirus software (Windows Defender) scans newly written executables
-; 3. The installer process needs to complete cleanup before app starts
-; 4. On slower systems, file system operations may take longer to flush
-;
-; Uses "Exec" instead of "ExecWait" so installer doesn't wait for app to exit
-!macro customRunAfterInstall
-  ; Give Windows time to release file locks, let antivirus finish scanning,
-  ; and complete any file system operations.
-  ; 2000ms is needed because Windows Defender can take 1-3s to scan new executables.
-  Sleep 2000
-  
-  ; Launch the app - use Exec (non-blocking) so installer can exit cleanly
-  Exec '"$INSTDIR\${APP_EXECUTABLE_FILENAME}"'
-!macroend
-
-; ============================================================================
 ; Pre-Installation Cleanup (fixes shortcut issues during updates)
 ; ============================================================================
 ; This macro runs BEFORE files are installed
@@ -53,7 +31,7 @@
     ; NOTE: We intentionally do NOT delete shortcuts during updates.
     ; The customInstall macro will recreate/overwrite them with correct paths.
     ; Deleting shortcuts during silent updates (from auto-updater) caused them
-    ; to disappear permanently because customRunAfterInstall doesn't run in silent mode.
+    ; to disappear permanently because the MUI Finish page doesn't run in silent mode.
     
     ; Reset to current user context
     SetShellVarContext current

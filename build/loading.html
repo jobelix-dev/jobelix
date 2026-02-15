@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jobelix</title>
+  <!-- Static loading shell shown instantly while Electron starts the bundled UI. -->
+  <link rel="preconnect" href="https://www.jobelix.fr" crossorigin>
+  <link rel="dns-prefetch" href="https://www.jobelix.fr">
   <style>
     * {
       margin: 0;
@@ -196,7 +199,7 @@
       }, TIMEOUT_MS);
       
       // The main process (window-manager.js) will navigate this window to the
-      // remote URL via loadURL(). We just show the loading screen until then.
+      // local bundled UI (fallback: remote URL). We just show the loading screen until then.
     }
     
     // Start loading when DOM is ready

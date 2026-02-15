@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 export function usePreferences() {
   const [preferencesComplete, setPreferencesComplete] = useState(false);
@@ -10,7 +11,7 @@ export function usePreferences() {
 
   const checkPreferences = useCallback(async () => {
     try {
-      const response = await fetch('/api/student/work-preferences');
+      const response = await apiFetch('/api/student/work-preferences');
       const data = await response.json();
       
       if (data.preferences) {

@@ -35,6 +35,7 @@ import {
   StatsGrid,
   type DisplayStats,
 } from './shared';
+import { getElectronAPI } from '@/lib/client/runtime';
 
 // =============================================================================
 // Types
@@ -176,7 +177,7 @@ export default function LaunchSection({
     if (!canLaunch) return;
 
     // Check desktop app
-    if (typeof window !== 'undefined' && !window.electronAPI) {
+    if (!getElectronAPI()) {
       onLaunch(); // Will trigger DESKTOP_REQUIRED error
       return;
     }

@@ -5,6 +5,7 @@
 
 // Application URLs
 export const URLS = {
+  PRODUCTION_ORIGIN: 'https://www.jobelix.fr',
   PRODUCTION: 'https://www.jobelix.fr/desktop',
   DEVELOPMENT: 'http://localhost:3000/desktop',
 };

@@ -55,6 +55,7 @@ import * as pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs'
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps'
 import { setExtractionProgress } from '@/lib/server/extractionProgress'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 import type {
   EducationEntry,
   ExperienceEntry,
@@ -131,6 +132,10 @@ function getOpenAI() {
   return openaiInstance
 }
 
+const MAX_RESUME_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_RESUME_TEXT_CHARS = 120_000;
+const MAX_LINKS_FOR_EXTRACTION = 100;
+
 // Type for existing section data passed to extractSection
 type ExistingSectionData = 
   | EducationEntry[]
@@ -174,7 +179,6 @@ function processExtractedPhone(
   
   // If we already have a country hint, use it
   if (hintCountryCode) {
-    console.log(`📞 Phone stored: "${cleanedPhone}" (country: ${hintCountryCode})`);
     return {
       phone_number: cleanedPhone,
       phone_country_code: hintCountryCode.toUpperCase(),
@@ -186,7 +190,6 @@ function processExtractedPhone(
     try {
       const parsed = parsePhoneNumber(cleanedPhone);
       if (parsed && parsed.country) {
-        console.log(`📞 Phone stored: "${cleanedPhone}" (detected country: ${parsed.country})`);
         return {
           phone_number: cleanedPhone,
           phone_country_code: parsed.country,
@@ -198,7 +201,6 @@ function processExtractedPhone(
   }
 
   // Fallback: default to France
-  console.log(`📞 Phone stored: "${cleanedPhone}" (default country: FR)`);
   return {
     phone_number: cleanedPhone,
     phone_country_code: 'FR',
@@ -306,8 +308,11 @@ If a field is not present in the resume, return null for that field.`,
  *    - Merge result with existing data
  * 3. Update draft incrementally
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     // Authenticate user
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
@@ -344,8 +349,6 @@ export async function POST(_request: NextRequest) {
       .eq('student_id', user.id)
       .single()
 
-    console.log('Existing draft found:', !!existingDraft)
-
     // Get the file from Supabase Storage
     const userId = user.id
     const filePath = `${userId}/resume.pdf`
@@ -358,6 +361,13 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json(
         { error: 'Resume file not found' },
         { status: 404 }
+      )
+    }
+
+    if (fileData.size > MAX_RESUME_FILE_BYTES) {
+      return NextResponse.json(
+        { error: 'Resume file is too large to process' },
+        { status: 400 }
       )
     }
 
@@ -413,10 +423,12 @@ export async function POST(_request: NextRequest) {
             linkContext = linkTextItems.map((item) => item.str).join(' ').trim()
           }
           
-          extractedLinks.push({
-            url: annotation.url,
-            context: linkContext || undefined
-          })
+          if (extractedLinks.length < MAX_LINKS_FOR_EXTRACTION) {
+            extractedLinks.push({
+              url: annotation.url,
+              context: linkContext || undefined
+            })
+          }
         }
       }
     }
@@ -430,22 +442,9 @@ export async function POST(_request: NextRequest) {
       )
     }
 
-    // Log extracted links for debugging
-    console.log('=== PDF Link Extraction Results ===')
-    console.log(`Total links found: ${extractedLinks.length}`)
-    if (extractedLinks.length > 0) {
-      console.log('Extracted links with context:')
-      extractedLinks.forEach((link, idx) => {
-        if (link.context) {
-          console.log(`  ${idx + 1}. "${link.context}" → ${link.url}`)
-        } else {
-          console.log(`  ${idx + 1}. ${link.url}`)
-        }
-      })
-    } else {
-      console.log('No embedded links found in PDF')
+    if (resumeText.length > MAX_RESUME_TEXT_CHARS) {
+      resumeText = resumeText.slice(0, MAX_RESUME_TEXT_CHARS)
     }
-    console.log('===================================')
 
     // Prepare links information for OpenAI with context
     const linksInfo = extractedLinks.length > 0
@@ -457,47 +456,7 @@ export async function POST(_request: NextRequest) {
         }).join('\n')}`
       : ''
 
-    // Prepare existing draft data for merging context (used for debug logging)
-    const _existingDataContext = existingDraft ? `
-
-**EXISTING PROFILE DATA (to merge with):**
-${JSON.stringify({
-  student_name: existingDraft.student_name,
-  email: existingDraft.email,
-  phone_number: existingDraft.phone_number,
-  address: existingDraft.address,
-  education: existingDraft.education,
-  experience: existingDraft.experience,
-  projects: existingDraft.projects,
-  skills: existingDraft.skills,
-  languages: existingDraft.languages,
-  publications: existingDraft.publications,
-  certifications: existingDraft.certifications,
-  social_links: existingDraft.social_links,
-}, null, 2)}
-
-⚠️ EXISTING PROJECTS COUNT: ${existingDraft.projects?.length || 0} projects
-⚠️ EXISTING SKILLS COUNT: ${existingDraft.skills?.length || 0} skills
-
-**CRITICAL MERGING INSTRUCTIONS:**
-- **PRESERVE ALL existing entries** - do not delete any existing projects, skills, experience, etc.
-- **ADD new entries** from the resume that don't exist in current data
-- **ENHANCE existing entries** if the resume provides additional details (merge descriptions, add missing fields)
-- **UPDATE basic contact info** (name, email, phone, address) with resume data if provided
-- **For duplicate detection:** Compare project names, company names, skill names case-insensitively
-  - If a project/experience/skill appears in BOTH existing data AND resume, merge the information (combine unique details)
-  - If a project/experience/skill appears ONLY in existing data, KEEP IT (do not remove)
-  - If a project/experience/skill appears ONLY in resume, ADD IT
-
-⚠️ YOUR OUTPUT MUST CONTAIN AT LEAST ${existingDraft.projects?.length || 0} PROJECTS AND ${existingDraft.skills?.length || 0} SKILLS
-⚠️ This is an ADDITIVE merge - never reduce the number of items!
-- **NEVER delete existing data** - the user may have manually entered or imported from GitHub
-- **Think of this as ADDITIVE merging** - start with all existing data, then add/enhance from resume
-- **Example:** If existing data has 5 projects and resume has 3 projects with 1 overlap:
-  - Result should have AT LEAST 7 projects (4 from existing only + 3 from resume, with 1 merged)
-` : '\n**Note:** This is the first resume upload for this user. Extract all data from the resume.\n'
-
-    console.log('=== STARTING SECTION-BY-SECTION EXTRACTION ===');
+    console.log('[Resume Extraction] Starting section-by-section extraction');
     
     // Initialize extracted data with existing data or empty structure
     const extractedData: ExtractedData = {
@@ -517,16 +476,12 @@ ${JSON.stringify({
     };
 
     // Section 1: Contact Information (REPLACE existing with resume data)
-    console.log('Extracting section 1/9: Contact Information...');
     const contactData = await extractContactInfo<ContactData>(
       resumeText,
       linksInfo,
       ContactInfoSchema,
       contactPrompt
     );
-    
-    // Log what AI returned for phone debugging
-    console.log(`📞 AI extracted phone_number: "${contactData.phone_number}" (country: "${contactData.phone_country_code}")`);
     
     // Use extracted data, fall back to existing only if AI returned null
     extractedData.student_name = contactData.student_name || extractedData.student_name;
@@ -540,13 +495,10 @@ ${JSON.stringify({
     const processedPhone = processExtractedPhone(rawPhone, rawCountryCode);
     extractedData.phone_number = processedPhone.phone_number;
     extractedData.phone_country_code = processedPhone.phone_country_code;
-    
-    console.log(`📞 After processing: phone_number: "${extractedData.phone_number}" (country: "${extractedData.phone_country_code}")`);
-    console.log(`✓ Contact info extracted`);
+
     updateProgress(3);
 
     // Section 2: Education
-    console.log(`Extracting section 2/9: Education (${extractedData.education.length} existing)...`);
     const educationData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -555,13 +507,10 @@ ${JSON.stringify({
       EducationSectionSchema,
       educationPrompt(extractedData.education.length)
     );
-    const prevEducationCount = extractedData.education.length;
     extractedData.education = educationData.education || [];
-    console.log(`✓ Education: ${prevEducationCount} → ${extractedData.education.length} entries (+${extractedData.education.length - prevEducationCount})`);
     updateProgress(4);
 
     // Section 3: Experience
-    console.log(`Extracting section 3/9: Experience (${extractedData.experience.length} existing)...`);
     const experienceData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -570,13 +519,10 @@ ${JSON.stringify({
       ExperienceSectionSchema,
       experiencePrompt(extractedData.experience.length)
     );
-    const prevExperienceCount = extractedData.experience.length;
     extractedData.experience = experienceData.experience || [];
-    console.log(`✓ Experience: ${prevExperienceCount} → ${extractedData.experience.length} entries (+${extractedData.experience.length - prevExperienceCount})`);
     updateProgress(5);
 
     // Section 4: Projects (CRITICAL - often includes GitHub projects)
-    console.log(`Extracting section 4/9: Projects (${extractedData.projects.length} existing)...`);
     const projectsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -587,14 +533,12 @@ ${JSON.stringify({
     );
     const prevProjectsCount = extractedData.projects.length;
     extractedData.projects = projectsData.projects || [];
-    console.log(`✓ Projects: ${prevProjectsCount} → ${extractedData.projects.length} entries (+${extractedData.projects.length - prevProjectsCount})`);
     if (extractedData.projects.length < prevProjectsCount) {
-      console.error(`⚠️ WARNING: Projects count DECREASED! ${prevProjectsCount} → ${extractedData.projects.length}`);
+      console.warn('[Resume Extraction] Projects count decreased unexpectedly');
     }
     updateProgress(6);
 
     // Section 5: Skills (CRITICAL - often includes GitHub-derived skills)
-    console.log(`Extracting section 5/9: Skills (${extractedData.skills.length} existing)...`);
     const skillsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -605,14 +549,12 @@ ${JSON.stringify({
     );
     const prevSkillsCount = extractedData.skills.length;
     extractedData.skills = skillsData.skills || [];
-    console.log(`✓ Skills: ${prevSkillsCount} → ${extractedData.skills.length} entries (+${extractedData.skills.length - prevSkillsCount})`);
     if (extractedData.skills.length < prevSkillsCount) {
-      console.error(`⚠️ WARNING: Skills count DECREASED! ${prevSkillsCount} → ${extractedData.skills.length}`);
+      console.warn('[Resume Extraction] Skills count decreased unexpectedly');
     }
     updateProgress(7);
 
     // Section 6: Languages
-    console.log(`Extracting section 6/9: Languages (${extractedData.languages.length} existing)...`);
     const languagesData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -621,13 +563,10 @@ ${JSON.stringify({
       LanguagesSectionSchema,
       languagesPrompt(extractedData.languages.length)
     );
-    const prevLanguagesCount = extractedData.languages.length;
     extractedData.languages = languagesData.languages || [];
-    console.log(`✓ Languages: ${prevLanguagesCount} → ${extractedData.languages.length} entries (+${extractedData.languages.length - prevLanguagesCount})`);
     updateProgress(8);
 
     // Section 7: Publications
-    console.log(`Extracting section 7/9: Publications (${extractedData.publications.length} existing)...`);
     const publicationsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -636,13 +575,10 @@ ${JSON.stringify({
       PublicationsSectionSchema,
       publicationsPrompt(extractedData.publications.length)
     );
-    const prevPublicationsCount = extractedData.publications.length;
     extractedData.publications = publicationsData.publications || [];
-    console.log(`✓ Publications: ${prevPublicationsCount} → ${extractedData.publications.length} entries (+${extractedData.publications.length - prevPublicationsCount})`);
     updateProgress(9);
 
     // Section 8: Certifications
-    console.log(`Extracting section 8/9: Certifications (${extractedData.certifications.length} existing)...`);
     const certificationsData = await extractSection<SectionDataWithArray>(
       resumeText,
       linksInfo,
@@ -651,13 +587,10 @@ ${JSON.stringify({
       CertificationsSectionSchema,
       certificationsPrompt(extractedData.certifications.length)
     );
-    const prevCertificationsCount = extractedData.certifications.length;
     extractedData.certifications = certificationsData.certifications || [];
-    console.log(`✓ Certifications: ${prevCertificationsCount} → ${extractedData.certifications.length} entries (+${extractedData.certifications.length - prevCertificationsCount})`);
     updateProgress(10);
 
     // Section 9: Social Links
-    console.log(`Extracting section 9/9: Social Links...`);
     const socialLinksData = await extractSection<SocialLinksData>(
       resumeText,
       linksInfo,
@@ -667,12 +600,7 @@ ${JSON.stringify({
       socialLinksPrompt
     );
     extractedData.social_links = socialLinksData.social_links || {};
-    console.log(`✓ Social links extracted`);
     updateProgress(11);
-
-    console.log('=== SECTION-BY-SECTION EXTRACTION COMPLETE ===');
-    console.log(`Final: ${extractedData.education.length} education, ${extractedData.experience.length} experience, ${extractedData.projects.length} projects, ${extractedData.skills.length} skills`);
-    console.log('==============================================');
 
     // Store in draft table using UPSERT (handles existing drafts)
     // RLS policy prevents duplicate inserts, so we use upsert to update if exists
@@ -710,7 +638,7 @@ ${JSON.stringify({
       )
     }
 
-    console.log('Extraction complete - data saved to draft')
+    console.log('[Resume Extraction] Completed and saved draft')
     updateProgress(13, true);
 
     // Log successful API call for rate limiting

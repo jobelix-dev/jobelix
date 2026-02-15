@@ -7,12 +7,17 @@
 
 import "server-only";
 
+import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
-export async function POST() {
+export async function POST(request?: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
 

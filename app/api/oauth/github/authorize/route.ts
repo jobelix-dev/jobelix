@@ -12,18 +12,26 @@ import { createClient } from '@/lib/server/supabaseServer';
 import { getGitHubAuthUrl } from '@/lib/server/githubOAuth';
 import { randomBytes, createHmac } from 'crypto';
 
-// Secret for signing OAuth state - falls back to GITHUB_CLIENT_SECRET if not set
-const STATE_SECRET = process.env.GITHUB_STATE_SECRET || process.env.GITHUB_CLIENT_SECRET || '';
+function getStateSecret(): string {
+  const secret = process.env.GITHUB_STATE_SECRET || process.env.GITHUB_CLIENT_SECRET;
+  if (!secret) {
+    throw new Error('GitHub OAuth state secret is not configured');
+  }
+  return secret;
+}
 
 /**
  * Create HMAC signature for OAuth state data
  */
 function signState(data: string): string {
-  return createHmac('sha256', STATE_SECRET).update(data).digest('hex');
+  return createHmac('sha256', getStateSecret()).update(data).digest('hex');
 }
 
 export async function GET(request: NextRequest) {
   try {
+    // Fail closed if state-signing secret is missing
+    getStateSecret();
+
     // Get authenticated user
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -65,8 +73,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in GitHub authorize endpoint:', error);
     return NextResponse.json(
-      { error: 'Failed to initiate GitHub authorization' },
-      { status: 500 }
+      { error: 'GitHub authorization is currently unavailable' },
+      { status: 503 }
     );
   }
 }

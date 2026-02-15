@@ -17,11 +17,16 @@
 
 import "server-only";
 
+import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
-export async function POST() {
+export async function POST(request?: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     /**
      * Create a Supabase client that can read/clear the user's session cookies.
      * This should be the normal server client (anon key + cookie handling),

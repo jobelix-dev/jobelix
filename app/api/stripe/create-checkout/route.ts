@@ -23,6 +23,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { getServiceSupabase } from '@/lib/server/supabaseService';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 import Stripe from 'stripe';
 
 let stripeInstance: Stripe | null = null;
@@ -71,6 +72,9 @@ const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://www.jobelix.fr";
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
     // SECURITY: Verify user authentication
     // 1) Ensure user is authenticated
     const auth = await authenticateRequest();
@@ -95,27 +99,10 @@ export async function POST(request: NextRequest) {
     // 3) Validate plan against whitelist
     const priceId = PLAN_TO_PRICE_ID[plan];
     const creditsAmount = PLAN_TO_CREDITS[plan];
-    
-    console.log('[Stripe Checkout] Plan validation:', { 
-      plan, 
-      hasPriceId: !!priceId, 
-      creditsAmount,
-      hasEnvVar: !!process.env[`STRIPE_PRICE_CREDITS_${creditsAmount}`]
-    });
-    
-    console.log('[Stripe Checkout] priceId =', priceId);
 
     if (!priceId || !creditsAmount) {
-      console.error('[Stripe Checkout] Invalid plan configuration:', { 
-        plan, 
-        hasPriceId: !!priceId, 
-        hasCreditsAmount: !!creditsAmount,
-        hasEnvVar100: !!process.env.STRIPE_PRICE_CREDITS_100,
-        hasEnvVar300: !!process.env.STRIPE_PRICE_CREDITS_300,
-        hasEnvVar500: !!process.env.STRIPE_PRICE_CREDITS_500,
-      });
       return NextResponse.json(
-        { error: 'Invalid plan configuration - check environment variables' },
+        { error: 'Invalid plan configuration' },
         { status: 400 }
       );
     }

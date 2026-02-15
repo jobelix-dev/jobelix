@@ -5,11 +5,22 @@
 
 import "server-only";
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 
-export async function GET() {
+function isElectronUserAgent(userAgent: string | null): boolean {
+  return Boolean(userAgent && /electron/i.test(userAgent));
+}
+
+export async function GET(request?: NextRequest) {
   try {
+    if (request && !isElectronUserAgent(request.headers.get('user-agent'))) {
+      return NextResponse.json(
+        { error: 'This endpoint is only available in the desktop app' },
+        { status: 403 }
+      );
+    }
+
     const auth = await authenticateRequest();
     if (auth.error) return auth.error;
 
@@ -32,10 +43,10 @@ export async function GET() {
 
     return NextResponse.json({ 
       token: tokenData.token,
-      user_id: user.id 
     }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
       }
     });
   } catch (error) {

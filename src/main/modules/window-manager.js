@@ -5,6 +5,7 @@
 import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import { URLS, FILES, WINDOW_CONFIG, DIRECTORIES } from '../config/constants.js';
+import { startLocalUiServer } from './local-ui-server.js';
 import logger from '../utils/logger.js';
 
 let mainWindowRef = null;
@@ -23,7 +24,7 @@ export function onMainWindowReady(callback) {
 /**
  * Create the main application window
  * 
- * Production: Loads local loading.html instantly, then navigates to remote URL
+ * Production: Loads local loading.html instantly, then navigates to local bundled UI
  * Development: Loads localhost:3000 directly (index.js waits for Next.js first)
  */
 export async function createMainWindow() {
@@ -72,7 +73,7 @@ export async function createMainWindow() {
   return mainWindow;
 }
 
-/** Production: Load local loading screen, then navigate to remote URL */
+/** Production: Load local loading screen, then navigate to local bundled UI (fallback: remote URL) */
 async function loadProductionContent(window, basePath, startTime) {
   const loadingPath = path.join(basePath, DIRECTORIES.BUILD, FILES.LOADING_HTML);
   
@@ -80,30 +81,42 @@ async function loadProductionContent(window, basePath, startTime) {
   await window.loadFile(loadingPath);
   logger.debug(`⏱️ Loading screen shown in ${Date.now() - startTime}ms`);
   
-  // Setup handler for when remote content loads
+  // Setup handler for when app content loads
   window.webContents.once('did-finish-load', () => {
     const url = window.webContents.getURL();
-    if (url.startsWith('https://')) {
-      logger.success(`Remote content loaded in ${Date.now() - startTime}ms`);
+    if (url.startsWith('http://127.0.0.1:') || url.startsWith('https://')) {
+      logger.success(`App content loaded in ${Date.now() - startTime}ms`);
       triggerReadyCallback();
     }
   });
   
   window.webContents.once('did-fail-load', (_, code, desc, url) => {
+    if (url?.startsWith('http://127.0.0.1:')) {
+      logger.error(`Failed to load local UI URL: ${desc} (code: ${code})`);
+      logger.info('Falling back to remote URL...');
+      window.loadURL(URLS.PRODUCTION);
+      return;
+    }
+
     if (url?.startsWith('https://')) {
-      logger.error(`Failed to load remote URL: ${desc} (code: ${code})`);
-      // Retry once after a short delay - network may not be ready right after install
-      logger.info('Retrying remote URL in 3 seconds...');
+      logger.error(`Failed to load fallback remote URL: ${desc} (code: ${code})`);
+      logger.info('Retrying fallback remote URL in 3 seconds...');
       setTimeout(() => {
         logger.info(`Retry navigating to: ${URLS.PRODUCTION}`);
         window.loadURL(URLS.PRODUCTION);
       }, 3000);
     }
   });
-  
-  // Navigate to remote URL (loading screen stays visible until this loads)
-  logger.info(`Navigating to: ${URLS.PRODUCTION}`);
-  window.loadURL(URLS.PRODUCTION);
+
+  try {
+    const localUiUrl = await startLocalUiServer();
+    logger.info(`Navigating to local bundled UI: ${localUiUrl}`);
+    window.loadURL(localUiUrl);
+  } catch (error) {
+    logger.error(`Failed to start local bundled UI server: ${error instanceof Error ? error.message : String(error)}`);
+    logger.info(`Falling back to remote URL: ${URLS.PRODUCTION}`);
+    window.loadURL(URLS.PRODUCTION);
+  }
 }
 
 /** Development: Load localhost directly */

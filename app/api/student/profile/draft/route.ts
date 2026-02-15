@@ -12,6 +12,7 @@ import "server-only";
 
 import { NextRequest } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
 /**
  * SECURITY: Whitelist of allowed fields for draft updates.
@@ -35,6 +36,8 @@ const ALLOWED_DRAFT_FIELDS = [
   'chat_history',
   'raw_resume_text',
 ] as const;
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET - Retrieve or create the current draft for logged-in user
@@ -104,25 +107,47 @@ export async function GET() {
  */
 export async function PUT(req: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(req)
+    if (csrfError) return csrfError
+
     // Authenticate user
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
 
-    const { draftId, updates } = await req.json()
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response('Invalid request body', { status: 400 });
+    }
 
-    if (!draftId) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return new Response('Invalid request body', { status: 400 });
+    }
+
+    const { draftId, updates } = body as { draftId?: string; updates?: unknown };
+
+    if (!draftId || !uuidRegex.test(draftId)) {
       return new Response('Draft ID required', { status: 400 })
+    }
+
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+      return new Response('Invalid updates payload', { status: 400 });
     }
 
     // SECURITY FIX: Sanitize updates to only allow whitelisted fields
     // This prevents mass assignment attacks
     const sanitizedUpdates = Object.fromEntries(
-      Object.entries(updates || {}).filter(
+      Object.entries(updates).filter(
         ([key]) => ALLOWED_DRAFT_FIELDS.includes(key as typeof ALLOWED_DRAFT_FIELDS[number])
       )
     )
+
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return new Response('No valid draft fields provided', { status: 400 });
+    }
 
     // Update the draft with new data
     // Always reset status to 'editing' when any changes are made

@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BrowserInstallProgress } from '@/lib/client/electronAPI';
+import { getElectronAPI } from '@/lib/client/runtime';
 
 export interface UseBrowserStatusReturn {
   /** Whether we're currently checking browser status */
@@ -46,7 +47,8 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
 
   // Check browser status
   const checkBrowser = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electronAPI?.checkBrowser) {
+    const electronAPI = getElectronAPI();
+    if (!electronAPI?.checkBrowser) {
       // Not in Electron - browser check not applicable
       setChecking(false);
       setInstalled(true); // Assume ready in browser context
@@ -57,7 +59,7 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
     setError(null);
 
     try {
-      const result = await window.electronAPI.checkBrowser();
+      const result = await electronAPI.checkBrowser();
       
       if (result.success && result.installed) {
         setInstalled(true);
@@ -78,7 +80,8 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
 
   // Install browser with progress tracking
   const installBrowser = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electronAPI?.installBrowser) {
+    const electronAPI = getElectronAPI();
+    if (!electronAPI?.installBrowser) {
       setError('Browser installation not available');
       return;
     }
@@ -93,7 +96,7 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
     setMessage('Starting browser installation...');
 
     try {
-      const result = await window.electronAPI.installBrowser();
+      const result = await electronAPI.installBrowser();
       
       if (result.success) {
         setInstalled(true);
@@ -116,7 +119,8 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
 
   // Set up progress listener
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electronAPI?.onBrowserInstallProgress) {
+    const electronAPI = getElectronAPI();
+    if (!electronAPI?.onBrowserInstallProgress) {
       return;
     }
 
@@ -133,10 +137,10 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
       }
     };
 
-    window.electronAPI.onBrowserInstallProgress(handleProgress);
+    electronAPI.onBrowserInstallProgress(handleProgress);
 
     return () => {
-      window.electronAPI?.removeBrowserInstallProgressListeners?.();
+      electronAPI.removeBrowserInstallProgressListeners?.();
     };
   }, []);
 
@@ -148,7 +152,7 @@ export function useBrowserStatus(): UseBrowserStatusReturn {
   // Auto-install browser if not installed (after initial check completes)
   useEffect(() => {
     // Only run in Electron environment
-    if (typeof window === 'undefined' || !window.electronAPI?.installBrowser) {
+    if (!getElectronAPI()?.installBrowser) {
       return;
     }
     

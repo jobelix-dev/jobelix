@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -37,7 +38,7 @@ export function useLeaderboard(limit: number = 10): UseLeaderboardReturn {
     try {
       setError(null);
       
-      const response = await fetch(`/api/student/referral/leaderboard?limit=${limit}`);
+      const response = await apiFetch(`/api/student/referral/leaderboard?limit=${limit}`);
       
       if (!response.ok) {
         // Non-students get 403, don't show error

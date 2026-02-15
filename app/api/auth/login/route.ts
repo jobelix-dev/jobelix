@@ -21,6 +21,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { loginSchema } from '@/lib/server/validation'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
 
 /**
@@ -29,6 +30,9 @@ import { loginSchema } from '@/lib/server/validation'
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     /**
      * Read the JSON body sent by the browser.
      * We expect it to contain an email and a password.

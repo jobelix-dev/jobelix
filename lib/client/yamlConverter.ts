@@ -4,6 +4,9 @@
  * Saves to repository root for Electron app usage
  */
 
+import { apiFetch } from './http';
+import { getElectronAPI } from './runtime';
+
 /**
  * Escapes a string value for safe YAML output.
  * Handles special characters, multi-line strings, and injection attacks.
@@ -230,12 +233,13 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
  */
 export async function saveYAMLToRepo(preferences: WorkPreferences): Promise<void> {
   const yamlContent = preferencesToYAML(preferences);
+  const electronAPI = getElectronAPI();
   
   // Check if we're in Electron environment
-  if (typeof window !== 'undefined' && window.electronAPI) {
+  if (electronAPI) {
     // Use Electron IPC for local file access (secure, stays local)
     console.log('Saving YAML locally via Electron IPC...');
-    const result = await window.electronAPI.writeConfigFile(yamlContent);
+    const result = await electronAPI.writeConfigFile(yamlContent);
     
     if (!result.success) {
       throw new Error(`Failed to save config.yaml: ${result.error || 'Unknown error'}`);
@@ -247,7 +251,7 @@ export async function saveYAMLToRepo(preferences: WorkPreferences): Promise<void
 
   // Fallback to API route for non-Electron environments (development browser)
   console.log('Sending YAML to API...');
-  const response = await fetch('/api/student/work-preferences/export-yaml', {
+  const response = await apiFetch('/api/student/work-preferences/export-yaml', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ yamlContent }),
@@ -259,8 +263,8 @@ export async function saveYAMLToRepo(preferences: WorkPreferences): Promise<void
     throw new Error(`Failed to save config.yaml: ${errorData.error || response.statusText}`);
   }
 
-  const result = await response.json();
-  console.log('YAML saved to:', result.path);
+  await response.json();
+  console.log('YAML saved successfully');
 }
 
 /**

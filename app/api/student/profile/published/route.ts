@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest) {
     }
 
     if (!studentData) {
-      console.error('No student data found for user:', user.id);
+      console.error('No student data found for authenticated user');
       return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
     }
 

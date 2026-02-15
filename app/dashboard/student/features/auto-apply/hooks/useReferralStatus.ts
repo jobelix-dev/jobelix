@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 export interface ReferralStatus {
   isReferred: boolean;
@@ -28,7 +29,7 @@ export function useReferralStatus(): UseReferralStatusReturn {
   const fetchStatus = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch('/api/student/referral/status');
+      const response = await apiFetch('/api/student/referral/status');
       
       if (!response.ok) {
         // Don't show error for auth issues or non-students - just return empty status

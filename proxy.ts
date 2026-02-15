@@ -354,6 +354,13 @@ async function updateSupabaseSession(request: NextRequest): Promise<NextResponse
 }
 
 export async function proxy(request: NextRequest) {
+  // Desktop local bundle mode:
+  // API/auth is proxied to remote backend via rewrites, so local middleware
+  // should not do additional rate limiting or auth cookie refresh.
+  if (process.env.NEXT_DESKTOP_PROXY_API === '1') {
+    return NextResponse.next({ request });
+  }
+
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
 

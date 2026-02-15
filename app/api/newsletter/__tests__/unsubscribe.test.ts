@@ -41,8 +41,12 @@ const TEST_EMAIL = 'test@test.com';
  * Generate a valid HMAC token matching the route's logic.
  * Uses the same secret set in process.env.NEWSLETTER_UNSUBSCRIBE_SECRET.
  */
-function makeValidToken(email: string): string {
-  return createHmac('sha256', 'test-secret').update(email.toLowerCase()).digest('hex');
+function makeValidToken(email: string, issuedAtMs: number = Date.now()): string {
+  const issuedAtSeconds = Math.floor(issuedAtMs / 1000);
+  const sig = createHmac('sha256', 'test-secret')
+    .update(`${email.toLowerCase()}:${issuedAtSeconds}`)
+    .digest('hex');
+  return `${issuedAtSeconds}.${sig}`;
 }
 
 function createGetRequest(params: Record<string, string>): NextRequest {
@@ -309,39 +313,42 @@ describe('POST /api/newsletter/unsubscribe', () => {
 // Exported helpers
 // ===========================================================================
 describe('generateUnsubscribeToken', () => {
-  let generateUnsubscribeToken: (email: string) => string;
+  let generateUnsubscribeToken: (email: string, issuedAtMs?: number) => string;
 
   beforeEach(async () => {
     const mod = await import('../../newsletter/unsubscribe/route');
     generateUnsubscribeToken = mod.generateUnsubscribeToken;
   });
 
-  it('returns a consistent HMAC for the same email', () => {
-    const token1 = generateUnsubscribeToken('test@test.com');
-    const token2 = generateUnsubscribeToken('test@test.com');
+  it('returns a consistent token for same email+timestamp', () => {
+    const fixedTs = 1735689600000; // Jan 1, 2025 UTC
+    const token1 = generateUnsubscribeToken('test@test.com', fixedTs);
+    const token2 = generateUnsubscribeToken('test@test.com', fixedTs);
     expect(token1).toBe(token2);
   });
 
   it('returns different tokens for different emails', () => {
-    const token1 = generateUnsubscribeToken('alice@test.com');
-    const token2 = generateUnsubscribeToken('bob@test.com');
+    const fixedTs = 1735689600000;
+    const token1 = generateUnsubscribeToken('alice@test.com', fixedTs);
+    const token2 = generateUnsubscribeToken('bob@test.com', fixedTs);
     expect(token1).not.toBe(token2);
   });
 
-  it('returns a hex string', () => {
+  it('returns a timestamp.signature token', () => {
     const token = generateUnsubscribeToken('test@test.com');
-    expect(token).toMatch(/^[0-9a-f]+$/);
+    expect(token).toMatch(/^\d+\.[0-9a-f]+$/);
   });
 
   it('lowercases email before hashing', () => {
-    const token1 = generateUnsubscribeToken('Test@Example.COM');
-    const token2 = generateUnsubscribeToken('test@example.com');
+    const fixedTs = 1735689600000;
+    const token1 = generateUnsubscribeToken('Test@Example.COM', fixedTs);
+    const token2 = generateUnsubscribeToken('test@example.com', fixedTs);
     expect(token1).toBe(token2);
   });
 });
 
 describe('generateUnsubscribeUrl', () => {
-  let generateUnsubscribeUrl: (email: string, baseUrl?: string) => string;
+  let generateUnsubscribeUrl: (email: string, baseUrl?: string, issuedAtMs?: number) => string;
 
   beforeEach(async () => {
     const mod = await import('../../newsletter/unsubscribe/route');
@@ -361,10 +368,11 @@ describe('generateUnsubscribeUrl', () => {
   });
 
   it('includes a valid token in the URL', () => {
-    const url = generateUnsubscribeUrl('test@test.com');
+    const fixedTs = 1735689600000;
+    const url = generateUnsubscribeUrl('test@test.com', 'https://www.jobelix.fr', fixedTs);
     const parsedUrl = new URL(url);
     const token = parsedUrl.searchParams.get('token');
-    expect(token).toBe(makeValidToken('test@test.com'));
+    expect(token).toBe(makeValidToken('test@test.com', fixedTs));
   });
 
   it('encodes email in the URL', () => {

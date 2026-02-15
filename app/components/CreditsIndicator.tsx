@@ -18,6 +18,7 @@ import CreditsSection from '@/app/dashboard/student/features/auto-apply/componen
 import ReferralBonusBanner from '@/app/dashboard/student/features/auto-apply/components/ReferralBonusBanner';
 import ReferralSection from '@/app/dashboard/student/features/auto-apply/components/ReferralSection';
 import ReferralLeaderboard from '@/app/dashboard/student/features/auto-apply/components/ReferralLeaderboard';
+import { apiFetch } from '@/lib/client/http';
 
 // =============================================================================
 // CreditsModal — centered overlay with credits management
@@ -94,7 +95,7 @@ export function useCreditsModal() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleBuyCredits = useCallback(async (plan: string) => {
-    const response = await fetch('/api/stripe/create-checkout', {
+    const response = await apiFetch('/api/stripe/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan }),

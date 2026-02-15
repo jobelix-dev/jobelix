@@ -124,10 +124,11 @@ describe('api.deleteAccount', () => {
   it('should DELETE to /api/auth/account', async () => {
     mockFetchResponse({ success: true });
 
-    const result = await api.deleteAccount();
+    const result = await api.deleteAccount('securePassword123');
 
     expect(mockFetch).toHaveBeenCalledWith('/api/auth/account', expect.objectContaining({
       method: 'DELETE',
+      body: JSON.stringify({ confirmation: 'DELETE', password: 'securePassword123' }),
     }));
     expect(result.success).toBe(true);
   });

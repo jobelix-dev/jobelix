@@ -16,11 +16,16 @@
  */
 import "server-only";
 
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
-export async function POST() {
+export async function POST(request?: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
     /**
      * 1) Authenticate the request
      * If not logged in, authenticateRequest() returns an error response.
@@ -58,6 +63,12 @@ export async function POST() {
         employment_type: null,
         availability: null,
       },
+      startup_signals: {
+        mission: null,
+        stage: null,
+        team_size: null,
+        seniority: null,
+      },
       seniority: null,
       skills: [],
       locations: [],
@@ -78,7 +89,7 @@ export async function POST() {
     const { data: newDraft, error: createError } = await supabase
       .from('company_offer_draft')
       .insert(emptyDraft)
-      .select('id, company_id, offer_id, basic_info, compensation, work_config, seniority, skills, locations, responsibilities, capabilities, questions, perks, status, created_at, updated_at') // 🔐
+      .select('id, company_id, offer_id, basic_info, compensation, work_config, startup_signals, seniority, skills, locations, responsibilities, capabilities, questions, perks, status, created_at, updated_at') // 🔐
       .single();
 
     if (createError || !newDraft) {
