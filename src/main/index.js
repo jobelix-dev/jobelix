@@ -65,6 +65,17 @@ async function initializeApp() {
   try {
     logger.info(`⏱️ [${elapsed()}ms] App ready, starting initialization`);
     
+    // Clear all caches in dev mode to prevent stale chunk issues
+    if (!app.isPackaged) {
+      const { session } = await import('electron');
+      logger.info('Development mode - clearing caches...');
+      await session.defaultSession.clearCache();
+      await session.defaultSession.clearStorageData({
+        storages: ['appcache', 'serviceworkers', 'cachestorage', 'websql', 'indexdb']
+      });
+      logger.success('Caches cleared');
+    }
+    
     setupIpcHandlers();
     logger.info(`⏱️ [${elapsed()}ms] IPC handlers registered`);
     

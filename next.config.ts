@@ -9,6 +9,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdfjs-dist v5 is a large ESM library (32K+ lines) that crashes when webpack
+  // bundles it for the RSC layer ("Object.defineProperty called on non-object").
+  // Externalizing it lets Node.js load it natively via ESM import, which works fine.
+  serverExternalPackages: ['pdfjs-dist'],
   // Tree-shake barrel exports for heavy icon/component libraries
   experimental: {
     optimizePackageImports: [
@@ -70,12 +74,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Cache immutable Next.js static assets aggressively
+        // Cache Next.js static assets with shorter TTL for Electron compatibility
+        // Long immutable caching (max-age=31536000) causes Electron to serve stale chunks
+        // even after rebuilds. Use shorter TTL with must-revalidate to prevent this.
         source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable'
+            value: process.env.NODE_ENV === 'development' 
+              ? 'no-cache, no-store, must-revalidate'
+              : 'public, max-age=3600, must-revalidate'
           }
         ],
       },

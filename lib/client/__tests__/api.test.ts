@@ -15,10 +15,12 @@ vi.stubGlobal('fetch', mockFetch);
 import { api } from '../api';
 
 function mockFetchResponse(data: unknown, status = 200) {
+  const body = JSON.stringify(data);
   mockFetch.mockResolvedValueOnce({
     ok: status >= 200 && status < 300,
     status,
     json: () => Promise.resolve(data),
+    text: () => Promise.resolve(body),
     blob: () => Promise.resolve(new Blob(['test'])),
   });
 }
@@ -182,6 +184,7 @@ describe('api.downloadResume', () => {
       ok: false,
       status: 404,
       json: () => Promise.resolve({ error: 'Resume not found' }),
+      text: () => Promise.resolve(JSON.stringify({ error: 'Resume not found' })),
     });
 
     await expect(api.downloadResume()).rejects.toThrow('Resume not found');

@@ -21,6 +21,7 @@ import type { Metadata } from "next";
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
 import AppFooter from "../components/AppFooter";
+import StarNetwork from "../components/StarNetwork";
 import Link from "next/link";
 import "../globals.css";
 import { canonicalUrl } from "@/lib/seo";
@@ -66,9 +67,10 @@ export default async function SignupPage({
   // (cookies().set() is not allowed in Server Components in Next.js 16)
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
+      <StarNetwork />
       <Header />
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12 relative z-10">
         <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-4 sm:p-6 md:p-8 rounded-lg shadow-lg border border-primary-subtle">
           <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-default">
             {displayRole === 'talent' ? 'Join as a talent' : 'Join as an employer'}

@@ -31,22 +31,35 @@ function CallbackSuccessContent() {
           ? { type: 'oauth-error', error: decodeURIComponent(error) }
           : { type: 'oauth-success' };
         
-        // Post to parent using same origin for security (prevents message interception)
-        const targetOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-        window.opener.postMessage(message, targetOrigin);
-        console.log('[CallbackSuccess] Sent message to parent');
+        // Post to parent - try both the configured APP_URL and the current origin.
+        // In Electron, the parent may have a different origin than the popup.
+        const origins = new Set<string>();
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+        if (appUrl) origins.add(appUrl.replace(/\/+$/, ''));
+        origins.add(window.location.origin);
+        
+        for (const origin of origins) {
+          try {
+            window.opener.postMessage(message, origin);
+            console.log('[CallbackSuccess] Sent message to parent with origin:', origin);
+          } catch (err) {
+            console.warn('[CallbackSuccess] Failed to postMessage to origin:', origin, err);
+          }
+        }
       } catch (err) {
         console.error('[CallbackSuccess] Failed to send message to parent:', err);
       }
     } else {
-      console.log('[CallbackSuccess] No opener window found');
+      console.log('[CallbackSuccess] No opener window found - user may need to navigate manually');
     }
 
-    // Auto-close after a short delay (give parent time to process)
+    // Auto-close after a longer delay to give the parent time to process
+    // the postMessage and verify the session. If the parent closes us earlier
+    // via the fallback poll, that's fine too.
     if (!error) {
       const closeTimer = setTimeout(() => {
         window.close();
-      }, 1500);
+      }, 3000);
       return () => clearTimeout(closeTimer);
     }
   }, [error]);

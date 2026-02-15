@@ -31,6 +31,18 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
+  // Check if user is already authenticated (e.g., after OAuth popup set cookies)
+  // This prevents the user from seeing the login form when they're already logged in.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        console.log('[Login] User already authenticated, redirecting to dashboard');
+        window.location.href = '/dashboard';
+      }
+    });
+  }, []);
+
   // Read error from URL parameters (e.g., from expired reset links)
   useEffect(() => {
     const urlError = searchParams.get('error');
@@ -74,6 +86,10 @@ export default function LoginForm() {
       }
       
       router.refresh();
+      // Small delay to ensure auth cookies are propagated before navigation.
+      // Without this, the dashboard may load before the session is available,
+      // requiring a second login attempt.
+      await new Promise(resolve => setTimeout(resolve, 100));
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');

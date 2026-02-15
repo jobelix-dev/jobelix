@@ -1,13 +1,13 @@
 {
   "name": "jobelix",
-  "version": "0.0.34",
+  "version": "0.0.35",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
   "author": "Jobelix",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"electron .\"",
+    "dev": "concurrently \"next dev --webpack\" \"electron .\"",
     "build": "next build",
     "build:bot": "node scripts/build-bot.mjs",
     "start": "next start",

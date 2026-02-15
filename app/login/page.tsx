@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import LoginForm from "./LoginForm";
 import Header from "../components/Header";
 import AppFooter from "../components/AppFooter";
+import StarNetwork from "../components/StarNetwork";
 import "../globals.css";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -33,9 +34,10 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
+      <StarNetwork />
       <Header />
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12 relative z-10">
         <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-5 sm:p-8 rounded-lg shadow-lg border border-primary-subtle">
           <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-default">Log in to Jobelix</h2>
           <p className="text-sm text-muted mb-4 sm:mb-6">

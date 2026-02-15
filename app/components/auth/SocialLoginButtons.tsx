@@ -26,7 +26,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
-import { useRouter } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
 import { 
   getReferralCodeFromAnySource, 
@@ -133,7 +132,6 @@ export default function SocialLoginButtons({
 }: SocialLoginButtonsProps) {
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [popup, setPopup] = useState<Window | null>(null);
-  const router = useRouter();
   
   // Track if we're in the middle of an OAuth flow
   const isOAuthFlowActive = useRef(false);
@@ -163,7 +161,7 @@ export default function SocialLoginButtons({
 
   // Handle successful authentication
   const handleAuthSuccess = useCallback(async () => {
-    console.log('[OAuth] Handling auth success - refreshing page');
+    console.log('[OAuth] Handling auth success - navigating to dashboard');
     
     // Clear referral storage - it was already applied server-side in /auth/callback
     clearAllReferralStorage();
@@ -180,11 +178,17 @@ export default function SocialLoginButtons({
     
     onSuccess?.();
     
-    // Refresh the page to pick up the session cookies set by the popup
-    // This is more reliable than trying to sync session between windows
-    router.refresh();
-    router.push('/dashboard');
-  }, [popup, router, onSuccess]);
+    // Wait for cookies to fully propagate before navigation (especially important with Webpack)
+    // Webpack's dev server has different timing than Turbopack
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Use hard navigation (not router.push) to ensure the browser makes a fresh
+    // HTTP request with the new auth cookies set by the popup's /auth/callback.
+    // router.push + router.refresh can race: the RSC cache may still reflect the
+    // unauthenticated state, causing /dashboard to see no session and redirect away.
+    // A full page navigation guarantees the proxy middleware refreshes the session.
+    window.location.href = '/dashboard';
+  }, [popup, onSuccess]);
 
   // Handle auth error from popup
   const handleAuthError = useCallback((errorMessage: string) => {
@@ -210,8 +214,17 @@ export default function SocialLoginButtons({
       if (!isOAuthFlowActive.current) return;
       
       // Validate message origin - must be from our own app
-      const expectedOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-      if (event.origin !== expectedOrigin) return;
+      // In Electron, the popup runs on localhost:3000 while the parent may have
+      // a different origin. Accept both the configured APP_URL and the current origin.
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const currentOrigin = window.location.origin;
+      const allowedOrigins = new Set([currentOrigin]);
+      if (appUrl) allowedOrigins.add(appUrl.replace(/\/+$/, ''));
+      
+      if (!allowedOrigins.has(event.origin)) {
+        console.log('[OAuth] Ignoring postMessage from unexpected origin:', event.origin, 'expected one of:', [...allowedOrigins]);
+        return;
+      }
       
       // Validate message structure
       if (!event.data || typeof event.data !== 'object') return;
@@ -219,14 +232,20 @@ export default function SocialLoginButtons({
       console.log('[OAuth] Received postMessage from:', event.origin);
       
       if (event.data.type === 'oauth-success') {
-        // Small delay to ensure cookies are propagated
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for cookies to propagate before checking session
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Try to get session and save to Electron cache if available
+        // Use getUser() for a server-verified session check.
+        // getSession() only reads from local cache and won't see the session
+        // that was established in the popup via server-side cookie exchange.
         const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await saveAuthCacheIfElectron(session);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Fetch the full session for Electron cache (getUser doesn't return tokens)
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await saveAuthCacheIfElectron(session);
+          }
         }
         
         await handleAuthSuccess();
@@ -250,19 +269,26 @@ export default function SocialLoginButtons({
         
         // If we're still in OAuth flow (message wasn't received), check session
         if (isOAuthFlowActive.current) {
-          // Give a moment for cookies to sync
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Give a moment for cookies to sync after popup closes
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
+          // Use getUser() for a server-verified check. The popup set cookies
+          // via the server-side callback, so getSession() (local cache) won't
+          // see them -- we need a round-trip to the server.
           const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
+          const { data: { user } } = await supabase.auth.getUser();
           
-          if (session) {
+          if (user) {
             console.log('[OAuth] Session found after popup closed (fallback)');
-            await saveAuthCacheIfElectron(session);
+            // Fetch session for Electron cache
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              await saveAuthCacheIfElectron(session);
+            }
             await handleAuthSuccess();
           } else {
             // Popup was closed without completing auth
-            console.log('[OAuth] Auth not completed');
+            console.log('[OAuth] Auth not completed - no session found after popup close');
             setLoadingProvider(null);
             setPopup(null);
             isOAuthFlowActive.current = false;
