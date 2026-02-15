@@ -13,16 +13,18 @@
 ; ============================================================================
 ; This runs after installation completes when user clicks "Finish" with "Run app" checked
 ; 
-; IMPORTANT: We add a small delay before launching to prevent crash issues:
+; IMPORTANT: We add a delay before launching to prevent crash/freeze issues:
 ; 1. Windows needs time to release file locks from the installation
-; 2. Antivirus software may be scanning newly written files
+; 2. Antivirus software (Windows Defender) scans newly written executables
 ; 3. The installer process needs to complete cleanup before app starts
+; 4. On slower systems, file system operations may take longer to flush
 ;
 ; Uses "Exec" instead of "ExecWait" so installer doesn't wait for app to exit
 !macro customRunAfterInstall
-  ; Give Windows time to release file locks and complete any file system operations
-  ; This prevents crash-on-launch issues seen on some systems
-  Sleep 500
+  ; Give Windows time to release file locks, let antivirus finish scanning,
+  ; and complete any file system operations.
+  ; 2000ms is needed because Windows Defender can take 1-3s to scan new executables.
+  Sleep 2000
   
   ; Launch the app - use Exec (non-blocking) so installer can exit cleanly
   Exec '"$INSTDIR\${APP_EXECUTABLE_FILENAME}"'
@@ -48,20 +50,10 @@
       Sleep 1000
     ${EndIf}
     
-    ; Remove old Start Menu shortcut if it exists
-    SetShellVarContext current
-    Delete "$SMPROGRAMS\${PRODUCT_NAME}.lnk"
-    
-    ; Also try all users location (for per-machine installs)
-    SetShellVarContext all
-    Delete "$SMPROGRAMS\${PRODUCT_NAME}.lnk"
-    
-    ; Remove old Desktop shortcut if it exists
-    SetShellVarContext current
-    Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
-    
-    SetShellVarContext all
-    Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
+    ; NOTE: We intentionally do NOT delete shortcuts during updates.
+    ; The customInstall macro will recreate/overwrite them with correct paths.
+    ; Deleting shortcuts during silent updates (from auto-updater) caused them
+    ; to disappear permanently because customRunAfterInstall doesn't run in silent mode.
     
     ; Reset to current user context
     SetShellVarContext current
@@ -98,11 +90,12 @@
   
   SetShellVarContext current
   
-  ; Clean up AppData folders
-  ; Note: This removes ALL user data including configs, resumes, and profiles
-  ; Users will be warned by the uninstaller about data removal
+  ; Clean up updater temp files only
   RMDir /r "$LOCALAPPDATA\jobelix-updater"
-  RMDir /r "$APPDATA\jobelix"
+  
+  ; Note: User data in $APPDATA\jobelix (configs, resumes, profiles) is intentionally
+  ; preserved on uninstall. This matches deleteAppDataOnUninstall: false in package.json
+  ; and allows users to reinstall without losing their data.
   
   ; Note: Temp files in $TEMP are automatically cleaned by Windows periodically
   ; We don't remove them explicitly to avoid interfering with any running processes

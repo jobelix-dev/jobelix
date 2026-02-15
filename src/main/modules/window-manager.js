@@ -51,14 +51,14 @@ export async function createMainWindow() {
 
   mainWindowRef = mainWindow;
   mainWindow.on('closed', () => { mainWindowRef = null; });
-  
-  // Maximize immediately - this persists through page navigations
-  mainWindow.maximize();
 
-  // Show window once first paint is ready
+  // Show and maximize window once first paint is ready
+  // Note: maximize() must be called AFTER show() on Windows to avoid a visual
+  // glitch where the window briefly flashes at its un-maximized size
   mainWindow.once('ready-to-show', () => {
     logger.debug(`⏱️ Window ready-to-show at ${Date.now() - startTime}ms`);
     mainWindow.show();
+    mainWindow.maximize();
     logger.success('Main window visible');
   });
 
@@ -92,6 +92,12 @@ async function loadProductionContent(window, basePath, startTime) {
   window.webContents.once('did-fail-load', (_, code, desc, url) => {
     if (url?.startsWith('https://')) {
       logger.error(`Failed to load remote URL: ${desc} (code: ${code})`);
+      // Retry once after a short delay - network may not be ready right after install
+      logger.info('Retrying remote URL in 3 seconds...');
+      setTimeout(() => {
+        logger.info(`Retry navigating to: ${URLS.PRODUCTION}`);
+        window.loadURL(URLS.PRODUCTION);
+      }, 3000);
     }
   });
   

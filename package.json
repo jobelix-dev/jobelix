@@ -61,7 +61,8 @@
     "extraResources": [],
     "electronLanguages": [
       "en-US",
-      "en-GB"
+      "en-GB",
+      "fr"
     ],
     "removePackageScripts": true,
     "win": {
