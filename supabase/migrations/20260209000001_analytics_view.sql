@@ -27,11 +27,13 @@ daily_registered_users AS (
   GROUP BY DATE(created_at)
 ),
 daily_resume_uploads AS (
-  -- Count users who uploaded resumes each day (unique students with resumes)
+  -- Count users who uploaded resumes each day (only resumes associated with valid users)
   SELECT 
     DATE(r.created_at) AS date,
     COUNT(DISTINCT r.student_id) AS count
   FROM public.resume r
+  INNER JOIN public.student s ON r.student_id = s.id
+  INNER JOIN auth.users u ON s.mail_adress = u.email
   GROUP BY DATE(r.created_at)
 ),
 daily_active_bot_users AS (
@@ -114,4 +116,4 @@ GRANT SELECT ON public.analytics_daily_snapshot TO service_role;
 
 -- Add a comment to document the view
 COMMENT ON VIEW public.analytics_daily_snapshot IS 
-'Daily growth and engagement metrics with cumulative totals for dashboard visualization';
+'Daily growth and engagement metrics with cumulative totals for dashboard visualization. Resumes are counted only if associated with valid users.';

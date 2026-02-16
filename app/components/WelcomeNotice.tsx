@@ -31,7 +31,6 @@ export default function WelcomeNotice({ isOpen, onClose }: WelcomeNoticeProps) {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-default">Welcome to Jobelix! 🚀</h2>
-              <p className="text-sm text-muted mt-1">Thanks for being an early user</p>
             </div>
           </div>
           <button
@@ -45,16 +44,7 @@ export default function WelcomeNotice({ isOpen, onClose }: WelcomeNoticeProps) {
         {/* Content */}
         <div className="p-6 space-y-6">
           {/* Beta Notice */}
-          <div className="bg-info-subtle/50 border border-info-subtle rounded-lg p-4">
-            <h3 className="font-semibold text-default mb-2 flex items-center gap-2">
-              <span className="text-info">ℹ️</span>
-              Beta Version
-            </h3>
-            <p className="text-sm text-muted leading-relaxed">
-              Jobelix is currently in <strong className="text-default">beta</strong>. 
-              We&apos;re working hard to improve the platform and your feedback is incredibly valuable to us!
-            </p>
-          </div>
+
 
           {/* Feedback Section */}
           <div>

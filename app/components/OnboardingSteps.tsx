@@ -52,10 +52,6 @@ export default function OnboardingSteps({ isOpen, onClose, userRole }: Onboardin
                     <Upload size={20} className="text-primary" />
                     <h3 className="font-semibold text-default">Import Your Profile</h3>
                   </div>
-                  <p className="text-sm text-muted mb-3">
-                    Upload your resume (PDF) for AI-powered extraction or add your information manually. 
-                    You can also import projects from GitHub!
-                  </p>
                   <div className="flex items-center gap-2 text-xs text-muted">
                     <span className="px-2 py-1 bg-surface rounded">📄 Resume Upload</span>
                     <span className="px-2 py-1 bg-surface rounded">✏️ Manual Entry</span>
@@ -76,10 +72,6 @@ export default function OnboardingSteps({ isOpen, onClose, userRole }: Onboardin
                     <Settings size={20} className="text-info" />
                     <h3 className="font-semibold text-default">Set Up Job Preferences</h3>
                   </div>
-                  <p className="text-sm text-muted mb-3">
-                    Tell us what you&apos;re looking for: job titles, locations, remote work preferences, 
-                    salary expectations, and more. This helps the bot find perfect matches.
-                  </p>
                   <div className="flex items-center gap-2 text-xs text-muted">
                     <span className="px-2 py-1 bg-surface rounded">💼 Job Type</span>
                     <span className="px-2 py-1 bg-surface rounded">📍 Location</span>
@@ -100,10 +92,6 @@ export default function OnboardingSteps({ isOpen, onClose, userRole }: Onboardin
                     <Rocket size={20} className="text-success" />
                     <h3 className="font-semibold text-default">Launch the Auto-Apply Bot!</h3>
                   </div>
-                  <p className="text-sm text-muted mb-3">
-                    Once your profile and preferences are set, activate the bot to start auto-applying 
-                    to jobs. Monitor progress, review matches, and watch the applications roll in!
-                  </p>
                   <div className="flex items-center gap-2 text-xs text-muted">
                     <span className="px-2 py-1 bg-surface rounded">🤖 Auto Apply</span>
                     <span className="px-2 py-1 bg-surface rounded">📊 Track Progress</span>
@@ -177,8 +165,7 @@ export default function OnboardingSteps({ isOpen, onClose, userRole }: Onboardin
           {/* Tips */}
           <div className="mt-6 p-4 bg-warning-subtle/20 border border-warning-subtle rounded-lg">
             <p className="text-sm text-default">
-              <strong>💡 Pro tip:</strong> Complete all steps for the best results! 
-              {isStudent ? ' The more detailed your profile, the better job matches you\'ll get.' : ' Detailed job offers attract higher quality candidates.'}
+              <strong>💡 Note:</strong> The desktop app is required to launch the bot. 
             </p>
           </div>
         </div>
