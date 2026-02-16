@@ -1,4 +1,5 @@
 /**
+
  * Jobelix - Electron Main Process Entry Point
  * 
  * Startup optimizations:
