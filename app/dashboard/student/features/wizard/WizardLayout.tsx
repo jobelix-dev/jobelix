@@ -74,7 +74,7 @@ export default function WizardLayout({
   }, [showMenu]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col isolate">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar */}
       <div className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-border/20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">

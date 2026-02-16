@@ -7,6 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Play,
@@ -39,8 +40,17 @@ export function InstructionsModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1100] p-4">
       <div className="bg-background rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6">
@@ -122,6 +132,8 @@ export function InstructionsModal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 function InstructionCard({
