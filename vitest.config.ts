@@ -16,6 +16,9 @@ export default defineConfig({
     // Use jsdom for DOM-related tests
     environment: 'node',
     
+    // Global test setup — mocks server-only, sets env vars
+    setupFiles: ['./__tests__/setup.ts'],
+    
     // Global timeout
     testTimeout: 30000,
     
@@ -29,10 +32,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/main/modules/bot/**/*.ts'],
+      include: [
+        'src/main/modules/bot/**/*.ts',
+        'lib/server/**/*.ts',
+        'lib/shared/**/*.ts',
+        'lib/client/**/*.ts',
+      ],
       exclude: [
-        'src/main/modules/bot/**/*.test.ts',
-        'src/main/modules/bot/**/*.spec.ts',
+        '**/*.test.ts',
+        '**/*.spec.ts',
+        '**/__tests__/**',
       ],
     },
   },

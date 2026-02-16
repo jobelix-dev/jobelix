@@ -11,15 +11,17 @@
  * 
  * Referral Flow:
  * When a user lands on this page with ?ref=CODE:
- * 1. Server passes the code to SignupForm
- * 2. SignupForm stores code in localStorage (client-side)
- * 3. Code is applied after signup completes
+ * 1. Server validates the code and passes it to SignupForm
+ * 2. SignupForm stores code in localStorage (client-side backup)
+ * 3. Code is included in user_metadata during signup
+ * 4. Code is applied after signup completes (in /auth/callback via user_metadata)
  */
 
 import type { Metadata } from "next";
 import SignupForm from "./SignupForm";
 import Header from "../components/Header";
 import AppFooter from "../components/AppFooter";
+import StarNetwork from "../components/StarNetwork";
 import Link from "next/link";
 import "../globals.css";
 import { canonicalUrl } from "@/lib/seo";
@@ -58,11 +60,17 @@ export default async function SignupPage({
   
   // Extract and validate referral code from URL
   const referralCode = validateReferralCode(params?.ref);
+  
+  // Note: The referral code is passed to SignupForm which stores it in localStorage
+  // and includes it in user_metadata during signup. The /auth/callback route reads
+  // from user_metadata, so no server-side cookie is needed here.
+  // (cookies().set() is not allowed in Server Components in Next.js 16)
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
+      <StarNetwork />
       <Header />
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12 relative z-10">
         <div className="w-full max-w-md bg-gradient-to-r from-primary-subtle to-info-subtle/20/20 p-4 sm:p-6 md:p-8 rounded-lg shadow-lg border border-primary-subtle">
           <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-default">
             {displayRole === 'talent' ? 'Join as a talent' : 'Join as an employer'}

@@ -49,6 +49,8 @@ interface ProfileEditorSectionProps {
   expandedPublicationIndex?: number | null;
   expandedCertificationIndex?: number | null;
   onConfirmDelete?: (message: string) => Promise<boolean>;
+  /** When true, hides the inline Save button (e.g. in wizard mode where Continue = Save) */
+  hideSaveButton?: boolean;
 }
 
 export default function ProfileEditorSection({ 
@@ -72,7 +74,8 @@ export default function ProfileEditorSection({
   expandedExperienceIndex,
   expandedPublicationIndex,
   expandedCertificationIndex,
-  onConfirmDelete
+  onConfirmDelete,
+  hideSaveButton = false,
 }: ProfileEditorSectionProps) {
   
   // Use the custom hook for all data manipulation logic
@@ -118,7 +121,7 @@ export default function ProfileEditorSection({
           <div className="space-y-6">
             {data.education.map((edu, index) => (
               <EducationForm
-                key={index}
+                key={`edu-${index}`}
                 data={edu}
                 onChange={(field, value) => handlers.updateEducation(index, field, value)}
                 onRemove={() => handlers.removeEducation(index)}
@@ -144,7 +147,7 @@ export default function ProfileEditorSection({
           <div className="space-y-6">
             {data.experience.map((exp, index) => (
               <ExperienceForm
-                key={index}
+                key={`exp-${index}`}
                 data={exp}
                 onChange={(field, value) => handlers.updateExperience(index, field, value)}
                 onRemove={() => handlers.removeExperience(index)}
@@ -172,7 +175,7 @@ export default function ProfileEditorSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.projects.map((project, index) => (
               <ProjectCard
-                key={index}
+                key={`proj-${index}`}
                 data={project}
                 onClick={() => setActiveProjectIndex(index)}
                 onRemove={() => handlers.removeProject(index)}
@@ -240,7 +243,7 @@ export default function ProfileEditorSection({
           <div className="space-y-4">
             {data.publications.map((publication, index) => (
               <PublicationForm
-                key={index}
+                key={`pub-${index}`}
                 data={publication}
                 onChange={(field, value) => handlers.updatePublication(index, field, value)}
                 onRemove={() => handlers.removePublication(index)}
@@ -266,7 +269,7 @@ export default function ProfileEditorSection({
           <div className="space-y-4">
             {data.certifications.map((certification, index) => (
               <CertificationForm
-                key={index}
+                key={`cert-${index}`}
                 data={certification}
                 onChange={(field, value) => handlers.updateCertification(index, field, value)}
                 onRemove={() => handlers.removeCertification(index)}
@@ -291,25 +294,27 @@ export default function ProfileEditorSection({
           />
         </SectionWithAddButton>
 
-        {/* Save Button */}
-        <button
-          id="publish-profile-button"
-          onClick={onSave}
-          disabled={isSaving || disabled}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-primary hover:bg-primary-hover text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saveSuccess ? (
-            <>
-              <Check className="w-4 h-4" />
-              Saved!
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save Profile'}
-            </>
-          )}
-        </button>
+        {/* Save Button — hidden in wizard mode where parent's Continue button handles saving */}
+        {!hideSaveButton && (
+          <button
+            id="publish-profile-button"
+            onClick={onSave}
+            disabled={isSaving || disabled}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded bg-primary hover:bg-primary-hover text-white shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saveSuccess ? (
+              <>
+                <Check className="w-4 h-4" />
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Saving...' : 'Save Profile'}
+              </>
+            )}
+          </button>
+        )}
 
       </div>
     </div>

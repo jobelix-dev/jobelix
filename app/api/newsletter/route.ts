@@ -17,6 +17,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { z } from 'zod';
 import { generateUnsubscribeUrl } from './unsubscribe/route';
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
+import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -26,6 +28,22 @@ const newsletterSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitConfig = {
+      endpoint: 'newsletter-subscribe',
+      hourlyLimit: 5,
+      dailyLimit: 20,
+    };
+
+    const identity = await hashToPseudoUuid('newsletter-subscribe', getClientIp(request));
+    const rateLimitResult = await checkRateLimit(identity, rateLimitConfig);
+    if (rateLimitResult.error) return rateLimitResult.error;
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data);
+    }
+
+    // Count all accepted attempts (including validation failures) to deter abuse.
+    await logApiCall(identity, rateLimitConfig.endpoint);
+
     const body = await request.json();
     const validation = newsletterSchema.safeParse(body);
 
@@ -46,18 +64,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    let unsubscribeUrl: string;
+    try {
+      unsubscribeUrl = generateUnsubscribeUrl(email);
+    } catch {
+      return NextResponse.json(
+        { error: 'Newsletter is temporarily unavailable' },
+        { status: 503 }
+      );
+    }
+
     // 1. Add subscriber to Resend Contacts
     try {
       await resend.contacts.create({
         email,
         unsubscribed: false,
       });
-      console.log('Newsletter subscriber added:', email);
+      console.log('Newsletter subscriber added');
     } catch (contactError: unknown) {
       // Handle duplicate subscriber gracefully
       const errorMessage = contactError instanceof Error ? contactError.message : String(contactError);
       if (errorMessage.includes('already exists')) {
-        console.log('Subscriber already exists:', email);
+        console.log('Newsletter subscriber already exists');
       } else {
         console.error('Failed to add subscriber:', contactError);
         // Continue anyway - still send welcome email
@@ -65,8 +93,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Send welcome email with List-Unsubscribe header
-    const unsubscribeUrl = generateUnsubscribeUrl(email);
-    
     try {
       await resend.emails.send({
         from: 'Jobelix <newsletter@jobelix.fr>',
@@ -107,7 +133,7 @@ export async function POST(request: NextRequest) {
           </html>
         `,
       });
-      console.log('Newsletter welcome email sent to:', email);
+      console.log('Newsletter welcome email sent');
     } catch (emailError) {
       console.error('Newsletter email error:', emailError);
       // Don't fail the request if email fails

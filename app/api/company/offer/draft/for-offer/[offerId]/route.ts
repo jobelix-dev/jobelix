@@ -27,6 +27,8 @@ import { authenticateRequest } from '@/lib/server/auth';
 
 import "server-only";
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ offerId: string }> }
@@ -41,6 +43,13 @@ export async function GET(
     
     const { user, supabase } = auth;
     const { offerId } = await context.params;
+
+    if (!offerId || !uuidRegex.test(offerId)) {
+      return NextResponse.json(
+        { error: 'Invalid ID format' },
+        { status: 400 }
+      );
+    }
 
     /**
      * 2) Check if a draft already exists

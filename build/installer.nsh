@@ -9,15 +9,6 @@
 !macroend
 
 ; ============================================================================
-; Run After Install
-; ============================================================================
-; This runs after installation completes when user clicks "Finish" with "Run app" checked
-; Uses "Exec" instead of "ExecWait" so installer doesn't wait for app to exit
-!macro customRunAfterInstall
-  Exec '"$INSTDIR\${APP_EXECUTABLE_FILENAME}"'
-!macroend
-
-; ============================================================================
 ; Pre-Installation Cleanup (fixes shortcut issues during updates)
 ; ============================================================================
 ; This macro runs BEFORE files are installed
@@ -37,20 +28,10 @@
       Sleep 1000
     ${EndIf}
     
-    ; Remove old Start Menu shortcut if it exists
-    SetShellVarContext current
-    Delete "$SMPROGRAMS\${PRODUCT_NAME}.lnk"
-    
-    ; Also try all users location (for per-machine installs)
-    SetShellVarContext all
-    Delete "$SMPROGRAMS\${PRODUCT_NAME}.lnk"
-    
-    ; Remove old Desktop shortcut if it exists
-    SetShellVarContext current
-    Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
-    
-    SetShellVarContext all
-    Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
+    ; NOTE: We intentionally do NOT delete shortcuts during updates.
+    ; The customInstall macro will recreate/overwrite them with correct paths.
+    ; Deleting shortcuts during silent updates (from auto-updater) caused them
+    ; to disappear permanently because the MUI Finish page doesn't run in silent mode.
     
     ; Reset to current user context
     SetShellVarContext current
@@ -87,11 +68,12 @@
   
   SetShellVarContext current
   
-  ; Clean up AppData folders
-  ; Note: This removes ALL user data including configs, resumes, and profiles
-  ; Users will be warned by the uninstaller about data removal
+  ; Clean up updater temp files only
   RMDir /r "$LOCALAPPDATA\jobelix-updater"
-  RMDir /r "$APPDATA\jobelix"
+  
+  ; Note: User data in $APPDATA\jobelix (configs, resumes, profiles) is intentionally
+  ; preserved on uninstall. This matches deleteAppDataOnUninstall: false in package.json
+  ; and allows users to reinstall without losing their data.
   
   ; Note: Temp files in $TEMP are automatically cleaned by Windows periodically
   ; We don't remove them explicitly to avoid interfering with any running processes

@@ -301,7 +301,7 @@ export class LinkedInJobManager {
               }
               
               // Stop processing immediately
-              return totalJobsFound;
+              return jobs.length;
             }
             
             // If already applied, skip gracefully

@@ -216,9 +216,11 @@ export default function ProfileTab({
       <ValidationTour
         isOpen={profileTourOpen}
         step={currentProfileTourStep}
-        onNext={isProfileCompletionStep ? handleProfileTourExit : handleProfileTourNext}
+        onNext={isProfileCompletionStep ? handleProfileSave : handleProfileTourNext}
         onBack={handleProfileTourBack}
         onExit={handleProfileTourExit}
+        nextLabel={isProfileCompletionStep ? 'Save' : 'Next'}
+        allowScroll={isProfileCompletionStep}
       />
       
       {ConfirmDialogComponent}

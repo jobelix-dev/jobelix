@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
 import { getServiceSupabase } from '@/lib/server/supabaseService';
 import { validateRequest, feedbackSchema } from '@/lib/server/validation';
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
+import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
 import { Resend } from 'resend';
 import { generateFeedbackEmail, getFeedbackEmailSubject } from '@/lib/server/emailTemplates';
 
@@ -25,6 +27,25 @@ export async function POST(request: NextRequest) {
     // Get authenticated user (optional - allow anonymous feedback)
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    const rateLimitConfig = {
+      endpoint: 'feedback-submit',
+      hourlyLimit: 10,
+      dailyLimit: 50,
+    };
+
+    const identity = user?.id
+      ? user.id
+      : await hashToPseudoUuid('feedback-submit', getClientIp(request));
+
+    const rateLimitResult = await checkRateLimit(identity, rateLimitConfig);
+    if (rateLimitResult.error) return rateLimitResult.error;
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data);
+    }
+
+    // Count all accepted attempts (including validation failures) to deter abuse.
+    await logApiCall(identity, rateLimitConfig.endpoint);
 
     // Parse and validate request body
     const body = await request.json();
@@ -54,19 +75,19 @@ export async function POST(request: NextRequest) {
       const serviceClient = getServiceSupabase();
       const { data: userData } = await serviceClient
         .from('student')
-        .select('email')
-        .eq('user_id', user.id)
+        .select('mail_adress')
+        .eq('id', user.id)
         .maybeSingle();
       
       if (!userData) {
         const { data: companyData } = await serviceClient
           .from('company')
-          .select('email')
-          .eq('user_id', user.id)
+          .select('mail_adress')
+          .eq('id', user.id)
           .maybeSingle();
-        finalUserEmail = companyData?.email;
+        finalUserEmail = companyData?.mail_adress;
       } else {
-        finalUserEmail = userData?.email;
+        finalUserEmail = userData?.mail_adress;
       }
     }
 

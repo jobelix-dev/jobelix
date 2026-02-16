@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 export interface ReferralStats {
   code: string;
@@ -41,8 +42,8 @@ export function useReferral(): UseReferralReturn {
       
       // Fetch both code/stats and referrals list in parallel
       const [codeResponse, listResponse] = await Promise.all([
-        fetch('/api/student/referral/code'),
-        fetch('/api/student/referral/list'),
+        apiFetch('/api/student/referral/code'),
+        apiFetch('/api/student/referral/list'),
       ]);
       
       // Handle code/stats response

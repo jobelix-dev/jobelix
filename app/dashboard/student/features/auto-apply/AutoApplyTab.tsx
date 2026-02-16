@@ -21,6 +21,7 @@ import LaunchSection from './components/LaunchSection';
 import { usePreferences } from '../job-preferences/hooks';
 import { useBot, useCredits } from './hooks';
 import { useBrowserStatus } from './hooks/useBrowserStatus';
+import { apiFetch } from '@/lib/client/http';
 
 export default function AutoApplyTab() {
   const [profilePublished, setProfilePublished] = useState(false);
@@ -36,7 +37,7 @@ export default function AutoApplyTab() {
   useEffect(() => {
     const checkProfile = async () => {
       try {
-        const response = await fetch('/api/student/profile/draft');
+        const response = await apiFetch('/api/student/profile/draft');
         if (response.ok) {
           const data = await response.json();
           setProfilePublished(data.draft?.status === 'published');
@@ -61,7 +62,7 @@ export default function AutoApplyTab() {
 
   // Handler for buying credits
   const handleBuyCredits = async (plan: string) => {
-    const response = await fetch('/api/stripe/create-checkout', {
+    const response = await apiFetch('/api/stripe/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan }),

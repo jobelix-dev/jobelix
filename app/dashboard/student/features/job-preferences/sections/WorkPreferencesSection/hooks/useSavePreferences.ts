@@ -5,6 +5,8 @@
  */
 
 import { useState, useCallback } from 'react';
+import { apiFetch } from '@/lib/client/http';
+import { getElectronAPI } from '@/lib/client/runtime';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
 import type { WorkPreferences, ValidationErrors } from '../types';
 import { getValidationErrors } from '../validation';
@@ -55,7 +57,7 @@ export function useSavePreferences({
     setSaveSuccess(false);
 
     try {
-      const response = await fetch('/api/student/work-preferences', {
+      const response = await apiFetch('/api/student/work-preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prefsToValidate),
@@ -77,7 +79,7 @@ export function useSavePreferences({
       onTourExit();
       
       // Export to YAML (Electron only)
-      if (typeof window !== 'undefined' && window.electronAPI) {
+      if (getElectronAPI()) {
         try {
           await exportPreferencesToYAML(prefsToValidate);
         } catch (yamlError) {

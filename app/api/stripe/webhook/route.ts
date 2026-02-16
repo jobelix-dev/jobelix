@@ -154,7 +154,6 @@ export async function POST(request: NextRequest) {
       // Log successful validation
       console.log("✅ Payment validated:", {
         sessionId: session.id,
-        userId,
         paidPriceId,
         creditsAmount,
         amountPaid: session.amount_total,
@@ -207,7 +206,6 @@ export async function POST(request: NextRequest) {
       if (!pendingPurchase) {
         console.error("❌ No pending purchase found for this session/user:", {
           sessionId: session.id,
-          userId,
         });
         return NextResponse.json({ received: true });
       }

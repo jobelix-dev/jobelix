@@ -66,7 +66,10 @@ export default function HeaderSection({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Verify origin for security
-      if (event.origin !== process.env.NEXT_PUBLIC_APP_URL) return;
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const allowedOrigins = new Set([window.location.origin]);
+      if (appUrl) allowedOrigins.add(appUrl.replace(/\/+$/, ''));
+      if (!allowedOrigins.has(event.origin)) return;
       
       if (event.data.type === 'github-oauth-success') {
         // GitHub connected successfully via popup, trigger auto-sync

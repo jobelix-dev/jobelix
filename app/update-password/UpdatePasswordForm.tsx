@@ -2,20 +2,43 @@
  * Update Password Form Component
  * 
  * Client-side form for setting new password after reset.
+ * Verifies a valid recovery session exists before showing the form.
  */
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client/api';
+import { createClient } from '@/lib/client/supabaseClient';
 
 export default function UpdatePasswordForm() {
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [noSession, setNoSession] = useState(false);
+
+  // Verify that the user has a valid recovery session before showing the form.
+  // Without this, users who navigate here directly get a confusing error after submitting.
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setNoSession(true);
+        }
+      } catch {
+        setNoSession(true);
+      } finally {
+        setChecking(false);
+      }
+    }
+    checkSession();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,6 +73,29 @@ export default function UpdatePasswordForm() {
   }
 
   return (
+    <>
+      {checking && (
+        <div className="text-center py-6">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-muted">Verifying your reset link...</p>
+        </div>
+      )}
+
+      {noSession && !checking && (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-error-subtle/30 border border-error px-4 py-3 text-sm text-error">
+            This password reset link has expired or is invalid. Please request a new one.
+          </div>
+          <button
+            onClick={() => router.push('/reset-password')}
+            className="w-full rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-sm font-medium text-white transition-colors"
+          >
+            Request new reset link
+          </button>
+        </div>
+      )}
+
+      {!checking && !noSession && (
     <form onSubmit={handleSubmit} className="space-y-6">
       {success && (
         <div className="rounded-lg bg-success-subtle/30 border border-success px-4 py-3 text-sm text-success">
@@ -103,5 +149,7 @@ export default function UpdatePasswordForm() {
         {loading ? 'Updating...' : 'Update password'}
       </button>
     </form>
+      )}
+    </>
   );
 }

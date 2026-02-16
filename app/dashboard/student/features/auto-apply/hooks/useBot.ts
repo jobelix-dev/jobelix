@@ -22,6 +22,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { exportPreferencesToYAML } from '@/lib/client/yamlConverter';
+import { apiFetch } from '@/lib/client/http';
+import { getElectronAPI, isElectronRuntime } from '@/lib/client/runtime';
 import type {
   BotState,
   LaunchProgress,
@@ -67,7 +69,7 @@ export function useBot(): UseBotReturn {
   // ---------------------------------------------------------------------------
   // Electron Detection
   // ---------------------------------------------------------------------------
-  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+  const isElectron = isElectronRuntime();
 
   // ---------------------------------------------------------------------------
   // State Transition Helper
@@ -163,20 +165,22 @@ export function useBot(): UseBotReturn {
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isElectron) return;
+    const electronAPI = getElectronAPI();
+    if (!electronAPI) return;
 
     // Attach IPC listener (only once)
-    if (!ipcListenerAttached.current && window.electronAPI?.onBotStatus) {
+    if (!ipcListenerAttached.current && electronAPI.onBotStatus) {
       console.log('[useBot] Attaching IPC listener');
-      window.electronAPI.onBotStatus(handleBotStatus);
+      electronAPI.onBotStatus(handleBotStatus);
       ipcListenerAttached.current = true;
     }
 
     // Check if bot is already running (page reload scenario)
     const restoreRunningBot = async () => {
-      if (!window.electronAPI?.getBotStatus) return;
+      if (!electronAPI.getBotStatus) return;
 
       try {
-        const status = await window.electronAPI.getBotStatus();
+        const status = await electronAPI.getBotStatus();
         console.log('[useBot] Initial status check:', status);
 
         if (status.success && status.running && status.pid) {
@@ -207,9 +211,9 @@ export function useBot(): UseBotReturn {
 
     // Cleanup
     return () => {
-      if (ipcListenerAttached.current && window.electronAPI?.removeBotStatusListeners) {
+      if (ipcListenerAttached.current && electronAPI.removeBotStatusListeners) {
         console.log('[useBot] Removing IPC listener');
-        window.electronAPI.removeBotStatusListeners();
+        electronAPI.removeBotStatusListeners();
         ipcListenerAttached.current = false;
       }
     };
@@ -221,12 +225,12 @@ export function useBot(): UseBotReturn {
   useEffect(() => {
     // Only poll when bot should be running
     if (!isElectron || !['launching', 'running'].includes(botState)) return;
+    const electronAPI = getElectronAPI();
+    if (!electronAPI?.getBotStatus) return;
 
     const checkStatus = async () => {
-      if (!window.electronAPI?.getBotStatus) return;
-
       try {
-        const status = await window.electronAPI.getBotStatus();
+        const status = await electronAPI.getBotStatus();
 
         // Update PID
         if (status.pid) setBotPid(status.pid);
@@ -268,7 +272,8 @@ export function useBot(): UseBotReturn {
     }
 
     // Check Electron
-    if (!window.electronAPI) {
+    const electronAPI = getElectronAPI();
+    if (!electronAPI) {
       setErrorMessage('Desktop app required');
       transition('failed', 'not in electron');
       return { success: false, error: 'DESKTOP_REQUIRED' };
@@ -290,7 +295,7 @@ export function useBot(): UseBotReturn {
 
     try {
       // 1. Check profile is published
-      const profileResponse = await fetch('/api/student/profile/published');
+      const profileResponse = await apiFetch('/api/student/profile/published');
       if (!profileResponse.ok) {
         throw new Error('Profile not published. Go to Profile tab and click "Publish Profile".');
       }
@@ -304,7 +309,7 @@ export function useBot(): UseBotReturn {
       // 2. Ensure YAML config exists
       setLaunchProgress({ stage: 'checking', message: 'Preparing configuration...' });
       try {
-        const prefsResponse = await fetch('/api/student/work-preferences');
+        const prefsResponse = await apiFetch('/api/student/work-preferences');
         if (prefsResponse.ok) {
           const prefsData = await prefsResponse.json();
           if (prefsData.preferences) {
@@ -318,7 +323,7 @@ export function useBot(): UseBotReturn {
 
       // 3. Get API token
       setLaunchProgress({ stage: 'checking', message: 'Authenticating...' });
-      const tokenResponse = await fetch('/api/student/token');
+      const tokenResponse = await apiFetch('/api/student/token');
       if (!tokenResponse.ok) {
         throw new Error('Failed to get API token');
       }
@@ -334,7 +339,7 @@ export function useBot(): UseBotReturn {
       console.log('[useBot] Calling electronAPI.launchBot...');
       console.log('[useBot] API URL:', apiUrl || 'Using Electron default');
 
-      const result = await window.electronAPI.launchBot(token, apiUrl);
+      const result = await electronAPI.launchBot(token, apiUrl);
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to launch bot');
@@ -372,7 +377,8 @@ export function useBot(): UseBotReturn {
     }
 
     // Check Electron
-    if (!window.electronAPI?.forceStopBot) {
+    const electronAPI = getElectronAPI();
+    if (!electronAPI?.forceStopBot) {
       return { success: false, error: 'Electron API not available' };
     }
 
@@ -381,7 +387,7 @@ export function useBot(): UseBotReturn {
 
     try {
       console.log('[useBot] Calling forceStopBot...');
-      const result = await window.electronAPI.forceStopBot();
+      const result = await electronAPI.forceStopBot();
       console.log('[useBot] Force stop result:', result);
 
       if (result.success) {

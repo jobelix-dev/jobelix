@@ -13,8 +13,13 @@ import { exchangeGitHubCode, saveGitHubConnection } from '@/lib/server/githubOAu
 import { fetchGitHubUser } from '@/lib/server/githubService';
 import { createHmac, timingSafeEqual } from 'crypto';
 
-// Secret for verifying OAuth state - must match authorize route
-const STATE_SECRET = process.env.GITHUB_STATE_SECRET || process.env.GITHUB_CLIENT_SECRET || '';
+function getStateSecret(): string {
+  const secret = process.env.GITHUB_STATE_SECRET || process.env.GITHUB_CLIENT_SECRET;
+  if (!secret) {
+    throw new Error('GitHub OAuth state secret is not configured');
+  }
+  return secret;
+}
 
 // State expires after 10 minutes
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -23,7 +28,7 @@ const STATE_MAX_AGE_MS = 10 * 60 * 1000;
  * Verify HMAC signature of OAuth state data
  */
 function verifyState(data: string, signature: string): boolean {
-  const expectedSig = createHmac('sha256', STATE_SECRET).update(data).digest('hex');
+  const expectedSig = createHmac('sha256', getStateSecret()).update(data).digest('hex');
   
   // Use timing-safe comparison to prevent timing attacks
   try {
@@ -35,6 +40,14 @@ function verifyState(data: string, signature: string): boolean {
 
 export async function GET(request: NextRequest) {
   try {
+    try {
+      getStateSecret();
+    } catch {
+      return NextResponse.redirect(
+        new URL('/oauth/github/callback-success?github_error=server_misconfigured', request.url)
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
     const state = searchParams.get('state');

@@ -18,9 +18,13 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { updatePasswordSchema } from '@/lib/server/validation'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     /**
      * 1) Read the request body
      *

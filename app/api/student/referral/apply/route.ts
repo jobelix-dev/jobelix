@@ -18,6 +18,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
 // Rate limit config: strict limits to prevent brute-force attempts
 const RATE_LIMIT_CONFIG = {
@@ -27,17 +28,16 @@ const RATE_LIMIT_CONFIG = {
 };
 
 export async function POST(req: NextRequest) {
-  console.log('[Referral Apply] ===== STARTING REFERRAL APPLY =====');
-  
   try {
+    const csrfError = enforceSameOrigin(req);
+    if (csrfError) return csrfError;
+
     const auth = await authenticateRequest();
     if (auth.error) {
-      console.log('[Referral Apply] Auth failed');
       return auth.error;
     }
 
     const { user, supabase } = auth;
-    console.log('[Referral Apply] User:', user.id, user.email);
 
     // Check rate limit before processing
     const rateLimitResult = await checkRateLimit(user.id, RATE_LIMIT_CONFIG);
@@ -57,25 +57,19 @@ export async function POST(req: NextRequest) {
     const { code } = body;
 
     if (!code || typeof code !== 'string') {
-      console.log('[Referral Apply] Missing code in request body');
       // Log the attempt for rate limiting
       await logApiCall(user.id, RATE_LIMIT_CONFIG.endpoint);
       return NextResponse.json({ error: 'Referral code is required' }, { status: 400 });
     }
 
-    console.log('[Referral Apply] Received code:', code);
-
     // Validate code format (8 alphanumeric chars)
     const normalizedCode = code.toLowerCase().trim();
     if (!/^[a-z0-9]{8}$/.test(normalizedCode)) {
-      console.log('[Referral Apply] Invalid code format:', normalizedCode);
       // Log the attempt for rate limiting
       await logApiCall(user.id, RATE_LIMIT_CONFIG.endpoint);
       // Use generic error to prevent format enumeration
       return NextResponse.json({ error: 'Invalid or expired referral code' }, { status: 400 });
     }
-
-    console.log('[Referral Apply] Applying normalized code:', normalizedCode);
 
     // Apply the referral code (database handles all security checks)
     const { data: result, error: applyError } = await supabase
@@ -90,17 +84,14 @@ export async function POST(req: NextRequest) {
     }
 
     const row = result?.[0];
-    console.log('[Referral Apply] Database result:', row);
     
     if (!row?.success) {
-      console.log('[Referral Apply] Failed:', row?.error_message);
       return NextResponse.json(
-        { error: row?.error_message || 'Invalid or expired referral code' },
+        { error: 'Invalid or expired referral code' },
         { status: 400 }
       );
     }
 
-    console.log('[Referral Apply] SUCCESS - Referral code applied');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Apply referral error:', error);

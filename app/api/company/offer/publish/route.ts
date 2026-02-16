@@ -17,9 +17,13 @@ import "server-only";
 
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
 export async function POST(request: Request) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
     /**
      * 1) Verify authentication
      */

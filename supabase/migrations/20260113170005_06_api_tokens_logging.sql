@@ -214,54 +214,43 @@ $function$
 -- =============================================================================
 -- GRANTS
 -- =============================================================================
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT, INSERT, UPDATE, DELETE (RLS handles authorization)
+-- service_role: full access (bypasses RLS by design)
 
-grant delete on table "public"."api_tokens" to "anon";
-grant insert on table "public"."api_tokens" to "anon";
-grant references on table "public"."api_tokens" to "anon";
-grant select on table "public"."api_tokens" to "anon";
-grant trigger on table "public"."api_tokens" to "anon";
-grant truncate on table "public"."api_tokens" to "anon";
-grant update on table "public"."api_tokens" to "anon";
+GRANT SELECT ON TABLE "public"."api_tokens" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."api_tokens" TO "authenticated";
+GRANT ALL ON TABLE "public"."api_tokens" TO "service_role";
 
-grant delete on table "public"."api_tokens" to "authenticated";
-grant insert on table "public"."api_tokens" to "authenticated";
-grant references on table "public"."api_tokens" to "authenticated";
-grant select on table "public"."api_tokens" to "authenticated";
-grant trigger on table "public"."api_tokens" to "authenticated";
-grant truncate on table "public"."api_tokens" to "authenticated";
-grant update on table "public"."api_tokens" to "authenticated";
+GRANT SELECT ON TABLE "public"."api_call_log" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."api_call_log" TO "authenticated";
+GRANT ALL ON TABLE "public"."api_call_log" TO "service_role";
 
-grant delete on table "public"."api_tokens" to "service_role";
-grant insert on table "public"."api_tokens" to "service_role";
-grant references on table "public"."api_tokens" to "service_role";
-grant select on table "public"."api_tokens" to "service_role";
-grant trigger on table "public"."api_tokens" to "service_role";
-grant truncate on table "public"."api_tokens" to "service_role";
-grant update on table "public"."api_tokens" to "service_role";
+-- Function grants: restrict SECURITY DEFINER functions from default PUBLIC access
 
-grant delete on table "public"."api_call_log" to "anon";
-grant insert on table "public"."api_call_log" to "anon";
-grant references on table "public"."api_call_log" to "anon";
-grant select on table "public"."api_call_log" to "anon";
-grant trigger on table "public"."api_call_log" to "anon";
-grant truncate on table "public"."api_call_log" to "anon";
-grant update on table "public"."api_call_log" to "anon";
+-- log_api_call(uuid, text) - authenticated + service_role (users log their own calls)
+REVOKE EXECUTE ON FUNCTION public.log_api_call(uuid, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.log_api_call(uuid, text) TO authenticated, service_role;
 
-grant delete on table "public"."api_call_log" to "authenticated";
-grant insert on table "public"."api_call_log" to "authenticated";
-grant references on table "public"."api_call_log" to "authenticated";
-grant select on table "public"."api_call_log" to "authenticated";
-grant trigger on table "public"."api_call_log" to "authenticated";
-grant truncate on table "public"."api_call_log" to "authenticated";
-grant update on table "public"."api_call_log" to "authenticated";
+-- check_api_rate_limit(uuid, text, integer, integer) - service_role only (server-side)
+REVOKE EXECUTE ON FUNCTION public.check_api_rate_limit(uuid, text, integer, integer) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(uuid, text, integer, integer) TO service_role;
 
-grant delete on table "public"."api_call_log" to "service_role";
-grant insert on table "public"."api_call_log" to "service_role";
-grant references on table "public"."api_call_log" to "service_role";
-grant select on table "public"."api_call_log" to "service_role";
-grant trigger on table "public"."api_call_log" to "service_role";
-grant truncate on table "public"."api_call_log" to "service_role";
-grant update on table "public"."api_call_log" to "service_role";
+-- cleanup_old_api_logs() - service_role only (cron/admin)
+REVOKE EXECUTE ON FUNCTION public.cleanup_old_api_logs() FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_old_api_logs() TO service_role;
+
+-- update_token_last_used(text) - service_role only
+REVOKE EXECUTE ON FUNCTION public.update_token_last_used(text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_token_last_used(text) TO service_role;
+
+-- update_token_usage(text, integer, numeric) - service_role only
+REVOKE EXECUTE ON FUNCTION public.update_token_usage(text, integer, numeric) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_token_usage(text, integer, numeric) TO service_role;
+
+-- get_user_total_cost(uuid) - service_role only (admin/legacy function)
+REVOKE EXECUTE ON FUNCTION public.get_user_total_cost(uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_total_cost(uuid) TO service_role;
 
 -- =============================================================================
 -- ROW LEVEL SECURITY POLICIES

@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
+import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
@@ -30,6 +31,18 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Check if user is already authenticated (e.g., after OAuth popup set cookies)
+  // This prevents the user from seeing the login form when they're already logged in.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        console.log('[Login] User already authenticated, redirecting to dashboard');
+        window.location.href = '/dashboard';
+      }
+    });
+  }, []);
 
   // Read error from URL parameters (e.g., from expired reset links)
   useEffect(() => {
@@ -52,28 +65,23 @@ export default function LoginForm() {
       await api.login({ email, password, captchaToken: captchaToken || undefined });
       
       // Save auth tokens to cache for automatic login
-      if (typeof window !== 'undefined' && window.electronAPI?.saveAuthCache) {
-        try {
-          const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            const tokens = {
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-              expires_at: session.expires_at,
-              user_id: session.user.id
-            };
-            
-            await window.electronAPI.saveAuthCache(tokens);
-          }
-        } catch (cacheError) {
-          console.warn('Failed to save auth cache:', cacheError);
-          // Don't fail login if cache save fails
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          await saveSessionToAuthCache(session);
         }
+      } catch (cacheError) {
+        console.warn('Failed to save auth cache:', cacheError);
+        // Don't fail login if cache save fails
       }
       
       router.refresh();
+      // Small delay to ensure auth cookies are propagated before navigation.
+      // Without this, the dashboard may load before the session is available,
+      // requiring a second login attempt.
+      await new Promise(resolve => setTimeout(resolve, 100));
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -170,4 +178,3 @@ export default function LoginForm() {
     </div>
   );
 }
-

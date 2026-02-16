@@ -31,6 +31,22 @@ function sendToRenderer(channel, data) {
   }
 }
 
+/** Strip HTML tags from release notes (GitHub returns HTML) */
+function stripHtml(html) {
+  if (!html) return '';
+  // Handle both string and array formats from electron-updater
+  const text = typeof html === 'string' ? html : Array.isArray(html) ? html.map(n => n.note || n).join('\n') : String(html);
+  return text
+    .replace(/<[^>]*>/g, '')     // Remove HTML tags
+    .replace(/&amp;/g, '&')     // Decode common entities
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n') // Collapse excessive newlines
+    .trim();
+}
+
 function isLinux() {
   return process.platform === 'linux';
 }
@@ -82,8 +98,11 @@ async function showInstallDialog(version) {
     logger.info('User chose to install update now');
     // Use setImmediate to ensure the dialog is fully closed before quitting
     setImmediate(() => {
-      // Pass false to not force install (let NSIS handle it properly)
-      autoUpdater.quitAndInstall(false, true);
+      // isSilent=true: Run NSIS installer silently (no wizard UI for updates)
+      // isForceRunAfter=true: Force app to relaunch after update completes
+      // Without isSilent=true, the full NSIS wizard opens (oneClick is false)
+      // which confuses users and may prevent the app from restarting
+      autoUpdater.quitAndInstall(true, true);
     });
   } else {
     logger.info('User chose to install update later (will install on next app quit)');
@@ -109,7 +128,7 @@ function setupUpdateEvents() {
       
       sendToRenderer('update-available', {
         version: info.version,
-        releaseNotes: info.releaseNotes,
+        releaseNotes: stripHtml(info.releaseNotes),
         manualDownload: true,
         downloadUrl,
         distroLabel: label,
@@ -117,7 +136,7 @@ function setupUpdateEvents() {
     } else {
       sendToRenderer('update-available', {
         version: info.version,
-        releaseNotes: info.releaseNotes,
+        releaseNotes: stripHtml(info.releaseNotes),
         manualDownload: false,
       });
     }
@@ -200,8 +219,19 @@ export async function initAutoUpdater() {
   });
 }
 
-/** Open URL in default browser */
+/** Open URL in default browser (with validation) */
 export function openExternalUrl(url) {
+  // Validate URL to prevent opening dangerous protocols (file://, javascript:, etc.)
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      logger.warn(`Blocked opening URL with disallowed protocol: ${parsed.protocol}`);
+      return;
+    }
+  } catch {
+    logger.warn(`Blocked opening invalid URL: ${url}`);
+    return;
+  }
   logger.info(`Opening: ${url}`);
   shell.openExternal(url);
 }

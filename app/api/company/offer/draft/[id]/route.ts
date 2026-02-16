@@ -20,6 +20,7 @@ import "server-only";
 
 import { NextRequest } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { enforceSameOrigin } from '@/lib/server/csrf';
 
 /** UUID validation regex */
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,6 +34,7 @@ const ALLOWED_DRAFT_FIELDS = [
   'basic_info',
   'compensation',
   'work_config',
+  'startup_signals',
   'skills',
   'locations',
   'responsibilities',
@@ -86,7 +88,7 @@ export async function GET(
      */
     const { data: draft, error: fetchError } = await supabase
       .from('company_offer_draft')
-      .select('id, company_id, created_at, updated_at, title, description, salary, location, contract_type') // 🔐
+      .select('id, company_id, offer_id, basic_info, compensation, work_config, startup_signals, skills, locations, responsibilities, capabilities, questions, perks, seniority, status, created_at, updated_at')
       .eq('id', draftId)
       .eq('company_id', user.id) // RLS check
       .maybeSingle();
@@ -119,6 +121,9 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const csrfError = enforceSameOrigin(req);
+    if (csrfError) return csrfError;
+
     const auth = await authenticateRequest();
     if (auth.error) return auth.error;
     
@@ -140,6 +145,12 @@ export async function PUT(
      * - Your database schema + RLS are the real enforcement layer.
      */
     const updates = await req.json();
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     /**
      * SECURITY FIX: Sanitize updates to only allow whitelisted fields.
@@ -168,7 +179,7 @@ export async function PUT(
       })
       .eq('id', draftId)
       .eq('company_id', user.id) // RLS check
-      .select('id, company_id, created_at, updated_at, title, description, salary, location, contract_type') // 🔐
+      .select('id, company_id, offer_id, basic_info, compensation, work_config, startup_signals, skills, locations, responsibilities, capabilities, questions, perks, seniority, status, created_at, updated_at')
       .maybeSingle();
     
     if (updateError) {
@@ -218,6 +229,9 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const csrfError = enforceSameOrigin(req);
+    if (csrfError) return csrfError;
+
     const auth = await authenticateRequest();
     if (auth.error) return auth.error;
     

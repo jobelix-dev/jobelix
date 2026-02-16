@@ -8,9 +8,13 @@
  * IMPORTANT: This file must be imported BEFORE any pdfjs-dist imports.
  */
 
+// Ensure this is treated as an ES module (required for webpack compatibility)
+export {};
+
 // Polyfill DOMMatrix (2D transformation matrix)
 if (typeof DOMMatrix === 'undefined') {
-  (global as unknown as { DOMMatrix: unknown }).DOMMatrix = class {
+  // @ts-ignore - Webpack compatibility
+  global.DOMMatrix = class {
     a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
     constructor() {}
   };
@@ -18,7 +22,8 @@ if (typeof DOMMatrix === 'undefined') {
 
 // Polyfill Path2D (Canvas path object)
 if (typeof Path2D === 'undefined') {
-  (global as unknown as { Path2D: unknown }).Path2D = class {
+  // @ts-ignore - Webpack compatibility
+  global.Path2D = class {
     constructor() {}
     addPath() {}
     arc() {}
@@ -35,7 +40,8 @@ if (typeof Path2D === 'undefined') {
 
 // Polyfill ImageData (Pixel data container)
 if (typeof ImageData === 'undefined') {
-  (global as unknown as { ImageData: unknown }).ImageData = class {
+  // @ts-ignore - Webpack compatibility
+  global.ImageData = class {
     width: number;
     height: number;
     data: Uint8ClampedArray;

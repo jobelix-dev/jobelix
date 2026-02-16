@@ -471,203 +471,45 @@ $function$
 -- =====================================================================
 -- GRANTS
 -- =====================================================================
+-- anon: SELECT only (no write access)
+-- authenticated: SELECT, INSERT, UPDATE, DELETE (RLS handles authorization)
+-- service_role: full access (bypasses RLS by design)
 
-grant delete on table "public"."company" to "anon";
-grant insert on table "public"."company" to "anon";
-grant references on table "public"."company" to "anon";
-grant select on table "public"."company" to "anon";
-grant trigger on table "public"."company" to "anon";
-grant truncate on table "public"."company" to "anon";
-grant update on table "public"."company" to "anon";
-grant delete on table "public"."company" to "authenticated";
-grant insert on table "public"."company" to "authenticated";
-grant references on table "public"."company" to "authenticated";
-grant select on table "public"."company" to "authenticated";
-grant trigger on table "public"."company" to "authenticated";
-grant truncate on table "public"."company" to "authenticated";
-grant delete on table "public"."company" to "service_role";
-grant insert on table "public"."company" to "service_role";
-grant references on table "public"."company" to "service_role";
-grant select on table "public"."company" to "service_role";
-grant trigger on table "public"."company" to "service_role";
-grant truncate on table "public"."company" to "service_role";
-grant update on table "public"."company" to "service_role";
+GRANT SELECT ON TABLE "public"."company" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."company" TO "authenticated";
+GRANT ALL ON TABLE "public"."company" TO "service_role";
 
-grant delete on table "public"."company_offer" to "anon";
-grant insert on table "public"."company_offer" to "anon";
-grant references on table "public"."company_offer" to "anon";
-grant select on table "public"."company_offer" to "anon";
-grant trigger on table "public"."company_offer" to "anon";
-grant truncate on table "public"."company_offer" to "anon";
-grant update on table "public"."company_offer" to "anon";
-grant delete on table "public"."company_offer" to "authenticated";
-grant insert on table "public"."company_offer" to "authenticated";
-grant references on table "public"."company_offer" to "authenticated";
-grant select on table "public"."company_offer" to "authenticated";
-grant trigger on table "public"."company_offer" to "authenticated";
-grant truncate on table "public"."company_offer" to "authenticated";
-grant update on table "public"."company_offer" to "authenticated";
-grant delete on table "public"."company_offer" to "service_role";
-grant insert on table "public"."company_offer" to "service_role";
-grant references on table "public"."company_offer" to "service_role";
-grant select on table "public"."company_offer" to "service_role";
-grant trigger on table "public"."company_offer" to "service_role";
-grant truncate on table "public"."company_offer" to "service_role";
-grant update on table "public"."company_offer" to "service_role";
+GRANT SELECT ON TABLE "public"."company_offer" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."company_offer" TO "authenticated";
+GRANT ALL ON TABLE "public"."company_offer" TO "service_role";
 
-grant delete on table "public"."company_offer_draft" to "anon";
-grant insert on table "public"."company_offer_draft" to "anon";
-grant references on table "public"."company_offer_draft" to "anon";
-grant select on table "public"."company_offer_draft" to "anon";
-grant trigger on table "public"."company_offer_draft" to "anon";
-grant truncate on table "public"."company_offer_draft" to "anon";
-grant update on table "public"."company_offer_draft" to "anon";
-grant delete on table "public"."company_offer_draft" to "authenticated";
-grant insert on table "public"."company_offer_draft" to "authenticated";
-grant references on table "public"."company_offer_draft" to "authenticated";
-grant select on table "public"."company_offer_draft" to "authenticated";
-grant trigger on table "public"."company_offer_draft" to "authenticated";
-grant truncate on table "public"."company_offer_draft" to "authenticated";
-grant update on table "public"."company_offer_draft" to "authenticated";
-grant delete on table "public"."company_offer_draft" to "service_role";
-grant insert on table "public"."company_offer_draft" to "service_role";
-grant references on table "public"."company_offer_draft" to "service_role";
-grant select on table "public"."company_offer_draft" to "service_role";
-grant trigger on table "public"."company_offer_draft" to "service_role";
-grant truncate on table "public"."company_offer_draft" to "service_role";
-grant update on table "public"."company_offer_draft" to "service_role";
+GRANT SELECT ON TABLE "public"."company_offer_draft" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."company_offer_draft" TO "authenticated";
+GRANT ALL ON TABLE "public"."company_offer_draft" TO "service_role";
 
-grant delete on table "public"."offer_capabilities" to "anon";
-grant insert on table "public"."offer_capabilities" to "anon";
-grant references on table "public"."offer_capabilities" to "anon";
-grant select on table "public"."offer_capabilities" to "anon";
-grant trigger on table "public"."offer_capabilities" to "anon";
-grant truncate on table "public"."offer_capabilities" to "anon";
-grant update on table "public"."offer_capabilities" to "anon";
-grant delete on table "public"."offer_capabilities" to "authenticated";
-grant insert on table "public"."offer_capabilities" to "authenticated";
-grant references on table "public"."offer_capabilities" to "authenticated";
-grant select on table "public"."offer_capabilities" to "authenticated";
-grant trigger on table "public"."offer_capabilities" to "authenticated";
-grant truncate on table "public"."offer_capabilities" to "authenticated";
-grant update on table "public"."offer_capabilities" to "authenticated";
-grant delete on table "public"."offer_capabilities" to "service_role";
-grant insert on table "public"."offer_capabilities" to "service_role";
-grant references on table "public"."offer_capabilities" to "service_role";
-grant select on table "public"."offer_capabilities" to "service_role";
-grant trigger on table "public"."offer_capabilities" to "service_role";
-grant truncate on table "public"."offer_capabilities" to "service_role";
-grant update on table "public"."offer_capabilities" to "service_role";
+GRANT SELECT ON TABLE "public"."offer_capabilities" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."offer_capabilities" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_capabilities" TO "service_role";
 
-grant delete on table "public"."offer_locations" to "anon";
-grant insert on table "public"."offer_locations" to "anon";
-grant references on table "public"."offer_locations" to "anon";
-grant select on table "public"."offer_locations" to "anon";
-grant trigger on table "public"."offer_locations" to "anon";
-grant truncate on table "public"."offer_locations" to "anon";
-grant update on table "public"."offer_locations" to "anon";
-grant delete on table "public"."offer_locations" to "authenticated";
-grant insert on table "public"."offer_locations" to "authenticated";
-grant references on table "public"."offer_locations" to "authenticated";
-grant select on table "public"."offer_locations" to "authenticated";
-grant trigger on table "public"."offer_locations" to "authenticated";
-grant truncate on table "public"."offer_locations" to "authenticated";
-grant update on table "public"."offer_locations" to "authenticated";
-grant delete on table "public"."offer_locations" to "service_role";
-grant insert on table "public"."offer_locations" to "service_role";
-grant references on table "public"."offer_locations" to "service_role";
-grant select on table "public"."offer_locations" to "service_role";
-grant trigger on table "public"."offer_locations" to "service_role";
-grant truncate on table "public"."offer_locations" to "service_role";
-grant update on table "public"."offer_locations" to "service_role";
+GRANT SELECT ON TABLE "public"."offer_locations" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."offer_locations" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_locations" TO "service_role";
 
-grant delete on table "public"."offer_perks" to "anon";
-grant insert on table "public"."offer_perks" to "anon";
-grant references on table "public"."offer_perks" to "anon";
-grant select on table "public"."offer_perks" to "anon";
-grant trigger on table "public"."offer_perks" to "anon";
-grant truncate on table "public"."offer_perks" to "anon";
-grant update on table "public"."offer_perks" to "anon";
-grant delete on table "public"."offer_perks" to "authenticated";
-grant insert on table "public"."offer_perks" to "authenticated";
-grant references on table "public"."offer_perks" to "authenticated";
-grant select on table "public"."offer_perks" to "authenticated";
-grant trigger on table "public"."offer_perks" to "authenticated";
-grant truncate on table "public"."offer_perks" to "authenticated";
-grant update on table "public"."offer_perks" to "authenticated";
-grant delete on table "public"."offer_perks" to "service_role";
-grant insert on table "public"."offer_perks" to "service_role";
-grant references on table "public"."offer_perks" to "service_role";
-grant select on table "public"."offer_perks" to "service_role";
-grant trigger on table "public"."offer_perks" to "service_role";
-grant truncate on table "public"."offer_perks" to "service_role";
-grant update on table "public"."offer_perks" to "service_role";
+GRANT SELECT ON TABLE "public"."offer_perks" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."offer_perks" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_perks" TO "service_role";
 
-grant delete on table "public"."offer_questions" to "anon";
-grant insert on table "public"."offer_questions" to "anon";
-grant references on table "public"."offer_questions" to "anon";
-grant select on table "public"."offer_questions" to "anon";
-grant trigger on table "public"."offer_questions" to "anon";
-grant truncate on table "public"."offer_questions" to "anon";
-grant update on table "public"."offer_questions" to "anon";
-grant delete on table "public"."offer_questions" to "authenticated";
-grant insert on table "public"."offer_questions" to "authenticated";
-grant references on table "public"."offer_questions" to "authenticated";
-grant select on table "public"."offer_questions" to "authenticated";
-grant trigger on table "public"."offer_questions" to "authenticated";
-grant truncate on table "public"."offer_questions" to "authenticated";
-grant update on table "public"."offer_questions" to "authenticated";
-grant delete on table "public"."offer_questions" to "service_role";
-grant insert on table "public"."offer_questions" to "service_role";
-grant references on table "public"."offer_questions" to "service_role";
-grant select on table "public"."offer_questions" to "service_role";
-grant trigger on table "public"."offer_questions" to "service_role";
-grant truncate on table "public"."offer_questions" to "service_role";
-grant update on table "public"."offer_questions" to "service_role";
+GRANT SELECT ON TABLE "public"."offer_questions" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."offer_questions" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_questions" TO "service_role";
 
-grant delete on table "public"."offer_responsibilities" to "anon";
-grant insert on table "public"."offer_responsibilities" to "anon";
-grant references on table "public"."offer_responsibilities" to "anon";
-grant select on table "public"."offer_responsibilities" to "anon";
-grant trigger on table "public"."offer_responsibilities" to "anon";
-grant truncate on table "public"."offer_responsibilities" to "anon";
-grant update on table "public"."offer_responsibilities" to "anon";
-grant delete on table "public"."offer_responsibilities" to "authenticated";
-grant insert on table "public"."offer_responsibilities" to "authenticated";
-grant references on table "public"."offer_responsibilities" to "authenticated";
-grant select on table "public"."offer_responsibilities" to "authenticated";
-grant trigger on table "public"."offer_responsibilities" to "authenticated";
-grant truncate on table "public"."offer_responsibilities" to "authenticated";
-grant update on table "public"."offer_responsibilities" to "authenticated";
-grant delete on table "public"."offer_responsibilities" to "service_role";
-grant insert on table "public"."offer_responsibilities" to "service_role";
-grant references on table "public"."offer_responsibilities" to "service_role";
-grant select on table "public"."offer_responsibilities" to "service_role";
-grant trigger on table "public"."offer_responsibilities" to "service_role";
-grant truncate on table "public"."offer_responsibilities" to "service_role";
-grant update on table "public"."offer_responsibilities" to "service_role";
+GRANT SELECT ON TABLE "public"."offer_responsibilities" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."offer_responsibilities" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_responsibilities" TO "service_role";
 
-grant delete on table "public"."offer_skills" to "anon";
-grant insert on table "public"."offer_skills" to "anon";
-grant references on table "public"."offer_skills" to "anon";
-grant select on table "public"."offer_skills" to "anon";
-grant trigger on table "public"."offer_skills" to "anon";
-grant truncate on table "public"."offer_skills" to "anon";
-grant update on table "public"."offer_skills" to "anon";
-grant delete on table "public"."offer_skills" to "authenticated";
-grant insert on table "public"."offer_skills" to "authenticated";
-grant references on table "public"."offer_skills" to "authenticated";
-grant select on table "public"."offer_skills" to "authenticated";
-grant trigger on table "public"."offer_skills" to "authenticated";
-grant truncate on table "public"."offer_skills" to "authenticated";
-grant update on table "public"."offer_skills" to "authenticated";
-grant delete on table "public"."offer_skills" to "service_role";
-grant insert on table "public"."offer_skills" to "service_role";
-grant references on table "public"."offer_skills" to "service_role";
-grant select on table "public"."offer_skills" to "service_role";
-grant trigger on table "public"."offer_skills" to "service_role";
-grant truncate on table "public"."offer_skills" to "service_role";
-grant update on table "public"."offer_skills" to "service_role";
+GRANT SELECT ON TABLE "public"."offer_skills" TO "anon";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."offer_skills" TO "authenticated";
+GRANT ALL ON TABLE "public"."offer_skills" TO "service_role";
 
 -- =====================================================================
 -- ROW LEVEL SECURITY POLICIES
@@ -689,7 +531,7 @@ for select
 to authenticated
 using ((((SELECT auth.uid()) = id) OR (EXISTS ( SELECT 1
    FROM public.company_offer
-  WHERE (company_offer.company_id = company.id)))));
+  WHERE (company_offer.company_id = company.id AND company_offer.status = 'published')))));
 
 create policy "company_update_own"
 on "public"."company"

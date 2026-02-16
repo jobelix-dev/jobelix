@@ -122,17 +122,24 @@ describe('LinkedInAuthenticator', () => {
       });
       const auth = new LinkedInAuthenticator(loginPage);
       
-      // The authenticator will try to start login process
-      // We just verify it doesn't throw
-      const _startPromise = auth.start();
+      // Simulate user logging in after a few polling iterations:
+      // waitForTimeout is called in handleLogin's while-loop. After 2 calls,
+      // change the URL mock to a feed page so the loop exits.
+      let waitCalls = 0;
+      (loginPage.waitForTimeout as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+        waitCalls++;
+        if (waitCalls >= 2) {
+          (loginPage.url as ReturnType<typeof vi.fn>).mockReturnValue('https://www.linkedin.com/feed/');
+        }
+      });
       
-      // Resolve the promise after a short delay
-      setTimeout(() => {
-        (loginPage.url as ReturnType<typeof vi.fn>).mockReturnValue('https://www.linkedin.com/feed');
-      }, 10);
+      await auth.start();
       
-      // Will hang waiting for login, so we don't await
-      expect(loginPage.goto).toHaveBeenCalled();
+      // Should have navigated to login page
+      expect(loginPage.goto).toHaveBeenCalledWith(
+        'https://www.linkedin.com/login',
+        expect.anything()
+      );
     });
   });
 

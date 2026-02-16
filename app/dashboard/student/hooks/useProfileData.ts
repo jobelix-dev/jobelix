@@ -10,6 +10,8 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { api } from '@/lib/client/api';
+import { apiFetch } from '@/lib/client/http';
+import { getElectronAPI } from '@/lib/client/runtime';
 import { validateProfile } from '@/lib/client/profileValidation';
 import { generateResumeYaml } from '@/lib/client/resumeYamlGenerator';
 import type { ExtractedResumeData } from '@/lib/shared/types';
@@ -90,14 +92,14 @@ export function useProfileData() {
           
           // If status is published, try to auto-generate YAML on load
           // This ensures the local resume.yaml is always in sync
-          const electronWindow = window as Window & { electronAPI?: { writeResumeFile: (content: string) => Promise<{ success: boolean; path?: string; error?: string }> } };
-          if (loadedStatus === 'published' && typeof window !== 'undefined' && electronWindow.electronAPI) {
+          const electronAPI = getElectronAPI();
+          if (loadedStatus === 'published' && electronAPI?.writeResumeFile) {
             try {
-              const publishedResponse = await fetch('/api/student/profile/published');
+              const publishedResponse = await apiFetch('/api/student/profile/published');
               if (publishedResponse.ok) {
                 const publishedProfileData = await publishedResponse.json();
                 const yamlContent = generateResumeYaml(publishedProfileData);
-                const result = await electronWindow.electronAPI.writeResumeFile(yamlContent);
+                const result = await electronAPI.writeResumeFile(yamlContent);
                 if (result.success) {
                   console.log('✅ Resume YAML auto-synced on load:', result.path);
                 } else {
@@ -164,7 +166,7 @@ export function useProfileData() {
       } catch (error) {
         console.error('Failed to auto-save draft:', error);
       }
-    }, 300); // 0.3 second debounce
+    }, 1000); // 1 second debounce - balances responsiveness with network efficiency
 
     return () => clearTimeout(timeoutId);
   }, [profileData, draftId, isDataLoaded]);
@@ -192,7 +194,7 @@ export function useProfileData() {
       // Generate resume.yaml file locally (for Electron app)
       try {
         // Fetch published profile data
-        const response = await fetch('/api/student/profile/published');
+        const response = await apiFetch('/api/student/profile/published');
         if (!response.ok) {
           throw new Error(`Failed to fetch profile: ${response.statusText}`);
         }
@@ -203,9 +205,9 @@ export function useProfileData() {
         const yamlContent = generateResumeYaml(publishedProfileData);
         
         // Write to local file via Electron IPC
-        const electronWindow = window as Window & { electronAPI?: { writeResumeFile: (content: string) => Promise<{ success: boolean; path?: string; error?: string }> } };
-        if (typeof window !== 'undefined' && electronWindow.electronAPI) {
-          const result = await electronWindow.electronAPI.writeResumeFile(yamlContent);
+        const electronAPI = getElectronAPI();
+        if (electronAPI?.writeResumeFile) {
+          const result = await electronAPI.writeResumeFile(yamlContent);
           if (result.success) {
             console.log('✅ Resume YAML saved to:', result.path);
           } else {

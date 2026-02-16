@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { WorkPreferences } from '../types';
 import { defaultPreferences, DRAFT_STORAGE_KEY } from '../constants';
+import { apiFetch } from '@/lib/client/http';
 
 export function useWorkPreferences(onUnsavedChanges?: (hasChanges: boolean) => void) {
   const [preferences, setPreferences] = useState<WorkPreferences>(defaultPreferences);
@@ -17,7 +18,7 @@ export function useWorkPreferences(onUnsavedChanges?: (hasChanges: boolean) => v
     const fetchPreferences = async () => {
       try {
         // fetches saved preferences from the backend
-        const response = await fetch('/api/student/work-preferences');
+        const response = await apiFetch('/api/student/work-preferences');
         const data = await response.json();
         
         // merges with defaults

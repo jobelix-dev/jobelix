@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ProjectEntry, SkillEntry } from '@/lib/shared/types';
+import { apiEventSource, apiFetch } from '@/lib/client/http';
 
 // ============================================================================
 // Types
@@ -70,7 +71,7 @@ async function fetchGitHubImport(
   currentProjects: ProjectEntry[],
   currentSkills: SkillEntry[]
 ): Promise<ImportGitHubResponse> {
-  const response = await fetch('/api/student/import-github', {
+  const response = await apiFetch('/api/student/import-github', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -190,7 +191,7 @@ export function useGitHubImportDashboard(
       }
 
       // Start SSE for progress tracking
-      const progressSource = new EventSource('/api/student/import-github/progress');
+      const progressSource = apiEventSource('/api/student/import-github/progress');
       progressSourceRef.current = progressSource;
 
       progressSource.onmessage = (event) => {

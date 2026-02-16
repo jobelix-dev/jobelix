@@ -31,21 +31,35 @@ function CallbackSuccessContent() {
           ? { type: 'oauth-error', error: decodeURIComponent(error) }
           : { type: 'oauth-success' };
         
-        // Post to parent - use '*' since we might be on different origins
-        window.opener.postMessage(message, '*');
-        console.log('[CallbackSuccess] Sent message to parent:', message);
+        // Post to parent - try both the configured APP_URL and the current origin.
+        // In Electron, the parent may have a different origin than the popup.
+        const origins = new Set<string>();
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+        if (appUrl) origins.add(appUrl.replace(/\/+$/, ''));
+        origins.add(window.location.origin);
+        
+        for (const origin of origins) {
+          try {
+            window.opener.postMessage(message, origin);
+            console.log('[CallbackSuccess] Sent message to parent with origin:', origin);
+          } catch (err) {
+            console.warn('[CallbackSuccess] Failed to postMessage to origin:', origin, err);
+          }
+        }
       } catch (err) {
         console.error('[CallbackSuccess] Failed to send message to parent:', err);
       }
     } else {
-      console.log('[CallbackSuccess] No opener window found');
+      console.log('[CallbackSuccess] No opener window found - user may need to navigate manually');
     }
 
-    // Auto-close after a short delay (give parent time to process)
+    // Auto-close after a longer delay to give the parent time to process
+    // the postMessage and verify the session. If the parent closes us earlier
+    // via the fallback poll, that's fine too.
     if (!error) {
       const closeTimer = setTimeout(() => {
         window.close();
-      }, 1500);
+      }, 3000);
       return () => clearTimeout(closeTimer);
     }
   }, [error]);
@@ -75,7 +89,7 @@ function CallbackSuccessContent() {
   }
 
   return (
-    <div className="text-center p-8 bg-surface rounded-2xl shadow-lg border border-border max-w-sm">
+    <div className="text-center p-8 bg-surface rounded-2xl shadow-lg border border-border max-w-sm" suppressHydrationWarning>
       <div className="w-16 h-16 mx-auto mb-4 bg-success-subtle rounded-full flex items-center justify-center">
         <svg className="w-8 h-8 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -84,8 +98,8 @@ function CallbackSuccessContent() {
       <h1 className="text-xl font-semibold text-default mb-2">
         Sign in successful!
       </h1>
-      <p className="text-sm text-muted" suppressHydrationWarning>
-        Closing...
+      <p className="text-sm text-muted">
+        This window will close shortly...
       </p>
       <div className="mt-4 flex justify-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -102,7 +116,7 @@ function CallbackSuccessContent() {
 
 function LoadingState() {
   return (
-    <div className="text-center p-8 bg-surface rounded-2xl shadow-lg border border-border max-w-sm">
+    <div className="text-center p-8 bg-surface rounded-2xl shadow-lg border border-border max-w-sm" suppressHydrationWarning>
       <div className="w-16 h-16 mx-auto mb-4 bg-primary-subtle rounded-full flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>

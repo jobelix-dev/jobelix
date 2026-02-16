@@ -308,7 +308,7 @@ describe('buildSearchUrl', () => {
     };
 
     const url = buildSearchUrl(config);
-    expect(url).toContain('f_CF=f_WRA');
+    expect(url).toContain('f_WT=2');
   });
 
   it('should not include remote filter when disabled', () => {
@@ -346,6 +346,6 @@ describe('buildSearchUrl', () => {
     };
 
     const url = buildSearchUrl(config);
-    expect(url).not.toContain('f_CF=f_WRA');
+    expect(url).not.toContain('f_WT=2');
   });
 });

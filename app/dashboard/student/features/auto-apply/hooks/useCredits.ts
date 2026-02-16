@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 interface CreditBalance {
   balance: number;
@@ -30,7 +31,7 @@ export function useCredits() {
   const fetchCredits = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch('/api/student/credits/balance', { credentials: 'include' });
+      const response = await apiFetch('/api/student/credits/balance');
       const data = await response.json();
       
       if (response.status === 401) {
@@ -53,7 +54,7 @@ export function useCredits() {
 
   const fetchClaimStatus = useCallback(async () => {
     try {
-      const response = await fetch('/api/student/credits/can-claim', { credentials: 'include' });
+      const response = await apiFetch('/api/student/credits/can-claim');
       const data = await response.json();
       if (response.ok) setClaimStatus(data);
     } catch {
@@ -69,9 +70,8 @@ export function useCredits() {
     try {
       setClaiming(true);
       setError(null);
-      const response = await fetch('/api/student/credits/claim', {
+      const response = await apiFetch('/api/student/credits/claim', {
         method: 'POST',
-        credentials: 'include',
       });
       const data = await response.json();
       

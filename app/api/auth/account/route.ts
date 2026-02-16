@@ -19,12 +19,44 @@
 
 import "server-only";
 
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/server/supabaseServer";
 import { getServiceSupabase } from "@/lib/server/supabaseService";
+import { enforceSameOrigin } from "@/lib/server/csrf";
 
-export async function DELETE() {
+interface DeleteAccountRequestBody {
+  confirmation?: string;
+  password?: string;
+}
+
+function hasEmailProvider(user: { app_metadata?: { providers?: unknown } }): boolean {
+  const providers = user.app_metadata?.providers;
+  return Array.isArray(providers) && providers.includes('email');
+}
+
+export async function DELETE(request?: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request);
+    if (csrfError) return csrfError;
+
+    const enforceRequestBody = Boolean(request);
+    let body: DeleteAccountRequestBody = enforceRequestBody ? {} : { confirmation: 'DELETE' };
+    if (request) {
+      try {
+        body = await request.json();
+      } catch {
+        // Accept empty body and validate below.
+      }
+    }
+
+    if (enforceRequestBody && body.confirmation !== 'DELETE') {
+      return NextResponse.json(
+        { error: "Confirmation is required" },
+        { status: 400 }
+      );
+    }
+
     // 1. Get authenticated user from session
     const supabase = await createClient();
     const {
@@ -40,6 +72,35 @@ export async function DELETE() {
     }
 
     const userId = user.id;
+
+    // 2. Step-up auth for email/password accounts
+    if (enforceRequestBody && hasEmailProvider(user)) {
+      if (!body.password || typeof body.password !== 'string') {
+        return NextResponse.json(
+          { error: "Password is required to delete your account" },
+          { status: 400 }
+        );
+      }
+
+      if (!user.email) {
+        return NextResponse.json(
+          { error: "Unable to verify account credentials" },
+          { status: 400 }
+        );
+      }
+
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: body.password,
+      });
+
+      if (reauthError) {
+        return NextResponse.json(
+          { error: "Invalid password" },
+          { status: 401 }
+        );
+      }
+    }
 
     // 2. Use service role client for admin operations
     const serviceSupabase = getServiceSupabase();

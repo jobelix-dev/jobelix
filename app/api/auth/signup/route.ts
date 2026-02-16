@@ -35,36 +35,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
 import { validateRequest, signupSchema } from '@/lib/server/validation'
+import { getClientIp } from '@/lib/server/requestSecurity'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 
 // Rate limiting configuration
 const MAX_SIGNUPS_PER_IP = 10  // Maximum signups allowed per IP
 const RATE_LIMIT_HOURS = 48    // Time window in hours
 
-/**
- * Get client IP from request headers
- * 
- * When behind proxies/CDN, the real client IP is in headers like x-forwarded-for.
- * On Vercel, this header is set by the platform and commonly used for rate limiting.
- */
-function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  const realIP = request.headers.get('x-real-ip')
-  const cfConnectingIP = request.headers.get('cf-connecting-ip') // Cloudflare
-
-  if (forwarded) {
-    // x-forwarded-for can be a comma-separated list, take the first (client) IP
-    return forwarded.split(',')[0].trim()
+function getSafeAppOrigin(request: NextRequest): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      // Fall through to safe fallback.
+    }
   }
 
-  if (cfConnectingIP) return cfConnectingIP
-  if (realIP) return realIP
+  if (process.env.NODE_ENV !== 'production') {
+    return request.nextUrl.origin;
+  }
 
-  // Fallback - treat 'unknown' as potentially risky in rate limiting
-  return 'unknown'
+  return 'https://www.jobelix.fr';
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     // -----------------------------
     // 1) Parse and validate input
     // -----------------------------
@@ -83,7 +82,7 @@ export async function POST(request: NextRequest) {
     // -----------------------------
     // 2) IP-based rate limiting
     // -----------------------------
-    const clientIP = getClientIP(request)
+    const clientIP = getClientIp(request, 'unknown')
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
     const { data: signupCount, error: countError } = await getServiceSupabase()
@@ -112,20 +111,7 @@ export async function POST(request: NextRequest) {
     // -----------------------------
     // Note: The email template constructs the full URL using {{ .SiteURL }} and {{ .TokenHash }}
     // This redirectTo is a fallback and ensures Supabase knows where to send users
-    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
-
-    if (!baseUrl) {
-      const forwardedHost = request.headers.get('x-forwarded-host')
-      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
-
-      if (forwardedHost) {
-        baseUrl = `${forwardedProto}://${forwardedHost}`
-      } else {
-        baseUrl = request.nextUrl.origin
-      }
-    }
-
-    baseUrl = baseUrl.replace(/\/+$/, '')
+    const baseUrl = getSafeAppOrigin(request).replace(/\/+$/, '')
     const redirectTo = `${baseUrl}/auth/callback?next=/dashboard`
 
     console.log('[Signup] Base URL:', baseUrl)
@@ -181,34 +167,13 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Check if user already exists
+      // Existing-account responses intentionally avoid user enumeration
       if (error.message?.toLowerCase().includes('already registered') ||
           error.message?.toLowerCase().includes('user already exists')) {
-
-        // Try to log them in with the provided credentials
-        const supabase = await createClient()
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
+        return NextResponse.json({
+          success: true,
+          message: 'If an account with this email exists, please check your inbox or log in.'
         })
-
-        if (!loginError) {
-          // Login succeeded - user already had an account with these credentials
-          return NextResponse.json({
-            success: true,
-            loggedIn: true,
-            message: 'Welcome back! You have been logged in.'
-          })
-        }
-
-        // Login failed - account exists but wrong password
-        return NextResponse.json(
-          {
-            error: 'An account with this email already exists.',
-            code: 'USER_ALREADY_EXISTS'
-          },
-          { status: 400 }
-        )
       }
 
       // Generic error for other cases (don't leak internal details)
@@ -256,7 +221,7 @@ export async function POST(request: NextRequest) {
       }
       
       console.log('[Signup] Session established successfully')
-      return NextResponse.json({ success: true, userId: data.user.id })
+      return NextResponse.json({ success: true, userId: data.user.id, loggedIn: true })
     }
 
     return NextResponse.json({

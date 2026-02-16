@@ -8,6 +8,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch } from '@/lib/client/http';
 
 export interface GitHubConnectionStatus {
   connected: boolean;
@@ -21,12 +22,20 @@ export interface GitHubConnectionStatus {
   };
 }
 
-export function useGitHubConnection() {
+interface UseGitHubConnectionOptions {
+  /** Called once when a new GitHub connection is established (popup or fallback) */
+  onConnected?: () => void;
+}
+
+export function useGitHubConnection(options: UseGitHubConnectionOptions = {}) {
   const [status, setStatus] = useState<GitHubConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Stable ref for the onConnected callback so it doesn't re-create connect() */
+  const onConnectedRef = useRef(options.onConnected);
+  onConnectedRef.current = options.onConnected;
 
   // Cleanup poll interval on unmount
   useEffect(() => {
@@ -45,7 +54,7 @@ export function useGitHubConnection() {
       setError(null);
 
       // Add cache-busting timestamp to ensure fresh data
-      const response = await fetch(`/api/oauth/github/status?t=${Date.now()}`, {
+      const response = await apiFetch(`/api/oauth/github/status?t=${Date.now()}`, {
         cache: 'no-store'
       });
       const data = await response.json();
@@ -98,17 +107,50 @@ export function useGitHubConnection() {
 
     setPopupBlocked(false);
 
-    // Poll for popup closure and check connection status
+    // Listen for postMessage from the callback-success page (faster than polling)
+    let messageHandled = false;
+    const handleMessage = (event: MessageEvent) => {
+      // Validate origin to prevent spoofing
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const allowedOrigins = new Set([window.location.origin]);
+      if (appUrl) allowedOrigins.add(appUrl.replace(/\/+$/, ''));
+      if (!allowedOrigins.has(event.origin)) return;
+
+      if (event.data?.type === 'github-oauth-success') {
+        messageHandled = true;
+        window.removeEventListener('message', handleMessage);
+        checkStatus().then(() => {
+          onConnectedRef.current?.();
+        });
+      } else if (event.data?.type === 'github-oauth-error') {
+        messageHandled = true;
+        window.removeEventListener('message', handleMessage);
+        setError(`GitHub connection failed: ${event.data.error || 'Unknown error'}`);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    // Fallback: poll for popup closure (in case postMessage doesn't fire,
+    // e.g. cross-origin navigation in Electron)
     pollIntervalRef.current = setInterval(() => {
       if (popup.closed) {
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
         }
-        // Refresh connection status after popup closes
-        setTimeout(() => {
-          checkStatus();
-        }, 500);
+        window.removeEventListener('message', handleMessage);
+        if (!messageHandled) {
+          // Popup closed without postMessage — refresh status and fire callback if connected
+          setTimeout(async () => {
+            await checkStatus();
+            // Re-read status from server (checkStatus updated it)
+            const res = await apiFetch(`/api/oauth/github/status?t=${Date.now()}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (data.success && data.connected) {
+              onConnectedRef.current?.();
+            }
+          }, 500);
+        }
       }
     }, 500);
   }, [checkStatus]);
@@ -119,7 +161,7 @@ export function useGitHubConnection() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/oauth/github/disconnect', {
+      const response = await apiFetch('/api/oauth/github/disconnect', {
         method: 'POST',
       });
 
@@ -150,15 +192,17 @@ export function useGitHubConnection() {
     checkStatus();
   }, [checkStatus]);
 
-  // Check for OAuth callback success/error in URL
+  // Check for OAuth callback success/error in URL (fallback when popup didn't work)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const githubConnected = params.get('github_connected');
     const githubError = params.get('github_error');
 
     if (githubConnected === 'true') {
-      // Refresh status after successful connection
-      checkStatus();
+      // Refresh status after successful connection, then fire callback
+      checkStatus().then(() => {
+        onConnectedRef.current?.();
+      });
       // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
     }

@@ -20,6 +20,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
+import { apiFetch } from '@/lib/client/http';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
 import { storeReferralCode, validateReferralCode, getStoredReferralCode } from '@/lib/shared/referral';
@@ -42,7 +43,7 @@ interface SignupFormProps {
  */
 async function applyReferralCode(code: string): Promise<boolean> {
   try {
-    const response = await fetch('/api/student/referral/apply', {
+    const response = await apiFetch('/api/student/referral/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
@@ -149,6 +150,7 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
             await applyReferralCode(effectiveReferralCode);
           }
           router.refresh();
+          await new Promise(resolve => setTimeout(resolve, 100));
           router.push('/dashboard');
         } else if (response.message) {
           // Email confirmation required - user is NOT authenticated yet.
@@ -163,6 +165,7 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
             await applyReferralCode(effectiveReferralCode);
           }
           router.refresh();
+          await new Promise(resolve => setTimeout(resolve, 100));
           router.push('/dashboard');
         }
       }

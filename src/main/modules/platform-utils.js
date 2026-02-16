@@ -5,6 +5,7 @@
 
 import { app } from 'electron';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { PLATFORM_FOLDERS, EXECUTABLES, DIRECTORIES } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -150,8 +151,12 @@ export function logPlatformInfo() {
  * Creates: data/, output/, tailored_resumes/, chrome_profile/, debug_html/, playwright-browsers/
  * Also sets PLAYWRIGHT_BROWSERS_PATH env var for consistent browser location
  * This should be called on app startup to ensure directories exist
+ *
+ * Uses async fs.promises.mkdir to avoid blocking the main process event loop
+ * during startup. With { recursive: true }, mkdir is a no-op if the directory
+ * already exists, so no separate existsSync check is needed.
  */
-export function initializeDataDirectories() {
+export async function initializeDataDirectories() {
   const userData = getResourceRoot();
   
   // Set PLAYWRIGHT_BROWSERS_PATH early so it's available throughout the app lifecycle
@@ -169,12 +174,13 @@ export function initializeDataDirectories() {
     playwrightBrowsersPath,
   ];
   
-  for (const dir of directories) {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-      logger.debug(`Created directory: ${dir}`);
-    }
-  }
+  await Promise.all(
+    directories.map(dir =>
+      fsPromises.mkdir(dir, { recursive: true }).then(created => {
+        if (created) logger.debug(`Created directory: ${dir}`);
+      })
+    )
+  );
   
   logger.info(`Data directories initialized at: ${userData}`);
 }

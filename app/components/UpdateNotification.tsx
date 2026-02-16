@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Terminal, Copy, Check, X } from 'lucide-react';
+import { getElectronAPI } from '@/lib/client/runtime';
 
 /** Linux install command - one-liner that auto-detects distro */
 const LINUX_INSTALL_COMMAND = 'curl -fsSL https://jobelix.fr/install.sh | bash';
@@ -77,11 +78,12 @@ export default function UpdateNotification() {
 
   /**
    * Set up IPC event listeners for update notifications
-   * Only runs in Electron environment (window.electronAPI exists)
+   * Only runs in Electron environment (detected via getElectronAPI)
    */
   useEffect(() => {
     // Guard: Only run in Electron environment
-    if (typeof window === 'undefined' || !window.electronAPI) {
+    const electronAPI = getElectronAPI();
+    if (!electronAPI) {
       console.log('[UpdateNotification] Not in Electron environment, skipping listener setup');
       return;
     }
@@ -89,7 +91,7 @@ export default function UpdateNotification() {
     console.log('[UpdateNotification] Setting up update listeners (Electron detected)');
 
     // Listen for 'update-available' IPC event
-    window.electronAPI.onUpdateAvailable((info) => {
+    electronAPI.onUpdateAvailable((info) => {
       console.log('[UpdateNotification] 📦 UPDATE AVAILABLE:', info);
       console.log('[UpdateNotification] manualDownload:', info.manualDownload);
       if (info.distroLabel) {
@@ -102,20 +104,20 @@ export default function UpdateNotification() {
     });
 
     // Listen for 'update-download-progress' IPC event
-    window.electronAPI.onUpdateDownloadProgress((progress) => {
+    electronAPI.onUpdateDownloadProgress((progress) => {
       console.log('[UpdateNotification] Download progress:', progress.percent.toFixed(1) + '%');
       setDownloadProgress(progress);
     });
 
     // Listen for 'update-downloaded' IPC event
-    window.electronAPI.onUpdateDownloaded((info) => {
+    electronAPI.onUpdateDownloaded((info) => {
       console.log('[UpdateNotification] ✅ Update downloaded:', info);
       setUpdateDownloaded(info.version);
       setDownloadProgress(null);
     });
     
     // Listen for update errors
-    window.electronAPI.onUpdateError?.((error) => {
+    electronAPI.onUpdateError?.((error) => {
       console.error('[UpdateNotification] ❌ Update error:', error);
       setUpdateError(error);
       setDownloadProgress(null);
@@ -128,7 +130,7 @@ export default function UpdateNotification() {
     // Cleanup: Remove all update listeners when component unmounts
     return () => {
       console.log('[UpdateNotification] Cleaning up listeners');
-      window.electronAPI?.removeUpdateListeners();
+      electronAPI.removeUpdateListeners?.();
     };
   }, []);
 
@@ -184,12 +186,13 @@ export default function UpdateNotification() {
    * Opens direct download URL in browser
    */
   const handleDirectDownload = () => {
-    if (updateAvailable?.downloadUrl && window.electronAPI?.openExternalUrl) {
+    const electronAPI = getElectronAPI();
+    if (updateAvailable?.downloadUrl && electronAPI?.openExternalUrl) {
       console.log('[UpdateNotification] Opening direct download:', updateAvailable.downloadUrl);
-      window.electronAPI.openExternalUrl(updateAvailable.downloadUrl);
-    } else if (window.electronAPI?.openReleasesPage) {
+      electronAPI.openExternalUrl(updateAvailable.downloadUrl);
+    } else if (electronAPI?.openReleasesPage) {
       console.log('[UpdateNotification] Fallback: Opening releases page');
-      window.electronAPI.openReleasesPage();
+      electronAPI.openReleasesPage();
     }
     setShowLinuxModal(false);
   };

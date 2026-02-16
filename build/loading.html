@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jobelix</title>
+  <!-- Static loading shell shown instantly while Electron starts the bundled UI. -->
+  <link rel="preconnect" href="https://www.jobelix.fr" crossorigin>
+  <link rel="dns-prefetch" href="https://www.jobelix.fr">
   <style>
     * {
       margin: 0;
@@ -152,7 +155,6 @@
 
   <script>
     // Configuration
-    const REMOTE_URL = 'https://www.jobelix.fr';
     const TIMEOUT_MS = 30000; // 30 second timeout
     const STATUS_MESSAGES = [
       'Connecting...',
@@ -196,17 +198,8 @@
         showError('Connection is taking longer than expected. Please check your internet connection.');
       }, TIMEOUT_MS);
       
-      // Notify main process to load the remote URL
-      // The main process will navigate this window to the remote URL
-      if (window.electronAPI && window.electronAPI.loadingReady) {
-        window.electronAPI.loadingReady();
-      } else {
-        // Fallback: redirect directly after a brief delay
-        // This ensures the loading screen is visible first
-        setTimeout(() => {
-          window.location.href = REMOTE_URL;
-        }, 500);
-      }
+      // The main process (window-manager.js) will navigate this window to the
+      // local bundled UI (fallback: remote URL). We just show the loading screen until then.
     }
     
     // Start loading when DOM is ready

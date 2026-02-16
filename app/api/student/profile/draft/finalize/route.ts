@@ -16,6 +16,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
+import { enforceSameOrigin } from '@/lib/server/csrf'
 import { 
   mapDraftToStudent, 
   mapDraftToAcademic, 
@@ -30,6 +31,9 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = enforceSameOrigin(request)
+    if (csrfError) return csrfError
+
     // Authenticate user
     const auth = await authenticateRequest()
     if (auth.error) return auth.error
@@ -66,8 +70,6 @@ export async function POST(request: NextRequest) {
     const certificationsData = mapDraftToCertifications(draft, user.id)
     const socialLinksData = mapDraftToSocialLinks(draft, user.id)
 
-    console.log('Social links data being sent to RPC:', JSON.stringify(socialLinksData, null, 2))
-
     // Call PostgreSQL RPC for atomic database operations
     const { data: result, error: rpcError } = await supabase.rpc('finalize_student_profile', {
       p_user_id: user.id,
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (rpcError) {
       console.error('RPC error:', rpcError)
       return NextResponse.json(
-        { error: 'Failed to save profile', details: rpcError.message },
+        { error: 'Failed to save profile' },
         { status: 500 }
       )
     }
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (result && !result.success) {
       console.error('Profile finalization failed:', result)
       return NextResponse.json(
-        { error: result.error || 'Failed to save profile', details: result.detail },
+        { error: result.error || 'Failed to save profile' },
         { status: 500 }
       )
     }
