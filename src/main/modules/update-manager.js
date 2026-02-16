@@ -98,11 +98,12 @@ async function showInstallDialog(version) {
     logger.info('User chose to install update now');
     // Use setImmediate to ensure the dialog is fully closed before quitting
     setImmediate(() => {
-      // isSilent=true: Run NSIS installer silently (no wizard UI for updates)
-      // isForceRunAfter=true: Force app to relaunch after update completes
-      // Without isSilent=true, the full NSIS wizard opens (oneClick is false)
-      // which confuses users and may prevent the app from restarting
-      autoUpdater.quitAndInstall(true, true);
+      // CRITICAL: First param MUST be false for NSIS to work properly on Windows
+      // quitAndInstall(isSilent, isForceRunAfter):
+      //   - isSilent=false: Don't force-close windows (let NSIS handle graceful shutdown)
+      //   - isForceRunAfter=true: Restart app after update completes
+      // Setting isSilent=true causes race conditions where NSIS can't replace files properly
+      autoUpdater.quitAndInstall(false, true);
     });
   } else {
     logger.info('User chose to install update later (will install on next app quit)');
