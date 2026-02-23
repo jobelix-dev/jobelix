@@ -16,6 +16,7 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import https from 'https';
+import path from 'path';
 import { fileURLToPath } from 'url';
 
 const GITHUB_OWNER = 'jobelix-dev';
@@ -197,6 +198,42 @@ function parseArgs(args) {
   return result;
 }
 
+function getProjectRoot() {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+}
+
+/**
+ * Ensure the Next.js standalone desktop bundle was produced.
+ * This prevents releasing desktop builds that silently fall back to remote UI.
+ */
+function verifyStandaloneBuildInputs() {
+  const root = getProjectRoot();
+  const standaloneEntry = path.join(root, '.next', 'standalone', 'server.js');
+  const staticDir = path.join(root, '.next', 'static');
+
+  if (!fs.existsSync(standaloneEntry)) {
+    throw new Error(`Missing standalone entry: ${standaloneEntry}`);
+  }
+  if (!fs.existsSync(staticDir)) {
+    throw new Error(`Missing standalone static assets: ${staticDir}`);
+  }
+}
+
+/**
+ * Ensure the bot runtime build artifacts exist.
+ * They are required because desktop packaging excludes source-tree bot JS.
+ */
+function verifyBotRuntimeBuildInputs() {
+  const root = getProjectRoot();
+  const botRuntimeEntry = path.join(root, 'build', 'bot-runtime', 'index.js');
+  if (!fs.existsSync(botRuntimeEntry)) {
+    throw new Error(
+      `Missing bot runtime entry: ${botRuntimeEntry}. ` +
+      'Run "npm run build:bot" before packaging.'
+    );
+  }
+}
+
 // Main
 async function main() {
   // Get platform info
@@ -288,6 +325,16 @@ async function main() {
   if (nextBuildResult.status !== 0) {
     console.error(`\n❌ Next.js build exited with code ${nextBuildResult.status}`);
     process.exit(nextBuildResult.status ?? 1);
+  }
+
+  try {
+    verifyStandaloneBuildInputs();
+    console.log('✓ Verified local standalone desktop bundle artifacts');
+    verifyBotRuntimeBuildInputs();
+    console.log('✓ Verified compiled bot runtime artifacts');
+  } catch (error) {
+    console.error(`\n❌ ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
   }
 
   // Build electron-builder command

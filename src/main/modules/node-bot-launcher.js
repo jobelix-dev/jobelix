@@ -17,10 +17,12 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { pathToFileURL } from 'url';
 import logger from '../utils/logger.js';
 import { getConfigPath, getResumePath } from '../utils/file-system.js';
 import { getPlatformResourcePath } from './platform-utils.js';
 import { DIRECTORIES } from '../config/constants.js';
+import { getDefaultBotApiUrl, sanitizeBotApiUrl } from './bot-api-url.js';
 
 // Bot instance and state
 let botInstance = null;
@@ -91,15 +93,17 @@ function getChromiumSubpaths() {
   ];
 }
 
-/**
- * Get the backend API URL
- * Fallback hierarchy: BACKEND_API_URL env > NEXT_PUBLIC_BACKEND_URL env > localhost dev server
- */
 function getApiUrl() {
-  // Try environment variables first (check multiple possible names), then default to localhost dev server
-  return process.env.BACKEND_API_URL 
-    || process.env.NEXT_PUBLIC_BACKEND_URL 
-    || 'http://localhost:3000/api/autoapply/gpt4';
+  const configured = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+  if (configured.trim()) {
+    const sanitized = sanitizeBotApiUrl(configured);
+    if (sanitized) {
+      return sanitized;
+    }
+    logger.warn('Ignoring unsafe backend API URL from environment; using default');
+  }
+
+  return getDefaultBotApiUrl(app.isPackaged);
 }
 
 /**
@@ -117,13 +121,22 @@ function emitStatus(payload) {
 
 /**
  * Dynamically import the bot module
- * Uses compiled JavaScript from the bot directory
+ * Uses compiled JavaScript from build/bot-runtime when available.
+ * Falls back to source-tree JS in development.
  */
 async function importBotModule() {
-  // Import the compiled bot module
-  // During development, this will be the compiled JS from TypeScript
-  // In production, it will be bundled with the app
-  const botModule = await import('./bot/index.js');
+  const compiledBotEntry = path.join(app.getAppPath(), 'build', 'bot-runtime', 'index.js');
+  const moduleSpecifier = fs.existsSync(compiledBotEntry)
+    ? pathToFileURL(compiledBotEntry).href
+    : new URL('./bot/index.js', import.meta.url).href;
+
+  if (fs.existsSync(compiledBotEntry)) {
+    logger.info(`Loading bot module from compiled runtime: ${compiledBotEntry}`);
+  } else {
+    logger.warn('Compiled bot runtime not found, falling back to source-tree JS module');
+  }
+
+  const botModule = await import(moduleSpecifier);
   return botModule;
 }
 
@@ -189,8 +202,12 @@ export async function launchNodeBot(token, sendBotStatus, apiUrl) {
     logger.info(`Resume path: ${resumePath}`);
     logger.info(`Chromium path: ${chromiumPath || 'system default'}`);
 
-    // Determine API URL: use parameter > env var > default
-    const finalApiUrl = apiUrl || getApiUrl();
+    // Determine API URL: user-provided > env > default, then enforce allowlist.
+    const candidateApiUrl = apiUrl || getApiUrl();
+    const finalApiUrl = sanitizeBotApiUrl(candidateApiUrl);
+    if (!finalApiUrl) {
+      throw new Error('Blocked unsafe backend API URL');
+    }
     logger.info(`Backend API URL: ${finalApiUrl}`);
 
     // Initialize bot

@@ -1,12 +1,12 @@
 /**
  * Build script for the Node.js bot
  * 
- * Compiles TypeScript files in src/main/modules/bot to JavaScript
- * This is needed because Electron main process loads JavaScript files
+ * Compiles TypeScript bot sources into an isolated runtime output directory.
+ * This avoids mixing generated JS with source TS files.
  * 
  * Key features:
  * - Adds .js extensions to relative imports (required for ESM in Node.js)
- * - Preserves source maps for debugging
+ * - Produces deterministic runtime artifacts without source maps
  * - Skips test files
  */
 
@@ -17,7 +17,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
-const botDir = path.join(rootDir, 'src/main/modules/bot');
+const botSourceDir = path.join(rootDir, 'src/main/modules/bot');
+const botRuntimeOutDir = path.join(rootDir, 'build/bot-runtime');
 
 /**
  * Find all TypeScript files in a directory recursively
@@ -108,11 +109,16 @@ function findJsFiles(dir, files = []) {
 
 async function build() {
   console.log('🔨 Building Node.js bot...');
-  console.log(`Bot directory: ${botDir}`);
+  console.log(`Bot source directory: ${botSourceDir}`);
+  console.log(`Bot runtime output: ${botRuntimeOutDir}`);
 
   try {
+    // Clean runtime output to avoid stale generated files
+    fs.rmSync(botRuntimeOutDir, { recursive: true, force: true });
+    fs.mkdirSync(botRuntimeOutDir, { recursive: true });
+
     // Find all TypeScript files
-    const tsFiles = findTsFiles(botDir);
+    const tsFiles = findTsFiles(botSourceDir);
     console.log(`Found ${tsFiles.length} TypeScript files to compile`);
 
     if (tsFiles.length === 0) {
@@ -124,12 +130,12 @@ async function build() {
     const _result = await esbuild.build({
       entryPoints: tsFiles,
       bundle: false, // Don't bundle - keep individual files
-      outdir: botDir,
-      outbase: botDir,
+      outdir: botRuntimeOutDir,
+      outbase: botSourceDir,
       platform: 'node',
       target: 'node18',
       format: 'esm',
-      sourcemap: true,
+      sourcemap: false,
       outExtension: { '.js': '.js' },
       // No plugins needed - we'll post-process the files
     });
@@ -139,11 +145,17 @@ async function build() {
     
     // Post-process: Add .js extensions to all imports in generated JS files
     console.log('📝 Adding .js extensions to imports...');
-    const jsFiles = findJsFiles(botDir);
+    const jsFiles = findJsFiles(botRuntimeOutDir);
     for (const jsFile of jsFiles) {
       addJsExtensionsToFile(jsFile);
     }
     console.log(`   Fixed imports in ${jsFiles.length} JavaScript files`);
+
+    const botEntry = path.join(botRuntimeOutDir, 'index.js');
+    if (!fs.existsSync(botEntry)) {
+      throw new Error(`Build completed but bot entry is missing: ${botEntry}`);
+    }
+    console.log(`   Bot entry: ${botEntry}`);
     
     console.log('✅ Bot build complete');
     
