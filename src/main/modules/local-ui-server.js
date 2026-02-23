@@ -19,6 +19,7 @@ const HEALTH_POLL_MS = 200;
 let localServerProcess = null;
 let localUiUrl = null;
 let startupPromise = null;
+let lastSuccessfulPort = PORT_START;
 
 function getStandaloneDir() {
   if (app.isPackaged) {
@@ -47,9 +48,17 @@ function isPortAvailable(port) {
   });
 }
 
-async function findOpenPort() {
+function isPortInRange(port) {
+  return Number.isInteger(port) && port >= PORT_START && port <= PORT_END;
+}
+
+async function findOpenPort(preferredPort) {
+  if (isPortInRange(preferredPort)) {
+    if (await isPortAvailable(preferredPort)) return preferredPort;
+  }
+
   for (let port = PORT_START; port <= PORT_END; port += 1) {
-    // eslint-disable-next-line no-await-in-loop
+    if (port === preferredPort) continue;
     if (await isPortAvailable(port)) return port;
   }
   throw new Error(`No available port found in range ${PORT_START}-${PORT_END}`);
@@ -68,7 +77,6 @@ async function waitForServerReady(url) {
       // Keep polling until timeout.
     }
 
-    // eslint-disable-next-line no-await-in-loop
     await wait(HEALTH_POLL_MS);
   }
 
@@ -92,7 +100,7 @@ export async function startLocalUiServer() {
       throw new Error(`Bundled UI entry not found: ${entryPath}`);
     }
 
-    const port = await findOpenPort();
+    const port = await findOpenPort(lastSuccessfulPort);
     const url = `http://${LOCAL_HOST}:${port}/desktop`;
     const backendOrigin = URLS.PRODUCTION_ORIGIN || URLS.PRODUCTION.replace(/\/desktop$/, '');
 
@@ -137,6 +145,7 @@ export async function startLocalUiServer() {
 
     await waitForServerReady(url);
     localUiUrl = url;
+    lastSuccessfulPort = port;
     logger.success(`Local UI server ready at ${url}`);
     return url;
   })();
@@ -149,6 +158,8 @@ export async function startLocalUiServer() {
 }
 
 export function stopLocalUiServer() {
+  startupPromise = null;
+
   if (!localServerProcess || localServerProcess.killed) {
     return;
   }
@@ -157,4 +168,10 @@ export function stopLocalUiServer() {
   localServerProcess.kill();
   localServerProcess = null;
   localUiUrl = null;
+}
+
+export async function restartLocalUiServer() {
+  stopLocalUiServer();
+  await wait(150);
+  return startLocalUiServer();
 }

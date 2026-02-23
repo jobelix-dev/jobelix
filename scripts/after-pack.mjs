@@ -46,20 +46,44 @@ export default async function afterPack(context) {
 async function pruneBundledStandalone(appOutDir) {
   const standaloneDir = path.join(appOutDir, 'resources', 'next', 'standalone');
   if (!fs.existsSync(standaloneDir)) {
-    return;
+    throw new Error(
+      `Bundled desktop UI missing at ${standaloneDir}. ` +
+      'Ensure .next/standalone is produced and included via electron-builder extraResources.'
+    );
+  }
+
+  const standaloneEntry = path.join(standaloneDir, 'server.js');
+  if (!fs.existsSync(standaloneEntry)) {
+    throw new Error(
+      `Bundled desktop UI entry missing at ${standaloneEntry}. ` +
+      'Release build is incomplete and should not be published.'
+    );
   }
 
   let removedCount = 0;
   let removedBytes = 0;
 
   const shouldRemove = (filePath) => {
+    const normalized = filePath.replace(/\\/g, '/').toLowerCase();
     const basename = path.basename(filePath).toLowerCase();
 
+    if (normalized.includes('/__tests__/')) return true;
+    if (normalized.includes('/test/')) return true;
+    if (normalized.includes('/tests/')) return true;
+
+    if (basename.includes('.test.')) return true;
+    if (basename.includes('.spec.')) return true;
     if (basename.endsWith('.map')) return true;
+    if (basename.endsWith('.d.ts')) return true;
+    if (basename.endsWith('.md')) return true;
+    if (basename.endsWith('.markdown')) return true;
+    if (basename.endsWith('.tsbuildinfo')) return true;
     if (basename === '.npmignore') return true;
     if (basename === 'readme' || basename.startsWith('readme.')) return true;
     if (basename === 'changelog' || basename.startsWith('changelog.')) return true;
     if (basename === 'history' || basename.startsWith('history.')) return true;
+    if (basename === 'package-lock.json') return true;
+    if (basename === 'tsconfig.json' || basename.startsWith('tsconfig.')) return true;
     return false;
   };
 

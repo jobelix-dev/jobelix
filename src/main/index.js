@@ -74,6 +74,7 @@ app.on('second-instance', () => {
 
 const startTime = Date.now();
 const elapsed = () => Date.now() - startTime;
+const AUTO_UPDATER_DELAY_MS = 10000;
 
 async function initializeApp() {
   try {
@@ -109,10 +110,16 @@ async function initializeApp() {
       logger.success('Next.js ready');
     }
     
-    // Defer auto-updater until after window content loads
+    // Defer auto-updater until after window content loads and startup settles.
+    // This avoids competing for CPU/network during first paint.
     onMainWindowReady(() => {
-      logger.info(`⏱️ [${elapsed()}ms] Content loaded, starting auto-updater`);
-      initAutoUpdater();
+      logger.info(
+        `⏱️ [${elapsed()}ms] Content loaded, scheduling auto-updater in ${AUTO_UPDATER_DELAY_MS}ms`
+      );
+      setTimeout(() => {
+        logger.info(`⏱️ [${elapsed()}ms] Starting auto-updater`);
+        initAutoUpdater();
+      }, AUTO_UPDATER_DELAY_MS);
     });
     
     await createMainWindow();

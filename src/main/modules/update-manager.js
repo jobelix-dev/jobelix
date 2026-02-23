@@ -51,6 +51,23 @@ function isLinux() {
   return process.platform === 'linux';
 }
 
+function isLocalhost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
+function isAllowedExternalHost(hostname) {
+  if (isLocalhost(hostname)) return true;
+  if (hostname === 'github.com' || hostname === 'www.github.com') return true;
+  if (hostname === 'jobelix.fr' || hostname === 'www.jobelix.fr') return true;
+  if (hostname.endsWith('.jobelix.fr')) return true;
+  return false;
+}
+
+function isMissingLinuxUpdateConfigError(message) {
+  const normalized = String(message || '').toLowerCase();
+  return normalized.includes('enoent') && normalized.includes('app-update.yml');
+}
+
 /** Detect Linux distro from /etc/os-release */
 function getLinuxDistro() {
   try {
@@ -164,8 +181,17 @@ function setupUpdateEvents() {
   });
 
   autoUpdater.on('error', (err) => {
-    logger.error('Auto-updater error:', err.message);
-    sendToRenderer('update-error', { message: err.message });
+    const message = err?.message || String(err);
+
+    // AppImage extract-and-run modes can miss app-update.yml even though
+    // Linux uses manual update flow in this app. Avoid noisy false errors.
+    if (isLinux() && isMissingLinuxUpdateConfigError(message)) {
+      logger.warn('Skipping Linux updater error (missing app-update.yml in extracted AppImage mode)');
+      return;
+    }
+
+    logger.error('Auto-updater error:', message);
+    sendToRenderer('update-error', { message });
   });
 }
 
@@ -216,7 +242,12 @@ export async function initAutoUpdater() {
 
   logger.info('Checking for updates...');
   autoUpdater.checkForUpdates().catch(err => {
-    logger.error('Failed to check for updates:', err.message);
+    const message = err?.message || String(err);
+    if (isLinux() && isMissingLinuxUpdateConfigError(message)) {
+      logger.warn('Skipping Linux update check error (missing app-update.yml in extracted AppImage mode)');
+      return;
+    }
+    logger.error('Failed to check for updates:', message);
   });
 }
 
@@ -227,6 +258,10 @@ export function openExternalUrl(url) {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
       logger.warn(`Blocked opening URL with disallowed protocol: ${parsed.protocol}`);
+      return;
+    }
+    if (!isAllowedExternalHost(parsed.hostname)) {
+      logger.warn(`Blocked opening URL with disallowed host: ${parsed.hostname}`);
       return;
     }
   } catch {
