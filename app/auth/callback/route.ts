@@ -129,6 +129,26 @@ function clearReferralCookie(response: NextResponse): NextResponse {
   return response
 }
 
+function sanitizeNextPath(rawNext: string | null): string {
+  const fallback = '/dashboard'
+  if (!rawNext) return fallback
+
+  const candidate = rawNext.trim()
+  if (!candidate.startsWith('/')) return fallback
+  if (candidate.startsWith('//')) return fallback
+  if (candidate.includes('\\')) return fallback
+  if (/[\u0000-\u001F\u007F]/.test(candidate)) return fallback
+
+  try {
+    const normalized = new URL(candidate, 'https://www.jobelix.fr')
+    if (normalized.origin !== 'https://www.jobelix.fr') return fallback
+    if (!normalized.pathname.startsWith('/')) return fallback
+    return `${normalized.pathname}${normalized.search}${normalized.hash}`
+  } catch {
+    return fallback
+  }
+}
+
 /**
  * Ensure OAuth user has a student profile.
  * OAuth users don't have a role in user_metadata, so the trigger doesn't create a profile.
@@ -305,16 +325,15 @@ export async function GET(request: NextRequest) {
   const token = requestUrl.searchParams.get('token')
   const token_hash = requestUrl.searchParams.get('token_hash')
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null
-  const next = requestUrl.searchParams.get('next') || '/dashboard'
+  const next = requestUrl.searchParams.get('next')
   const isPopup = requestUrl.searchParams.get('popup') === 'true'
 
   // Supabase may redirect here with an error (e.g., duplicate email across providers)
   const errorParam = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
 
-  // Validate the 'next' parameter to prevent open redirect attacks
-  // Must be a relative path starting with '/' but not '//' (protocol-relative URL)
-  const safeNext = (next.startsWith('/') && !next.startsWith('//')) ? next : '/dashboard'
+  // Validate and normalize the `next` parameter to prevent open redirects.
+  const safeNext = sanitizeNextPath(next)
 
   console.log('[Callback] ===== STARTING CALLBACK PROCESS =====')
   console.log('[Callback] Code present:', !!code)

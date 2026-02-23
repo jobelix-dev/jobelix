@@ -30,7 +30,7 @@ const mockLogApiCall = vi.fn();
 vi.mock('@/lib/server/rateLimiting', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
   logApiCall: (...args: unknown[]) => mockLogApiCall(...args),
-  rateLimitExceededResponse: vi.fn((config, result) =>
+  rateLimitExceededResponse: vi.fn((_config, _result) =>
     NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
   ),
   addRateLimitHeaders: vi.fn((response) => response),
@@ -412,7 +412,7 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
       expect(json.error).toBe('Invalid ID format');
     });
 
-    it('leaks RPC error details in response (documented info leakage)', async () => {
+    it('returns generic finalize error when RPC fails (no details leakage)', async () => {
       const chain = authSuccess();
       const draftId = '12345678-1234-1234-1234-123456789abc';
       // Draft fetch succeeds
@@ -439,8 +439,8 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
       const res = await POST(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      // The route exposes rpcError.message in `details` — this is the documented leakage
-      expect(json.details).toBe('relation "student_profiles" does not exist');
+      expect(json.error).toBe('Failed to save profile');
+      expect(json).not.toHaveProperty('details');
     });
   });
 
@@ -503,7 +503,7 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
           skills: ['JavaScript'],           // allowed
         },
       });
-      const res = await PUT(req, { params: Promise.resolve({ id: draftId }) });
+      await PUT(req, { params: Promise.resolve({ id: draftId }) });
 
       // The update call should only include whitelisted fields + updated_at
       const updateArg = mockUpdate.mock.calls[0][0];
@@ -761,13 +761,15 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
 
     it('Student profile draft PUT: null bytes in field values do not crash', async () => {
       const chain = authSuccess();
+      const validDraftId = '12345678-1234-1234-1234-123456789abc';
+
       chain.from.mockReturnValue({
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               select: vi.fn().mockReturnValue({
                 single: vi.fn().mockResolvedValue({
-                  data: { id: 'draft-1', student_name: 'test\x00injected' },
+                  data: { id: validDraftId, student_name: 'test\x00injected' },
                   error: null,
                 }),
               }),
@@ -779,7 +781,7 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
       const { PUT } = await import('@/app/api/student/profile/draft/route');
       const req = createRequest('/api/student/profile/draft', {
         method: 'PUT',
-        body: { draftId: 'draft-1', updates: { student_name: 'test\x00injected' } },
+        body: { draftId: validDraftId, updates: { student_name: 'test\x00injected' } },
       });
       const res = await PUT(req);
       // Should not crash — the route passes data through to Supabase
@@ -828,12 +830,13 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
 
     it('Student profile draft PUT: non-whitelisted fields are stripped', async () => {
       const chain = authSuccess();
+      const validDraftId = '12345678-1234-1234-1234-123456789abc';
       const mockUpdate = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({
-                data: { id: 'draft-1', student_name: 'test' },
+                data: { id: validDraftId, student_name: 'test' },
                 error: null,
               }),
             }),
@@ -846,7 +849,7 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
       const req = createRequest('/api/student/profile/draft', {
         method: 'PUT',
         body: {
-          draftId: 'draft-1',
+          draftId: validDraftId,
           updates: {
             student_name: 'Legit Name',       // allowed
             student_id: 'attacker-id',         // NOT allowed — should be stripped
@@ -855,7 +858,7 @@ describe('Security: Input Fuzzing & Malformed Data', () => {
           },
         },
       });
-      const res = await PUT(req);
+      await PUT(req);
 
       // The update call should only include whitelisted fields + status:'editing' + updated_at
       const updateArg = mockUpdate.mock.calls[0][0];

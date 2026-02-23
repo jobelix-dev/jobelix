@@ -24,6 +24,7 @@ import {
   isValidCountryCode,
   DEFAULT_COUNTRY,
   PRIORITY_COUNTRIES,
+  type CountryCode,
 } from '../phone';
 
 // ============================================================================
@@ -104,7 +105,7 @@ describe('getCountryName', () => {
 
   it('should return code as fallback for unknown country', () => {
     // XK (Kosovo) may not be in the COUNTRY_NAMES map
-    const name = getCountryName('XK' as any);
+    const name = getCountryName('XK' as CountryCode);
     // Should return either the name or the code
     expect(typeof name).toBe('string');
     expect(name.length).toBeGreaterThan(0);

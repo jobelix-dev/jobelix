@@ -454,9 +454,7 @@ describe('POST /api/stripe/webhook', () => {
         data: [{ price: { id: 'price_250' } }],
       });
 
-      let callCount = 0;
       mockServiceFrom.mockImplementation(() => {
-        callCount++;
         // All layers: no data
         return chainable({ data: null, error: null });
       });

@@ -17,8 +17,6 @@ import {
   getReferralCodeFromCookie,
   extractReferralCodeFromUrl,
   addReferralCodeToUrl,
-  getReferralCodeFromAnySource,
-  clearAllReferralStorage,
 } from '../referral';
 
 // ============================================================================
@@ -79,7 +77,7 @@ describe('validateReferralCode', () => {
   });
 
   it('should return null for non-string type', () => {
-    expect(validateReferralCode(12345678 as any)).toBeNull();
+    expect(validateReferralCode(12345678 as unknown as string)).toBeNull();
   });
 });
 

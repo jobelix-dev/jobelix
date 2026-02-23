@@ -136,7 +136,7 @@ describe('Security: Referral System & Credits System', () => {
   // 1. Referral — self-referral prevention (DB-enforced)
   // =========================================================================
   describe('Referral — self-referral prevention', () => {
-    it('rejects when user applies their own referral code (RPC returns error)', async () => {
+    it('returns uniform generic error when user applies their own referral code', async () => {
       const mockChain = authSuccess('user-self');
       mockChain.rpc.mockResolvedValue({
         data: [{ success: false, error_message: 'Cannot use your own referral code' }],
@@ -151,7 +151,7 @@ describe('Security: Referral System & Credits System', () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toContain('Cannot use your own referral code');
+      expect(body.error).toBe('Invalid or expired referral code');
     });
 
     it('succeeds when user applies a valid other user code', async () => {
@@ -210,7 +210,7 @@ describe('Security: Referral System & Credits System', () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toContain('already used a referral code');
+      expect(body.error).toBe('Invalid or expired referral code');
     });
   });
 
@@ -277,7 +277,7 @@ describe('Security: Referral System & Credits System', () => {
     });
 
     it('logs API call for both invalid format and valid-but-wrong codes', async () => {
-      const mockChain = authSuccess('user-f');
+      authSuccess('user-f');
 
       const { POST } = await import('@/app/api/student/referral/apply/route');
 

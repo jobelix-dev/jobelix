@@ -19,8 +19,8 @@ import { createHmac, timingSafeEqual } from 'crypto';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // Secret for signing/verifying unsubscribe tokens.
-// Falls back to RESEND_API_KEY if dedicated secret is not set.
-const UNSUBSCRIBE_SECRET = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET || process.env.RESEND_API_KEY;
+// Must be dedicated (do not reuse provider API keys for token signing).
+const UNSUBSCRIBE_SECRET = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.trim() || '';
 const TOKEN_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 function getUnsubscribeSecret(): string {
@@ -85,11 +85,13 @@ export function generateUnsubscribeUrl(
 
 async function unsubscribeContact(email: string): Promise<boolean> {
   if (!resend || !email) return false;
+
+  const normalizedEmail = email.toLowerCase();
   
   try {
     // Find the contact by email
     const { data: contacts } = await resend.contacts.list();
-    const contact = contacts?.data?.find(c => c.email === email);
+    const contact = contacts?.data?.find((c) => c.email.toLowerCase() === normalizedEmail);
     
     if (contact) {
       // Update contact to unsubscribed

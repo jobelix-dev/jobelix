@@ -19,13 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { enforceSameOrigin } from '@/lib/server/csrf';
-
-// Rate limit config: strict limits to prevent brute-force attempts
-const RATE_LIMIT_CONFIG = {
-  endpoint: 'referral-apply',
-  hourlyLimit: 5,   // 5 attempts per hour
-  dailyLimit: 20,   // 20 attempts per day
-};
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,10 +34,11 @@ export async function POST(req: NextRequest) {
     const { user, supabase } = auth;
 
     // Check rate limit before processing
-    const rateLimitResult = await checkRateLimit(user.id, RATE_LIMIT_CONFIG);
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.referralApply;
+    const rateLimitResult = await checkRateLimit(user.id, rateLimitConfig);
     if (rateLimitResult.error) return rateLimitResult.error;
     if (!rateLimitResult.data.allowed) {
-      return rateLimitExceededResponse(RATE_LIMIT_CONFIG, rateLimitResult.data);
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data);
     }
 
     // Parse request body
@@ -58,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     if (!code || typeof code !== 'string') {
       // Log the attempt for rate limiting
-      await logApiCall(user.id, RATE_LIMIT_CONFIG.endpoint);
+      await logApiCall(user.id, rateLimitConfig.endpoint);
       return NextResponse.json({ error: 'Referral code is required' }, { status: 400 });
     }
 
@@ -66,7 +61,7 @@ export async function POST(req: NextRequest) {
     const normalizedCode = code.toLowerCase().trim();
     if (!/^[a-z0-9]{8}$/.test(normalizedCode)) {
       // Log the attempt for rate limiting
-      await logApiCall(user.id, RATE_LIMIT_CONFIG.endpoint);
+      await logApiCall(user.id, rateLimitConfig.endpoint);
       // Use generic error to prevent format enumeration
       return NextResponse.json({ error: 'Invalid or expired referral code' }, { status: 400 });
     }
@@ -76,7 +71,7 @@ export async function POST(req: NextRequest) {
       .rpc('apply_referral_code', { p_code: normalizedCode });
 
     // Log the attempt for rate limiting (regardless of success)
-    await logApiCall(user.id, RATE_LIMIT_CONFIG.endpoint);
+    await logApiCall(user.id, rateLimitConfig.endpoint);
 
     if (applyError) {
       console.error('[Referral Apply] Database error:', applyError);

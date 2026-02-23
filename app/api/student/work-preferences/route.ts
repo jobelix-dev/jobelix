@@ -12,6 +12,7 @@ import { authenticateRequest } from '@/lib/server/auth'
 import { validateRequest, workPreferencesSchema } from '@/lib/server/validation'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
 import { enforceSameOrigin } from '@/lib/server/csrf'
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies'
 
 export async function GET() {
   try {
@@ -48,19 +49,12 @@ export async function POST(request: NextRequest) {
 
     const { user, supabase } = auth
 
-    // Rate limiting: 20 updates per hour, 100 per day
-    const rateLimitResult = await checkRateLimit(user.id, {
-      endpoint: 'work-preferences',
-      hourlyLimit: 20,
-      dailyLimit: 100,
-    })
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.workPreferences
+    const rateLimitResult = await checkRateLimit(user.id, rateLimitConfig)
 
     if (rateLimitResult.error) return rateLimitResult.error
     if (!rateLimitResult.data.allowed) {
-      return rateLimitExceededResponse(
-        { endpoint: 'work-preferences', hourlyLimit: 20, dailyLimit: 100 },
-        rateLimitResult.data
-      )
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data)
     }
 
     // Parse and validate request body
@@ -96,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the API call for rate limiting
-    await logApiCall(user.id, 'work-preferences')
+    await logApiCall(user.id, rateLimitConfig.endpoint)
 
     return NextResponse.json({ success: true, preferences: data })
   } catch (error: unknown) {

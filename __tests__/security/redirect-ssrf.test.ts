@@ -87,7 +87,11 @@ function createRequest(
     headers?: Record<string, string>;
   },
 ): NextRequest {
-  return new NextRequest(`http://localhost:3000${url}`, {
+  const requestUrl = url.startsWith('http://') || url.startsWith('https://')
+    ? url
+    : `http://localhost:3000${url}`;
+
+  return new NextRequest(requestUrl, {
     method: options?.method ?? 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -239,20 +243,9 @@ describe('Security: Open Redirect & SSRF Protection', () => {
       expect(getRedirectPath(res)).toBe('/dashboard');
     });
 
-    it('documents backslash variant /\\evil.com — URL constructor normalizes \\ to //', async () => {
-      // KNOWN ISSUE: `/\evil.com` passes the `startsWith('/')` and
-      // `!startsWith('//')` checks, but `new URL('/\\evil.com', origin)`
-      // normalizes the backslash to a forward slash, producing `//evil.com`
-      // which is a protocol-relative URL resolving to http://evil.com.
-      //
-      // This is documented here so it can be addressed if needed. In
-      // practice, browsers rarely send backslashes in query params and most
-      // proxies normalize them, but it is a theoretical bypass vector.
+    it('blocks backslash variants like /\\evil.com → /dashboard', async () => {
       const res = await callCallbackWithNext('/\\evil.com');
-      const location = res.headers.get('location') ?? '';
-      const url = new URL(location);
-      // The URL constructor turns /\ into //, redirecting to evil.com
-      expect(url.hostname).toBe('evil.com');
+      expect(getRedirectPath(res)).toBe('/dashboard');
     });
   });
 
@@ -389,18 +382,19 @@ describe('Security: Open Redirect & SSRF Protection', () => {
   // 4. Auth callback — wrong domain redirect (jobelix.fr)
   // =========================================================================
   describe('Auth callback — wrong domain redirect', () => {
-    it('redirects to correct domain when host is www.jobelix.fr', async () => {
+    it('redirects legacy callback host to canonical NEXT_PUBLIC_APP_URL origin', async () => {
       process.env.NEXT_PUBLIC_APP_URL = 'https://app.jobelix.com';
 
       const { GET } = await import('@/app/auth/callback/route');
       const req = createRequest(
-        '/auth/callback?token_hash=hash&type=recovery',
-        { headers: { host: 'www.jobelix.fr' } },
+        'https://www.jobelix.fr/auth/callback?token_hash=hash&type=recovery',
       );
       const res = await GET(req);
 
       const location = res.headers.get('location') ?? '';
-      expect(location).toContain('app.jobelix.com');
+      expect(location).toBe(
+        'https://app.jobelix.com/auth/callback?token_hash=hash&type=recovery',
+      );
 
       delete process.env.NEXT_PUBLIC_APP_URL;
     });
@@ -450,7 +444,7 @@ describe('Security: Open Redirect & SSRF Protection', () => {
       delete process.env.NEXT_PUBLIC_APP_URL;
     });
 
-    it('falls back to x-forwarded-host when NEXT_PUBLIC_APP_URL is unset', async () => {
+    it('uses request origin in non-production when NEXT_PUBLIC_APP_URL is unset', async () => {
       delete process.env.NEXT_PUBLIC_APP_URL;
 
       const { POST } = await import('@/app/api/auth/signup/route');
@@ -469,13 +463,11 @@ describe('Security: Open Redirect & SSRF Protection', () => {
 
       await POST(req);
 
-      // When env var is not set, the route uses x-forwarded-host — this is the
-      // documented behavior. The test documents the potential host header
-      // injection surface so it can be audited.
       const signUpCall = mockServiceSignUp.mock.calls[0];
       expect(signUpCall).toBeDefined();
       const redirectTo = signUpCall[0]?.options?.emailRedirectTo as string;
-      expect(redirectTo).toContain('evil.com');
+      expect(redirectTo).toContain('http://localhost:3000');
+      expect(redirectTo).not.toContain('evil.com');
     });
   });
 

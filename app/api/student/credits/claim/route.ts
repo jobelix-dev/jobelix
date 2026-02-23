@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
 import { enforceSameOrigin } from '@/lib/server/csrf'
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies'
 
 export async function POST(request?: NextRequest) {
   try {
@@ -23,19 +24,12 @@ export async function POST(request?: NextRequest) {
 
     const { user, supabase } = auth
 
-    // Rate limiting: 10 attempts per hour (generous since it's once per day anyway)
-    const rateLimitResult = await checkRateLimit(user.id, {
-      endpoint: 'credits-claim',
-      hourlyLimit: 10,
-      dailyLimit: 50,
-    })
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.creditsClaim
+    const rateLimitResult = await checkRateLimit(user.id, rateLimitConfig)
 
     if (rateLimitResult.error) return rateLimitResult.error
     if (!rateLimitResult.data.allowed) {
-      return rateLimitExceededResponse(
-        { endpoint: 'credits-claim', hourlyLimit: 10, dailyLimit: 50 },
-        rateLimitResult.data
-      )
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data)
     }
 
     // Call grant_daily_credits function
@@ -55,7 +49,7 @@ export async function POST(request?: NextRequest) {
     const result = data[0]
 
     // Log the API call for rate limiting (even if already claimed)
-    await logApiCall(user.id, 'credits-claim')
+    await logApiCall(user.id, rateLimitConfig.endpoint)
 
     if (!result.success) {
       // User already claimed today

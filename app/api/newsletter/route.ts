@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { generateUnsubscribeUrl } from './unsubscribe/route';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -28,11 +29,7 @@ const newsletterSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitConfig = {
-      endpoint: 'newsletter-subscribe',
-      hourlyLimit: 5,
-      dailyLimit: 20,
-    };
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.newsletterSubscribe;
 
     const identity = await hashToPseudoUuid('newsletter-subscribe', getClientIp(request));
     const rateLimitResult = await checkRateLimit(identity, rateLimitConfig);
