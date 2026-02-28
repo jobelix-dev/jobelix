@@ -21,6 +21,8 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 
+export async function POST(): Promise<NextResponse>;
+export async function POST(request: NextRequest): Promise<NextResponse>;
 export async function POST(request?: NextRequest) {
   try {
     const csrfError = enforceSameOrigin(request);
