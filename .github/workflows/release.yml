@@ -123,7 +123,7 @@ jobs:
         env:
           JOBELIX_DESKTOP_BUNDLE: '1'
           NEXT_DESKTOP_BACKEND_ORIGIN: 'https://www.jobelix.fr'
-        run: npm run build
+        run: npx next build --webpack
 
       - name: Verify standalone bundle output
         shell: bash

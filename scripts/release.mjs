@@ -305,8 +305,8 @@ async function main() {
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
   // Build local desktop UI bundle (Next standalone)
-  console.log('\nBuilding local desktop UI bundle (Next standalone)...');
-  const nextBuildResult = spawnSync(cmd, ['next', 'build'], {
+  console.log('\nBuilding local desktop UI bundle (Next standalone via webpack)...');
+  const nextBuildResult = spawnSync(cmd, ['next', 'build', '--webpack'], {
     stdio: 'inherit',
     env: {
       ...env,
