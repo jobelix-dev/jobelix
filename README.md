@@ -17,7 +17,7 @@
 
 ## Overview
 
-Jobelix combines a web app and a desktop automation app to streamline LinkedIn job applications.
+Jobelix combines a web app and a desktop automation app to streamline LinkedIn job applications for free.
 
 - Build and manage your profile in the web app
 - Parse resumes and answer screening questions with AI
