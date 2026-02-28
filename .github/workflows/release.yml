@@ -119,8 +119,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Next.js app
+      - name: Build Next.js desktop bundle
+        env:
+          JOBELIX_DESKTOP_BUNDLE: '1'
+          NEXT_DESKTOP_BACKEND_ORIGIN: 'https://www.jobelix.fr'
         run: npm run build
+
+      - name: Verify standalone bundle output
+        shell: bash
+        run: |
+          test -f .next/standalone/server.js
+          test -d .next/static
 
       - name: Build bot TypeScript
         run: npm run build:bot
