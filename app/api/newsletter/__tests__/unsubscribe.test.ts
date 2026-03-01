@@ -4,7 +4,7 @@
  * Covers:
  * - GET: Parameter validation, token verification, unsubscribe flow, HTML response
  * - POST: One-click unsubscribe (RFC 8058), error handling
- * - Exported helpers: generateUnsubscribeToken, generateUnsubscribeUrl
+ * - Helper exports: generateUnsubscribeToken, generateUnsubscribeUrl
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -316,7 +316,7 @@ describe('generateUnsubscribeToken', () => {
   let generateUnsubscribeToken: (email: string, issuedAtMs?: number) => string;
 
   beforeEach(async () => {
-    const mod = await import('../../newsletter/unsubscribe/route');
+    const mod = await import('../../newsletter/unsubscribe/helpers');
     generateUnsubscribeToken = mod.generateUnsubscribeToken;
   });
 
@@ -351,7 +351,7 @@ describe('generateUnsubscribeUrl', () => {
   let generateUnsubscribeUrl: (email: string, baseUrl?: string, issuedAtMs?: number) => string;
 
   beforeEach(async () => {
-    const mod = await import('../../newsletter/unsubscribe/route');
+    const mod = await import('../../newsletter/unsubscribe/helpers');
     generateUnsubscribeUrl = mod.generateUnsubscribeUrl;
   });
 
@@ -405,7 +405,7 @@ describe('secret configuration', () => {
 
   it('throws when generating token without configured secret', async () => {
     process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = '';
-    const mod = await import('../../newsletter/unsubscribe/route');
+    const mod = await import('../../newsletter/unsubscribe/helpers');
 
     expect(() => mod.generateUnsubscribeToken('test@test.com')).toThrow(
       'Newsletter unsubscribe secret is not configured'

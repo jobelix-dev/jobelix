@@ -90,8 +90,8 @@ vi.mock('@/lib/server/emailTemplates', () => ({
   getFeedbackEmailSubject: vi.fn().mockReturnValue('Feedback: test'),
 }));
 
-// Newsletter unsubscribe route mock (imported as relative path in newsletter/route.ts)
-vi.mock('@/app/api/newsletter/unsubscribe/route', () => ({
+// Newsletter unsubscribe helper mock
+vi.mock('@/app/api/newsletter/unsubscribe/helpers', () => ({
   generateUnsubscribeUrl: vi.fn().mockReturnValue('https://example.com/unsubscribe'),
 }));
 

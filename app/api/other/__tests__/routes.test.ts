@@ -29,7 +29,7 @@ vi.mock('resend', () => {
 });
 
 // Mock newsletter unsubscribe helper
-vi.mock('@/app/api/newsletter/unsubscribe/route', () => ({
+vi.mock('@/app/api/newsletter/unsubscribe/helpers', () => ({
   generateUnsubscribeUrl: vi.fn().mockReturnValue('https://example.com/unsubscribe?token=xxx'),
 }));
 

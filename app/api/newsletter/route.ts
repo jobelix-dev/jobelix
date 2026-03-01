@@ -16,7 +16,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { z } from 'zod';
-import { generateUnsubscribeUrl } from './unsubscribe/route';
+import { generateUnsubscribeUrl } from '@/app/api/newsletter/unsubscribe/helpers';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
 import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
