@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.40",
+  "version": "0.0.41",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
@@ -65,6 +65,19 @@
       {
         "from": ".next/standalone",
         "to": "next/standalone"
+      },
+      {
+        "from": "node_modules/next",
+        "to": "next/standalone/node_modules/next",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
       },
       {
         "from": ".next/static",

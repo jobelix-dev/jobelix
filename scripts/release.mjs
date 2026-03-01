@@ -209,10 +209,18 @@ function getProjectRoot() {
 function verifyStandaloneBuildInputs() {
   const root = getProjectRoot();
   const standaloneEntry = path.join(root, '.next', 'standalone', 'server.js');
+  const standaloneNextPackage = path.join(root, '.next', 'standalone', 'node_modules', 'next', 'package.json');
+  const standaloneNextEntry = path.join(root, '.next', 'standalone', 'node_modules', 'next', 'dist', 'server', 'next.js');
   const staticDir = path.join(root, '.next', 'static');
 
   if (!fs.existsSync(standaloneEntry)) {
     throw new Error(`Missing standalone entry: ${standaloneEntry}`);
+  }
+  if (!fs.existsSync(standaloneNextPackage) || !fs.existsSync(standaloneNextEntry)) {
+    throw new Error(
+      'Missing standalone Next.js runtime in .next/standalone/node_modules/next. ' +
+      'The packaged desktop UI would fail to boot.'
+    );
   }
   if (!fs.existsSync(staticDir)) {
     throw new Error(`Missing standalone static assets: ${staticDir}`);
