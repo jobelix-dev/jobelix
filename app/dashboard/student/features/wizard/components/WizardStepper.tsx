@@ -52,7 +52,7 @@ interface WizardStepperProps {
 
 export default function WizardStepper({
   currentStep,
-  completedSteps,
+  completedSteps: _completedSteps,
   onStepClick,
   disabledSteps,
   warningSteps,

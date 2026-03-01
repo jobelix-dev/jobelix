@@ -133,10 +133,8 @@ describe('GET /api/company/offer', () => {
 
   // ---- Happy path: empty lists ----
   it('returns empty arrays when no offers exist', async () => {
-    let callCount = 0;
     const mockSb = {
       from: vi.fn().mockImplementation(() => {
-        callCount++;
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -241,10 +239,8 @@ describe('GET /api/company/offer', () => {
   it('filters offers by the authenticated user id', async () => {
     const eqMock = vi.fn().mockReturnThis();
     const isMock = vi.fn().mockReturnThis();
-    let callCount = 0;
     const mockSb = {
       from: vi.fn().mockImplementation(() => {
-        callCount++;
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: eqMock,
@@ -270,10 +266,8 @@ describe('GET /api/company/offer', () => {
   // ---- Drafts filtered by offer_id IS NULL ----
   it('filters drafts where offer_id is null', async () => {
     const isMock = vi.fn().mockReturnThis();
-    let callCount = 0;
     const mockSb = {
       from: vi.fn().mockImplementation(() => {
-        callCount++;
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),

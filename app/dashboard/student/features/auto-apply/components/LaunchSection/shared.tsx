@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
@@ -40,14 +40,8 @@ export function InstructionsModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
-  if (!mounted) return null;
+  const portalTarget = typeof document !== 'undefined' ? document.body : null;
+  if (!portalTarget) return null;
 
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1100] p-4">
@@ -133,7 +127,7 @@ export function InstructionsModal({
     </div>
   );
 
-  return createPortal(modalContent, document.body);
+  return createPortal(modalContent, portalTarget);
 }
 
 function InstructionCard({

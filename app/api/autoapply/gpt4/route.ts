@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
 import { checkRateLimit, logApiCall, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies'
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -62,13 +63,6 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
 const MAX_MESSAGES = 5 // 🔐
 const MAX_CHARS_PER_MESSAGE = 30_000 // 🔐
 const MAX_TOTAL_CHARS = 30_000 // 🔐
-
-/**
- * 🔐 Rate limiting configuration
- * Prevents users from spamming the GPT-4 endpoint
- */
-const RATE_LIMIT_HOURLY = 200 // Max 200 calls per hour
-const RATE_LIMIT_DAILY = 1000 // Max 1000 calls per day
 
 export async function POST(req: NextRequest) {
   try {
@@ -137,11 +131,7 @@ export async function POST(req: NextRequest) {
      * 🔐 RATE LIMITING: Check if user is within rate limits
      * This prevents abuse and protects against excessive API costs
      */
-    const rateLimitConfig = {
-      endpoint: 'gpt4',
-      hourlyLimit: RATE_LIMIT_HOURLY,
-      dailyLimit: RATE_LIMIT_DAILY
-    }
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.gpt4
 
     const rateLimitResult = await checkRateLimit(user_id, rateLimitConfig)
     if (rateLimitResult.error) return rateLimitResult.error

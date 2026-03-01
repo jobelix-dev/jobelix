@@ -9,9 +9,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import UpdateNotification from "./components/UpdateNotification";
-import AutoLogin from "./components/AutoLogin";
-import ElectronAnalyticsGuard from "./components/ElectronAnalyticsGuard";
+import ClientRuntimeEffects from "./components/ClientRuntimeEffects";
 import {
   DEFAULT_DESCRIPTION,
   SITE_NAME,
@@ -94,10 +92,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AutoLogin />
+        <ClientRuntimeEffects />
         {children}
-        <UpdateNotification />
-        <ElectronAnalyticsGuard />
       </body>
     </html>
   );

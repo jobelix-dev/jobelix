@@ -5,7 +5,7 @@
  * Covers request handling, error formatting, and API methods.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // We need to mock fetch before importing api
 const mockFetch = vi.fn();

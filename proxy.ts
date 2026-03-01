@@ -1,328 +1,94 @@
 /**
- * Global Proxy Middleware
- * 
- * Handles:
+ * Global proxy middleware.
+ *
+ * Responsibilities:
  * 1. Supabase auth session refresh (keeps users logged in)
- * 2. Rate limiting per IP address
- * 
- * Uses an in-memory store for rate limiting (suitable for single-instance deployments).
- * For production with multiple instances, consider Redis or Upstash.
+ * 2. IP-based rate limiting for public and auth-sensitive endpoints
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import {
+  checkDualWindowLimit,
+  checkSingleWindowLimit,
+  createRateLimitStore,
+} from '@/lib/server/proxyRateLimits';
+import { PROXY_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
-// Rate limit configuration
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 70; // Max requests per IP per minute
+const GENERAL_LIMIT = PROXY_RATE_LIMIT_POLICIES.general;
+const RESUME_UPLOAD_LIMIT = PROXY_RATE_LIMIT_POLICIES.resumeUpload;
+const RESUME_EXTRACT_LIMIT = PROXY_RATE_LIMIT_POLICIES.resumeExtract;
+const AUTH_LIMIT = PROXY_RATE_LIMIT_POLICIES.authAttempts;
+const NEWSLETTER_LIMIT = PROXY_RATE_LIMIT_POLICIES.newsletter;
+const FEEDBACK_LIMIT = PROXY_RATE_LIMIT_POLICIES.feedback;
 
-// Per-route rate limits (stricter for expensive operations)
-const RESUME_UPLOAD_LIMIT = 5; // Max 5 resume uploads per day
-const RESUME_EXTRACT_LIMIT = 5; // Max 5 GPT extractions per day
-const RESUME_RATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours (1 day)
-
-// Auth rate limits (stricter for security)
-const AUTH_RATE_LIMIT = 10; // Max 10 auth attempts per hour
-const AUTH_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-// Newsletter rate limits
-const NEWSLETTER_HOURLY_LIMIT = 5; // Max 5 subscriptions per hour
-const NEWSLETTER_DAILY_LIMIT = 20; // Max 20 subscriptions per day
-
-// Feedback rate limits
-const FEEDBACK_HOURLY_LIMIT = 10; // Max 10 submissions per hour
-const FEEDBACK_DAILY_LIMIT = 50; // Max 50 submissions per day
-
-// In-memory store for rate limiting
-// Map<IP, { count: number, resetTime: number }>
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-// Separate store for resume operations (longer window)
-const resumeRateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-// Separate store for auth operations (security-focused)
-const authRateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-// Separate stores for newsletter and feedback (hourly + daily windows)
-const newsletterHourlyStore = new Map<string, { count: number; resetTime: number }>();
-const newsletterDailyStore = new Map<string, { count: number; resetTime: number }>();
-const feedbackHourlyStore = new Map<string, { count: number; resetTime: number }>();
-const feedbackDailyStore = new Map<string, { count: number; resetTime: number }>();
-
-// Cleanup old entries every 5 minutes to prevent memory leaks
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, data] of rateLimitStore.entries()) {
-    if (data.resetTime < now) {
-      rateLimitStore.delete(ip);
-    }
-  }
-  // Also cleanup resume rate limit store
-  for (const [ip, data] of resumeRateLimitStore.entries()) {
-    if (data.resetTime < now) {
-      resumeRateLimitStore.delete(ip);
-    }
-  }
-  // Also cleanup auth rate limit store
-  for (const [ip, data] of authRateLimitStore.entries()) {
-    if (data.resetTime < now) {
-      authRateLimitStore.delete(ip);
-    }
-  }
-  // Also cleanup newsletter rate limit stores
-  for (const [ip, data] of newsletterHourlyStore.entries()) {
-    if (data.resetTime < now) {
-      newsletterHourlyStore.delete(ip);
-    }
-  }
-  for (const [ip, data] of newsletterDailyStore.entries()) {
-    if (data.resetTime < now) {
-      newsletterDailyStore.delete(ip);
-    }
-  }
-  // Also cleanup feedback rate limit stores
-  for (const [ip, data] of feedbackHourlyStore.entries()) {
-    if (data.resetTime < now) {
-      feedbackHourlyStore.delete(ip);
-    }
-  }
-  for (const [ip, data] of feedbackDailyStore.entries()) {
-    if (data.resetTime < now) {
-      feedbackDailyStore.delete(ip);
-    }
-  }
-}, 5 * 60 * 1000);
+// In-memory counters (per process)
+const requestRateLimitStore = createRateLimitStore();
+const resumeRateLimitStore = createRateLimitStore();
+const authRateLimitStore = createRateLimitStore();
+const newsletterHourlyStore = createRateLimitStore();
+const newsletterDailyStore = createRateLimitStore();
+const feedbackHourlyStore = createRateLimitStore();
+const feedbackDailyStore = createRateLimitStore();
 
 function getClientIP(request: NextRequest): string {
-  // Try multiple headers to get real IP (for proxies/load balancers)
   const forwarded = request.headers.get('x-forwarded-for');
   const real = request.headers.get('x-real-ip');
   const cfConnecting = request.headers.get('cf-connecting-ip');
-  
+
   if (forwarded) {
-    // x-forwarded-for can contain multiple IPs, get the first one
     return forwarded.split(',')[0].trim();
   }
-  
   if (cfConnecting) return cfConnecting;
   if (real) return real;
-  
-  // Fallback to a default (this shouldn't happen in production)
   return 'unknown';
 }
 
-function checkRateLimit(ip: string): { allowed: boolean; limit: number; remaining: number; reset: number } {
-  const now = Date.now();
-  const data = rateLimitStore.get(ip);
-
-  if (!data || data.resetTime < now) {
-    // No data or window expired - create new window
-    rateLimitStore.set(ip, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW_MS
-    });
-
-    return {
-      allowed: true,
-      limit: MAX_REQUESTS_PER_WINDOW,
-      remaining: MAX_REQUESTS_PER_WINDOW - 1,
-      reset: now + RATE_LIMIT_WINDOW_MS
-    };
-  }
-
-  // Increment counter
-  data.count++;
-
-  if (data.count > MAX_REQUESTS_PER_WINDOW) {
-    // Rate limit exceeded
-    return {
-      allowed: false,
-      limit: MAX_REQUESTS_PER_WINDOW,
-      remaining: 0,
-      reset: data.resetTime
-    };
-  }
-
-  // Within limits
-  return {
-    allowed: true,
-    limit: MAX_REQUESTS_PER_WINDOW,
-    remaining: MAX_REQUESTS_PER_WINDOW - data.count,
-    reset: data.resetTime
-  };
+function checkGeneralRateLimit(ip: string) {
+  return checkSingleWindowLimit(
+    requestRateLimitStore,
+    ip,
+    GENERAL_LIMIT.limit,
+    GENERAL_LIMIT.windowMs
+  );
 }
 
-function checkResumeRateLimit(ip: string, route: 'upload' | 'extract'): { allowed: boolean; limit: number; remaining: number; reset: number } {
-  const now = Date.now();
-  const key = `${ip}:${route}`; // Separate counters for upload and extract
-  const data = resumeRateLimitStore.get(key);
-  const limit = route === 'upload' ? RESUME_UPLOAD_LIMIT : RESUME_EXTRACT_LIMIT;
-
-  if (!data || data.resetTime < now) {
-    // No data or window expired - create new window
-    resumeRateLimitStore.set(key, {
-      count: 1,
-      resetTime: now + RESUME_RATE_WINDOW_MS
-    });
-
-    return {
-      allowed: true,
-      limit,
-      remaining: limit - 1,
-      reset: now + RESUME_RATE_WINDOW_MS
-    };
-  }
-
-  // Increment counter
-  data.count++;
-
-  if (data.count > limit) {
-    // Rate limit exceeded
-    return {
-      allowed: false,
-      limit,
-      remaining: 0,
-      reset: data.resetTime
-    };
-  }
-
-  // Within limits
-  return {
-    allowed: true,
-    limit,
-    remaining: limit - data.count,
-    reset: data.resetTime
-  };
+function checkResumeRateLimit(ip: string, route: 'upload' | 'extract') {
+  const key = `${ip}:${route}`;
+  const policy = route === 'upload' ? RESUME_UPLOAD_LIMIT : RESUME_EXTRACT_LIMIT;
+  return checkSingleWindowLimit(resumeRateLimitStore, key, policy.limit, policy.windowMs);
 }
 
-function checkAuthRateLimit(ip: string): { allowed: boolean; limit: number; remaining: number; reset: number } {
-  const now = Date.now();
-  const data = authRateLimitStore.get(ip);
+function checkAuthRateLimit(ip: string) {
+  return checkSingleWindowLimit(authRateLimitStore, ip, AUTH_LIMIT.limit, AUTH_LIMIT.windowMs);
+}
 
-  if (!data || data.resetTime < now) {
-    // No data or window expired - create new window
-    authRateLimitStore.set(ip, {
-      count: 1,
-      resetTime: now + AUTH_RATE_WINDOW_MS
-    });
+function checkNewsletterRateLimit(ip: string) {
+  return checkDualWindowLimit(
+    newsletterHourlyStore,
+    newsletterDailyStore,
+    ip,
+    NEWSLETTER_LIMIT.hourlyLimit,
+    NEWSLETTER_LIMIT.dailyLimit
+  );
+}
 
-    return {
-      allowed: true,
-      limit: AUTH_RATE_LIMIT,
-      remaining: AUTH_RATE_LIMIT - 1,
-      reset: now + AUTH_RATE_WINDOW_MS
-    };
-  }
-
-  // Increment counter
-  data.count++;
-
-  if (data.count > AUTH_RATE_LIMIT) {
-    // Rate limit exceeded
-    return {
-      allowed: false,
-      limit: AUTH_RATE_LIMIT,
-      remaining: 0,
-      reset: data.resetTime
-    };
-  }
-
-  // Within limits
-  return {
-    allowed: true,
-    limit: AUTH_RATE_LIMIT,
-    remaining: AUTH_RATE_LIMIT - data.count,
-    reset: data.resetTime
-  };
+function checkFeedbackRateLimit(ip: string) {
+  return checkDualWindowLimit(
+    feedbackHourlyStore,
+    feedbackDailyStore,
+    ip,
+    FEEDBACK_LIMIT.hourlyLimit,
+    FEEDBACK_LIMIT.dailyLimit
+  );
 }
 
 /**
- * Check rate limit for newsletter subscriptions
- * Uses both hourly (5/hour) and daily (20/day) windows
- */
-function checkNewsletterRateLimit(ip: string): { allowed: boolean; hourlyRemaining: number; dailyRemaining: number; reset: number } {
-  const now = Date.now();
-  const hourlyWindowMs = 60 * 60 * 1000; // 1 hour
-  const dailyWindowMs = 24 * 60 * 60 * 1000; // 24 hours
-
-  // Check/update hourly store
-  let hourlyData = newsletterHourlyStore.get(ip);
-  if (!hourlyData || hourlyData.resetTime < now) {
-    hourlyData = { count: 1, resetTime: now + hourlyWindowMs };
-    newsletterHourlyStore.set(ip, hourlyData);
-  } else {
-    hourlyData.count++;
-  }
-
-  // Check/update daily store
-  let dailyData = newsletterDailyStore.get(ip);
-  if (!dailyData || dailyData.resetTime < now) {
-    dailyData = { count: 1, resetTime: now + dailyWindowMs };
-    newsletterDailyStore.set(ip, dailyData);
-  } else {
-    dailyData.count++;
-  }
-
-  const hourlyExceeded = hourlyData.count > NEWSLETTER_HOURLY_LIMIT;
-  const dailyExceeded = dailyData.count > NEWSLETTER_DAILY_LIMIT;
-
-  return {
-    allowed: !hourlyExceeded && !dailyExceeded,
-    hourlyRemaining: Math.max(0, NEWSLETTER_HOURLY_LIMIT - hourlyData.count),
-    dailyRemaining: Math.max(0, NEWSLETTER_DAILY_LIMIT - dailyData.count),
-    reset: hourlyExceeded ? hourlyData.resetTime : dailyData.resetTime
-  };
-}
-
-/**
- * Check rate limit for feedback submissions
- * Uses both hourly (10/hour) and daily (50/day) windows
- */
-function checkFeedbackRateLimit(ip: string): { allowed: boolean; hourlyRemaining: number; dailyRemaining: number; reset: number } {
-  const now = Date.now();
-  const hourlyWindowMs = 60 * 60 * 1000; // 1 hour
-  const dailyWindowMs = 24 * 60 * 60 * 1000; // 24 hours
-
-  // Check/update hourly store
-  let hourlyData = feedbackHourlyStore.get(ip);
-  if (!hourlyData || hourlyData.resetTime < now) {
-    hourlyData = { count: 1, resetTime: now + hourlyWindowMs };
-    feedbackHourlyStore.set(ip, hourlyData);
-  } else {
-    hourlyData.count++;
-  }
-
-  // Check/update daily store
-  let dailyData = feedbackDailyStore.get(ip);
-  if (!dailyData || dailyData.resetTime < now) {
-    dailyData = { count: 1, resetTime: now + dailyWindowMs };
-    feedbackDailyStore.set(ip, dailyData);
-  } else {
-    dailyData.count++;
-  }
-
-  const hourlyExceeded = hourlyData.count > FEEDBACK_HOURLY_LIMIT;
-  const dailyExceeded = dailyData.count > FEEDBACK_DAILY_LIMIT;
-
-  return {
-    allowed: !hourlyExceeded && !dailyExceeded,
-    hourlyRemaining: Math.max(0, FEEDBACK_HOURLY_LIMIT - hourlyData.count),
-    dailyRemaining: Math.max(0, FEEDBACK_DAILY_LIMIT - dailyData.count),
-    reset: hourlyExceeded ? hourlyData.resetTime : dailyData.resetTime
-  };
-}
-
-/**
- * Refresh Supabase auth session
- * This is CRITICAL for keeping users logged in - without it,
- * auth tokens expire and API calls return 401 Unauthorized.
- * 
- * See: https://supabase.com/docs/guides/auth/server-side/nextjs
+ * Refresh Supabase auth session.
+ * Required for cookie rotation and session longevity.
  */
 async function updateSupabaseSession(request: NextRequest): Promise<NextResponse> {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -330,33 +96,26 @@ async function updateSupabaseSession(request: NextRequest): Promise<NextResponse
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll()
+          return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options);
+          });
         },
       },
     }
-  )
+  );
 
-  // IMPORTANT: This getUser() call refreshes the auth token
-  const { data: { user: _user } } = await supabase.auth.getUser()
-
-  return supabaseResponse
+  await supabase.auth.getUser();
+  return supabaseResponse;
 }
 
 export async function proxy(request: NextRequest) {
-  // Desktop local bundle mode:
-  // API/auth is proxied to remote backend via rewrites, so local middleware
-  // should not do additional rate limiting or auth cookie refresh.
+  // Desktop local bundle mode: API/auth are proxied remotely via rewrites,
+  // so local middleware should stay no-op.
   if (process.env.NEXT_DESKTOP_PROXY_API === '1') {
     return NextResponse.next({ request });
   }
@@ -364,9 +123,7 @@ export async function proxy(request: NextRequest) {
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
 
-  // Check for resume-specific rate limits first (stricter)
   if (pathname === '/api/student/resume' && request.method === 'POST') {
-    // Resume upload endpoint
     const resumeCheck = checkResumeRateLimit(ip, 'upload');
     if (!resumeCheck.allowed) {
       const response = NextResponse.json(
@@ -381,7 +138,6 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname === '/api/student/profile/draft/extract' && request.method === 'POST') {
-    // Resume extraction endpoint (GPT call)
     const extractCheck = checkResumeRateLimit(ip, 'extract');
     if (!extractCheck.allowed) {
       const response = NextResponse.json(
@@ -395,7 +151,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Check for auth-specific rate limits (security-focused)
   if (pathname.startsWith('/api/auth/') && (request.method === 'POST' || request.method === 'PUT')) {
     const authCheck = checkAuthRateLimit(ip);
     if (!authCheck.allowed) {
@@ -410,7 +165,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Check for newsletter rate limits (5/hour, 20/day)
   if (pathname === '/api/newsletter' && request.method === 'POST') {
     const newsletterCheck = checkNewsletterRateLimit(ip);
     if (!newsletterCheck.allowed) {
@@ -418,8 +172,8 @@ export async function proxy(request: NextRequest) {
         { error: 'Too many subscription attempts. Please try again later.' },
         { status: 429 }
       );
-      response.headers.set('X-RateLimit-Hourly-Limit', NEWSLETTER_HOURLY_LIMIT.toString());
-      response.headers.set('X-RateLimit-Daily-Limit', NEWSLETTER_DAILY_LIMIT.toString());
+      response.headers.set('X-RateLimit-Hourly-Limit', NEWSLETTER_LIMIT.hourlyLimit.toString());
+      response.headers.set('X-RateLimit-Daily-Limit', NEWSLETTER_LIMIT.dailyLimit.toString());
       response.headers.set('X-RateLimit-Hourly-Remaining', newsletterCheck.hourlyRemaining.toString());
       response.headers.set('X-RateLimit-Daily-Remaining', newsletterCheck.dailyRemaining.toString());
       response.headers.set('X-RateLimit-Reset', new Date(newsletterCheck.reset).toISOString());
@@ -427,7 +181,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Check for feedback rate limits (10/hour, 50/day)
   if (pathname === '/api/feedback' && request.method === 'POST') {
     const feedbackCheck = checkFeedbackRateLimit(ip);
     if (!feedbackCheck.allowed) {
@@ -435,8 +188,8 @@ export async function proxy(request: NextRequest) {
         { error: 'Too many feedback submissions. Please try again later.' },
         { status: 429 }
       );
-      response.headers.set('X-RateLimit-Hourly-Limit', FEEDBACK_HOURLY_LIMIT.toString());
-      response.headers.set('X-RateLimit-Daily-Limit', FEEDBACK_DAILY_LIMIT.toString());
+      response.headers.set('X-RateLimit-Hourly-Limit', FEEDBACK_LIMIT.hourlyLimit.toString());
+      response.headers.set('X-RateLimit-Daily-Limit', FEEDBACK_LIMIT.dailyLimit.toString());
       response.headers.set('X-RateLimit-Hourly-Remaining', feedbackCheck.hourlyRemaining.toString());
       response.headers.set('X-RateLimit-Daily-Remaining', feedbackCheck.dailyRemaining.toString());
       response.headers.set('X-RateLimit-Reset', new Date(feedbackCheck.reset).toISOString());
@@ -444,33 +197,25 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Apply general rate limit to all requests
-  const { allowed, limit, remaining, reset } = checkRateLimit(ip);
-
-  // If rate limited, return early with 429
-  if (!allowed) {
+  const generalLimit = checkGeneralRateLimit(ip);
+  if (!generalLimit.allowed) {
     const response = NextResponse.json(
       { error: 'Too many requests. Please try again later.' },
       { status: 429 }
     );
-    response.headers.set('X-RateLimit-Limit', limit.toString());
-    response.headers.set('X-RateLimit-Remaining', remaining.toString());
-    response.headers.set('X-RateLimit-Reset', new Date(reset).toISOString());
+    response.headers.set('X-RateLimit-Limit', generalLimit.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', generalLimit.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', new Date(generalLimit.reset).toISOString());
     return response;
   }
 
-  // Refresh Supabase auth session (keeps users logged in)
   const response = await updateSupabaseSession(request);
-
-  // Add rate limit headers to successful response
-  response.headers.set('X-RateLimit-Limit', limit.toString());
-  response.headers.set('X-RateLimit-Remaining', remaining.toString());
-  response.headers.set('X-RateLimit-Reset', new Date(reset).toISOString());
-
+  response.headers.set('X-RateLimit-Limit', generalLimit.limit.toString());
+  response.headers.set('X-RateLimit-Remaining', generalLimit.remaining.toString());
+  response.headers.set('X-RateLimit-Reset', new Date(generalLimit.reset).toISOString());
   return response;
 }
 
-// Configure which routes to apply middleware to
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|_vercel|favicon.ico|.*\\..*).*)',

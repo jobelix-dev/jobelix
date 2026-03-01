@@ -13,7 +13,7 @@ export {};
 
 // Polyfill DOMMatrix (2D transformation matrix)
 if (typeof DOMMatrix === 'undefined') {
-  // @ts-ignore - Webpack compatibility
+  // @ts-expect-error -- Assigning browser constructor polyfill to Node global.
   global.DOMMatrix = class {
     a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
     constructor() {}
@@ -22,7 +22,7 @@ if (typeof DOMMatrix === 'undefined') {
 
 // Polyfill Path2D (Canvas path object)
 if (typeof Path2D === 'undefined') {
-  // @ts-ignore - Webpack compatibility
+  // @ts-expect-error -- Assigning browser constructor polyfill to Node global.
   global.Path2D = class {
     constructor() {}
     addPath() {}
@@ -40,7 +40,7 @@ if (typeof Path2D === 'undefined') {
 
 // Polyfill ImageData (Pixel data container)
 if (typeof ImageData === 'undefined') {
-  // @ts-ignore - Webpack compatibility
+  // @ts-expect-error -- Assigning browser constructor polyfill to Node global.
   global.ImageData = class {
     width: number;
     height: number;

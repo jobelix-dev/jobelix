@@ -90,8 +90,8 @@ vi.mock('@/lib/server/emailTemplates', () => ({
   getFeedbackEmailSubject: vi.fn().mockReturnValue('Feedback: test'),
 }));
 
-// Newsletter unsubscribe route mock (imported as relative path in newsletter/route.ts)
-vi.mock('@/app/api/newsletter/unsubscribe/route', () => ({
+// Newsletter unsubscribe helper mock
+vi.mock('@/app/api/newsletter/unsubscribe/helpers', () => ({
   generateUnsubscribeUrl: vi.fn().mockReturnValue('https://example.com/unsubscribe'),
 }));
 
@@ -775,10 +775,10 @@ describe('Signup IP rate limiting: fails open on RPC error', () => {
 });
 
 // ===========================================================================
-// 9. Non-rate-limited endpoints work without rate limit mocks
+// 9. Endpoints with mixed rate-limiting behavior
 // ===========================================================================
 
-describe('Non-rate-limited endpoints accept requests without rate limiting', () => {
+describe('Endpoints with mixed rate-limiting behavior', () => {
   describe('Login route (no rate limiting)', () => {
     it('processes login without any rate limit check', async () => {
       mockSignInWithPassword.mockResolvedValue({
@@ -831,8 +831,9 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
     });
   });
 
-  describe('Newsletter route (no rate limiting)', () => {
-    it('processes subscription without any rate limit check', async () => {
+  describe('Newsletter route (rate limited)', () => {
+    it('applies rate limit checks and logs accepted attempts', async () => {
+      rateLimitAllowed();
       const { POST } = await import('@/app/api/newsletter/route');
       const req = createRequest('/api/newsletter', {
         method: 'POST',
@@ -845,11 +846,34 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
       const json = await res.json();
       expect(json.success).toBe(true);
 
-      expect(mockCheckRateLimit).not.toHaveBeenCalled();
+      expect(mockCheckRateLimit).toHaveBeenCalledTimes(1);
+      const [identity, config] = mockCheckRateLimit.mock.calls[0];
+      expect(identity).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(config).toEqual({
+        endpoint: 'newsletter-subscribe',
+        hourlyLimit: 5,
+        dailyLimit: 20,
+      });
+      expect(mockLogApiCall).toHaveBeenCalledWith(identity, 'newsletter-subscribe');
+    });
+
+    it('returns 429 when newsletter rate limit is exceeded', async () => {
+      rateLimitExceeded();
+      const { POST } = await import('@/app/api/newsletter/route');
+      const req = createRequest('/api/newsletter', {
+        method: 'POST',
+        body: { email: 'blocked@example.com' },
+      });
+      const res = await POST(req);
+
+      expect(res.status).toBe(429);
       expect(mockLogApiCall).not.toHaveBeenCalled();
     });
 
-    it('handles multiple rapid subscriptions without blocking', async () => {
+    it('handles multiple rapid subscriptions while enforcing checks on each call', async () => {
+      rateLimitAllowed();
       const { POST } = await import('@/app/api/newsletter/route');
 
       const results = await Promise.all(
@@ -866,11 +890,12 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
         expect(res.status).toBe(200);
       }
 
-      expect(mockCheckRateLimit).not.toHaveBeenCalled();
+      expect(mockCheckRateLimit).toHaveBeenCalledTimes(5);
+      expect(mockLogApiCall).toHaveBeenCalledTimes(5);
     });
   });
 
-  describe('Feedback route (no rate limiting)', () => {
+  describe('Feedback route (rate limited)', () => {
     /**
      * The feedback route calls getServiceSupabase().from() for:
      * 1. 'student' — .select('email').eq(...).maybeSingle()
@@ -879,9 +904,9 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
      *
      * We need mockServiceFrom to handle all three table names.
      */
-    function setupFeedbackMocks() {
+    function setupFeedbackMocks(userId = 'user-456') {
       mockGetUser.mockResolvedValue({
-        data: { user: { id: 'user-456' } },
+        data: { user: userId ? { id: userId } : null },
       });
 
       mockServiceFrom.mockImplementation((table: string) => {
@@ -910,7 +935,8 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
       });
     }
 
-    it('processes feedback without any rate limit check', async () => {
+    it('uses authenticated user id for feedback rate limiting and logs calls', async () => {
+      rateLimitAllowed();
       setupFeedbackMocks();
 
       const { POST } = await import('@/app/api/feedback/route');
@@ -933,11 +959,65 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
       const json = await res.json();
       expect(json.success).toBe(true);
 
-      expect(mockCheckRateLimit).not.toHaveBeenCalled();
+      expect(mockCheckRateLimit).toHaveBeenCalledWith('user-456', {
+        endpoint: 'feedback-submit',
+        hourlyLimit: 10,
+        dailyLimit: 50,
+      });
+      expect(mockLogApiCall).toHaveBeenCalledWith('user-456', 'feedback-submit');
+    });
+
+    it('uses pseudo-uuid identity for anonymous feedback rate limiting', async () => {
+      rateLimitAllowed();
+      setupFeedbackMocks('');
+
+      const { POST } = await import('@/app/api/feedback/route');
+      const req = createRequest('/api/feedback', {
+        method: 'POST',
+        body: {
+          feedback_type: 'feature',
+          subject: 'Anon feedback',
+          description: 'Anonymous feedback payload with enough characters.',
+        },
+        headers: {
+          'user-agent': 'TestAgent/1.0',
+          referer: 'https://jobelix.fr/dashboard',
+        },
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      expect(mockCheckRateLimit).toHaveBeenCalledTimes(1);
+      const [identity] = mockCheckRateLimit.mock.calls[0];
+      expect(identity).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(identity).not.toBe('user-456');
+      expect(mockLogApiCall).toHaveBeenCalledWith(identity, 'feedback-submit');
+    });
+
+    it('returns 429 when feedback rate limit is exceeded', async () => {
+      rateLimitExceeded();
+      setupFeedbackMocks();
+
+      const { POST } = await import('@/app/api/feedback/route');
+      const req = createRequest('/api/feedback', {
+        method: 'POST',
+        body: {
+          feedback_type: 'bug',
+          subject: 'Rate limited',
+          description: 'This should be blocked by the feedback rate limiter.',
+        },
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(429);
       expect(mockLogApiCall).not.toHaveBeenCalled();
     });
 
-    it('handles multiple rapid feedback submissions without blocking', async () => {
+    it('handles multiple rapid feedback submissions while enforcing checks', async () => {
+      rateLimitAllowed();
       setupFeedbackMocks();
 
       const { POST } = await import('@/app/api/feedback/route');
@@ -964,7 +1044,8 @@ describe('Non-rate-limited endpoints accept requests without rate limiting', () 
         expect(res.status).toBe(200);
       }
 
-      expect(mockCheckRateLimit).not.toHaveBeenCalled();
+      expect(mockCheckRateLimit).toHaveBeenCalledTimes(5);
+      expect(mockLogApiCall).toHaveBeenCalledTimes(5);
     });
   });
 });

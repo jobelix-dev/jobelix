@@ -14,82 +14,22 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { createHmac, timingSafeEqual } from 'crypto';
+import {
+  assertUnsubscribeSecretConfigured,
+  verifyUnsubscribeToken,
+} from './helpers';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-// Secret for signing/verifying unsubscribe tokens.
-// Falls back to RESEND_API_KEY if dedicated secret is not set.
-const UNSUBSCRIBE_SECRET = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET || process.env.RESEND_API_KEY;
-const TOKEN_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
-
-function getUnsubscribeSecret(): string {
-  if (!UNSUBSCRIBE_SECRET) {
-    throw new Error('Newsletter unsubscribe secret is not configured');
-  }
-  return UNSUBSCRIBE_SECRET;
-}
-
-/**
- * Generate HMAC signature for unsubscribe token
- */
-export function generateUnsubscribeToken(email: string, issuedAtMs: number = Date.now()): string {
-  const issuedAtSeconds = Math.floor(issuedAtMs / 1000);
-  const payload = `${email.toLowerCase()}:${issuedAtSeconds}`;
-  const sig = createHmac('sha256', getUnsubscribeSecret()).update(payload).digest('hex');
-  return `${issuedAtSeconds}.${sig}`;
-}
-
-/**
- * Verify HMAC signature of unsubscribe token
- */
-function verifyUnsubscribeToken(email: string, token: string): boolean {
-  if (!token.includes('.')) return false;
-  const [issuedAt, signature] = token.split('.', 2);
-
-  if (!issuedAt || !signature || !/^\d+$/.test(issuedAt) || !/^[0-9a-f]{64}$/i.test(signature)) {
-    return false;
-  }
-
-  const issuedAtMs = Number(issuedAt) * 1000;
-  if (!Number.isFinite(issuedAtMs)) return false;
-
-  const now = Date.now();
-  // Reject expired tokens and tokens too far in the future
-  if (now - issuedAtMs > TOKEN_MAX_AGE_MS || issuedAtMs - now > 5 * 60 * 1000) {
-    return false;
-  }
-
-  const payload = `${email.toLowerCase()}:${issuedAt}`;
-  const expectedToken = createHmac('sha256', getUnsubscribeSecret()).update(payload).digest('hex');
-  
-  // Use timing-safe comparison to prevent timing attacks
-  try {
-    return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedToken, 'hex'));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Generate a complete unsubscribe URL with signed token
- */
-export function generateUnsubscribeUrl(
-  email: string,
-  baseUrl: string = 'https://www.jobelix.fr',
-  issuedAtMs?: number
-): string {
-  const token = generateUnsubscribeToken(email, issuedAtMs);
-  return `${baseUrl}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
-}
-
 async function unsubscribeContact(email: string): Promise<boolean> {
   if (!resend || !email) return false;
+
+  const normalizedEmail = email.toLowerCase();
   
   try {
     // Find the contact by email
     const { data: contacts } = await resend.contacts.list();
-    const contact = contacts?.data?.find(c => c.email === email);
+    const contact = contacts?.data?.find((c) => c.email.toLowerCase() === normalizedEmail);
     
     if (contact) {
       // Update contact to unsubscribed
@@ -112,7 +52,7 @@ async function unsubscribeContact(email: string): Promise<boolean> {
 // GET: Show unsubscribe confirmation page
 export async function GET(request: NextRequest) {
   try {
-    getUnsubscribeSecret();
+    assertUnsubscribeSecretConfigured();
   } catch {
     return new NextResponse('Unsubscribe service unavailable', { status: 503 });
   }
@@ -186,7 +126,7 @@ export async function GET(request: NextRequest) {
 // POST: One-click unsubscribe (for email client support)
 export async function POST(request: NextRequest) {
   try {
-    getUnsubscribeSecret();
+    assertUnsubscribeSecretConfigured();
   } catch {
     return new NextResponse(null, { status: 503 });
   }

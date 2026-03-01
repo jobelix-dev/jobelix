@@ -116,17 +116,6 @@ function getRedirectLocation(res: Response): string {
   return res.headers.get('location') || '';
 }
 
-/** Extract a search param from a redirect location URL */
-function getRedirectParam(res: Response, param: string): string | null {
-  const location = getRedirectLocation(res);
-  try {
-    const url = new URL(location);
-    return url.searchParams.get(param);
-  } catch {
-    return null;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Reset mocks between tests
 // ---------------------------------------------------------------------------
@@ -299,7 +288,7 @@ describe('token-based flow', () => {
     });
   });
 
-  it('passes generic error message when verifyOtp fails with unknown error', async () => {
+  it('uses generic authentication error when verifyOtp fails with unknown error', async () => {
     mockVerifyOtp.mockResolvedValueOnce({
       data: { user: null },
       error: { message: 'Something unexpected', code: 'unknown' },
@@ -314,7 +303,7 @@ describe('token-based flow', () => {
     expect(res.status).toBe(307);
     const location = decodeURIComponent(getRedirectLocation(res));
     expect(location).toContain('/login');
-    expect(location).toContain('Something unexpected');
+    expect(location).toContain('Authentication+failed');
   });
 });
 
@@ -338,7 +327,7 @@ describe('code-based PKCE flow', () => {
     expect(getRedirectLocation(res)).toContain('/profile');
   });
 
-  it('redirects to login on exchange error', async () => {
+  it('redirects to login with generic error on exchange failure', async () => {
     mockExchangeCodeForSession.mockResolvedValueOnce({
       error: { message: 'Exchange failed' },
     });
@@ -349,7 +338,7 @@ describe('code-based PKCE flow', () => {
     expect(res.status).toBe(307);
     const location = decodeURIComponent(getRedirectLocation(res));
     expect(location).toContain('/login');
-    expect(location).toContain('Exchange failed');
+    expect(location).toContain('Authentication+failed');
   });
 
   it('redirects with expired message when exchange returns expired/invalid_grant error', async () => {

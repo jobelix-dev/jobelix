@@ -13,6 +13,7 @@ import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/ser
 import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
 import { Resend } from 'resend';
 import { generateFeedbackEmail, getFeedbackEmailSubject } from '@/lib/server/emailTemplates';
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
 if (!process.env.RESEND_API_KEY) {
   console.warn('RESEND_API_KEY not set - feedback emails will not be sent');
@@ -28,11 +29,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const rateLimitConfig = {
-      endpoint: 'feedback-submit',
-      hourlyLimit: 10,
-      dailyLimit: 50,
-    };
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.feedbackSubmit;
 
     const identity = user?.id
       ? user.id

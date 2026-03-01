@@ -2,7 +2,29 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 const isDesktopBundle = process.env.JOBELIX_DESKTOP_BUNDLE === "1";
-const desktopBackendOrigin = (process.env.NEXT_DESKTOP_BACKEND_ORIGIN || "https://www.jobelix.fr").replace(/\/+$/, "");
+
+function isLocalhost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+function isTrustedJobelixHost(hostname: string): boolean {
+  return hostname === "jobelix.fr" || hostname === "www.jobelix.fr" || hostname.endsWith(".jobelix.fr");
+}
+
+function sanitizeDesktopBackendOrigin(origin: string): string {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol === "https:" && isTrustedJobelixHost(parsed.hostname)) return parsed.origin;
+    if (parsed.protocol === "http:" && isLocalhost(parsed.hostname)) return parsed.origin;
+  } catch {
+    // Fall through to default.
+  }
+  return "https://www.jobelix.fr";
+}
+
+const desktopBackendOrigin = sanitizeDesktopBackendOrigin(
+  process.env.NEXT_DESKTOP_BACKEND_ORIGIN || "https://www.jobelix.fr"
+);
 
 const nextConfig: NextConfig = {
   output: isDesktopBundle ? "standalone" : undefined,
@@ -94,7 +116,7 @@ const nextConfig: NextConfig = {
             key: "Cache-Control",
             value: isDev
               ? "no-cache, no-store, must-revalidate"
-              : "public, max-age=3600, must-revalidate",
+              : "public, max-age=31536000, immutable",
           },
         ],
       },

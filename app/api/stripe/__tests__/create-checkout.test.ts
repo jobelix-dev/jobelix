@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ---------------------------------------------------------------------------
 // Environment variables — must be set BEFORE module import
@@ -95,7 +95,6 @@ function mockAuthSuccess(userId: string = MOCK_USER_ID) {
 
 /** Set up authenticateRequest to return an error */
 function mockAuthFailure() {
-  const { NextResponse } = require('next/server');
   mockAuthenticateRequest.mockResolvedValue({
     user: null,
     supabase: null,

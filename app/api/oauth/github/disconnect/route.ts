@@ -13,6 +13,8 @@ import { createClient } from '@/lib/server/supabaseServer';
 import { deleteGitHubConnection } from '@/lib/server/githubOAuth';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 
+export async function POST(): Promise<NextResponse>;
+export async function POST(request: NextRequest): Promise<NextResponse>;
 export async function POST(request?: NextRequest) {
   try {
     const csrfError = enforceSameOrigin(request);

@@ -4,10 +4,10 @@
  * Covers:
  * - GET: Parameter validation, token verification, unsubscribe flow, HTML response
  * - POST: One-click unsubscribe (RFC 8058), error handling
- * - Exported helpers: generateUnsubscribeToken, generateUnsubscribeUrl
+ * - Helper exports: generateUnsubscribeToken, generateUnsubscribeUrl
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { createHmac } from 'crypto';
 
@@ -316,7 +316,7 @@ describe('generateUnsubscribeToken', () => {
   let generateUnsubscribeToken: (email: string, issuedAtMs?: number) => string;
 
   beforeEach(async () => {
-    const mod = await import('../../newsletter/unsubscribe/route');
+    const mod = await import('../../newsletter/unsubscribe/helpers');
     generateUnsubscribeToken = mod.generateUnsubscribeToken;
   });
 
@@ -351,7 +351,7 @@ describe('generateUnsubscribeUrl', () => {
   let generateUnsubscribeUrl: (email: string, baseUrl?: string, issuedAtMs?: number) => string;
 
   beforeEach(async () => {
-    const mod = await import('../../newsletter/unsubscribe/route');
+    const mod = await import('../../newsletter/unsubscribe/helpers');
     generateUnsubscribeUrl = mod.generateUnsubscribeUrl;
   });
 
@@ -378,5 +378,37 @@ describe('generateUnsubscribeUrl', () => {
   it('encodes email in the URL', () => {
     const url = generateUnsubscribeUrl('user+tag@example.com');
     expect(url).toContain('email=user%2Btag%40example.com');
+  });
+});
+
+describe('secret configuration', () => {
+  const ORIGINAL_SECRET = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = ORIGINAL_SECRET;
+  });
+
+  it('returns 503 for GET when unsubscribe secret is missing', async () => {
+    process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = '';
+    const mod = await import('../../newsletter/unsubscribe/route');
+    const token = makeValidToken(TEST_EMAIL);
+    const req = createGetRequest({ email: TEST_EMAIL, token });
+
+    const res = await mod.GET(req);
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe('Unsubscribe service unavailable');
+  });
+
+  it('throws when generating token without configured secret', async () => {
+    process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = '';
+    const mod = await import('../../newsletter/unsubscribe/helpers');
+
+    expect(() => mod.generateUnsubscribeToken('test@test.com')).toThrow(
+      'Newsletter unsubscribe secret is not configured'
+    );
   });
 });

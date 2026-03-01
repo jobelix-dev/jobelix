@@ -6,6 +6,7 @@ import { ipcMain, BrowserWindow, app } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
 import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
 import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
+import { restartLocalUiServer } from './local-ui-server.js';
 import { openExternalUrl } from './update-manager.js';
 import { IPC_CHANNELS } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -201,6 +202,16 @@ export function setupIpcHandlers() {
   });
   handlerCount++;
 
+  ipcMain.handle('retry-local-ui-server', async () => {
+    try {
+      const url = await restartLocalUiServer();
+      return { success: true, url };
+    } catch (err) {
+      return { success: false, error: err.message || String(err) };
+    }
+  });
+  handlerCount++;
+
   logger.success(`${handlerCount} IPC handlers registered`);
 }
 
@@ -208,6 +219,7 @@ export function removeIpcHandlers() {
   const channels = [
     'get-app-version',
     'open-external-url',
+    'retry-local-ui-server',
     ...Object.values(IPC_CHANNELS)
   ];
   

@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ---------------------------------------------------------------------------
 // Env vars — set BEFORE any route imports so module-level code picks them up
@@ -139,7 +139,6 @@ function authSuccess(userId = 'user-123') {
 }
 
 function authFailure() {
-  const { NextResponse } = require('next/server');
   mockAuthenticateRequest.mockResolvedValue({
     user: null,
     supabase: null,
@@ -657,7 +656,7 @@ describe('Stripe Security', () => {
       mockCheckoutSessionsCreate.mockResolvedValue({ id: 'cs_url', url: 'https://checkout.stripe.com/url' });
     });
 
-    it('23. redirect URLs use APP_ORIGIN from env, not request origin/referer', async () => {
+    it('23. rejects cross-site Origin before creating checkout session', async () => {
       // Create request with a malicious origin header
       const req = new NextRequest('http://localhost:3000/api/stripe/create-checkout', {
         method: 'POST',
@@ -669,7 +668,27 @@ describe('Stripe Security', () => {
         body: JSON.stringify({ plan: 'credits_250' }),
       });
 
-      await checkoutPOST(req);
+      const res = await checkoutPOST(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error).toBe('Invalid request origin');
+      expect(mockCheckoutSessionsCreate).not.toHaveBeenCalled();
+    });
+
+    it('24. redirect URLs use APP_ORIGIN from env, not request referer', async () => {
+      const req = new NextRequest('http://localhost:3000/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://www.jobelix.fr',
+          Referer: 'https://evil-site.com/steal',
+        },
+        body: JSON.stringify({ plan: 'credits_250' }),
+      });
+
+      const res = await checkoutPOST(req);
+      expect(res.status).toBe(200);
 
       expect(mockCheckoutSessionsCreate).toHaveBeenCalled();
       const createCallArgs = mockCheckoutSessionsCreate.mock.calls[0][0];

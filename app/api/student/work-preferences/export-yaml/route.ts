@@ -16,6 +16,7 @@ import { authenticateRequest } from '@/lib/server/auth';
 import { parse as parseYaml } from 'yaml';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
 import { enforceSameOrigin } from '@/lib/server/csrf';
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
 // Maximum allowed YAML content size (100KB should be more than enough for config)
 const MAX_YAML_SIZE = 100 * 1024;
@@ -46,17 +47,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rateLimitResult = await checkRateLimit(user.id, {
-      endpoint: 'work-preferences-export-yaml',
-      hourlyLimit: 10,
-      dailyLimit: 30,
-    });
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.workPreferencesExportYaml;
+    const rateLimitResult = await checkRateLimit(user.id, rateLimitConfig);
     if (rateLimitResult.error) return rateLimitResult.error;
     if (!rateLimitResult.data.allowed) {
-      return rateLimitExceededResponse(
-        { endpoint: 'work-preferences-export-yaml', hourlyLimit: 10, dailyLimit: 30 },
-        rateLimitResult.data
-      );
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data);
     }
 
     const { yamlContent } = await request.json();
@@ -114,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Write YAML file
     await writeFile(configPath, yamlContent, 'utf-8');
 
-    await logApiCall(user.id, 'work-preferences-export-yaml');
+    await logApiCall(user.id, rateLimitConfig.endpoint);
 
     return NextResponse.json({
       success: true,

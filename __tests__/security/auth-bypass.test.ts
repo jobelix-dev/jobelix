@@ -97,29 +97,6 @@ function createRequest(
   });
 }
 
-function authSuccess(userId = 'user-123') {
-  const mockChain = {
-    from: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    insert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    upsert: vi.fn().mockReturnThis(),
-    delete: vi.fn().mockReturnThis(),
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
-  };
-  mockAuthenticateRequest.mockResolvedValue({
-    user: { id: userId, email: `${userId}@test.com` },
-    supabase: mockChain,
-    error: null,
-  });
-  return mockChain;
-}
-
 function authFailure() {
   mockAuthenticateRequest.mockResolvedValue({
     user: null,
@@ -478,10 +455,11 @@ describe('Security: Auth Bypass & Session Manipulation', () => {
         body: { email: 'existing@test.com', password: 'StrongPass123!', role: 'student' },
       });
       const res = await POST(req);
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
       const body = await res.json();
       // Should not reveal specifics about the account
-      expect(body.code).toBe('USER_ALREADY_EXISTS');
+      expect(body.success).toBe(true);
+      expect(body.message).toContain('If an account with this email exists');
     });
 
     it('Zod rejects passwords shorter than 8 characters before reaching Supabase', async () => {

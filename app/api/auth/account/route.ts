@@ -35,6 +35,8 @@ function hasEmailProvider(user: { app_metadata?: { providers?: unknown } }): boo
   return Array.isArray(providers) && providers.includes('email');
 }
 
+export async function DELETE(): Promise<NextResponse>;
+export async function DELETE(request: NextRequest): Promise<NextResponse>;
 export async function DELETE(request?: NextRequest) {
   try {
     const csrfError = enforceSameOrigin(request);

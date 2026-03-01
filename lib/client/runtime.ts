@@ -13,8 +13,37 @@ function normalizeOrigin(origin: string): string {
   return origin.replace(/\/+$/, '');
 }
 
+function isLocalhost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
+function isTrustedJobelixHost(hostname: string): boolean {
+  return hostname === 'jobelix.fr' || hostname === 'www.jobelix.fr' || hostname.endsWith('.jobelix.fr');
+}
+
 function isLocalDesktopOrigin(origin: string): boolean {
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin);
+}
+
+function parseOrigin(origin: string): URL | null {
+  try {
+    return new URL(origin);
+  } catch {
+    return null;
+  }
+}
+
+function isSafeDesktopBackendOrigin(url: URL): boolean {
+  if (url.protocol === 'https:' && isTrustedJobelixHost(url.hostname)) return true;
+  if (url.protocol === 'http:' && isLocalhost(url.hostname)) return true;
+  return false;
+}
+
+function sanitizeDesktopBackendOrigin(origin: string): string {
+  const parsed = parseOrigin(origin.trim());
+  if (!parsed) return DEFAULT_DESKTOP_API_ORIGIN;
+  if (!isSafeDesktopBackendOrigin(parsed)) return DEFAULT_DESKTOP_API_ORIGIN;
+  return normalizeOrigin(parsed.origin);
 }
 
 export function isElectronRuntime(): boolean {
@@ -43,7 +72,7 @@ export function getDesktopBackendOrigin(): string {
     '';
 
   if (configured.trim()) {
-    return normalizeOrigin(configured.trim());
+    return sanitizeDesktopBackendOrigin(configured);
   }
 
   return DEFAULT_DESKTOP_API_ORIGIN;
@@ -60,4 +89,18 @@ export function resolveApiPath(path: string): string {
   if (getHostRuntime() !== 'electron') return path;
   if (typeof window !== 'undefined' && isLocalDesktopOrigin(window.location.origin)) return path;
   return `${getDesktopBackendOrigin()}${path}`;
+}
+
+/**
+ * Allow API requests only to same-origin (web) or same-origin + configured backend (Electron).
+ */
+export function isAllowedApiOrigin(url: URL): boolean {
+  if (typeof window === 'undefined') return true;
+
+  const targetOrigin = normalizeOrigin(url.origin);
+  const currentOrigin = normalizeOrigin(window.location.origin);
+  if (targetOrigin === currentOrigin) return true;
+
+  if (getHostRuntime() !== 'electron') return false;
+  return targetOrigin === normalizeOrigin(getDesktopBackendOrigin());
 }

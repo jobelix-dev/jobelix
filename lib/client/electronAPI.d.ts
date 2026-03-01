@@ -103,6 +103,13 @@ export interface ElectronAPI {
   // Open any external URL (for direct download links)
   openExternalUrl: (url: string) => Promise<{ success: boolean }>;
 
+  // Desktop recovery: restart local UI server and return fresh local URL
+  retryLocalUiServer: () => Promise<{
+    success: boolean;
+    url?: string;
+    error?: string;
+  }>;
+
   // Bot status updates (from stdout IPC)
   onBotStatus: (callback: (payload: { 
     stage: 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped'; 

@@ -12,6 +12,8 @@ function isElectronUserAgent(userAgent: string | null): boolean {
   return Boolean(userAgent && /electron/i.test(userAgent));
 }
 
+export async function GET(): Promise<NextResponse>;
+export async function GET(request: NextRequest): Promise<NextResponse>;
 export async function GET(request?: NextRequest) {
   try {
     if (request && !isElectronUserAgent(request.headers.get('user-agent'))) {

@@ -23,7 +23,6 @@ import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriang
 import FeedbackModal from '@/app/components/FeedbackModal';
 import WelcomeNotice from '@/app/components/WelcomeNotice';
 import OnboardingSteps from '@/app/components/OnboardingSteps';
-import CreditsIndicator from '@/app/components/CreditsIndicator';
 import { useIsElectron } from '@/app/hooks/useClientSide';
 
 // Code-split role-specific views — only the active role's bundle is loaded

@@ -22,6 +22,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { enforceSameOrigin } from '@/lib/server/csrf'
 
+export async function POST(): Promise<NextResponse>
+export async function POST(request: NextRequest): Promise<NextResponse>
 export async function POST(request?: NextRequest) {
   try {
     const csrfError = enforceSameOrigin(request)

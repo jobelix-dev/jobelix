@@ -181,7 +181,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const { DELETE } = await import('@/app/api/company/offer/draft/[id]/route');
       const req = createRequest(`/api/company/offer/draft/${DRAFT_ID}`, { method: 'DELETE' });
 
-      const res = await DELETE(req, { params: Promise.resolve({ id: DRAFT_ID }) });
+      await DELETE(req, { params: Promise.resolve({ id: DRAFT_ID }) });
       // Delete query includes .eq('company_id', user.id)
       expect(chain.eq).toHaveBeenCalledWith('company_id', USER_A);
     });
@@ -197,7 +197,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const { DELETE } = await import('@/app/api/company/offer/[id]/route');
       const req = createRequest(`/api/company/offer/${OFFER_ID}`, { method: 'DELETE' });
 
-      const res = await DELETE(req, { params: Promise.resolve({ id: OFFER_ID }) });
+      await DELETE(req, { params: Promise.resolve({ id: OFFER_ID }) });
       // Verify it filters by company_id = user.id
       expect(chain.eq).toHaveBeenCalledWith('company_id', USER_A);
     });
@@ -211,7 +211,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const chain = createAuthenticatedMock(USER_A);
 
       const { GET } = await import('@/app/api/student/profile/draft/route');
-      const res = await GET();
+      await GET();
 
       // Verify the query filters by student_id = USER_A
       expect(chain.eq).toHaveBeenCalledWith('student_id', USER_A);
@@ -229,11 +229,11 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const req = createRequest('/api/student/profile/draft', {
         method: 'PUT',
         body: {
-          draftId: 'user-b-draft-id',
+          draftId: DRAFT_ID,
           updates: { student_name: 'Hijacked Name' },
         },
       });
-      const res = await PUT(req);
+      await PUT(req);
 
       // The route uses .eq('id', draftId).eq('student_id', user.id)
       // This double filter prevents IDOR
@@ -269,7 +269,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const chain = createAuthenticatedMock(USER_A);
 
       const { GET } = await import('@/app/api/student/resume/route');
-      const res = await GET();
+      await GET();
 
       expect(chain.eq).toHaveBeenCalledWith('student_id', USER_A);
     });
@@ -382,7 +382,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
           },
         },
       });
-      const res = await PUT(req);
+      await PUT(req);
 
       // The update call should have been made, check what was passed
       // The sanitizedUpdates should only contain 'student_name'
@@ -421,7 +421,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
           salary: 999999, // NOT allowed (not in ALLOWED_DRAFT_FIELDS)
         },
       });
-      const res = await PUT(req, {
+      await PUT(req, {
         params: Promise.resolve({ id: DRAFT_ID }),
       });
 

@@ -2,11 +2,10 @@
  * useProfileEditor Hook
  * 
  * Manages all state manipulation logic for the profile editor.
- * Uses factory pattern for DRY CRUD operations.
- * Callbacks are referentially stable via useRef to prevent child re-renders.
+ * Uses small immutable helpers for CRUD operations.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { 
   ExtractedResumeData, 
   EducationEntry, 
@@ -22,6 +21,12 @@ import {
 interface UseProfileEditorProps {
   data: ExtractedResumeData;
   onChange: (data: ExtractedResumeData) => void;
+}
+
+function replaceAt<T>(items: T[], index: number, updater: (item: T) => T): T[] {
+  return items.map((item, currentIndex) =>
+    currentIndex === index ? updater(item) : item
+  );
 }
 
 // Default items for each entry type
@@ -79,101 +84,100 @@ const defaultSkill: SkillEntry = {
 };
 
 export function useProfileEditor({ data, onChange }: UseProfileEditorProps) {
-  // Keep latest data/onChange in refs so callbacks remain stable
-  const dataRef = useRef(data);
-  dataRef.current = data;
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-
-  // Basic field update - stable reference
+  // Basic field update
   const updateField = useCallback((field: keyof ExtractedResumeData, value: unknown) => {
-    onChangeRef.current({ ...dataRef.current, [field]: value });
-  }, []);
+    onChange({ ...data, [field]: value });
+  }, [data, onChange]);
   
-  // Update multiple fields at once - stable reference
+  // Update multiple fields at once
   const updateFields = useCallback((updates: Partial<ExtractedResumeData>) => {
-    onChangeRef.current({ ...dataRef.current, ...updates });
-  }, []);
+    onChange({ ...data, ...updates });
+  }, [data, onChange]);
 
-  // Stable array CRUD handlers using refs
+  // Array CRUD handlers
   const addEducation = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, education: [...dataRef.current.education, defaultEducation] });
-  }, []);
+    onChange({ ...data, education: [...data.education, defaultEducation] });
+  }, [data, onChange]);
   const updateEducation = useCallback((index: number, field: keyof EducationEntry, value: unknown) => {
-    const arr = [...dataRef.current.education];
-    arr[index] = { ...arr[index], [field]: value };
-    onChangeRef.current({ ...dataRef.current, education: arr });
-  }, []);
+    onChange({
+      ...data,
+      education: replaceAt(data.education, index, (entry) => ({ ...entry, [field]: value })),
+    });
+  }, [data, onChange]);
   const removeEducation = useCallback((index: number) => {
-    onChangeRef.current({ ...dataRef.current, education: dataRef.current.education.filter((_, i) => i !== index) });
-  }, []);
+    onChange({ ...data, education: data.education.filter((_, i) => i !== index) });
+  }, [data, onChange]);
 
   const addExperience = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, experience: [...dataRef.current.experience, defaultExperience] });
-  }, []);
+    onChange({ ...data, experience: [...data.experience, defaultExperience] });
+  }, [data, onChange]);
   const updateExperience = useCallback((index: number, field: keyof ExperienceEntry, value: unknown) => {
-    const arr = [...dataRef.current.experience];
-    arr[index] = { ...arr[index], [field]: value };
-    onChangeRef.current({ ...dataRef.current, experience: arr });
-  }, []);
+    onChange({
+      ...data,
+      experience: replaceAt(data.experience, index, (entry) => ({ ...entry, [field]: value })),
+    });
+  }, [data, onChange]);
   const removeExperience = useCallback((index: number) => {
-    onChangeRef.current({ ...dataRef.current, experience: dataRef.current.experience.filter((_, i) => i !== index) });
-  }, []);
+    onChange({ ...data, experience: data.experience.filter((_, i) => i !== index) });
+  }, [data, onChange]);
 
   const addProject = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, projects: [...dataRef.current.projects, defaultProject] });
-  }, []);
+    onChange({ ...data, projects: [...data.projects, defaultProject] });
+  }, [data, onChange]);
   const updateProject = useCallback((index: number, field: keyof ProjectEntry, value: unknown) => {
-    const arr = [...dataRef.current.projects];
-    arr[index] = { ...arr[index], [field]: value };
-    onChangeRef.current({ ...dataRef.current, projects: arr });
-  }, []);
+    onChange({
+      ...data,
+      projects: replaceAt(data.projects, index, (entry) => ({ ...entry, [field]: value })),
+    });
+  }, [data, onChange]);
   const removeProject = useCallback((index: number) => {
-    onChangeRef.current({ ...dataRef.current, projects: dataRef.current.projects.filter((_, i) => i !== index) });
-  }, []);
+    onChange({ ...data, projects: data.projects.filter((_, i) => i !== index) });
+  }, [data, onChange]);
 
   const updateSkills = useCallback((items: SkillEntry[]) => {
-    onChangeRef.current({ ...dataRef.current, skills: items });
-  }, []);
+    onChange({ ...data, skills: items });
+  }, [data, onChange]);
   const addSkill = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, skills: [...dataRef.current.skills, defaultSkill] });
-  }, []);
+    onChange({ ...data, skills: [...data.skills, defaultSkill] });
+  }, [data, onChange]);
 
   const addLanguage = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, languages: [...dataRef.current.languages, defaultLanguage] });
-  }, []);
+    onChange({ ...data, languages: [...data.languages, defaultLanguage] });
+  }, [data, onChange]);
   const updateLanguages = useCallback((items: LanguageEntry[]) => {
-    onChangeRef.current({ ...dataRef.current, languages: items });
-  }, []);
+    onChange({ ...data, languages: items });
+  }, [data, onChange]);
 
   const addPublication = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, publications: [...dataRef.current.publications, defaultPublication] });
-  }, []);
+    onChange({ ...data, publications: [...data.publications, defaultPublication] });
+  }, [data, onChange]);
   const updatePublication = useCallback((index: number, field: keyof PublicationEntry, value: unknown) => {
-    const arr = [...dataRef.current.publications];
-    arr[index] = { ...arr[index], [field]: value };
-    onChangeRef.current({ ...dataRef.current, publications: arr });
-  }, []);
+    onChange({
+      ...data,
+      publications: replaceAt(data.publications, index, (entry) => ({ ...entry, [field]: value })),
+    });
+  }, [data, onChange]);
   const removePublication = useCallback((index: number) => {
-    onChangeRef.current({ ...dataRef.current, publications: dataRef.current.publications.filter((_, i) => i !== index) });
-  }, []);
+    onChange({ ...data, publications: data.publications.filter((_, i) => i !== index) });
+  }, [data, onChange]);
 
   const addCertification = useCallback(() => {
-    onChangeRef.current({ ...dataRef.current, certifications: [...dataRef.current.certifications, defaultCertification] });
-  }, []);
+    onChange({ ...data, certifications: [...data.certifications, defaultCertification] });
+  }, [data, onChange]);
   const updateCertification = useCallback((index: number, field: keyof CertificationEntry, value: unknown) => {
-    const arr = [...dataRef.current.certifications];
-    arr[index] = { ...arr[index], [field]: value };
-    onChangeRef.current({ ...dataRef.current, certifications: arr });
-  }, []);
+    onChange({
+      ...data,
+      certifications: replaceAt(data.certifications, index, (entry) => ({ ...entry, [field]: value })),
+    });
+  }, [data, onChange]);
   const removeCertification = useCallback((index: number) => {
-    onChangeRef.current({ ...dataRef.current, certifications: dataRef.current.certifications.filter((_, i) => i !== index) });
-  }, []);
+    onChange({ ...data, certifications: data.certifications.filter((_, i) => i !== index) });
+  }, [data, onChange]);
 
   // Social links (single object, not array)
   const updateSocialLinks = useCallback((social_links: SocialLinkEntry) => {
-    onChangeRef.current({ ...dataRef.current, social_links });
-  }, []);
+    onChange({ ...data, social_links });
+  }, [data, onChange]);
 
   return {
     // Basic fields

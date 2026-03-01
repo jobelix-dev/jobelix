@@ -747,7 +747,10 @@ describe('validateRequest', () => {
     const throwingSchema = {
       parse: () => { throw new Error('unexpected error'); },
     };
-    const result = validateRequest({}, throwingSchema as any);
+    const result = validateRequest(
+      {},
+      throwingSchema as unknown as Parameters<typeof validateRequest>[1],
+    );
     expect(result.data).toBeNull();
     expect(result.error!.status).toBe(400);
     expect(result.error!.message).toBe('Invalid request data');
