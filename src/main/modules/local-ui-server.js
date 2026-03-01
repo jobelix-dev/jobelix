@@ -17,7 +17,7 @@ const DEV_STARTUP_TIMEOUT_MS = 20000;
 const PACKAGED_STARTUP_TIMEOUT_MS = 45000;
 const HEALTH_POLL_MS = 200;
 const STARTUP_ATTEMPTS = 2;
-const OUTPUT_TAIL_LIMIT = 12;
+const OUTPUT_TAIL_LIMIT = 40;
 
 let localServerProcess = null;
 let localUiUrl = null;

@@ -60,6 +60,15 @@ async function pruneBundledStandalone(appOutDir) {
     );
   }
 
+  const standaloneNextPackage = path.join(standaloneDir, 'node_modules', 'next', 'package.json');
+  const standaloneNextEntry = path.join(standaloneDir, 'node_modules', 'next', 'dist', 'server', 'next.js');
+  if (!fs.existsSync(standaloneNextPackage) || !fs.existsSync(standaloneNextEntry)) {
+    throw new Error(
+      'Bundled desktop UI is missing the Next.js runtime in next/standalone/node_modules/next. ' +
+      'Desktop local UI cannot boot without it.'
+    );
+  }
+
   let removedCount = 0;
   let removedBytes = 0;
 
