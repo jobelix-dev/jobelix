@@ -25,7 +25,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import type { Provider } from '@supabase/supabase-js';
 import { 
@@ -137,7 +136,7 @@ export default function SocialLoginButtons({
   // Track if we're in the middle of an OAuth flow
   const isOAuthFlowActive = useRef(false);
 
-  // Save auth tokens to Electron session storage for automatic login
+  // Save auth tokens to Electron secure storage (OS keychain) for automatic login
   const saveSessionIfElectron = useCallback(async (session: { 
     access_token: string; 
     refresh_token: string; 
@@ -148,27 +147,26 @@ export default function SocialLoginButtons({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const electronAPI = (window as any).electronAPI;
       
-      // New token-based session management
-      if (electronAPI?.setSession) {
-        const saved = await electronAPI.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at: session.expires_at,
-          user: session.user,
-        });
-        if (saved?.success) {
-          console.log('[OAuth] Session saved to Electron secure storage');
-        }
+      if (!electronAPI?.setSession) {
+        console.log('[OAuth] Not in Electron - session exists in cookies only');
+        return;
       }
-      // Fallback to legacy auth cache for backward compatibility
-      else if (electronAPI?.saveAuthCache) {
-        const saved = await saveSessionToAuthCache(session);
-        if (saved) {
-          console.log('[OAuth] Auth cache saved for Electron (legacy)');
-        }
+
+      // Save to Electron secure storage (OS keychain)
+      const result = await electronAPI.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at: session.expires_at,
+        user: session.user,
+      });
+      
+      if (result?.success) {
+        console.log('[OAuth] Session saved to Electron secure storage successfully');
+      } else {
+        console.warn('[OAuth] Failed to save session to Electron:', result);
       }
-    } catch (cacheError) {
-      console.warn('[OAuth] Failed to save session:', cacheError);
+    } catch (error) {
+      console.error('[OAuth] Error saving session to Electron:', error);
     }
   }, []);
 

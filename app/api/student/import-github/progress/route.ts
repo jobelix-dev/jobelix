@@ -5,14 +5,14 @@
 
 import "server-only";
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { getGitHubImportProgress, subscribeGitHubImportProgress } from '@/lib/server/githubImportProgress';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
-  const auth = await authenticateRequest();
+export async function GET(request: NextRequest) {
+  const auth = await authenticateRequest(request);
   if (auth.error) return auth.error;
 
   const { user } = auth;

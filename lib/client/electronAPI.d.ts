@@ -64,19 +64,20 @@ export interface ElectronAPI {
   onBrowserInstallProgress: (callback: (progress: BrowserInstallProgress) => void) => void;
   removeBrowserInstallProgressListeners: () => void;
   
-  saveAuthCache: (tokens: {
+  // Session Management (Secure OS keychain storage)
+  getSession: () => Promise<{
     access_token: string;
     refresh_token: string;
     expires_at?: number;
-    user_id: string;
-  }) => Promise<{ success: boolean; error?: string }>;
-  loadAuthCache: () => Promise<{ 
-    access_token: string; 
-    refresh_token: string; 
-    expires_at?: number; 
-    user_id: string 
+    user: { id: string };
   } | null>;
-  clearAuthCache: () => Promise<{ success: boolean; error?: string }>;
+  setSession: (session: {
+    access_token: string;
+    refresh_token: string;
+    expires_at?: number;
+    user: { id: string };
+  }) => Promise<{ success: boolean; error?: string }>;
+  clearSession: () => Promise<{ success: boolean; error?: string }>;
   
   // Auto-updater events
   onUpdateAvailable: (callback: (info: { 

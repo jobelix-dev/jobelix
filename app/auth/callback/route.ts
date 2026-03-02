@@ -344,23 +344,34 @@ export async function GET(request: NextRequest) {
     console.log('[Callback] Error from Supabase:', errorParam, errorDescription)
   }
 
-  // Helper to redirect appropriately based on popup mode
+  // Helper to redirect appropriately based on context
+  // Always redirects to callback-success which handles both popup and standalone modes
   // Also clears the referral cookie after processing
   const redirectTo = (path: string) => {
-    let response: NextResponse
+    // Always redirect to callback-success for unified session handling
+    // callback-success will:
+    // - If popup mode: send postMessage to parent
+    // - If standalone mode: save session to Electron (if available) and redirect to final destination
+    const callbackSuccessUrl = new URL('/auth/callback-success', requestUrl.origin)
     
-    if (isPopup) {
-      // For popups, redirect to a page that closes the popup
-      const popupUrl = new URL('/auth/callback-success', requestUrl.origin)
-      if (path.includes('error=')) {
-        // Extract the error message from the path and pass it to callback-success
-        const errorMsg = new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error'
-        popupUrl.searchParams.set('error', errorMsg)
-      }
-      response = NextResponse.redirect(popupUrl)
+    if (path.includes('error=')) {
+      // Extract the error message from the path and pass it to callback-success
+      const errorMsg = new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error'
+      callbackSuccessUrl.searchParams.set('error', errorMsg)
     } else {
-      response = NextResponse.redirect(new URL(path, requestUrl.origin))
+      // For success, preserve the final destination in case callback-success needs it
+      const finalPath = new URL(path, requestUrl.origin).pathname
+      if (finalPath && finalPath !== '/') {
+        callbackSuccessUrl.searchParams.set('next', finalPath)
+      }
     }
+    
+    // Preserve popup flag if present
+    if (isPopup) {
+      callbackSuccessUrl.searchParams.set('popup', 'true')
+    }
+    
+    const response = NextResponse.redirect(callbackSuccessUrl)
     
     // Clear the referral cookie after processing
     return clearReferralCookie(response)

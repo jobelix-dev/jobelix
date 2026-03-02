@@ -8,7 +8,6 @@ import net from 'net';
 import path from 'path';
 import { spawn } from 'child_process';
 import logger from '../utils/logger.js';
-import { URLS } from '../config/constants.js';
 
 const LOCAL_HOST = '127.0.0.1';
 const PORT_START = 43100;

@@ -14,10 +14,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
-import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
 import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
+import { getElectronAPI } from '@/lib/client/runtime';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -64,16 +64,19 @@ export default function LoginForm() {
     try {
       await api.login({ email, password, captchaToken: captchaToken || undefined });
       
-      // Save auth tokens to cache for automatic login
+      // Save session to Electron OS keychain for automatic login
       try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          await saveSessionToAuthCache(session);
+        const electronAPI = getElectronAPI();
+        if (electronAPI?.setSession) {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            await electronAPI.setSession(session);
+          }
         }
       } catch (cacheError) {
-        console.warn('Failed to save auth cache:', cacheError);
+        console.warn('Failed to save session to Electron:', cacheError);
         // Don't fail login if cache save fails
       }
       

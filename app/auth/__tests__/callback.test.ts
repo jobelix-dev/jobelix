@@ -324,7 +324,8 @@ describe('code-based PKCE flow', () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toContain('/profile');
+    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
+    expect(getRedirectLocation(res)).toContain('next=%2Fprofile');
   });
 
   it('redirects to login with generic error on exchange failure', async () => {
@@ -337,8 +338,8 @@ describe('code-based PKCE flow', () => {
 
     expect(res.status).toBe(307);
     const location = decodeURIComponent(getRedirectLocation(res));
-    expect(location).toContain('/login');
-    expect(location).toContain('Authentication+failed');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('error=Authentication');
   });
 
   it('redirects with expired message when exchange returns expired/invalid_grant error', async () => {
@@ -351,7 +352,7 @@ describe('code-based PKCE flow', () => {
 
     expect(res.status).toBe(307);
     const location = decodeURIComponent(getRedirectLocation(res));
-    expect(location).toContain('/login');
+    expect(location).toContain('/auth/callback-success');
     expect(location).toContain('expired');
   });
 
@@ -364,8 +365,8 @@ describe('code-based PKCE flow', () => {
 
     expect(res.status).toBe(307);
     const location = getRedirectLocation(res);
-    expect(location).toContain('/login');
-    expect(location).toContain('Authentication+failed');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('error=Authentication');
   });
 
   it('calls exchangeCodeForSession with the code', async () => {
@@ -399,7 +400,8 @@ describe('next param sanitization', () => {
     });
     const res = await GET(req);
 
-    expect(getRedirectLocation(res)).toContain('/settings/profile');
+    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
+    expect(getRedirectLocation(res)).toContain('next=%2Fsettings%2Fprofile');
   });
 
   it('defaults to /dashboard for absolute URL', async () => {
@@ -416,8 +418,10 @@ describe('next param sanitization', () => {
     });
     const res = await GET(req);
 
+    // All callbacks go through callback-success
     const location = getRedirectLocation(res);
-    expect(location).toContain('/dashboard');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('next=%2Fdashboard');
     expect(location).not.toContain('evil.com');
   });
 
@@ -435,8 +439,10 @@ describe('next param sanitization', () => {
     });
     const res = await GET(req);
 
+    // All callbacks go through callback-success
     const location = getRedirectLocation(res);
-    expect(location).toContain('/dashboard');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('next=%2Fdashboard');
     expect(location).not.toContain('evil.com');
   });
 });
@@ -462,8 +468,10 @@ describe('popup mode', () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
-    expect(getRedirectLocation(res)).not.toContain('/settings');
+    const location = getRedirectLocation(res);
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('popup=true');
+    expect(location).toContain('next=%2Fsettings');
   });
 
   it('includes error param in callback-success URL on error', async () => {
@@ -490,8 +498,9 @@ describe('popup mode', () => {
     });
     const res = await GET(req);
 
-    expect(getRedirectLocation(res)).toContain('/dashboard');
-    expect(getRedirectLocation(res)).not.toContain('callback-success');
+    // All callbacks now go through callback-success for unified session handling
+    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
+    expect(getRedirectLocation(res)).toContain('next=%2Fdashboard');
   });
 });
 
@@ -617,7 +626,8 @@ describe('post-auth processing', () => {
       const res = await GET(req);
 
       expect(res.status).toBe(307);
-      expect(getRedirectLocation(res)).toContain('/dashboard');
+      // All callbacks go through callback-success for unified session handling
+      expect(getRedirectLocation(res)).toContain('/auth/callback-success');
     }
   });
 });

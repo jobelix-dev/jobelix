@@ -93,11 +93,6 @@ export const IPC_CHANNELS = {
   CHECK_BROWSER: 'check-browser',
   INSTALL_BROWSER: 'install-browser',
   
-  // Auth cache
-  SAVE_AUTH_CACHE: 'save-auth-cache',
-  LOAD_AUTH_CACHE: 'load-auth-cache',
-  CLEAR_AUTH_CACHE: 'clear-auth-cache',
-  
   // Update management
   OPEN_RELEASES_PAGE: 'open-releases-page',
 };

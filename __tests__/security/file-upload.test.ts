@@ -24,6 +24,12 @@ vi.mock('@/lib/server/auth', () => ({
   authenticateRequest: (...args: unknown[]) => mockAuthenticateRequest(...args),
 }));
 
+const mockCheckRateLimit = vi.fn();
+vi.mock('@/lib/server/rateLimiting', () => ({
+  checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  logApiCall: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -51,6 +57,9 @@ function createAuthSuccess(userId = DEFAULT_USER_ID) {
     supabase: mockChain,
     error: null,
   });
+
+  // Mock rate limiting to allow requests
+  mockCheckRateLimit.mockResolvedValue({ allowed: true });
 
   return { mockChain, mockStorageUpload, mockStorageFrom };
 }

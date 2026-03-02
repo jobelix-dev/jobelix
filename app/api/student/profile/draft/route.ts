@@ -42,10 +42,10 @@ const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 /**
  * GET - Retrieve or create the current draft for logged-in user
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
     
     const { user, supabase } = auth

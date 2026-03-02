@@ -16,7 +16,6 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { UserProfile } from '@/lib/shared/types';
 import { api } from '@/lib/client/api';
-import { clearCachedAuthTokens } from '@/lib/client/authCache';
 import { apiFetch } from '@/lib/client/http';
 import { getElectronAPI } from '@/lib/client/runtime';
 import { Shield, X, MessageSquare, LogOut, MoreHorizontal, Settings, AlertTriangle, Info } from 'lucide-react';
@@ -91,9 +90,12 @@ export default function DashboardPage() {
       const redirectToHomeWithClearedCache = async (reason: string) => {
         console.log(`[Dashboard] ${reason}`);
         try {
-          await clearCachedAuthTokens();
+          const electronAPI = getElectronAPI();
+          if (electronAPI?.clearSession) {
+            await electronAPI.clearSession();
+          }
         } catch (cacheError) {
-          console.warn('Failed to clear auth cache on session invalidation:', cacheError);
+          console.warn('Failed to clear session on session invalidation:', cacheError);
         }
         router.push('/');
       };

@@ -20,8 +20,8 @@ import {
   DraftProfileData,
   FinalizeProfileResponse,
 } from '../shared/types'
-import { clearCachedAuthTokens } from './authCache'
 import { apiFetch } from './http'
+import { getElectronAPI } from './runtime'
 
 class ApiClient {
   /**
@@ -129,12 +129,15 @@ class ApiClient {
       method: 'POST',
     });
 
-    // Clear auth cache on logout
+    // Clear session from Electron storage on logout
     if (result.success) {
       try {
-        await clearCachedAuthTokens();
+        const electronAPI = getElectronAPI();
+        if (electronAPI?.clearSession) {
+          await electronAPI.clearSession();
+        }
       } catch (error) {
-        console.warn('Failed to clear auth cache on logout:', error);
+        console.warn('Failed to clear session on logout:', error);
         // Don't fail logout if cache clear fails
       }
     }
@@ -166,12 +169,15 @@ class ApiClient {
       }),
     });
 
-    // Clear auth cache after account deletion
+    // Clear session from Electron storage after account deletion
     if (result.success) {
       try {
-        await clearCachedAuthTokens();
+        const electronAPI = getElectronAPI();
+        if (electronAPI?.clearSession) {
+          await electronAPI.clearSession();
+        }
       } catch (error) {
-        console.warn('Failed to clear auth cache after account deletion:', error);
+        console.warn('Failed to clear session after account deletion:', error);
       }
     }
 

@@ -10,12 +10,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/client/supabaseClient';
-import {
-  clearCachedAuthTokens,
-  isAuthCacheAvailable,
-  loadCachedAuthTokens,
-  saveSessionToAuthCache,
-} from '@/lib/client/authCache';
+import { getElectronAPI } from '@/lib/client/runtime';
 
 export default function AutoLogin() {
   const router = useRouter();
@@ -24,7 +19,8 @@ export default function AutoLogin() {
   useEffect(() => {
     async function checkAutoLogin() {
       // Only run in Electron environment
-      if (!isAuthCacheAvailable()) {
+      const electronAPI = getElectronAPI();
+      if (!electronAPI?.getSession) {
         return;
       }
 
@@ -34,23 +30,23 @@ export default function AutoLogin() {
       }
 
       try {
-        // Load cached tokens
-        const cachedTokens = await loadCachedAuthTokens();
+        // Load cached session from OS keychain
+        const cachedSession = await electronAPI.getSession();
 
-        if (!cachedTokens) {
+        if (!cachedSession) {
           console.log('[AutoLogin] No cached auth tokens found');
           return;
         }
 
-        console.log('[AutoLogin] Found cached auth tokens, checking expiration...');
+        console.log('[AutoLogin] Found cached session, checking expiration...');
 
         // Check if tokens are expired (with 5 minute buffer)
         const now = Math.floor(Date.now() / 1000);
-        const expiresAt = cachedTokens.expires_at || 0;
+        const expiresAt = cachedSession.expires_at || 0;
         const isExpired = expiresAt > 0 && (expiresAt - 300) < now; // 5 min buffer
 
         if (isExpired) {
-          console.log('[AutoLogin] Tokens expired, will attempt refresh');
+          console.log('[AutoLogin] Session expired, will attempt refresh');
         }
 
         // Create Supabase client and set the session
@@ -59,15 +55,15 @@ export default function AutoLogin() {
         // Set the session with cached tokens
         // Supabase will automatically refresh if needed
         const { data, error } = await supabase.auth.setSession({
-          access_token: cachedTokens.access_token,
-          refresh_token: cachedTokens.refresh_token,
+          access_token: cachedSession.access_token,
+          refresh_token: cachedSession.refresh_token,
         });
 
         if (error) {
           console.warn('[AutoLogin] Failed to restore session from cache:', error.message);
           console.warn('[AutoLogin] Error details:', error);
           // Clear invalid cache
-          await clearCachedAuthTokens();
+          await electronAPI.clearSession();
           return;
         }
 
@@ -75,10 +71,10 @@ export default function AutoLogin() {
           console.log('[AutoLogin] Auto-login successful');
           
           // If tokens were refreshed, update the cache with new tokens
-          if (data.session.access_token !== cachedTokens.access_token) {
+          if (data.session.access_token !== cachedSession.access_token) {
             console.log('[AutoLogin] Tokens were refreshed, updating cache');
             try {
-              await saveSessionToAuthCache(data.session);
+              await electronAPI.setSession(data.session);
             } catch (saveError) {
               console.warn('[AutoLogin] Failed to update cache with refreshed tokens:', saveError);
             }
@@ -89,13 +85,16 @@ export default function AutoLogin() {
         } else {
           console.warn('[AutoLogin] No valid session after auto-login attempt');
           // Clear invalid cache
-          await clearCachedAuthTokens();
+          await electronAPI.clearSession();
         }
       } catch (error) {
         console.error('[AutoLogin] Auto-login check failed:', error);
         // Clear potentially corrupted cache
         try {
-          await clearCachedAuthTokens();
+          const electronAPI = getElectronAPI();
+          if (electronAPI?.clearSession) {
+            await electronAPI.clearSession();
+          }
         } catch (clearError) {
           console.error('[AutoLogin] Failed to clear cache:', clearError);
         }
