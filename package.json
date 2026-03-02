@@ -1,6 +1,6 @@
 {
   "name": "jobelix",
-  "version": "0.0.41",
+  "version": "0.0.42",
   "type": "module",
   "main": "src/main/index.js",
   "description": "Jobelix Desktop Application",
@@ -69,6 +69,110 @@
       {
         "from": "node_modules/next",
         "to": "next/standalone/node_modules/next",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/styled-jsx",
+        "to": "next/standalone/node_modules/styled-jsx",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/@next/env",
+        "to": "next/standalone/node_modules/@next/env",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/@swc/helpers",
+        "to": "next/standalone/node_modules/@swc/helpers",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/baseline-browser-mapping",
+        "to": "next/standalone/node_modules/baseline-browser-mapping",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/caniuse-lite",
+        "to": "next/standalone/node_modules/caniuse-lite",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/postcss",
+        "to": "next/standalone/node_modules/postcss",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/react",
+        "to": "next/standalone/node_modules/react",
+        "filter": [
+          "**/*",
+          "!**/*.d.ts",
+          "!**/*.map",
+          "!**/*.md",
+          "!**/README*",
+          "!**/CHANGELOG*",
+          "!**/.github/**/*"
+        ]
+      },
+      {
+        "from": "node_modules/react-dom",
+        "to": "next/standalone/node_modules/react-dom",
         "filter": [
           "**/*",
           "!**/*.d.ts",

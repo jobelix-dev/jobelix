@@ -20,6 +20,18 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const REQUIRED_STANDALONE_RUNTIME_PACKAGES = [
+  'next',
+  'styled-jsx',
+  '@next/env',
+  '@swc/helpers',
+  'baseline-browser-mapping',
+  'caniuse-lite',
+  'postcss',
+  'react',
+  'react-dom',
+];
+
 /**
  * @param {import('electron-builder').AfterPackContext} context
  */
@@ -60,12 +72,17 @@ async function pruneBundledStandalone(appOutDir) {
     );
   }
 
-  const standaloneNextPackage = path.join(standaloneDir, 'node_modules', 'next', 'package.json');
   const standaloneNextEntry = path.join(standaloneDir, 'node_modules', 'next', 'dist', 'server', 'next.js');
-  if (!fs.existsSync(standaloneNextPackage) || !fs.existsSync(standaloneNextEntry)) {
+  const missingRuntimePackages = REQUIRED_STANDALONE_RUNTIME_PACKAGES.filter((pkgName) => {
+    const packageJsonPath = path.join(standaloneDir, 'node_modules', ...pkgName.split('/'), 'package.json');
+    return !fs.existsSync(packageJsonPath);
+  });
+
+  if (missingRuntimePackages.length > 0 || !fs.existsSync(standaloneNextEntry)) {
     throw new Error(
-      'Bundled desktop UI is missing the Next.js runtime in next/standalone/node_modules/next. ' +
-      'Desktop local UI cannot boot without it.'
+      'Bundled desktop UI is missing required runtime packages in next/standalone/node_modules: ' +
+      `${missingRuntimePackages.join(', ') || 'next runtime entry missing'}. ` +
+      'Desktop local UI cannot boot without them.'
     );
   }
 
