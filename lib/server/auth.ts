@@ -3,12 +3,17 @@
  * 
  * Reusable authentication helpers for API routes.
  * Provides consistent error handling and user validation across all endpoints.
+ * 
+ * Supports two authentication methods:
+ * - Cookie-based (web browsers): Uses Supabase session cookies
+ * - Token-based (desktop app): Uses Bearer token in Authorization header
  */
 
 import "server-only";
 
 import { NextResponse } from 'next/server'
 import { createClient } from './supabaseServer'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 /**
@@ -47,15 +52,54 @@ function cleanupCache(): void {
 }
 
 /**
+ * Authenticate request via Bearer token (desktop app)
+ */
+async function authenticateWithToken(token: string): Promise<AuthResult> {
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  
+  // Check cache first
+  const cached = userCache.get(token);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return { user: cached.user, supabase, error: null };
+  }
+  
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
+  if (authError || !user) {
+    return {
+      user: null,
+      supabase: null,
+      error: NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    };
+  }
+  
+  // Cache the authenticated user
+  userCache.set(token, { user, timestamp: Date.now() });
+  
+  return { user, supabase, error: null };
+}
+
+/**
  * Authenticate the current request and return the authenticated user.
  * Uses in-memory cache (3s TTL) to reduce repeated auth.getUser() calls.
  * 
+ * Supports two authentication methods:
+ * 1. Token-based (desktop): Authorization: Bearer <token>
+ * 2. Cookie-based (web): Supabase session cookies
+ * 
+ * @param request - Optional request object to check for Bearer token
  * @returns Object containing user and supabase client, or error response
  * 
  * @example
  * ```typescript
- * export async function GET() {
- *   const auth = await authenticateRequest()
+ * export async function GET(request: NextRequest) {
+ *   const auth = await authenticateRequest(request)
  *   if (auth.error) return auth.error
  *   
  *   // Use auth.user and auth.supabase
@@ -66,10 +110,20 @@ function cleanupCache(): void {
  * }
  * ```
  */
-export async function authenticateRequest(): Promise<AuthResult> {
+export async function authenticateRequest(request?: Request): Promise<AuthResult> {
   // Lazy cleanup on each request (lightweight - only runs if cache is large)
   cleanupCache();
   
+  // Desktop app: Check for Bearer token
+  if (request) {
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      return authenticateWithToken(token);
+    }
+  }
+  
+  // Web app: Use cookie-based authentication
   const supabase = await createClient()
   
   // Try to get session from Supabase client to use as cache key

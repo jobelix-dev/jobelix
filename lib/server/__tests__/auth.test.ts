@@ -2,13 +2,15 @@
  * Tests for lib/server/auth.ts
  *
  * Tests authenticateRequest() and requireAuth() functions including:
- * - Successful authentication flows
+ * - Successful authentication flows (cookie-based and token-based)
  * - Error/unauthorized flows
  * - In-memory user cache behavior (hit, miss, TTL expiry, cleanup)
  * - requireAuth() throw behavior on failure
+ * - Bearer token authentication for desktop app
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { NextRequest } from 'next/server';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -21,11 +23,15 @@ const mockNextResponseJson = vi.fn((body: unknown, init?: { status?: number }) =
   status: init?.status ?? 200,
 }));
 
-vi.mock('next/server', () => ({
-  NextResponse: {
-    json: (body: unknown, init?: { status?: number }) => mockNextResponseJson(body, init),
-  },
-}));
+vi.mock('next/server', async () => {
+  const actual = await vi.importActual<typeof import('next/server')>('next/server');
+  return {
+    ...actual,
+    NextResponse: {
+      json: (body: unknown, init?: { status?: number }) => mockNextResponseJson(body, init),
+    },
+  };
+});
 
 // Mock supabase client returned by createClient
 const mockGetSession = vi.fn();
@@ -40,6 +46,11 @@ const mockSupabase = {
 
 vi.mock('../supabaseServer', () => ({
   createClient: vi.fn(() => Promise.resolve(mockSupabase)),
+}));
+
+// Mock @supabase/supabase-js for token-based auth
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => mockSupabase),
 }));
 
 // ---------------------------------------------------------------------------
@@ -375,5 +386,143 @@ describe('requireAuth', () => {
       expect(thrown).toHaveProperty('__type', 'NextResponse');
       expect(thrown).toHaveProperty('status', 401);
     }
+  });
+});
+
+// ===========================================================================
+// Token-based Authentication (Desktop App)
+// ===========================================================================
+
+describe('authenticateRequest with Bearer token', () => {
+  let authenticateRequest: typeof import('../auth').authenticateRequest;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    vi.resetModules();
+    const mod = await import('../auth');
+    authenticateRequest = mod.authenticateRequest;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function createRequestWithToken(token: string): NextRequest {
+    return new NextRequest('https://www.jobelix.fr/api/student/profile', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-Client-Type': 'desktop',
+      },
+    });
+  }
+
+  it('authenticates successfully with valid Bearer token', async () => {
+    const user = fakeUser();
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyJ9.test';
+    
+    mockGetUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    const request = createRequestWithToken(token);
+    const result = await authenticateRequest(request);
+
+    expect(result.error).toBeNull();
+    expect(result.user).toEqual(user);
+    expect(result.supabase).toBeDefined();
+    expect(mockGetUser).toHaveBeenCalledWith(token);
+  });
+
+  it('returns 401 when Bearer token is invalid', async () => {
+    const token = 'invalid_token';
+    
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Invalid token' },
+    });
+
+    const request = createRequestWithToken(token);
+    const result = await authenticateRequest(request);
+
+    expect(result.user).toBeNull();
+    expect(result.supabase).toBeNull();
+    expect(result.error).toBeDefined();
+    expect(mockNextResponseJson).toHaveBeenCalledWith(
+      { error: 'Unauthorized' },
+      { status: 401 },
+    );
+  });
+
+  it('caches token-based authentication', async () => {
+    const user = fakeUser();
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.cached';
+    
+    mockGetUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    const request1 = createRequestWithToken(token);
+    const result1 = await authenticateRequest(request1);
+    expect(result1.user).toEqual(user);
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+
+    // Advance time but stay within TTL
+    vi.advanceTimersByTime(2_000);
+
+    // Second request with same token - should hit cache
+    const request2 = createRequestWithToken(token);
+    const result2 = await authenticateRequest(request2);
+    expect(result2.user).toEqual(user);
+    expect(mockGetUser).toHaveBeenCalledTimes(1); // Still only 1 call
+  });
+
+  it('expires token cache after TTL', async () => {
+    const user = fakeUser();
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expire';
+    
+    mockGetUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    const request1 = createRequestWithToken(token);
+    await authenticateRequest(request1);
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+
+    // Advance past TTL
+    vi.advanceTimersByTime(3_001);
+
+    // Second request - should call getUser again
+    const request2 = createRequestWithToken(token);
+    await authenticateRequest(request2);
+    expect(mockGetUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to cookie auth when no Bearer token present', async () => {
+    const user = fakeUser();
+    
+    // Setup cookie-based auth
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'cookie_token' } },
+    });
+    mockGetUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    // Request without Authorization header
+    const request = new NextRequest('https://www.jobelix.fr/api/student/profile', {
+      method: 'GET',
+    });
+
+    const result = await authenticateRequest(request);
+
+    expect(result.error).toBeNull();
+    expect(result.user).toEqual(user);
+    expect(mockGetSession).toHaveBeenCalledOnce();
   });
 });

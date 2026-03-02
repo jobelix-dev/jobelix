@@ -187,6 +187,26 @@ export function setupIpcHandlers() {
   handlerCount++;
 
   // ============================================================================
+  // Session Management (Token-based auth for desktop)
+  // ============================================================================
+  
+  // New token-based session methods (preferred over auth cache)
+  ipcMain.handle('get-session', async () => {
+    return await loadAuthCache(); // Reuses existing secure storage
+  });
+  handlerCount++;
+  
+  ipcMain.handle('set-session', async (_, session) => {
+    return await saveAuthCache(session);
+  });
+  handlerCount++;
+  
+  ipcMain.handle('clear-session', async () => {
+    return await clearAuthCache();
+  });
+  handlerCount++;
+
+  // ============================================================================
   // Updates
   // ============================================================================
 

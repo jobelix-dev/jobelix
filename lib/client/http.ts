@@ -1,4 +1,5 @@
 import { isAllowedApiOrigin, resolveApiPath } from './runtime';
+import { apiClient } from './apiClient';
 
 function assertAllowedRequestTarget(rawUrl: string): void {
   if (typeof window === 'undefined') return;
@@ -12,10 +13,28 @@ function assertAllowedRequestTarget(rawUrl: string): void {
 /**
  * Shared fetch helper for app API requests.
  *
- * Uses runtime-aware URL resolution and includes credentials by default,
- * which keeps session-based auth working across hosts.
+ * Now uses the unified ApiClient which handles:
+ * - Web: Cookie-based auth (same-origin)
+ * - Desktop: Token-based auth (direct API calls)
+ *
+ * @deprecated For new code, use apiClient directly for better type safety
  */
 export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // Desktop app: Use token-based ApiClient
+  if (apiClient.isDesktop()) {
+    if (typeof input === 'string') {
+      // Convert to proper API request through ApiClient
+      return apiClient.request(input, init).then(data => {
+        // Create a Response-like object for backward compatibility
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      });
+    }
+  }
+  
+  // Web app: Use traditional cookie-based fetch
   if (typeof input === 'string') {
     const resolved = resolveApiPath(input);
     assertAllowedRequestTarget(resolved);

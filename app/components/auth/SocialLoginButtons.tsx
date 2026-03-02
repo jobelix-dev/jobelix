@@ -137,20 +137,38 @@ export default function SocialLoginButtons({
   // Track if we're in the middle of an OAuth flow
   const isOAuthFlowActive = useRef(false);
 
-  // Save auth tokens to Electron cache for automatic login
-  const saveAuthCacheIfElectron = useCallback(async (session: { 
+  // Save auth tokens to Electron session storage for automatic login
+  const saveSessionIfElectron = useCallback(async (session: { 
     access_token: string; 
     refresh_token: string; 
     expires_at?: number;
     user: { id: string };
   }) => {
     try {
-      const saved = await saveSessionToAuthCache(session);
-      if (saved) {
-        console.log('[OAuth] Auth cache saved for Electron');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const electronAPI = (window as any).electronAPI;
+      
+      // New token-based session management
+      if (electronAPI?.setSession) {
+        const saved = await electronAPI.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          user: session.user,
+        });
+        if (saved?.success) {
+          console.log('[OAuth] Session saved to Electron secure storage');
+        }
+      }
+      // Fallback to legacy auth cache for backward compatibility
+      else if (electronAPI?.saveAuthCache) {
+        const saved = await saveSessionToAuthCache(session);
+        if (saved) {
+          console.log('[OAuth] Auth cache saved for Electron (legacy)');
+        }
       }
     } catch (cacheError) {
-      console.warn('[OAuth] Failed to save auth cache:', cacheError);
+      console.warn('[OAuth] Failed to save session:', cacheError);
     }
   }, []);
 
@@ -236,10 +254,10 @@ export default function SocialLoginButtons({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Fetch the full session for Electron cache (getUser doesn't return tokens)
+          // Fetch the full session for Electron storage (getUser doesn't return tokens)
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
-            await saveAuthCacheIfElectron(session);
+            await saveSessionIfElectron(session);
           }
         }
         
@@ -251,7 +269,7 @@ export default function SocialLoginButtons({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [handleAuthSuccess, handleAuthError, saveAuthCacheIfElectron]);
+  }, [handleAuthSuccess, handleAuthError, saveSessionIfElectron]);
 
   // Poll for popup close (fallback if postMessage fails)
   useEffect(() => {
@@ -275,10 +293,10 @@ export default function SocialLoginButtons({
           
           if (user) {
             console.log('[OAuth] Session found after popup closed (fallback)');
-            // Fetch session for Electron cache
+            // Fetch session for Electron storage
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-              await saveAuthCacheIfElectron(session);
+              await saveSessionIfElectron(session);
             }
             await handleAuthSuccess();
           } else {
@@ -293,7 +311,7 @@ export default function SocialLoginButtons({
     }, 500);
 
     return () => clearInterval(pollInterval);
-  }, [popup, loadingProvider, handleAuthSuccess, saveAuthCacheIfElectron]);
+  }, [popup, loadingProvider, handleAuthSuccess, saveSessionIfElectron]);
 
   async function handleOAuthLogin(provider: Provider) {
     setLoadingProvider(provider);

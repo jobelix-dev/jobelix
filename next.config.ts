@@ -22,10 +22,6 @@ function sanitizeDesktopBackendOrigin(origin: string): string {
   return "https://www.jobelix.fr";
 }
 
-const desktopBackendOrigin = sanitizeDesktopBackendOrigin(
-  process.env.NEXT_DESKTOP_BACKEND_ORIGIN || "https://www.jobelix.fr"
-);
-
 const nextConfig: NextConfig = {
   output: isDesktopBundle ? "standalone" : undefined,
   serverExternalPackages: ["pdfjs-dist"],
@@ -34,24 +30,9 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    if (!isDesktopBundle) {
-      return [];
-    }
-
-    // Desktop local bundle: proxy backend/auth endpoints to production backend.
-    // This keeps one shared UI codebase while avoiding bundling server secrets.
-    return {
-      beforeFiles: [
-        {
-          source: "/api/:path*",
-          destination: `${desktopBackendOrigin}/api/:path*`,
-        },
-        {
-          source: "/auth/callback",
-          destination: `${desktopBackendOrigin}/auth/callback`,
-        },
-      ],
-    };
+    // Desktop app now makes direct API calls with token authentication
+    // No more proxying needed - simpler and faster
+    return [];
   },
 
   async headers() {

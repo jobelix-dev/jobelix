@@ -2,6 +2,7 @@
  * CSRF defenses for cookie-authenticated API routes.
  *
  * Strategy:
+ * - Skip CSRF for token-based auth (desktop app) - tokens aren't sent automatically
  * - Block explicit cross-site browser requests (`sec-fetch-site: cross-site`)
  * - Validate `Origin` when present against trusted app origins
  * - Allow missing Origin to avoid breaking non-browser clients
@@ -69,6 +70,9 @@ function invalidOriginResponse() {
 /**
  * Enforce same-origin policy for unsafe HTTP methods.
  *
+ * Token-based authentication (desktop app) is exempt from CSRF checks
+ * because tokens are sent explicitly in headers, not automatically like cookies.
+ *
  * Returns:
  * - `null` when request passes CSRF checks
  * - `NextResponse` (403) when rejected
@@ -78,6 +82,13 @@ export function enforceSameOrigin(request?: CsrfRequest): NextResponse | null {
 
   const method = (request.method || 'GET').toUpperCase();
   if (SAFE_METHODS.has(method)) return null;
+
+  // Skip CSRF for token-based authentication (desktop app)
+  // Tokens are sent explicitly in Authorization header, not automatically like cookies
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return null; // Token auth doesn't need CSRF protection
+  }
 
   const fetchSite = request.headers.get('sec-fetch-site');
   if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {

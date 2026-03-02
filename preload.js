@@ -28,7 +28,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('browser-install-progress');
   },
   
-  // Auth cache
+  // Auth cache (token-based session management for desktop)
+  getSession: () => ipcRenderer.invoke('get-session'),
+  setSession: (session) => ipcRenderer.invoke('set-session', session),
+  clearSession: () => ipcRenderer.invoke('clear-session'),
+  
+  // Legacy auth cache methods (deprecated - use getSession/setSession)
   saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),
   loadAuthCache: () => ipcRenderer.invoke('load-auth-cache'),
   clearAuthCache: () => ipcRenderer.invoke('clear-auth-cache'),
