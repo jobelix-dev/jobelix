@@ -214,6 +214,10 @@ const REQUIRED_STANDALONE_RUNTIME_PACKAGES = [
   'react-dom',
 ];
 
+function packagePathSegments(pkgName) {
+  return pkgName.split('/');
+}
+
 /**
  * Ensure the Next.js standalone desktop bundle was produced.
  * This prevents releasing desktop builds that silently fall back to remote UI.
@@ -221,19 +225,28 @@ const REQUIRED_STANDALONE_RUNTIME_PACKAGES = [
 function verifyStandaloneBuildInputs() {
   const root = getProjectRoot();
   const standaloneEntry = path.join(root, '.next', 'standalone', 'server.js');
-  const standaloneNextEntry = path.join(root, '.next', 'standalone', 'node_modules', 'next', 'dist', 'server', 'next.js');
   const staticDir = path.join(root, '.next', 'static');
   const missingRuntimePackages = REQUIRED_STANDALONE_RUNTIME_PACKAGES.filter((pkgName) => {
-    const packageJsonPath = path.join(root, '.next', 'standalone', 'node_modules', ...pkgName.split('/'), 'package.json');
-    return !fs.existsSync(packageJsonPath);
+    const standalonePackageJsonPath = path.join(
+      root,
+      '.next',
+      'standalone',
+      'node_modules',
+      ...packagePathSegments(pkgName),
+      'package.json',
+    );
+    const rootPackageJsonPath = path.join(root, 'node_modules', ...packagePathSegments(pkgName), 'package.json');
+    return !fs.existsSync(standalonePackageJsonPath) && !fs.existsSync(rootPackageJsonPath);
   });
+  const standaloneNextEntry = path.join(root, '.next', 'standalone', 'node_modules', 'next', 'dist', 'server', 'next.js');
+  const rootNextEntry = path.join(root, 'node_modules', 'next', 'dist', 'server', 'next.js');
 
   if (!fs.existsSync(standaloneEntry)) {
     throw new Error(`Missing standalone entry: ${standaloneEntry}`);
   }
-  if (missingRuntimePackages.length > 0 || !fs.existsSync(standaloneNextEntry)) {
+  if (missingRuntimePackages.length > 0 || (!fs.existsSync(standaloneNextEntry) && !fs.existsSync(rootNextEntry))) {
     throw new Error(
-      'Missing standalone runtime packages in .next/standalone/node_modules: ' +
+      'Missing standalone runtime packages from packaging sources: ' +
       `${missingRuntimePackages.join(', ') || 'next runtime entry missing'}. ` +
       'The packaged desktop UI would fail to boot.'
     );

@@ -184,6 +184,22 @@ function isTrustedAppNavigationTarget(rawUrl) {
       return true;
     }
 
+    // Allow Supabase OAuth URLs to open in popups
+    // This enables OAuth login flows (Google, LinkedIn, GitHub) to work in Electron
+    if (parsed.hostname.endsWith('.supabase.co') && parsed.pathname.startsWith('/auth/v1/')) {
+      return true;
+    }
+
+    // Allow OAuth provider domains (Google, GitHub, LinkedIn)
+    const oauthProviders = [
+      'accounts.google.com',
+      'github.com',
+      'www.linkedin.com'
+    ];
+    if (oauthProviders.includes(parsed.hostname)) {
+      return true;
+    }
+
     return false;
   } catch {
     return false;
