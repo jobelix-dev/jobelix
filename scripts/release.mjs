@@ -202,6 +202,18 @@ function getProjectRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 }
 
+const REQUIRED_STANDALONE_RUNTIME_PACKAGES = [
+  'next',
+  'styled-jsx',
+  '@next/env',
+  '@swc/helpers',
+  'baseline-browser-mapping',
+  'caniuse-lite',
+  'postcss',
+  'react',
+  'react-dom',
+];
+
 /**
  * Ensure the Next.js standalone desktop bundle was produced.
  * This prevents releasing desktop builds that silently fall back to remote UI.
@@ -209,16 +221,20 @@ function getProjectRoot() {
 function verifyStandaloneBuildInputs() {
   const root = getProjectRoot();
   const standaloneEntry = path.join(root, '.next', 'standalone', 'server.js');
-  const standaloneNextPackage = path.join(root, '.next', 'standalone', 'node_modules', 'next', 'package.json');
   const standaloneNextEntry = path.join(root, '.next', 'standalone', 'node_modules', 'next', 'dist', 'server', 'next.js');
   const staticDir = path.join(root, '.next', 'static');
+  const missingRuntimePackages = REQUIRED_STANDALONE_RUNTIME_PACKAGES.filter((pkgName) => {
+    const packageJsonPath = path.join(root, '.next', 'standalone', 'node_modules', ...pkgName.split('/'), 'package.json');
+    return !fs.existsSync(packageJsonPath);
+  });
 
   if (!fs.existsSync(standaloneEntry)) {
     throw new Error(`Missing standalone entry: ${standaloneEntry}`);
   }
-  if (!fs.existsSync(standaloneNextPackage) || !fs.existsSync(standaloneNextEntry)) {
+  if (missingRuntimePackages.length > 0 || !fs.existsSync(standaloneNextEntry)) {
     throw new Error(
-      'Missing standalone Next.js runtime in .next/standalone/node_modules/next. ' +
+      'Missing standalone runtime packages in .next/standalone/node_modules: ' +
+      `${missingRuntimePackages.join(', ') || 'next runtime entry missing'}. ` +
       'The packaged desktop UI would fail to boot.'
     );
   }
