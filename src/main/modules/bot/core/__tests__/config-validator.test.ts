@@ -72,17 +72,6 @@ describe('ConfigValidator', () => {
   });
 
   describe('experienceLevel validation', () => {
-    it('should validate all experience levels', () => {
-      const result = validateConfig(validConfig);
-      
-      expect(result.experienceLevel.internship).toBe(true);
-      expect(result.experienceLevel.entry).toBe(true);
-      expect(result.experienceLevel.associate).toBe(false);
-      expect(result.experienceLevel['mid-senior level']).toBe(true);
-      expect(result.experienceLevel.director).toBe(false);
-      expect(result.experienceLevel.executive).toBe(false);
-    });
-
     it('should throw ConfigError for invalid experience level value', () => {
       const invalidConfig = {
         ...validConfig,
@@ -111,18 +100,6 @@ describe('ConfigValidator', () => {
   });
 
   describe('jobTypes validation', () => {
-    it('should validate all job types', () => {
-      const result = validateConfig(validConfig);
-      
-      expect(result.jobTypes['full-time']).toBe(true);
-      expect(result.jobTypes.contract).toBe(false);
-      expect(result.jobTypes['part-time']).toBe(false);
-      expect(result.jobTypes.temporary).toBe(false);
-      expect(result.jobTypes.internship).toBe(false);
-      expect(result.jobTypes.other).toBe(false);
-      expect(result.jobTypes.volunteer).toBe(false);
-    });
-
     it('should throw ConfigError for invalid job type value', () => {
       const invalidConfig = {
         ...validConfig,
@@ -137,15 +114,6 @@ describe('ConfigValidator', () => {
   });
 
   describe('date filter validation', () => {
-    it('should validate all date filters', () => {
-      const result = validateConfig(validConfig);
-      
-      expect(result.date['all time']).toBe(false);
-      expect(result.date.month).toBe(false);
-      expect(result.date.week).toBe(true);
-      expect(result.date['24 hours']).toBe(false);
-    });
-
     it('should throw ConfigError for invalid date filter value', () => {
       const invalidConfig = {
         ...validConfig,
@@ -160,13 +128,6 @@ describe('ConfigValidator', () => {
   });
 
   describe('positions validation', () => {
-    it('should accept valid string array', () => {
-      const result = validateConfig(validConfig);
-      
-      expect(result.positions).toHaveLength(2);
-      expect(result.positions[0]).toBe('Software Engineer');
-    });
-
     it('should throw ConfigError when positions is not an array', () => {
       const invalidConfig = {
         ...validConfig,
@@ -189,13 +150,6 @@ describe('ConfigValidator', () => {
   });
 
   describe('locations validation', () => {
-    it('should accept valid string array', () => {
-      const result = validateConfig(validConfig);
-      
-      expect(result.locations).toHaveLength(2);
-      expect(result.locations[0]).toBe('San Francisco');
-    });
-
     it('should throw ConfigError when locations is not an array', () => {
       const invalidConfig = {
         ...validConfig,

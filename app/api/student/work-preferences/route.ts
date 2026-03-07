@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const csrfError = enforceSameOrigin(request)
     if (csrfError) return csrfError
 
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
 
     const { user, supabase } = auth

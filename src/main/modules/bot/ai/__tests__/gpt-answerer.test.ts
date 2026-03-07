@@ -1,27 +1,34 @@
 /**
  * Tests for GPT Answerer
- * 
- * These tests verify that:
- * 1. GPTAnswerer initializes correctly
- * 2. Resume and job context are properly set
- * 3. Different question types are answered correctly
- * 4. API errors are handled gracefully
+ *
+ * Verifies that GPTAnswerer correctly delegates to BackendAPIClient,
+ * parses responses, handles API errors, and integrates with StatusReporter.
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GPTAnswerer } from '../gpt-answerer';
 import type { Resume, Job } from '../../types';
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+const { mockChatCompletion } = vi.hoisted(() => ({
+  mockChatCompletion: vi.fn(),
+}));
+
+vi.mock('../backend-client', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  BackendAPIClient: vi.fn().mockImplementation(function(this: any) {
+    this.chatCompletion = mockChatCompletion;
+  }),
+  InsufficientCreditsError: class InsufficientCreditsError extends Error {
+    public readonly statusCode = 402;
+    public readonly code = 'INSUFFICIENT_CREDITS';
+    constructor(message = 'Insufficient credits') {
+      super(message);
+      this.name = 'InsufficientCreditsError';
+    }
+  },
+}));
 
 describe('GPTAnswerer', () => {
-  const mockApiToken = 'test-api-token';
-  const mockApiUrl = 'https://api.example.com/chat';
-  let gptAnswerer: GPTAnswerer;
-
-  // Sample resume for testing (matches actual types)
   const mockResume: Resume = {
     personalInformation: {
       name: 'John',
@@ -61,46 +68,28 @@ describe('GPTAnswerer', () => {
       willingToUndergoDrugTests: 'Yes',
       willingToUndergoBackgroundChecks: 'Yes',
     },
-    educationDetails: [
-      {
-        degree: 'Bachelor of Science',
-        university: 'Stanford University',
-        graduationYear: '2012',
-        fieldOfStudy: 'Computer Science',
-        gpa: '3.8',
-      },
-    ],
-    experienceDetails: [
-      {
-        company: 'Tech Corp',
-        position: 'Senior Software Engineer',
-        employmentPeriod: '2018 - Present',
-        location: 'San Francisco, CA',
-        industry: 'Technology',
-        keyResponsibilities: {
-          leadership: 'Led development team',
-          architecture: 'Designed microservices',
-        },
-        skillsAcquired: {
-          backend: 'Node.js, TypeScript',
-          cloud: 'AWS, GCP',
-        },
-      },
-    ],
-    availability: {
-      noticePeriod: '2 weeks',
-    },
-    salaryExpectations: {
-      salaryRangeUSD: '$150,000 - $180,000',
-    },
-    languages: [
-      { language: 'English', proficiency: 'Native' },
-      { language: 'Spanish', proficiency: 'Conversational' },
-    ],
-    skills: ['JavaScript', 'TypeScript', 'Python', 'React', 'Node.js'],
+    educationDetails: [{
+      degree: 'Bachelor of Science',
+      university: 'Stanford University',
+      graduationYear: '2012',
+      fieldOfStudy: 'Computer Science',
+      gpa: '3.8',
+    }],
+    experienceDetails: [{
+      company: 'Tech Corp',
+      position: 'Senior Software Engineer',
+      employmentPeriod: '2018 - Present',
+      location: 'San Francisco, CA',
+      industry: 'Technology',
+      keyResponsibilities: { leadership: 'Led development team' },
+      skillsAcquired: { backend: 'Node.js, TypeScript' },
+    }],
+    availability: { noticePeriod: '2 weeks' },
+    salaryExpectations: { salaryRangeUSD: '$150,000 - $180,000' },
+    languages: [{ language: 'English', proficiency: 'Native' }],
+    skills: ['JavaScript', 'TypeScript', 'Python'],
   };
 
-  // Sample job for testing (matches actual types)
   const mockJob: Job = {
     title: 'Senior Software Engineer',
     company: 'Awesome Startup',
@@ -111,67 +100,37 @@ describe('GPTAnswerer', () => {
     summarizedDescription: 'Backend engineering role with team leadership',
   };
 
+  let gptAnswerer: GPTAnswerer;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    gptAnswerer = new GPTAnswerer(mockApiToken, mockApiUrl);
+    gptAnswerer = new GPTAnswerer('test-api-token', 'https://api.example.com/chat');
+    gptAnswerer.setResume(mockResume);
+    gptAnswerer.setJob(mockJob);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('constructor', () => {
-    it('should create instance with API credentials', () => {
-      expect(gptAnswerer).toBeInstanceOf(GPTAnswerer);
-    });
-
-    it('should create instance with optional status reporter', () => {
-      const mockReporter = { incrementCreditsUsed: vi.fn() } as Pick<import('../../utils/status-reporter').StatusReporter, 'incrementCreditsUsed'>;
-      const answerer = new GPTAnswerer(mockApiToken, mockApiUrl, mockReporter as import('../../utils/status-reporter').StatusReporter);
-      expect(answerer).toBeInstanceOf(GPTAnswerer);
-    });
-  });
-
-  describe('setResume', () => {
-    it('should set resume context', () => {
-      gptAnswerer.setResume(mockResume);
-      // Resume is set internally - we verify by checking subsequent calls work
-      expect(() => gptAnswerer.setResume(mockResume)).not.toThrow();
-    });
-  });
-
-  describe('setJob', () => {
-    it('should set job context', () => {
-      gptAnswerer.setJob(mockJob);
+  describe('setJob / jobDescription', () => {
+    it('should expose job description after setJob', () => {
       expect(gptAnswerer.jobDescription).toBe(mockJob.description);
     });
 
     it('should return empty string when no job is set', () => {
-      expect(gptAnswerer.jobDescription).toBe('');
-    });
-  });
-
-  describe('jobDescription getter', () => {
-    it('should return job description when job is set', () => {
-      gptAnswerer.setJob(mockJob);
-      expect(gptAnswerer.jobDescription).toBe(mockJob.description);
-    });
-
-    it('should return empty string when job is null', () => {
-      expect(gptAnswerer.jobDescription).toBe('');
+      const fresh = new GPTAnswerer('token', 'https://api.example.com/chat');
+      expect(fresh.jobDescription).toBe('');
     });
   });
 
   describe('answerFromOptions', () => {
-    beforeEach(() => {
-      gptAnswerer.setResume(mockResume);
-      gptAnswerer.setJob(mockJob);
-    });
-
-    it('should call API and return selected option', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: 'JavaScript' }),
+    it('should return the option that matches the API response', async () => {
+      mockChatCompletion.mockResolvedValueOnce({
+        content: 'JavaScript',
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        model: 'gpt-4o-mini',
+        finish_reason: 'stop',
       });
 
       const result = await gptAnswerer.answerFromOptions(
@@ -179,63 +138,56 @@ describe('GPTAnswerer', () => {
         ['JavaScript', 'Python', 'Java', 'Go']
       );
 
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockChatCompletion).toHaveBeenCalled();
       expect(result).toBe('JavaScript');
     });
 
-    it('should handle API response that partially matches option', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: 'Rust' }), // Not in options exactly
+    it('should fall back to a valid option when the response does not match exactly', async () => {
+      mockChatCompletion.mockResolvedValueOnce({
+        content: 'Rust',
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        model: 'gpt-4o-mini',
+        finish_reason: 'stop',
       });
 
-      const result = await gptAnswerer.answerFromOptions(
-        'What is your preferred language?',
-        ['JavaScript', 'Python', 'Java']
-      );
+      const options = ['JavaScript', 'Python', 'Java'];
+      const result = await gptAnswerer.answerFromOptions('Preferred language?', options);
 
-      // findBestMatch may find partial match or default to first option
-      // Just verify it returns one of the valid options
-      expect(['JavaScript', 'Python', 'Java']).toContain(result);
+      expect(options).toContain(result);
     });
   });
 
   describe('answerTextual', () => {
-    beforeEach(() => {
-      gptAnswerer.setResume(mockResume);
-      gptAnswerer.setJob(mockJob);
-    });
-
-    it('should call API and return text response', async () => {
-      const expectedResponse = 'I have 5 years of experience in software development.';
-      // First call determines section, second generates answer
-      mockFetch
+    it('should return the text content from the API response', async () => {
+      const expected = 'I have 5 years of experience in software development.';
+      mockChatCompletion
         .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ content: 'work' }),
+          content: 'work',
+          usage: { input_tokens: 10, output_tokens: 3, total_tokens: 13 },
+          model: 'gpt-4o-mini',
+          finish_reason: 'stop',
         })
         .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ content: expectedResponse }),
+          content: expected,
+          usage: { input_tokens: 50, output_tokens: 20, total_tokens: 70 },
+          model: 'gpt-4o-mini',
+          finish_reason: 'stop',
         });
 
       const result = await gptAnswerer.answerTextual('Describe your experience');
 
-      expect(mockFetch).toHaveBeenCalled();
-      expect(result).toBe(expectedResponse);
+      expect(mockChatCompletion).toHaveBeenCalled();
+      expect(result).toBe(expected);
     });
   });
 
   describe('answerNumeric', () => {
-    beforeEach(() => {
-      gptAnswerer.setResume(mockResume);
-      gptAnswerer.setJob(mockJob);
-    });
-
-    it('should call API and return numeric response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: '5' }),
+    it('should parse and return the numeric value from the API response', async () => {
+      mockChatCompletion.mockResolvedValueOnce({
+        content: '5',
+        usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+        model: 'gpt-4o-mini',
+        finish_reason: 'stop',
       });
 
       const result = await gptAnswerer.answerNumeric('Years of experience');
@@ -243,42 +195,31 @@ describe('GPTAnswerer', () => {
       expect(result).toBe(5);
     });
 
-    it('should return default value for non-numeric response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: 'five years' }),
+    it('should return a number even when the response is not purely numeric', async () => {
+      mockChatCompletion.mockResolvedValueOnce({
+        content: 'five years',
+        usage: { input_tokens: 10, output_tokens: 4, total_tokens: 14 },
+        model: 'gpt-4o-mini',
+        finish_reason: 'stop',
       });
 
       const result = await gptAnswerer.answerNumeric('Years of experience');
 
-      // Should handle parsing error gracefully
       expect(typeof result).toBe('number');
     });
   });
 
   describe('API error handling', () => {
-    beforeEach(() => {
-      gptAnswerer.setResume(mockResume);
-      gptAnswerer.setJob(mockJob);
-    });
-
-    it('should throw error on API failure', async () => {
-      // Mock all retry attempts with the same error response
-      const errorResponse = {
-        ok: false,
-        status: 500,
-        text: async () => 'Internal Server Error',
-      };
-      mockFetch.mockResolvedValue(errorResponse);
+    it('should propagate backend API errors', async () => {
+      mockChatCompletion.mockRejectedValue(new Error('Backend API error: 500 Internal Server Error'));
 
       await expect(
         gptAnswerer.answerNumeric('Test question')
       ).rejects.toThrow('Backend API error');
     });
 
-    it('should throw error on network failure', async () => {
-      // Mock all retry attempts with the same network error
-      mockFetch.mockRejectedValue(new Error('Network error'));
+    it('should propagate network errors', async () => {
+      mockChatCompletion.mockRejectedValue(new Error('Network error'));
 
       await expect(
         gptAnswerer.answerNumeric('Test question')
@@ -287,18 +228,24 @@ describe('GPTAnswerer', () => {
   });
 
   describe('status reporter integration', () => {
-    it('should increment credits used on successful API call', async () => {
-      const mockReporter = { 
+    it('should increment credits used after a successful API call', async () => {
+      const mockReporter = {
         incrementCreditsUsed: vi.fn(),
         reportStatus: vi.fn(),
-      } as Pick<import('../../utils/status-reporter').StatusReporter, 'incrementCreditsUsed'>;
-      const answerer = new GPTAnswerer(mockApiToken, mockApiUrl, mockReporter as import('../../utils/status-reporter').StatusReporter);
+      };
+      const answerer = new GPTAnswerer(
+        'test-api-token',
+        'https://api.example.com/chat',
+        mockReporter as import('../../utils/status-reporter').StatusReporter
+      );
       answerer.setResume(mockResume);
       answerer.setJob(mockJob);
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: '5' }),
+      mockChatCompletion.mockResolvedValueOnce({
+        content: '5',
+        usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+        model: 'gpt-4o-mini',
+        finish_reason: 'stop',
       });
 
       await answerer.answerNumeric('Test question');

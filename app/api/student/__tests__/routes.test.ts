@@ -144,6 +144,8 @@ function createFormDataRequest(file: File): NextRequest {
   });
 }
 
+const createMockRequestForGET = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 /** Parse a Response/NextResponse body as JSON. */
 async function json(res: Response) {
   return res.json();
@@ -167,7 +169,7 @@ beforeEach(() => {
 describe('GET /api/student/referral/code', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -193,7 +195,7 @@ describe('GET /api/student/referral/code', () => {
         error: null,
       });
 
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body).toEqual({
@@ -214,7 +216,7 @@ describe('GET /api/student/referral/code', () => {
       error: { message: 'Only talent accounts can use referral codes' },
     });
 
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(403);
     const body = await json(res);
     expect(body.error).toContain('talent accounts');
@@ -231,7 +233,7 @@ describe('GET /api/student/referral/code', () => {
         error: { message: 'Only talent accounts can view stats' },
       });
 
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(403);
   });
 
@@ -244,7 +246,7 @@ describe('GET /api/student/referral/code', () => {
       error: { message: 'DB error' },
     });
 
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 
@@ -254,7 +256,7 @@ describe('GET /api/student/referral/code', () => {
 
     supabase.rpc.mockResolvedValueOnce({ data: [{}], error: null });
 
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(500);
     const body = await json(res);
     expect(body.error).toContain('generate');
@@ -268,7 +270,7 @@ describe('GET /api/student/referral/code', () => {
       .mockResolvedValueOnce({ data: [{ code: 'abc12345' }], error: null })
       .mockResolvedValueOnce({ data: [], error: null });
 
-    const res = await getReferralCode();
+    const res = await getReferralCode(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.totalReferrals).toBe(0);
@@ -418,7 +420,7 @@ describe('POST /api/student/referral/apply', () => {
 describe('GET /api/student/referral/status', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getReferralStatus();
+    const res = await getReferralStatus(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -438,7 +440,7 @@ describe('GET /api/student/referral/status', () => {
       error: null,
     });
 
-    const res = await getReferralStatus();
+    const res = await getReferralStatus(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body).toEqual({
@@ -455,7 +457,7 @@ describe('GET /api/student/referral/status', () => {
 
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
-    const res = await getReferralStatus();
+    const res = await getReferralStatus(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.isReferred).toBe(false);
@@ -468,7 +470,7 @@ describe('GET /api/student/referral/status', () => {
 
     supabase.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
 
-    const res = await getReferralStatus();
+    const res = await getReferralStatus(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 });
@@ -479,7 +481,7 @@ describe('GET /api/student/referral/status', () => {
 describe('GET /api/student/profile/draft', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getDraft();
+    const res = await getDraft(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -490,7 +492,7 @@ describe('GET /api/student/profile/draft', () => {
     const draftData = { id: 'draft-1', student_id: 'user-123', student_name: 'Test' };
     supabase._chain.maybeSingle.mockResolvedValue({ data: draftData, error: null });
 
-    const res = await getDraft();
+    const res = await getDraft(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.draft).toEqual(draftData);
@@ -506,7 +508,7 @@ describe('GET /api/student/profile/draft', () => {
     const newDraft = { id: 'draft-new', student_id: 'user-123', status: 'editing' };
     supabase._chain.single.mockResolvedValue({ data: newDraft, error: null });
 
-    const res = await getDraft();
+    const res = await getDraft(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.draft).toEqual(newDraft);
@@ -522,7 +524,7 @@ describe('GET /api/student/profile/draft', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } });
 
-    const res = await getDraft();
+    const res = await getDraft(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 
@@ -533,7 +535,7 @@ describe('GET /api/student/profile/draft', () => {
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: null });
     supabase._chain.single.mockResolvedValue({ data: null, error: { message: 'create fail' } });
 
-    const res = await getDraft();
+    const res = await getDraft(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 });
@@ -749,7 +751,7 @@ describe('GET /api/student/profile/published', () => {
 describe('GET /api/student/resume', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getResume();
+    const res = await getResume(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -760,7 +762,7 @@ describe('GET /api/student/resume', () => {
     const resumeData = { id: 'r1', student_id: 'user-123', file_name: 'resume.pdf' };
     supabase._chain.single.mockResolvedValue({ data: resumeData, error: null });
 
-    const res = await getResume();
+    const res = await getResume(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data).toEqual(resumeData);
@@ -775,7 +777,7 @@ describe('GET /api/student/resume', () => {
       error: { code: 'PGRST116', message: 'No rows' },
     });
 
-    const res = await getResume();
+    const res = await getResume(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data).toBeNull();
@@ -790,7 +792,7 @@ describe('GET /api/student/resume', () => {
       error: { code: 'OTHER', message: 'boom' },
     });
 
-    const res = await getResume();
+    const res = await getResume(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 });
@@ -973,7 +975,7 @@ describe('GET /api/student/token', () => {
 describe('GET /api/student/work-preferences', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getWorkPreferences();
+    const res = await getWorkPreferences(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -984,7 +986,7 @@ describe('GET /api/student/work-preferences', () => {
     const prefs = { remote_work: true, job_full_time: true };
     supabase._chain.maybeSingle.mockResolvedValue({ data: prefs, error: null });
 
-    const res = await getWorkPreferences();
+    const res = await getWorkPreferences(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.preferences).toEqual(prefs);
@@ -996,7 +998,7 @@ describe('GET /api/student/work-preferences', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const res = await getWorkPreferences();
+    const res = await getWorkPreferences(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.preferences).toBeNull();
@@ -1008,7 +1010,7 @@ describe('GET /api/student/work-preferences', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: { message: 'err' } });
 
-    const res = await getWorkPreferences();
+    const res = await getWorkPreferences(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 });
@@ -1086,7 +1088,7 @@ describe('POST /api/student/work-preferences', () => {
 describe('GET /api/student/credits/balance', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getCreditsBalance();
+    const res = await getCreditsBalance(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -1103,7 +1105,7 @@ describe('GET /api/student/credits/balance', () => {
     };
     supabase._chain.maybeSingle.mockResolvedValue({ data: credits, error: null });
 
-    const res = await getCreditsBalance();
+    const res = await getCreditsBalance(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.balance).toBe(500);
@@ -1115,7 +1117,7 @@ describe('GET /api/student/credits/balance', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const res = await getCreditsBalance();
+    const res = await getCreditsBalance(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body).toEqual({
@@ -1133,7 +1135,7 @@ describe('GET /api/student/credits/balance', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: { message: 'err' } });
 
-    const res = await getCreditsBalance();
+    const res = await getCreditsBalance(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 });
@@ -1144,7 +1146,7 @@ describe('GET /api/student/credits/balance', () => {
 describe('GET /api/student/credits/can-claim', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getCanClaim();
+    const res = await getCanClaim(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -1154,7 +1156,7 @@ describe('GET /api/student/credits/can-claim', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const res = await getCanClaim();
+    const res = await getCanClaim(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.can_claim).toBe(true);
@@ -1171,7 +1173,7 @@ describe('GET /api/student/credits/can-claim', () => {
       error: null,
     });
 
-    const res = await getCanClaim();
+    const res = await getCanClaim(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.can_claim).toBe(false);
@@ -1186,7 +1188,7 @@ describe('GET /api/student/credits/can-claim', () => {
 
     supabase._chain.maybeSingle.mockResolvedValue({ data: null, error: { message: 'err' } });
 
-    const res = await getCanClaim();
+    const res = await getCanClaim(createMockRequestForGET());
     expect(res.status).toBe(500);
   });
 });

@@ -12,7 +12,7 @@ export const URLS = {
 
 // File and directory names
 export const FILES = {
-  PRELOAD: 'preload.js',
+  PRELOAD: 'src/main/preload.js',
   ICON: 'icon.png',
   LOADING_HTML: 'loading.html',
   PACKAGE_JSON: 'package.json',

@@ -10,6 +10,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
+const createMockRequest = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -211,7 +213,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const chain = createAuthenticatedMock(USER_A);
 
       const { GET } = await import('@/app/api/student/profile/draft/route');
-      await GET();
+      await GET(createMockRequest());
 
       // Verify the query filters by student_id = USER_A
       expect(chain.eq).toHaveBeenCalledWith('student_id', USER_A);
@@ -269,7 +271,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       const chain = createAuthenticatedMock(USER_A);
 
       const { GET } = await import('@/app/api/student/resume/route');
-      await GET();
+      await GET(createMockRequest());
 
       expect(chain.eq).toHaveBeenCalledWith('student_id', USER_A);
     });
@@ -323,7 +325,9 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       chain.single.mockResolvedValue({ data: { token: 'secret-token' }, error: null });
 
       const { GET } = await import('@/app/api/student/token/route');
-      await GET();
+      await GET(new NextRequest('http://localhost:3000/api/student/token', {
+        headers: { 'user-agent': 'Mozilla/5.0 Electron/1.0' },
+      }));
 
       expect(chain.eq).toHaveBeenCalledWith('user_id', USER_A);
     });
@@ -462,7 +466,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       });
 
       const { GET } = await import('@/app/api/student/referral/code/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(403);
     });
   });

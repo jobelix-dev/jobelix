@@ -54,19 +54,20 @@ export interface LLMLogEntry {
  * Logger for LLM API calls with cost tracking
  */
 export class LLMLogger {
-  private logFilePath: string;
+  private logFilePath: string | null = null;
 
   constructor(logFileName: string = 'llm_calls.json') {
-    const dataFolder = getDataFolderPath();
-    const outputFolder = path.join(dataFolder, 'output');
-
-    // Ensure output folder exists
-    if (!fs.existsSync(outputFolder)) {
-      fs.mkdirSync(outputFolder, { recursive: true });
+    try {
+      const dataFolder = getDataFolderPath();
+      const outputFolder = path.join(dataFolder, 'output');
+      if (!fs.existsSync(outputFolder)) {
+        fs.mkdirSync(outputFolder, { recursive: true });
+      }
+      this.logFilePath = path.join(outputFolder, logFileName);
+      log.debug(`LLM logger initialized: ${this.logFilePath}`);
+    } catch {
+      // userDataPath not set yet (e.g. during tests) — file logging disabled
     }
-
-    this.logFilePath = path.join(outputFolder, logFileName);
-    log.debug(`LLM logger initialized: ${this.logFilePath}`);
   }
 
   /**
@@ -107,12 +108,14 @@ export class LLMLogger {
     };
 
     // Append to log file
-    try {
-      const logLine = JSON.stringify(logEntry, null, 2) + '\n';
-      fs.appendFileSync(this.logFilePath, logLine, 'utf-8');
-      log.debug(`Call logged to ${this.logFilePath}`);
-    } catch (error) {
-      log.warn(`Failed to write to ${this.logFilePath}: ${error}`);
+    if (this.logFilePath) {
+      try {
+        const logLine = JSON.stringify(logEntry, null, 2) + '\n';
+        fs.appendFileSync(this.logFilePath, logLine, 'utf-8');
+        log.debug(`Call logged to ${this.logFilePath}`);
+      } catch (error) {
+        log.warn(`Failed to write to ${this.logFilePath}: ${error}`);
+      }
     }
   }
 
@@ -125,7 +128,7 @@ export class LLMLogger {
     totalCost: number;
     byModel: Record<string, { calls: number; tokens: number; cost: number }>;
   } {
-    if (!fs.existsSync(this.logFilePath)) {
+    if (!this.logFilePath || !fs.existsSync(this.logFilePath)) {
       return {
         totalCalls: 0,
         totalTokens: 0,
@@ -200,7 +203,7 @@ export class LLMLogger {
    */
   clearLogs(): void {
     try {
-      if (fs.existsSync(this.logFilePath)) {
+      if (this.logFilePath && fs.existsSync(this.logFilePath)) {
         fs.unlinkSync(this.logFilePath);
         log.info(`Cleared log file: ${this.logFilePath}`);
       }

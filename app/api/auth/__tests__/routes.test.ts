@@ -101,6 +101,8 @@ function createDeleteRequest(
   });
 }
 
+const createMockRequestForGET = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 /** Build a chainable `.from().select().eq().maybeSingle()` mock */
 function chainable(result: { data: unknown; error: unknown }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -449,7 +451,7 @@ describe('POST /api/auth/logout', () => {
 // 4. GET /api/auth/profile
 // ===========================================================================
 describe('GET /api/auth/profile', () => {
-  let GET: () => Promise<NextResponse>;
+  let GET: (request: NextRequest) => Promise<NextResponse>;
 
   beforeEach(async () => {
     const mod = await import('../profile/route');
@@ -463,7 +465,7 @@ describe('GET /api/auth/profile', () => {
       error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ profile: null });
   });
@@ -483,7 +485,7 @@ describe('GET /api/auth/profile', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.profile.role).toBe('student');
@@ -514,7 +516,7 @@ describe('GET /api/auth/profile', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.profile.role).toBe('company');
@@ -531,7 +533,7 @@ describe('GET /api/auth/profile', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ profile: null });
   });
@@ -539,7 +541,7 @@ describe('GET /api/auth/profile', () => {
   it('returns 500 on unexpected errors', async () => {
     mockAuthenticateRequest.mockRejectedValueOnce(new Error('boom'));
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(500);
     expect((await res.json()).error).toBe('Failed to fetch profile');
   });

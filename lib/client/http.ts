@@ -1,5 +1,4 @@
-import { isAllowedApiOrigin, resolveApiPath } from './runtime';
-import { apiClient } from './apiClient';
+import { isElectronRuntime, isAllowedApiOrigin, resolveApiPath, getElectronAPI } from './runtime';
 
 function assertAllowedRequestTarget(rawUrl: string): void {
   if (typeof window === 'undefined') return;
@@ -10,38 +9,44 @@ function assertAllowedRequestTarget(rawUrl: string): void {
   }
 }
 
-/**
- * Shared fetch helper for app API requests.
- *
- * Now uses the unified ApiClient which handles:
- * - Web: Cookie-based auth (same-origin)
- * - Desktop: Token-based auth (direct API calls)
- *
- * @deprecated For new code, use apiClient directly for better type safety
- */
-export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  // Desktop app: Use token-based ApiClient
-  if (apiClient.isDesktop()) {
-    if (typeof input === 'string') {
-      // Convert to proper API request through ApiClient
-      return apiClient.request(input, init).then(data => {
-        // Create a Response-like object for backward compatibility
-        return new Response(JSON.stringify(data), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      });
-    }
+async function buildDesktopHeaders(init?: RequestInit): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+
+  // Preserve any caller-provided headers
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => { headers[key] = value; });
   }
-  
-  // Web app: Use traditional cookie-based fetch
+
+  try {
+    const session = await getElectronAPI()?.getSession?.();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+      headers['X-Client-Type'] = 'desktop';
+    }
+  } catch {
+    // ignore — request proceeds without auth header
+  }
+
+  return headers;
+}
+
+/**
+ * Shared fetch helper for all API requests.
+ *
+ * - Web: same-origin cookies (credentials: include)
+ * - Desktop: Bearer token injected from Electron session storage
+ */
+export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   if (typeof input === 'string') {
     const resolved = resolveApiPath(input);
     assertAllowedRequestTarget(resolved);
-    return fetch(resolved, {
-      credentials: 'include',
-      ...init,
-    });
+
+    if (isElectronRuntime()) {
+      const headers = await buildDesktopHeaders(init);
+      return fetch(resolved, { ...init, headers, credentials: 'omit' });
+    }
+
+    return fetch(resolved, { credentials: 'include', ...init });
   }
 
   if (input instanceof URL) {
@@ -50,10 +55,7 @@ export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
     assertAllowedRequestTarget(input.url);
   }
 
-  return fetch(input, {
-    credentials: 'include',
-    ...init,
-  });
+  return fetch(input, { credentials: 'include', ...init });
 }
 
 /**

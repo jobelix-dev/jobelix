@@ -12,6 +12,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Helper to create mock requests for GET handlers
+const createMockRequest = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -134,7 +137,7 @@ describe('Security: Auth Bypass & Session Manipulation', () => {
       // Profile route has special behavior: it returns the auth error directly
       // Our mock returns 401 error from authenticateRequest
       const { GET } = await import('@/app/api/auth/profile/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       const body = await res.json();
       // Profile route catches auth.error and returns it — design allows 401 or { profile: null }
       // With our mock, authenticateRequest returns error as NextResponse.json({error:'Unauthorized'},{status:401})
@@ -153,7 +156,7 @@ describe('Security: Auth Bypass & Session Manipulation', () => {
 
     it('GET /api/student/resume — returns 401 when unauthenticated', async () => {
       const { GET } = await import('@/app/api/student/resume/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(401);
     });
 
@@ -166,7 +169,7 @@ describe('Security: Auth Bypass & Session Manipulation', () => {
 
     it('GET /api/student/profile/draft — returns 401 when unauthenticated', async () => {
       const { GET } = await import('@/app/api/student/profile/draft/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(401);
     });
 
@@ -214,7 +217,7 @@ describe('Security: Auth Bypass & Session Manipulation', () => {
 
     it('GET /api/student/referral/code — returns 401 when unauthenticated', async () => {
       const { GET } = await import('@/app/api/student/referral/code/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(401);
     });
 

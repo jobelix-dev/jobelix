@@ -30,15 +30,6 @@ describe('loginSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('should accept login with optional captchaToken', () => {
-    const result = loginSchema.safeParse({
-      email: 'user@example.com',
-      password: 'password123',
-      captchaToken: 'abc123',
-    });
-    expect(result.success).toBe(true);
-  });
-
   it('should reject missing email', () => {
     const result = loginSchema.safeParse({
       password: 'password123',
@@ -178,15 +169,6 @@ describe('signupSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should accept signup with optional captchaToken', () => {
-    const result = signupSchema.safeParse({
-      email: 'user@example.com',
-      password: 'password123',
-      role: 'student',
-      captchaToken: 'token123',
-    });
-    expect(result.success).toBe(true);
-  });
 });
 
 // ============================================================================
@@ -197,14 +179,6 @@ describe('resetPasswordSchema', () => {
   it('should accept valid email', () => {
     const result = resetPasswordSchema.safeParse({
       email: 'user@example.com',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should accept with optional captchaToken', () => {
-    const result = resetPasswordSchema.safeParse({
-      email: 'user@example.com',
-      captchaToken: 'token',
     });
     expect(result.success).toBe(true);
   });

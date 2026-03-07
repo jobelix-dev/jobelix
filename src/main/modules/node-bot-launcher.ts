@@ -1,277 +1,183 @@
 /**
- * Node.js Bot Launcher
- * 
- * Replaces the Python subprocess approach with direct TypeScript execution.
- * The bot runs in the same Electron process, eliminating:
- * - PyInstaller bundling issues
- * - Native library loading problems
- * - Cross-process communication complexity
- * 
- * This module provides the same interface as process-manager.js
- * but uses the native TypeScript bot instead.
+ * Node.js Bot Launcher — Worker-Thread Edition
+ *
+ * Spawns the LinkedIn bot inside a Node.js worker thread so that Playwright /
+ * Chromium execution is fully isolated from the Electron main process.
+ *
+ * Before this change the bot ran directly in the main thread.  A Playwright
+ * hang or an unhandled rejection would freeze the entire Electron UI.
+ * With a Worker the worst-case recovery is `worker.terminate()`.
+ *
+ * Interface (matches what ipc-handlers.js expects):
+ *   launchNodeBot(token, sendStatus, apiUrl)
+ *   stopNodeBot()
+ *   forceStopBot()
+ *   getBotStatus()  →  { running, pid, startedAt, stats }
+ *   getBotLogPath() →  string | null
+ *   isBotRunning()  →  boolean
  */
 
-import { app, BrowserWindow } from 'electron';
+import { app } from 'electron';
+import { Worker } from 'worker_threads';
 import * as path from 'path';
 import * as fs from 'fs';
-import { LinkedInBot, BotOptions } from './bot/index';
+import { sanitizeBotApiUrl, getDefaultBotApiUrl } from './bot-api-url.js';
 import logger from '../utils/logger.js';
 
-// Status payload type for bot updates
-interface BotStatusPayload {
-  stage: string;
-  message?: string;
-  activity?: string;
-  details?: Record<string, unknown>;
-  stats?: {
-    jobs_found: number;
-    jobs_applied: number;
-    jobs_failed: number;
-    credits_used: number;
-  };
-}
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
 
-// Single bot instance
-let botInstance: LinkedInBot | null = null;
-let statusCallback: ((payload: BotStatusPayload) => void) | null = null;
+let worker: Worker | null = null;
 let isRunning = false;
+let startedAt: number | null = null;
 
-/**
- * Get the data folder path (same as Python bot used)
- */
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getBotWorkerPath(): string {
+  return path.join(app.getAppPath(), 'build', 'bot-runtime', 'bot-worker.js');
+}
+
 function getDataFolderPath(): string {
-  const userData = app.getPath('userData');
-  return path.join(userData, 'data_folder');
+  return path.join(app.getPath('userData'), 'data_folder');
 }
 
-/**
- * Get Chromium executable path for Playwright
- * Searches in Playwright browsers directory
- */
-function getChromiumPath(): string | undefined {
-  const playwrightPath = path.join(app.getPath('userData'), 'playwright-browsers');
-  
-  if (!fs.existsSync(playwrightPath)) {
-    return undefined;
+function resolveApiUrl(rawApiUrl?: string): string | null {
+  if (rawApiUrl) {
+    return sanitizeBotApiUrl(rawApiUrl);
   }
-
-  try {
-    const entries = fs.readdirSync(playwrightPath, { withFileTypes: true });
-    const chromiumDirs = entries
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith('chromium-'))
-      .map((entry) => entry.name);
-
-    const subpaths = getChromiumSubpaths();
-    
-    for (const dir of chromiumDirs) {
-      for (const subpath of subpaths) {
-        const candidate = path.join(playwrightPath, dir, subpath);
-        if (fs.existsSync(candidate)) {
-          return candidate;
-        }
-      }
-    }
-  } catch (error) {
-    logger.warn('Failed to find Chromium:', error);
-  }
-
-  return undefined;
+  return getDefaultBotApiUrl(app.isPackaged);
 }
 
-/**
- * Get platform-specific Chromium executable subpaths
- */
-function getChromiumSubpaths(): string[] {
-  if (process.platform === 'win32') {
-    return [
-      path.join('chrome-win', 'chrome.exe'),
-      path.join('chrome-win64', 'chrome.exe'),
-    ];
-  }
-  if (process.platform === 'darwin') {
-    return [
-      path.join('chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
-      path.join('chrome-mac-arm64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
-    ];
-  }
-  return [
-    path.join('chrome-linux', 'chrome'),
-    path.join('chrome-linux64', 'chrome'),
-  ];
+function getBotLogPath(): string | null {
+  const dateStr = new Date().toISOString().split('T')[0];
+  return path.join(app.getPath('userData'), 'logs', `bot-${dateStr}.log`);
 }
 
-/**
- * Get the backend API URL
- */
-function getApiUrl(): string {
-  // Use NEXT_PUBLIC_APP_URL (the Next.js backend base URL) and append the API endpoint
-  // Priority: 1. Environment variable, 2. Localhost default
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  // Match Python bot: backend_api_url = public_app_url.rstrip('/') + '/api/autoapply/gpt4'
-  return baseUrl.replace(/\/$/, '') + '/api/autoapply/gpt4';
-}
+// ---------------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------------
 
-/**
- * Emit status update to renderer
- */
-function emitStatus(payload: BotStatusPayload): void {
-  if (statusCallback) {
-    try {
-      statusCallback(payload);
-    } catch (error) {
-      logger.warn('Failed to emit status:', error);
-    }
-  }
-}
-
-/**
- * Launch the Node.js bot
- * 
- * @param token - 64-character hex authentication token
- * @param sendBotStatus - Callback to send status updates to renderer
- * @returns Launch result
- */
 export async function launchNodeBot(
   token: string,
-  sendBotStatus: (payload: BotStatusPayload) => void
+  sendBotStatus: (payload: unknown) => void,
+  rawApiUrl?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  logger.info('🚀 Launching Node.js bot...');
-
-  // Check if already running
-  if (isRunning || botInstance?.running) {
-    logger.warn('Bot is already running');
+  if (isRunning || worker) {
     return { success: false, error: 'Bot is already running' };
   }
 
-  // Store callback
-  statusCallback = sendBotStatus;
-
-  // Validate token
   if (!token || token.length !== 64 || !/^[0-9a-fA-F]+$/.test(token)) {
-    logger.error('Invalid token format');
-    emitStatus({
-      stage: 'failed',
-      message: 'Invalid authentication token',
-    });
     return { success: false, error: 'Invalid token format' };
   }
 
-  try {
-    // Create bot instance
-    botInstance = new LinkedInBot();
-    isRunning = true;
+  const apiUrl = resolveApiUrl(rawApiUrl);
+  if (!apiUrl) {
+    return { success: false, error: 'Invalid or untrusted API URL' };
+  }
 
-    // Get paths
-    const dataFolder = getDataFolderPath();
-    const configPath = path.join(dataFolder, 'config.yaml');
-    const resumePath = path.join(dataFolder, 'resume.yaml');
-    const chromiumPath = getChromiumPath();
+  const workerPath = getBotWorkerPath();
+  if (!fs.existsSync(workerPath)) {
+    return {
+      success: false,
+      error: 'Bot runtime not found. Run: npm run build:bot',
+    };
+  }
 
-    // Verify files exist
-    if (!fs.existsSync(configPath)) {
-      throw new Error(`Config file not found: ${configPath}`);
-    }
-    if (!fs.existsSync(resumePath)) {
-      throw new Error(`Resume file not found: ${resumePath}`);
-    }
+  const userDataPath = app.getPath('userData');
+  const dataFolder = getDataFolderPath();
+  const configPath = path.join(dataFolder, 'config.yaml');
+  const resumePath = path.join(dataFolder, 'resume.yaml');
 
-    logger.info(`Config path: ${configPath}`);
-    logger.info(`Resume path: ${resumePath}`);
-    logger.info(`Chromium path: ${chromiumPath || 'system default'}`);
+  if (!fs.existsSync(configPath)) {
+    return { success: false, error: `Config file not found: ${configPath}` };
+  }
+  if (!fs.existsSync(resumePath)) {
+    return { success: false, error: `Resume file not found: ${resumePath}` };
+  }
 
-    // Initialize bot
-    const options: BotOptions = {
+  logger.info('🚀 Launching bot worker...');
+
+  worker = new Worker(workerPath, {
+    workerData: {
+      userDataPath,
       token,
-      apiUrl: getApiUrl(),
+      apiUrl,
       configPath,
       resumePath,
-      chromiumPath,
-      verbose: !app.isPackaged, // Verbose in dev mode
-    };
+      verbose: !app.isPackaged,
+    },
+  });
 
-    await botInstance.initialize(options);
+  isRunning = true;
+  startedAt = Date.now();
 
-    // Get the focused window for status updates
-    const mainWindow = BrowserWindow.getFocusedWindow();
-    if (!mainWindow) {
-      throw new Error('No main window available');
+  worker.on('message', (msg: { type: string; payload?: unknown; error?: string }) => {
+    if (msg.type === 'status') {
+      try { sendBotStatus(msg.payload); } catch { /* renderer may be gone */ }
+    } else if (msg.type === 'done') {
+      logger.info('✅ Bot worker completed');
+      cleanup();
+    } else if (msg.type === 'error') {
+      logger.error('Bot worker error:', msg.error);
+      try { sendBotStatus({ stage: 'failed', message: msg.error }); } catch { /* ignore */ }
+      cleanup();
     }
+  });
 
-    // Start bot in background (don't await)
-    // This allows the IPC handler to return immediately
-    botInstance.start(mainWindow).then(() => {
-      logger.info('Bot completed');
-      isRunning = false;
-    }).catch((error) => {
-      logger.error('Bot error:', error);
-      isRunning = false;
-      emitStatus({
-        stage: 'failed',
-        message: error.message || 'Bot failed',
-      });
-    });
+  worker.on('error', (err) => {
+    logger.error('Worker error:', err.message);
+    try { sendBotStatus({ stage: 'failed', message: err.message }); } catch { /* ignore */ }
+    cleanup();
+  });
 
-    // Return success - bot is starting
-    return { success: true };
+  worker.on('exit', (code) => {
+    if (code !== 0) logger.warn(`Bot worker exited with code ${code}`);
+    cleanup();
+  });
 
-  } catch (error) {
-    isRunning = false;
-    botInstance = null;
-    
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('Failed to launch bot:', errorMessage);
-    
-    emitStatus({
-      stage: 'failed',
-      message: errorMessage,
-    });
-
-    return { success: false, error: errorMessage };
-  }
+  return { success: true };
 }
 
-/**
- * Stop the running bot
- */
 export async function stopNodeBot(): Promise<{ success: boolean; error?: string }> {
-  logger.info('🛑 Stopping Node.js bot...');
+  if (!worker) return { success: true };
+  logger.info('🛑 Requesting bot stop...');
+  worker.postMessage({ type: 'stop' });
+  return { success: true };
+}
 
-  if (!botInstance || !isRunning) {
-    logger.warn('No bot running to stop');
-    return { success: true }; // Not an error - bot was already stopped
-  }
-
+export async function forceStopBot(): Promise<{ success: boolean; error?: string }> {
+  if (!worker) return { success: true };
+  logger.info('🛑 Force-terminating bot worker...');
   try {
-    await botInstance.stop();
-    botInstance = null;
-    isRunning = false;
-    statusCallback = null;
-
-    logger.info('✅ Bot stopped successfully');
+    await worker.terminate();
+    cleanup();
     return { success: true };
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('Failed to stop bot:', errorMessage);
-    
-    // Force cleanup
-    botInstance = null;
-    isRunning = false;
-    
-    return { success: false, error: errorMessage };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error('Force stop failed:', msg);
+    return { success: false, error: msg };
   }
 }
 
-/**
- * Check if bot is currently running
- */
 export function isBotRunning(): boolean {
-  return isRunning || (botInstance?.running ?? false);
+  return isRunning;
 }
 
-/**
- * Get bot instance (for advanced use cases)
- */
-export function getBotInstance(): LinkedInBot | null {
-  return botInstance;
+export function getBotStatus(): { running: boolean; pid: null; startedAt: number | null; stats: null } {
+  return { running: isRunning, pid: null, startedAt, stats: null };
+}
+
+export { getBotLogPath };
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function cleanup() {
+  worker = null;
+  isRunning = false;
+  startedAt = null;
 }

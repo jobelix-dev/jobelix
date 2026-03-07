@@ -1,24 +1,29 @@
 /**
  * Path utilities for the LinkedIn Auto Apply Bot
- * 
- * All user data is stored in Electron's userData folder:
+ *
+ * All user data lives in Electron's userData directory:
  * - Windows: %APPDATA%/jobelix
- * - macOS: ~/Library/Application Support/jobelix
- * - Linux: ~/.config/jobelix
- * 
- * This keeps user data persistent across app updates and follows OS conventions.
+ * - macOS:   ~/Library/Application Support/jobelix
+ * - Linux:   ~/.config/jobelix
+ *
+ * The path is injected via setUserDataPath() so this module works in
+ * both the Electron main process and worker threads (which cannot import `app`).
  */
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { app } from 'electron';
 
-/**
- * Get the user data folder path (Electron's userData)
- * This is where all persistent user data is stored.
- */
+// Set by the worker entry point or main-process launcher before the bot starts.
+let _userDataPath: string | null = null;
+
+/** Must be called once before any path utility is used. */
+export function setUserDataPath(p: string): void {
+  _userDataPath = p;
+}
+
 export function getUserDataPath(): string {
-  return app.getPath('userData');
+  if (!_userDataPath) throw new Error('User data path not initialised — call setUserDataPath() first');
+  return _userDataPath;
 }
 
 /**

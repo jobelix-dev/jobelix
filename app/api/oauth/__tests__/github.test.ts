@@ -50,6 +50,8 @@ vi.mock('@/lib/server/githubService', () => ({
 
 import { NextRequest } from 'next/server';
 
+const createMockRequest = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -600,7 +602,7 @@ describe('POST /api/oauth/github/disconnect', () => {
 // 4. GET /api/oauth/github/status
 // ===========================================================================
 describe('GET /api/oauth/github/status', () => {
-  let GET: () => Promise<Response>;
+  let GET: (request: NextRequest) => Promise<Response>;
 
   beforeEach(async () => {
     const mod = await import('../github/status/route');
@@ -613,7 +615,7 @@ describe('GET /api/oauth/github/status', () => {
       error: { message: 'Not authenticated' },
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.status).toBe(401);
     expect(await json(res)).toEqual({ error: 'Unauthorized' });
@@ -625,7 +627,7 @@ describe('GET /api/oauth/github/status', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.status).toBe(401);
   });
@@ -637,7 +639,7 @@ describe('GET /api/oauth/github/status', () => {
     });
     mockGetGitHubConnection.mockResolvedValueOnce(null);
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.status).toBe(200);
     expect(await json(res)).toEqual({
@@ -654,7 +656,7 @@ describe('GET /api/oauth/github/status', () => {
     });
     mockGetGitHubConnection.mockResolvedValueOnce(null);
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.headers.get('Cache-Control')).toBe(
       'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -684,7 +686,7 @@ describe('GET /api/oauth/github/status', () => {
     });
     mockGetGitHubConnection.mockResolvedValueOnce(mockConnection);
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.status).toBe(200);
     const body = await json(res);
@@ -719,7 +721,7 @@ describe('GET /api/oauth/github/status', () => {
       metadata: {},
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.headers.get('Cache-Control')).toBe(
       'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -735,7 +737,7 @@ describe('GET /api/oauth/github/status', () => {
     });
     mockGetGitHubConnection.mockResolvedValueOnce(null);
 
-    await GET();
+    await GET(createMockRequest());
 
     expect(mockGetGitHubConnection).toHaveBeenCalledWith(MOCK_USER_ID);
   });
@@ -743,7 +745,7 @@ describe('GET /api/oauth/github/status', () => {
   it('returns 500 when an unexpected error is thrown', async () => {
     mockGetUser.mockRejectedValueOnce(new Error('unexpected'));
 
-    const res = await GET();
+    const res = await GET(createMockRequest());
 
     expect(res.status).toBe(500);
     expect(await json(res)).toEqual({ error: 'Internal server error' });

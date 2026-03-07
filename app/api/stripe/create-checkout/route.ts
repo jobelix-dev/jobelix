@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Verify user authentication
     // 1) Ensure user is authenticated
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
 
     const { user } = auth;

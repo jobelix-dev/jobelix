@@ -27,10 +27,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/client/supabaseClient';
 import type { Provider } from '@supabase/supabase-js';
-import { 
-  getReferralCodeFromAnySource, 
-  clearAllReferralStorage,
-  addReferralCodeToUrl 
+import {
+  getStoredReferralCode,
+  clearStoredReferralCode,
+  extractReferralCodeFromUrl,
 } from '@/lib/shared/referral';
 
 interface SocialLoginButtonsProps {
@@ -175,7 +175,7 @@ export default function SocialLoginButtons({
     console.log('[OAuth] Handling auth success - navigating to dashboard');
     
     // Clear referral storage - it was already applied server-side in /auth/callback
-    clearAllReferralStorage();
+    clearStoredReferralCode();
     
     // Close popup if still open
     if (popup && !popup.closed) {
@@ -327,10 +327,11 @@ export default function SocialLoginButtons({
         : (process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
       let redirectTo = `${baseUrl}/auth/callback?popup=true`;
       
-      // Get referral code from any available source and add to redirect URL
-      const referralCode = getReferralCodeFromAnySource();
+      // Get referral code from localStorage or from the current page URL params
+      const referralCode = getStoredReferralCode()
+        ?? extractReferralCodeFromUrl(new URLSearchParams(window.location.search));
       if (referralCode) {
-        redirectTo = addReferralCodeToUrl(redirectTo, referralCode);
+        redirectTo += `&referral_code=${referralCode}`;
         console.log('[OAuth] Added referral code to redirect URL:', referralCode);
       }
 

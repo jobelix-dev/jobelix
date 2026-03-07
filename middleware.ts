@@ -1,5 +1,5 @@
 /**
- * Global proxy middleware.
+ * Next.js middleware.
  *
  * Responsibilities:
  * 1. Supabase auth session refresh (keeps users logged in)
@@ -113,7 +113,7 @@ async function updateSupabaseSession(request: NextRequest): Promise<NextResponse
   return supabaseResponse;
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
 

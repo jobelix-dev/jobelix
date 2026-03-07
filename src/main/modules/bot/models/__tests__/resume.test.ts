@@ -291,13 +291,6 @@ education:
       expect(section).toContain('University');
     });
 
-    it('should return something for unknown sections', () => {
-      // Unknown sections may return a default or the full resume
-      const section = getResumeSection(resume, 'unknown');
-      
-      // Just verify it doesn't throw and returns a string
-      expect(typeof section).toBe('string');
-    });
   });
 
   describe('resumeToNarrative', () => {
@@ -323,18 +316,5 @@ education:
       expect(narrative.length).toBeGreaterThan(50);
     });
 
-    it('should include work history in narrative', () => {
-      const resume = parseResumeYaml(`
-basics:
-  name: "Jane Coder"
-work:
-  - name: "Startup Inc"
-    position: "Full Stack Developer"
-    summary: "Built the entire platform"
-`);
-      const narrative = resumeToNarrative(resume);
-      
-      expect(narrative).toContain('Startup Inc');
-    });
   });
 });

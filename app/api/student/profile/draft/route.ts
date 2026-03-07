@@ -111,7 +111,7 @@ export async function PUT(req: NextRequest) {
     if (csrfError) return csrfError
 
     // Authenticate user
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(req)
     if (auth.error) return auth.error
     
     const { user, supabase } = auth

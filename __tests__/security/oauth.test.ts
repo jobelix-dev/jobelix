@@ -15,6 +15,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { createHmac } from 'crypto';
 
+const createMockRequest = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
@@ -468,7 +470,7 @@ describe('OAuth GitHub Status (/api/oauth/github/status)', () => {
   it('returns 401 for unauthenticated user', async () => {
     unauthenticatedUser();
     const { GET } = await importStatus();
-    const response = await GET();
+    const response = await GET(createMockRequest());
     expect(response.status).toBe(401);
     const body = await response.json();
     expect(body.error).toBeDefined();
@@ -478,7 +480,7 @@ describe('OAuth GitHub Status (/api/oauth/github/status)', () => {
     authenticatedUser();
     mockGetGitHubConnection.mockResolvedValue(null);
     const { GET } = await importStatus();
-    const response = await GET();
+    const response = await GET(createMockRequest());
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.connected).toBe(false);
@@ -493,7 +495,7 @@ describe('OAuth GitHub Status (/api/oauth/github/status)', () => {
       metadata: { username: 'octocat' },
     });
     const { GET } = await importStatus();
-    const response = await GET();
+    const response = await GET(createMockRequest());
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.connected).toBe(true);
@@ -504,7 +506,7 @@ describe('OAuth GitHub Status (/api/oauth/github/status)', () => {
     authenticatedUser();
     mockGetGitHubConnection.mockResolvedValue(null);
     const { GET } = await importStatus();
-    const response = await GET();
+    const response = await GET(createMockRequest());
     expect(response.headers.get('Cache-Control')).toContain('no-store');
   });
 });
