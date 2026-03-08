@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from 'playwright-core';
 import type { StatusReporter } from '../../../utils/status-reporter';
 import type { GPTAnswererLike } from '../form-handler';
 

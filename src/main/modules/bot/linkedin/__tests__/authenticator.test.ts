@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { LinkedInAuthenticator } from '../authenticator';
-import type { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 import type { StatusReporter } from '../../utils/status-reporter';
 
 // Mock Playwright Page
