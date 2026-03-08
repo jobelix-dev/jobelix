@@ -244,7 +244,7 @@ describe('Rate-limited endpoints return 429 when rate limit exceeded', () => {
     rateLimitExceeded();
 
     const { POST } = await import('@/app/api/student/credits/claim/route');
-    const res = await POST();
+    const res = await POST(createRequest('/api/student/credits/claim', { method: 'POST' }));
     expect(res.status).toBe(429);
 
     const json = await res.json();
@@ -306,7 +306,7 @@ describe('Rate-limited endpoints return 500 when rate limit check errors', () =>
     rateLimitError();
 
     const { POST } = await import('@/app/api/student/credits/claim/route');
-    const res = await POST();
+    const res = await POST(createRequest('/api/student/credits/claim', { method: 'POST' }));
     expect(res.status).toBe(500);
   });
 
@@ -433,7 +433,7 @@ describe('Credits claim: rate limit response details', () => {
     });
 
     const { POST } = await import('@/app/api/student/credits/claim/route');
-    const res = await POST();
+    const res = await POST(createRequest('/api/student/credits/claim', { method: 'POST' }));
     expect(res.status).toBe(429);
 
     const json = await res.json();
@@ -451,7 +451,7 @@ describe('Credits claim: rate limit response details', () => {
     mockLogApiCall.mockResolvedValue(undefined);
 
     const { POST } = await import('@/app/api/student/credits/claim/route');
-    await POST();
+    await POST(createRequest('/api/student/credits/claim', { method: 'POST' }));
 
     expect(mockCheckRateLimit).toHaveBeenCalledWith('user-123', {
       endpoint: 'credits-claim',

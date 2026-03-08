@@ -345,7 +345,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      await POST();
+      await POST(createMockRequest());
 
       // Verify the RPC is called with the authenticated user's ID
       expect(chain.rpc).toHaveBeenCalledWith('grant_daily_credits', {

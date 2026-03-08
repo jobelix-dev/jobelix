@@ -236,7 +236,7 @@ describe('GPTAnswerer', () => {
       const answerer = new GPTAnswerer(
         'test-api-token',
         'https://api.example.com/chat',
-        mockReporter as import('../../utils/status-reporter').StatusReporter
+        mockReporter as unknown as import('../../utils/status-reporter').StatusReporter
       );
       answerer.setResume(mockResume);
       answerer.setJob(mockJob);

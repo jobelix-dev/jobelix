@@ -382,7 +382,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.credits_granted).toBe(100);
@@ -398,7 +398,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(200); // NOT 4xx — this is intentional
       const body = await res.json();
       expect(body.message).toBe('Daily credits already claimed for today');
@@ -413,7 +413,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(500);
     });
 
@@ -425,7 +425,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(500);
     });
   });
@@ -448,7 +448,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(429);
     });
   });
@@ -461,7 +461,7 @@ describe('Security: Referral System & Credits System', () => {
       authFailure();
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(401);
     });
   });

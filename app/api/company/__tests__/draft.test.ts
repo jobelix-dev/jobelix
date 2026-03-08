@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ---------------------------------------------------------------------------
 // Mock modules — declared before any import that triggers them
@@ -106,7 +106,7 @@ function createRequest(
     init.body = JSON.stringify(body);
     init.headers = { 'Content-Type': 'application/json' };
   }
-  return new Request(url, init);
+  return new Request(url, init) as unknown as NextRequest;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ describe('POST /api/company/offer/draft/new', () => {
   it('returns 401 when user is not authenticated', async () => {
     mockAuthFailure();
 
-    const res = await createDraft();
+    const res = await createDraft(createRequest());
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: 'Unauthorized' });
   });
@@ -135,7 +135,7 @@ describe('POST /api/company/offer/draft/new', () => {
     mockSb._chain.single.mockResolvedValueOnce({ data: fakeDraft, error: null });
     mockAuthSuccess(mockSb);
 
-    const res = await createDraft();
+    const res = await createDraft(createRequest());
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -159,7 +159,7 @@ describe('POST /api/company/offer/draft/new', () => {
     });
     mockAuthSuccess(mockSb);
 
-    const res = await createDraft();
+    const res = await createDraft(createRequest());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to create draft' });
   });
@@ -169,7 +169,7 @@ describe('POST /api/company/offer/draft/new', () => {
     mockSb._chain.single.mockResolvedValueOnce({ data: null, error: null });
     mockAuthSuccess(mockSb);
 
-    const res = await createDraft();
+    const res = await createDraft(createRequest());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to create draft' });
   });
@@ -177,7 +177,7 @@ describe('POST /api/company/offer/draft/new', () => {
   it('returns 500 on unexpected exception', async () => {
     mockAuthenticateRequest.mockRejectedValueOnce(new Error('boom'));
 
-    const res = await createDraft();
+    const res = await createDraft(createRequest());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to create draft' });
   });

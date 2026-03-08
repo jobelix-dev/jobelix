@@ -1199,7 +1199,7 @@ describe('GET /api/student/credits/can-claim', () => {
 describe('POST /api/student/credits/claim', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(401);
   });
 
@@ -1208,7 +1208,7 @@ describe('POST /api/student/credits/claim', () => {
     mockAuthSuccess(supabase);
     mockRateLimitExceeded();
 
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(429);
   });
 
@@ -1221,7 +1221,7 @@ describe('POST /api/student/credits/claim', () => {
       error: null,
     });
 
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.credits_granted).toBe(100);
@@ -1238,7 +1238,7 @@ describe('POST /api/student/credits/claim', () => {
       error: null,
     });
 
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.credits_granted).toBe(0);
@@ -1251,7 +1251,7 @@ describe('POST /api/student/credits/claim', () => {
 
     supabase.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
 
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(500);
   });
 
@@ -1261,7 +1261,7 @@ describe('POST /api/student/credits/claim', () => {
 
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(500);
   });
 
@@ -1274,7 +1274,7 @@ describe('POST /api/student/credits/claim', () => {
       error: NextResponse.json({ error: 'Internal error' }, { status: 500 }),
     });
 
-    const res = await postCreditsClaim();
+    const res = await postCreditsClaim(createJsonRequest({}));
     expect(res.status).toBe(500);
   });
 });

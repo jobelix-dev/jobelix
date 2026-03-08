@@ -201,7 +201,7 @@ describe('Security: Auth Bypass & Session Manipulation', () => {
 
     it('POST /api/student/credits/claim — returns 401 when unauthenticated', async () => {
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(401);
     });
 

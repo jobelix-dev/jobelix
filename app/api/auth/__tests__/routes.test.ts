@@ -910,7 +910,7 @@ describe('POST /api/auth/welcome-notice-seen', () => {
 
   beforeEach(async () => {
     const mod = await import('../welcome-notice-seen/route');
-    POST = mod.POST;
+    POST = mod.POST as unknown as () => Promise<NextResponse>;
   });
 
   it('returns auth error when not authenticated', async () => {
