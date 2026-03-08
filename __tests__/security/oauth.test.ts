@@ -45,7 +45,7 @@ const mockSaveGitHubConnection = vi.fn();
 const mockDeleteGitHubConnection = vi.fn();
 const mockGetGitHubConnection = vi.fn();
 
-vi.mock('@/lib/server/githubOAuth', () => ({
+vi.mock('@/lib/server/github/oauth', () => ({
   getGitHubAuthUrl: (...args: unknown[]) => mockGetGitHubAuthUrl(...args),
   exchangeGitHubCode: (...args: unknown[]) => mockExchangeGitHubCode(...args),
   saveGitHubConnection: (...args: unknown[]) => mockSaveGitHubConnection(...args),
@@ -54,7 +54,7 @@ vi.mock('@/lib/server/githubOAuth', () => ({
 }));
 
 const mockFetchGitHubUser = vi.fn();
-vi.mock('@/lib/server/githubService', () => ({
+vi.mock('@/lib/server/github/api', () => ({
   fetchGitHubUser: (...args: unknown[]) => mockFetchGitHubUser(...args),
 }));
 
