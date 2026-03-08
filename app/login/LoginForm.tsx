@@ -16,7 +16,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { createClient } from '@/lib/client/supabaseClient';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
-import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
+import SocialLoginButtons from '@/app/components/SocialLoginButtons';
 import { getElectronAPI } from '@/lib/client/runtime';
 
 export default function LoginForm() {

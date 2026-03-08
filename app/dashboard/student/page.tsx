@@ -14,7 +14,7 @@ import dynamic from 'next/dynamic';
 import DashboardNav from './components/DashboardNav';
 import { ProfileTab } from './features/profile';
 import { useProfileData, useResumeUpload, useGitHubImportDashboard } from './hooks';
-import { useConfirmDialog } from '@/app/components/useConfirmDialog';
+import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 import { restoreFocusAfterDialog } from '@/lib/client/focusRestore';
 
 // Lazy-load non-default tabs - only fetched when user navigates to them

@@ -10,7 +10,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import ConfirmDialog from './ConfirmDialog';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 interface DialogState {
   isOpen: boolean;
