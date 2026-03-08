@@ -22,7 +22,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { apiFetch } from '@/lib/client/http';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
-import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
+import SocialLoginButtons from '@/app/components/SocialLoginButtons';
 import { storeReferralCode, validateReferralCode, getStoredReferralCode } from '@/lib/shared/referral';
 
 /** Valid user roles for the platform */

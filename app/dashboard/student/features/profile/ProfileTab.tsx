@@ -16,7 +16,7 @@ import type { ExtractedResumeData, ProjectEntry, SkillEntry } from '@/lib/shared
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
-import { useConfirmDialog } from '@/app/components/useConfirmDialog';
+import { useConfirmDialog } from '@/app/components/confirm-dialog';
 import { useProfileTour, useRepoTicker } from './hooks';
 
 interface ProfileTabProps {

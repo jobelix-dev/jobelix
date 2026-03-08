@@ -26,7 +26,6 @@
  * ```
  */
 
-import { BrowserWindow } from 'electron';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 import { chromium } from 'playwright-core';
 import * as path from 'path';
@@ -148,11 +147,10 @@ export class LinkedInBot {
   }
 
   /**
-   * Start the bot with the given browser window
-   * 
-   * @param mainWindow - Electron BrowserWindow for status updates
+   * Start the bot. The status emitter must be configured on `statusReporter`
+   * before calling this (done by the worker entry or main-process launcher).
    */
-  async start(mainWindow: BrowserWindow): Promise<void> {
+  async start(): Promise<void> {
     if (!this.options || !this.config || !this.resume || !this.gptAnswerer) {
       throw new Error('Bot not initialized. Call initialize() first.');
     }
@@ -164,8 +162,6 @@ export class LinkedInBot {
     this.isRunning = true;
     this.shouldStop = false;
 
-    // Set up status reporter
-    statusReporter.setMainWindow(mainWindow);
     statusReporter.startSession(BOT_VERSION, os.platform());
 
     try {

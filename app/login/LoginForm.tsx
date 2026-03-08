@@ -14,10 +14,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
-import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
-import SocialLoginButtons from '@/app/components/auth/SocialLoginButtons';
+import SocialLoginButtons from '@/app/components/SocialLoginButtons';
+import { getElectronAPI } from '@/lib/client/runtime';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -36,12 +36,17 @@ export default function LoginForm() {
   // This prevents the user from seeing the login form when they're already logged in.
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        console.log('[Login] User already authenticated, redirecting to dashboard');
-        window.location.href = '/dashboard';
-      }
-    });
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (user) {
+          console.log('[Login] User already authenticated, redirecting to dashboard');
+          window.location.href = '/dashboard';
+        }
+      })
+      .catch((err) => {
+        // Session check failed (e.g. network error in Electron) - user stays on login page
+        console.warn('[Login] Auth check error:', err);
+      });
   }, []);
 
   // Read error from URL parameters (e.g., from expired reset links)
@@ -62,25 +67,41 @@ export default function LoginForm() {
     setError('');
 
     try {
-      await api.login({ email, password, captchaToken: captchaToken || undefined });
-      
-      // Save auth tokens to cache for automatic login
-      try {
+      const electronAPI = getElectronAPI();
+
+      if (electronAPI) {
+        // Electron: use Supabase client-side auth directly so the session is returned
+        // immediately and can be saved to the OS keychain. The @supabase/ssr browser
+        // client also writes the session to cookies, so the local Next.js server can
+        // authenticate subsequent page requests without a Bearer token round-trip.
+        // (apiFetch uses credentials:'omit' in Electron, so server-set cookies would
+        // be discarded — that's why we cannot use the server route here.)
         const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          await saveSessionToAuthCache(session);
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: captchaToken || undefined },
+        });
+
+        if (authError) throw new Error(authError.message);
+
+        // Persist tokens in OS keychain so AutoLogin can restore the session
+        // on the next app launch without requiring the user to sign in again.
+        if (data.session && electronAPI.setSession) {
+          try {
+            await electronAPI.setSession(data.session);
+          } catch (cacheErr) {
+            console.warn('[Login] Failed to save session to Electron keychain:', cacheErr);
+          }
         }
-      } catch (cacheError) {
-        console.warn('Failed to save auth cache:', cacheError);
-        // Don't fail login if cache save fails
+      } else {
+        // Web: use the server route which properly sets HttpOnly session cookies.
+        await api.login({ email, password, captchaToken: captchaToken || undefined });
       }
-      
+
       router.refresh();
       // Small delay to ensure auth cookies are propagated before navigation.
-      // Without this, the dashboard may load before the session is available,
-      // requiring a second login attempt.
+      // Without this, the dashboard may load before the session is available.
       await new Promise(resolve => setTimeout(resolve, 100));
       router.push('/dashboard');
     } catch (err) {

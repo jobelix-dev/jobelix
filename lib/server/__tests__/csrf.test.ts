@@ -31,4 +31,30 @@ describe('enforceSameOrigin', () => {
 
     expect(enforceSameOrigin(req)).toBeNull();
   });
+
+  it('allows token-based auth (desktop app)', () => {
+    // Desktop app uses Bearer tokens, which don't need CSRF protection
+    const req = new NextRequest('https://www.jobelix.fr/api/test', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        origin: 'http://127.0.0.1:43150',
+      },
+    });
+
+    expect(enforceSameOrigin(req)).toBeNull();
+  });
+
+  it('rejects untrusted origins for cookie-based auth', async () => {
+    const req = new NextRequest('https://www.jobelix.fr/api/test', {
+      method: 'POST',
+      headers: {
+        origin: 'http://evil.com',
+      },
+    });
+
+    const res = enforceSameOrigin(req);
+    expect(res?.status).toBe(403);
+    expect(await res?.json()).toEqual({ error: 'Invalid request origin' });
+  });
 });

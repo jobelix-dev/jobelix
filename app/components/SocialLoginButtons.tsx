@@ -25,13 +25,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { saveSessionToAuthCache } from '@/lib/client/authCache';
 import { createClient } from '@/lib/client/supabaseClient';
 import type { Provider } from '@supabase/supabase-js';
-import { 
-  getReferralCodeFromAnySource, 
-  clearAllReferralStorage,
-  addReferralCodeToUrl 
+import {
+  getStoredReferralCode,
+  clearStoredReferralCode,
+  extractReferralCodeFromUrl,
 } from '@/lib/shared/referral';
 
 interface SocialLoginButtonsProps {
@@ -137,20 +136,37 @@ export default function SocialLoginButtons({
   // Track if we're in the middle of an OAuth flow
   const isOAuthFlowActive = useRef(false);
 
-  // Save auth tokens to Electron cache for automatic login
-  const saveAuthCacheIfElectron = useCallback(async (session: { 
+  // Save auth tokens to Electron secure storage (OS keychain) for automatic login
+  const saveSessionIfElectron = useCallback(async (session: { 
     access_token: string; 
     refresh_token: string; 
     expires_at?: number;
     user: { id: string };
   }) => {
     try {
-      const saved = await saveSessionToAuthCache(session);
-      if (saved) {
-        console.log('[OAuth] Auth cache saved for Electron');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const electronAPI = (window as any).electronAPI;
+      
+      if (!electronAPI?.setSession) {
+        console.log('[OAuth] Not in Electron - session exists in cookies only');
+        return;
       }
-    } catch (cacheError) {
-      console.warn('[OAuth] Failed to save auth cache:', cacheError);
+
+      // Save to Electron secure storage (OS keychain)
+      const result = await electronAPI.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at: session.expires_at,
+        user: session.user,
+      });
+      
+      if (result?.success) {
+        console.log('[OAuth] Session saved to Electron secure storage successfully');
+      } else {
+        console.warn('[OAuth] Failed to save session to Electron:', result);
+      }
+    } catch (error) {
+      console.error('[OAuth] Error saving session to Electron:', error);
     }
   }, []);
 
@@ -159,7 +175,7 @@ export default function SocialLoginButtons({
     console.log('[OAuth] Handling auth success - navigating to dashboard');
     
     // Clear referral storage - it was already applied server-side in /auth/callback
-    clearAllReferralStorage();
+    clearStoredReferralCode();
     
     // Close popup if still open
     if (popup && !popup.closed) {
@@ -236,10 +252,10 @@ export default function SocialLoginButtons({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Fetch the full session for Electron cache (getUser doesn't return tokens)
+          // Fetch the full session for Electron storage (getUser doesn't return tokens)
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
-            await saveAuthCacheIfElectron(session);
+            await saveSessionIfElectron(session);
           }
         }
         
@@ -251,7 +267,7 @@ export default function SocialLoginButtons({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [handleAuthSuccess, handleAuthError, saveAuthCacheIfElectron]);
+  }, [handleAuthSuccess, handleAuthError, saveSessionIfElectron]);
 
   // Poll for popup close (fallback if postMessage fails)
   useEffect(() => {
@@ -275,10 +291,10 @@ export default function SocialLoginButtons({
           
           if (user) {
             console.log('[OAuth] Session found after popup closed (fallback)');
-            // Fetch session for Electron cache
+            // Fetch session for Electron storage
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-              await saveAuthCacheIfElectron(session);
+              await saveSessionIfElectron(session);
             }
             await handleAuthSuccess();
           } else {
@@ -293,7 +309,7 @@ export default function SocialLoginButtons({
     }, 500);
 
     return () => clearInterval(pollInterval);
-  }, [popup, loadingProvider, handleAuthSuccess, saveAuthCacheIfElectron]);
+  }, [popup, loadingProvider, handleAuthSuccess, saveSessionIfElectron]);
 
   async function handleOAuthLogin(provider: Provider) {
     setLoadingProvider(provider);
@@ -311,10 +327,11 @@ export default function SocialLoginButtons({
         : (process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
       let redirectTo = `${baseUrl}/auth/callback?popup=true`;
       
-      // Get referral code from any available source and add to redirect URL
-      const referralCode = getReferralCodeFromAnySource();
+      // Get referral code from localStorage or from the current page URL params
+      const referralCode = getStoredReferralCode()
+        ?? extractReferralCodeFromUrl(new URLSearchParams(window.location.search));
       if (referralCode) {
-        redirectTo = addReferralCodeToUrl(redirectTo, referralCode);
+        redirectTo += `&referral_code=${referralCode}`;
         console.log('[OAuth] Added referral code to redirect URL:', referralCode);
       }
 

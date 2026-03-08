@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ---------------------------------------------------------------------------
 // Mock modules — declared before any import that triggers them
@@ -50,6 +50,8 @@ function createMockRequest(body: unknown): Request {
   });
 }
 
+const createMockRequestForGET = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Reset between tests
 // ---------------------------------------------------------------------------
@@ -61,7 +63,7 @@ beforeEach(() => {
 // 1. GET /api/company/offer
 // ===========================================================================
 describe('GET /api/company/offer', () => {
-  let GET: () => Promise<NextResponse>;
+  let GET: (request: NextRequest) => Promise<NextResponse>;
 
   beforeEach(async () => {
     const mod = await import('../offer/route');
@@ -77,7 +79,7 @@ describe('GET /api/company/offer', () => {
       error: errorResponse,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: 'Unauthorized' });
   });
@@ -118,7 +120,7 @@ describe('GET /api/company/offer', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -153,7 +155,7 @@ describe('GET /api/company/offer', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -184,7 +186,7 @@ describe('GET /api/company/offer', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to fetch offers' });
   });
@@ -221,7 +223,7 @@ describe('GET /api/company/offer', () => {
       error: null,
     });
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to fetch drafts' });
   });
@@ -230,7 +232,7 @@ describe('GET /api/company/offer', () => {
   it('returns 500 on unexpected exception', async () => {
     mockAuthenticateRequest.mockRejectedValueOnce(new Error('unexpected'));
 
-    const res = await GET();
+    const res = await GET(createMockRequestForGET());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to fetch offers' });
   });
@@ -257,7 +259,7 @@ describe('GET /api/company/offer', () => {
       error: null,
     });
 
-    await GET();
+    await GET(createMockRequestForGET());
 
     // Both queries should filter by company_id = user.id
     expect(eqMock).toHaveBeenCalledWith('company_id', MOCK_USER_ID);
@@ -284,7 +286,7 @@ describe('GET /api/company/offer', () => {
       error: null,
     });
 
-    await GET();
+    await GET(createMockRequestForGET());
 
     // Second .from() call is for drafts; .is('offer_id', null) should be called
     expect(isMock).toHaveBeenCalledWith('offer_id', null);

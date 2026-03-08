@@ -4,7 +4,7 @@
 
 import { ipcMain, BrowserWindow, app } from 'electron';
 import { readConfig, writeConfig, writeResume } from '../utils/file-system.js';
-import { saveAuthCache, loadAuthCache, clearAuthCache } from './auth-cache.js';
+import { saveSession, loadSession, clearSession } from './session-storage.js';
 import { checkBrowserInstalled, installBrowser } from './browser-manager.js';
 import { restartLocalUiServer } from './local-ui-server.js';
 import { openExternalUrl } from './update-manager.js';
@@ -168,21 +168,22 @@ export function setupIpcHandlers() {
   handlerCount++;
 
   // ============================================================================
-  // Auth Cache
+  // Session Management (Token-based auth for desktop)
   // ============================================================================
-
-  ipcMain.handle(IPC_CHANNELS.SAVE_AUTH_CACHE, async (_, tokens) => {
-    return await saveAuthCache(tokens);
+  
+  // New secure session storage using OS keychain
+  ipcMain.handle('get-session', async () => {
+    return await loadSession();
   });
   handlerCount++;
-
-  ipcMain.handle(IPC_CHANNELS.LOAD_AUTH_CACHE, async () => {
-    return await loadAuthCache();
+  
+  ipcMain.handle('set-session', async (_, session) => {
+    return await saveSession(session);
   });
   handlerCount++;
-
-  ipcMain.handle(IPC_CHANNELS.CLEAR_AUTH_CACHE, async () => {
-    return await clearAuthCache();
+  
+  ipcMain.handle('clear-session', async () => {
+    return await clearSession();
   });
   handlerCount++;
 

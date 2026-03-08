@@ -6,7 +6,7 @@
  */
 
 import "server-only";
-import { getServiceSupabase } from './supabaseService';
+import { getServiceSupabase } from '@/lib/server/supabaseService';
 
 // =============================================================================
 // TYPES

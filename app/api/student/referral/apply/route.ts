@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const csrfError = enforceSameOrigin(req);
     if (csrfError) return csrfError;
 
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(req);
     if (auth.error) {
       return auth.error;
     }

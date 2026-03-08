@@ -42,7 +42,7 @@ export async function DELETE(
      *
      * If not authenticated, it returns an HTTP error response.
      */
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(req);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;

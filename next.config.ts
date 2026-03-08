@@ -3,29 +3,6 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV === "development";
 const isDesktopBundle = process.env.JOBELIX_DESKTOP_BUNDLE === "1";
 
-function isLocalhost(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
-}
-
-function isTrustedJobelixHost(hostname: string): boolean {
-  return hostname === "jobelix.fr" || hostname === "www.jobelix.fr" || hostname.endsWith(".jobelix.fr");
-}
-
-function sanitizeDesktopBackendOrigin(origin: string): string {
-  try {
-    const parsed = new URL(origin);
-    if (parsed.protocol === "https:" && isTrustedJobelixHost(parsed.hostname)) return parsed.origin;
-    if (parsed.protocol === "http:" && isLocalhost(parsed.hostname)) return parsed.origin;
-  } catch {
-    // Fall through to default.
-  }
-  return "https://www.jobelix.fr";
-}
-
-const desktopBackendOrigin = sanitizeDesktopBackendOrigin(
-  process.env.NEXT_DESKTOP_BACKEND_ORIGIN || "https://www.jobelix.fr"
-);
-
 const nextConfig: NextConfig = {
   output: isDesktopBundle ? "standalone" : undefined,
   serverExternalPackages: ["pdfjs-dist"],
@@ -34,24 +11,9 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    if (!isDesktopBundle) {
-      return [];
-    }
-
-    // Desktop local bundle: proxy backend/auth endpoints to production backend.
-    // This keeps one shared UI codebase while avoiding bundling server secrets.
-    return {
-      beforeFiles: [
-        {
-          source: "/api/:path*",
-          destination: `${desktopBackendOrigin}/api/:path*`,
-        },
-        {
-          source: "/auth/callback",
-          destination: `${desktopBackendOrigin}/auth/callback`,
-        },
-      ],
-    };
+    // Desktop app now makes direct API calls with token authentication
+    // No more proxying needed - simpler and faster
+    return [];
   },
 
   async headers() {

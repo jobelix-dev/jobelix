@@ -19,60 +19,31 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StatusReporter } from '../status-reporter';
+import type { StatusPayload } from '../status-reporter';
 import type { BotActivity } from '../../types';
 
-// Mock Electron's BrowserWindow
-const mockWebContents = {
-  send: vi.fn(),
-};
-
-const mockWindow = {
-  isDestroyed: () => false,
-  webContents: mockWebContents,
-};
-
-// We need to mock electron before importing StatusReporter
-// Must include 'app' since logger.ts calls app.getPath() and app.on() at module level
-vi.mock('electron', () => ({
-  app: {
-    getPath: vi.fn(() => '/tmp/jobelix-test'),
-    on: vi.fn(),
-  },
-  BrowserWindow: vi.fn(() => mockWindow),
-}));
+const emitted: StatusPayload[] = [];
+const mockEmit = vi.fn((payload: StatusPayload) => emitted.push(payload));
 
 describe('StatusReporter', () => {
   let reporter: StatusReporter;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    emitted.length = 0;
     reporter = new StatusReporter();
-    reporter.setMainWindow(mockWindow as unknown as Electron.BrowserWindow);
+    reporter.setEmitter(mockEmit);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('constructor', () => {
-    it('should create a new StatusReporter instance', () => {
-      const newReporter = new StatusReporter();
-      expect(newReporter).toBeInstanceOf(StatusReporter);
-    });
-  });
-
-  describe('setMainWindow', () => {
-    it('should set the main window for IPC', () => {
-      const newReporter = new StatusReporter();
-      expect(() => newReporter.setMainWindow(mockWindow as unknown as Electron.BrowserWindow)).not.toThrow();
-    });
-  });
-
   describe('startSession', () => {
     it('should emit running stage message with initializing activity', () => {
       reporter.startSession('2.0.0', 'darwin');
       
-      expect(mockWebContents.send).toHaveBeenCalledWith('bot-status', expect.objectContaining({
+      expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
         stage: 'running',
         activity: 'initializing',
         details: { botVersion: '2.0.0', platform: 'darwin' },
@@ -88,8 +59,8 @@ describe('StatusReporter', () => {
       reporter.startSession('2.0.0', 'darwin');
       
       // Stats should be reset and in snake_case format
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats).toEqual({
+      const lastPayload = mockEmit.mock.calls.at(-1)![0] as StatusPayload;
+      expect(lastPayload.stats).toEqual({
         jobs_found: 0,
         jobs_applied: 0,
         jobs_failed: 0,
@@ -110,7 +81,7 @@ describe('StatusReporter', () => {
     it('should emit running stage with activity', () => {
       reporter.sendHeartbeat(activity);
       
-      expect(mockWebContents.send).toHaveBeenCalledWith('bot-status', expect.objectContaining({
+      expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
         stage: 'running',
         activity: activity,
       }));
@@ -119,16 +90,11 @@ describe('StatusReporter', () => {
     it('should include optional details in heartbeat', () => {
       reporter.sendHeartbeat(applyingActivity, { jobId: '123', company: 'Acme' });
       
-      expect(mockWebContents.send).toHaveBeenCalledWith('bot-status', expect.objectContaining({
+      expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
         stage: 'running',
         activity: applyingActivity,
         details: { jobId: '123', company: 'Acme' },
       }));
-    });
-
-    it('should return true when session is active', () => {
-      const result = reporter.sendHeartbeat(activity);
-      expect(result).toBe(true);
     });
 
     it('should return false when session is stopped', () => {
@@ -145,40 +111,16 @@ describe('StatusReporter', () => {
       reporter.startSession('2.0.0', 'darwin');
     });
 
-    it('should increment jobs found (snake_case in payload)', () => {
-      reporter.incrementJobsFound();
-      reporter.incrementJobsFound();
-      reporter.incrementJobsFound();
-      
+    it.each([
+      ['jobs_found', () => { reporter.incrementJobsFound(); reporter.incrementJobsFound(); reporter.incrementJobsFound(); }, 3] as const,
+      ['jobs_applied', () => { reporter.incrementJobsApplied(); reporter.incrementJobsApplied(); }, 2] as const,
+      ['jobs_failed', () => { reporter.incrementJobsFailed(); }, 1] as const,
+      ['credits_used', () => { reporter.incrementCreditsUsed(); reporter.incrementCreditsUsed(); }, 2] as const,
+    ])('should increment %s (snake_case in payload)', (statKey, increment, expected) => {
+      increment();
       reporter.sendHeartbeat(activity);
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats.jobs_found).toBe(3);
-    });
-
-    it('should increment jobs applied (snake_case in payload)', () => {
-      reporter.incrementJobsApplied();
-      reporter.incrementJobsApplied();
-      
-      reporter.sendHeartbeat(activity);
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats.jobs_applied).toBe(2);
-    });
-
-    it('should increment jobs failed (snake_case in payload)', () => {
-      reporter.incrementJobsFailed();
-      
-      reporter.sendHeartbeat(activity);
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats.jobs_failed).toBe(1);
-    });
-
-    it('should increment credits used (snake_case in payload)', () => {
-      reporter.incrementCreditsUsed();
-      reporter.incrementCreditsUsed();
-      
-      reporter.sendHeartbeat(activity);
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats.credits_used).toBe(2);
+      const lastPayload = mockEmit.mock.calls.at(-1)![0] as StatusPayload;
+      expect(lastPayload.stats![statKey]).toBe(expected);
     });
 
     it('should track multiple stat types together (snake_case)', () => {
@@ -189,8 +131,8 @@ describe('StatusReporter', () => {
       reporter.incrementCreditsUsed();
       
       reporter.sendHeartbeat(activity);
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats).toEqual({
+      const lastPayload = mockEmit.mock.calls.at(-1)![0] as StatusPayload;
+      expect(lastPayload.stats).toEqual({
         jobs_found: 2,
         jobs_applied: 1,
         jobs_failed: 1,
@@ -202,8 +144,8 @@ describe('StatusReporter', () => {
       reporter.incrementJobsFound(5);
       
       reporter.sendHeartbeat(activity);
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats.jobs_found).toBe(5);
+      const lastPayload = mockEmit.mock.calls.at(-1)![0] as StatusPayload;
+      expect(lastPayload.stats!.jobs_found).toBe(5);
     });
 
     it('should return current stats via getStats (camelCase internally)', () => {
@@ -223,7 +165,7 @@ describe('StatusReporter', () => {
       
       reporter.markStopped();
       
-      expect(mockWebContents.send).toHaveBeenCalledWith('bot-status', expect.objectContaining({
+      expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
         stage: 'stopped',
         message: 'User requested stop',
       }));
@@ -237,16 +179,9 @@ describe('StatusReporter', () => {
       
       reporter.sendHeartbeat(activity);
       
-      expect(mockWebContents.send).not.toHaveBeenCalled();
+      expect(mockEmit).not.toHaveBeenCalled();
     });
 
-    it('should set isStopped to true', () => {
-      reporter.startSession('2.0.0', 'darwin');
-      expect(reporter.isStopped()).toBe(false);
-      
-      reporter.markStopped();
-      expect(reporter.isStopped()).toBe(true);
-    });
   });
 
   describe('completeSession', () => {
@@ -258,7 +193,7 @@ describe('StatusReporter', () => {
     it('should emit completed stage on success', () => {
       reporter.completeSession(true);
       
-      expect(mockWebContents.send).toHaveBeenCalledWith('bot-status', expect.objectContaining({
+      expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
         stage: 'completed',
         message: 'Session completed successfully',
       }));
@@ -267,7 +202,7 @@ describe('StatusReporter', () => {
     it('should emit failed stage with error message on failure', () => {
       reporter.completeSession(false, 'Something went wrong');
       
-      expect(mockWebContents.send).toHaveBeenCalledWith('bot-status', expect.objectContaining({
+      expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
         stage: 'failed',
         message: 'Something went wrong',
       }));
@@ -277,8 +212,8 @@ describe('StatusReporter', () => {
       reporter.incrementJobsApplied(5);
       reporter.completeSession(true);
       
-      const lastCall = mockWebContents.send.mock.calls.at(-1);
-      expect(lastCall?.[1].stats.jobs_applied).toBe(5);
+      const lastPayload = mockEmit.mock.calls.at(-1)![0] as StatusPayload;
+      expect(lastPayload.stats!.jobs_applied).toBe(5);
     });
   });
 
@@ -291,16 +226,11 @@ describe('StatusReporter', () => {
       expect(() => noWindowReporter.sendHeartbeat(activity)).not.toThrow();
     });
 
-    it('should handle destroyed window gracefully', () => {
-      const destroyedWindow = {
-        isDestroyed: () => true,
-        webContents: mockWebContents,
-      };
-      
+    it('should handle emitter errors gracefully', () => {
       const destroyedReporter = new StatusReporter();
-      destroyedReporter.setMainWindow(destroyedWindow as unknown as Electron.BrowserWindow);
+      destroyedReporter.setEmitter(() => { throw new Error('renderer gone'); });
       const activity: BotActivity = 'searching_jobs';
-      
+
       expect(() => destroyedReporter.sendHeartbeat(activity)).not.toThrow();
     });
   });

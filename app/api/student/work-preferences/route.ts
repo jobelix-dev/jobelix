@@ -14,9 +14,9 @@ import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/ser
 import { enforceSameOrigin } from '@/lib/server/csrf'
 import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
 
     const { user, supabase } = auth
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const csrfError = enforceSameOrigin(request)
     if (csrfError) return csrfError
 
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
 
     const { user, supabase } = auth

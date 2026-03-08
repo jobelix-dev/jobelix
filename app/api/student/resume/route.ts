@@ -13,12 +13,14 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import { enforceSameOrigin } from '@/lib/server/csrf'
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies'
 
 // GET - Fetch resume metadata
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
@@ -58,10 +60,18 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError
 
     // Authenticate user
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
     
     const { user, supabase } = auth
+
+    // Rate limit check - reuse resume extraction limits (5 per day is reasonable)
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.resumeExtraction
+    const rateLimitResult = await checkRateLimit(user.id, rateLimitConfig)
+    if (rateLimitResult.error) return rateLimitResult.error
+    if (!rateLimitResult.data.allowed) {
+      return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data)
+    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -129,6 +139,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Log API call for rate limiting
+    await logApiCall(user.id, rateLimitConfig.endpoint)
 
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

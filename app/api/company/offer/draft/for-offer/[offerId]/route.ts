@@ -38,7 +38,7 @@ export async function GET(
      * 1) Authenticate the request
      * If not logged in, authenticateRequest() returns an error Response.
      */
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;

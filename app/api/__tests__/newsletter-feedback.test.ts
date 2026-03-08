@@ -147,7 +147,7 @@ describe('POST /api/newsletter', () => {
     // Ensure RESEND_API_KEY is set so the module-level `resend` is created
     process.env.RESEND_API_KEY = 'test_resend_key';
     // Dynamic import so mocks are in place
-    const mod = await import('../../newsletter/route');
+    const mod = await import('../newsletter/route');
     POST = mod.POST;
   });
 
@@ -283,7 +283,7 @@ describe('POST /api/feedback', () => {
 
   beforeEach(async () => {
     process.env.RESEND_API_KEY = 'test_resend_key';
-    const mod = await import('../../feedback/route');
+    const mod = await import('../feedback/route');
     POST = mod.POST;
   });
 

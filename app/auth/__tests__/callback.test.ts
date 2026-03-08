@@ -7,8 +7,7 @@
  * - Code-based PKCE flow: valid code, exchange error, no user after exchange
  * - Next param sanitization (relative path, absolute URL, protocol-relative)
  * - Popup mode: redirects to callback-success, error in popup
- * - Referral code extraction from URL param and cookie
- * - Referral cookie clearing on response
+ * - Referral code extraction from URL param and user_metadata
  * - token_hash takes precedence over token param
  */
 
@@ -54,7 +53,6 @@ vi.mock('@/lib/shared/referral', () => ({
     const normalized = code.toLowerCase().trim();
     return /^[a-z0-9]{8}$/.test(normalized) ? normalized : null;
   }),
-  REFERRAL_COOKIE_NAME: 'jobelix_referral',
   extractReferralCodeFromUrl: vi.fn((params: URLSearchParams) => {
     const code = params.get('ref') || params.get('referral') || params.get('referral_code');
     if (!code) return null;
@@ -136,7 +134,7 @@ describe('no valid auth parameters', () => {
 
     expect(res.status).toBe(307);
     const location = getRedirectLocation(res);
-    expect(location).toContain('/login');
+    expect(location).toContain('/auth/callback-success');
     expect(location).toContain('error=');
     expect(location).toContain('Invalid+or+expired+link');
   });
@@ -162,7 +160,7 @@ describe('token-based flow', () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toContain('/reset-password');
+    expect(decodeURIComponent(getRedirectLocation(res))).toContain('/reset-password');
   });
 
   it('redirects to /dashboard when next param is not provided', async () => {
@@ -179,7 +177,7 @@ describe('token-based flow', () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toContain('/dashboard');
+    expect(decodeURIComponent(getRedirectLocation(res))).toContain('/dashboard');
   });
 
   it('redirects with error for invalid OTP type', async () => {
@@ -324,7 +322,8 @@ describe('code-based PKCE flow', () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toContain('/profile');
+    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
+    expect(getRedirectLocation(res)).toContain('next=%2Fprofile');
   });
 
   it('redirects to login with generic error on exchange failure', async () => {
@@ -337,8 +336,8 @@ describe('code-based PKCE flow', () => {
 
     expect(res.status).toBe(307);
     const location = decodeURIComponent(getRedirectLocation(res));
-    expect(location).toContain('/login');
-    expect(location).toContain('Authentication+failed');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('error=Authentication');
   });
 
   it('redirects with expired message when exchange returns expired/invalid_grant error', async () => {
@@ -351,7 +350,7 @@ describe('code-based PKCE flow', () => {
 
     expect(res.status).toBe(307);
     const location = decodeURIComponent(getRedirectLocation(res));
-    expect(location).toContain('/login');
+    expect(location).toContain('/auth/callback-success');
     expect(location).toContain('expired');
   });
 
@@ -364,8 +363,8 @@ describe('code-based PKCE flow', () => {
 
     expect(res.status).toBe(307);
     const location = getRedirectLocation(res);
-    expect(location).toContain('/login');
-    expect(location).toContain('Authentication+failed');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('error=Authentication');
   });
 
   it('calls exchangeCodeForSession with the code', async () => {
@@ -399,7 +398,8 @@ describe('next param sanitization', () => {
     });
     const res = await GET(req);
 
-    expect(getRedirectLocation(res)).toContain('/settings/profile');
+    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
+    expect(getRedirectLocation(res)).toContain('next=%2Fsettings%2Fprofile');
   });
 
   it('defaults to /dashboard for absolute URL', async () => {
@@ -416,8 +416,10 @@ describe('next param sanitization', () => {
     });
     const res = await GET(req);
 
+    // All callbacks go through callback-success
     const location = getRedirectLocation(res);
-    expect(location).toContain('/dashboard');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('next=%2Fdashboard');
     expect(location).not.toContain('evil.com');
   });
 
@@ -435,8 +437,10 @@ describe('next param sanitization', () => {
     });
     const res = await GET(req);
 
+    // All callbacks go through callback-success
     const location = getRedirectLocation(res);
-    expect(location).toContain('/dashboard');
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('next=%2Fdashboard');
     expect(location).not.toContain('evil.com');
   });
 });
@@ -462,8 +466,10 @@ describe('popup mode', () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
-    expect(getRedirectLocation(res)).not.toContain('/settings');
+    const location = getRedirectLocation(res);
+    expect(location).toContain('/auth/callback-success');
+    expect(location).toContain('popup=true');
+    expect(location).toContain('next=%2Fsettings');
   });
 
   it('includes error param in callback-success URL on error', async () => {
@@ -490,8 +496,9 @@ describe('popup mode', () => {
     });
     const res = await GET(req);
 
-    expect(getRedirectLocation(res)).toContain('/dashboard');
-    expect(getRedirectLocation(res)).not.toContain('callback-success');
+    // All callbacks now go through callback-success for unified session handling
+    expect(getRedirectLocation(res)).toContain('/auth/callback-success');
+    expect(getRedirectLocation(res)).toContain('next=%2Fdashboard');
   });
 });
 
@@ -516,53 +523,6 @@ describe('referral code handling', () => {
       'apply_referral_code_admin',
       expect.objectContaining({ p_code: 'abc12345' }),
     );
-  });
-
-  it('extracts referral code from cookie', async () => {
-    const user = fakeUser();
-    mockExchangeCodeForSession.mockResolvedValueOnce({ error: null });
-    mockGetUser.mockResolvedValueOnce({ data: { user } });
-
-    const req = createCallbackRequest(
-      { code: 'auth-code' },
-      'jobelix_referral=xyz98765',
-    );
-    await GET(req);
-
-    expect(mockServiceRpc).toHaveBeenCalledWith(
-      'apply_referral_code_admin',
-      expect.objectContaining({ p_code: 'xyz98765' }),
-    );
-  });
-
-  it('clears referral cookie on redirect response', async () => {
-    const user = fakeUser();
-    mockVerifyOtp.mockResolvedValueOnce({
-      data: { user, session: {} },
-      error: null,
-    });
-
-    const req = createCallbackRequest({
-      token_hash: 'hash',
-      type: 'recovery',
-    });
-    const res = await GET(req);
-
-    // The response should have a Set-Cookie header that clears the referral cookie
-    const setCookie = res.headers.get('set-cookie');
-    expect(setCookie).toBeTruthy();
-    expect(setCookie).toContain('jobelix_referral');
-    // Should be expired (date in the past)
-    expect(setCookie).toContain('1970');
-  });
-
-  it('clears referral cookie even when no referral code is present', async () => {
-    const req = createCallbackRequest({});
-    const res = await GET(req);
-
-    const setCookie = res.headers.get('set-cookie');
-    expect(setCookie).toBeTruthy();
-    expect(setCookie).toContain('jobelix_referral');
   });
 
   it('does not call apply_referral_code_admin when no referral code is present', async () => {
@@ -617,7 +577,8 @@ describe('post-auth processing', () => {
       const res = await GET(req);
 
       expect(res.status).toBe(307);
-      expect(getRedirectLocation(res)).toContain('/dashboard');
+      // All callbacks go through callback-success for unified session handling
+      expect(getRedirectLocation(res)).toContain('/auth/callback-success');
     }
   });
 });

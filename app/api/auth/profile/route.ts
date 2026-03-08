@@ -18,15 +18,15 @@
 
 import "server-only";
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     /**
      * Authenticate using cached helper - reduces duplicate auth.getUser() calls
      */
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     
     // If not authenticated, return null profile (not an error - just not logged in)
     if (auth.error) {

@@ -8,7 +8,6 @@ import net from 'net';
 import path from 'path';
 import { spawn } from 'child_process';
 import logger from '../utils/logger.js';
-import { URLS } from '../config/constants.js';
 
 const LOCAL_HOST = '127.0.0.1';
 const PORT_START = 43100;
@@ -218,7 +217,6 @@ export async function startLocalUiServer() {
     for (let attempt = 1; attempt <= STARTUP_ATTEMPTS; attempt += 1) {
       const port = await findOpenPort(nextPreferredPort);
       const url = `http://${LOCAL_HOST}:${port}/desktop`;
-      const backendOrigin = URLS.PRODUCTION_ORIGIN || URLS.PRODUCTION.replace(/\/desktop$/, '');
       const outputTail = [];
 
       logger.info(
@@ -237,8 +235,7 @@ export async function startLocalUiServer() {
             NODE_ENV: 'production',
             HOSTNAME: LOCAL_HOST,
             PORT: String(port),
-            NEXT_DESKTOP_PROXY_API: '1',
-            NEXT_DESKTOP_BACKEND_ORIGIN: backendOrigin,
+            // Desktop app no longer proxies API calls - uses direct token auth instead
           },
           stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true,

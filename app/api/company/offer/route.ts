@@ -17,17 +17,17 @@
 
 import "server-only";
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 
 // GET - List all published offers AND unpublished drafts for the authenticated company
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     /**
      * 1) Authenticate (server-side)
      * If not logged in, authenticateRequest() returns an error Response.
      */
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;

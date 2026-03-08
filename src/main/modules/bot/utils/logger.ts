@@ -10,7 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { app } from 'electron';
+import { getUserDataPath } from './paths';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -36,8 +36,7 @@ class BotLogger {
    */
   private initializeLogFile(): void {
     try {
-      // Get app data directory (works in both dev and production)
-      const logDir = path.join(app.getPath('userData'), 'logs');
+      const logDir = path.join(getUserDataPath(), 'logs');
       
       // Ensure logs directory exists
       if (!fs.existsSync(logDir)) {
@@ -157,7 +156,5 @@ export function createLogger(context: string) {
   };
 }
 
-// Cleanup on app quit
-app.on('will-quit', () => {
-  logger.close();
-});
+// Worker threads call logger.close() explicitly on exit.
+// The main process registers its own will-quit listener in node-bot-launcher.

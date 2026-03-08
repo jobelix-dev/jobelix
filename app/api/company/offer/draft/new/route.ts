@@ -21,9 +21,8 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 
-export async function POST(): Promise<NextResponse>;
-export async function POST(request: NextRequest): Promise<NextResponse>;
-export async function POST(request?: NextRequest) {
+
+export async function POST(request: NextRequest) {
   try {
     const csrfError = enforceSameOrigin(request);
     if (csrfError) return csrfError;
@@ -32,7 +31,7 @@ export async function POST(request?: NextRequest) {
      * 1) Authenticate the request
      * If not logged in, authenticateRequest() returns an error response.
      */
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;

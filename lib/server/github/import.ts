@@ -3,8 +3,8 @@ import "server-only";
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
-import { setGitHubImportProgress } from '@/lib/server/githubImportProgress';
-import type { GitHubRepoForLLM } from '@/lib/server/githubService';
+import { setGitHubImportProgress } from '@/lib/server/github/progress';
+import type { GitHubRepoForLLM } from '@/lib/server/github/api';
 
 const GitHubMergeSchema = z.object({
   projects: z.array(z.object({

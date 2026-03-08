@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     /**
      * 1) Verify authentication
      */
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
 
     const { supabase } = auth;

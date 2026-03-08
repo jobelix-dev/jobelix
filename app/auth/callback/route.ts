@@ -31,10 +31,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseServer'
 import { getServiceSupabase } from '@/lib/server/supabaseService'
 import type { EmailOtpType, User } from '@supabase/supabase-js'
-import { 
-  validateReferralCode, 
-  REFERRAL_COOKIE_NAME,
-  extractReferralCodeFromUrl 
+import {
+  validateReferralCode,
+  extractReferralCodeFromUrl
 } from '@/lib/shared/referral'
 
 /**
@@ -77,34 +76,22 @@ async function applyReferralCodeServerSide(userId: string, referralCode: string)
 }
 
 /**
- * Get referral code from URL params, cookie, or user metadata.
- * Priority: URL > Cookie > User metadata
- * 
- * URL param is most reliable for OAuth (passed through redirect)
- * Cookie works for same-browser email confirmation
- * User metadata works for cross-browser email confirmation
+ * Get referral code from URL params or user metadata.
+ * Priority: URL param (OAuth redirect) > user_metadata (cross-browser email confirmation)
  */
 function getReferralCodeFromRequest(
-  request: NextRequest, 
-  url: URL, 
+  _request: NextRequest,
+  url: URL,
   user?: User | null
 ): string | null {
-  // Try URL parameter first (passed through OAuth redirect)
+  // URL param: appended to the OAuth redirect URL by the client
   const fromUrl = extractReferralCodeFromUrl(url.searchParams)
   if (fromUrl) {
     console.log('[Callback] Found referral code in URL')
     return fromUrl
   }
-  
-  // Fall back to cookie (set when user landed on signup page)
-  const fromCookie = request.cookies.get(REFERRAL_COOKIE_NAME)?.value
-  const validatedCookie = validateReferralCode(fromCookie)
-  if (validatedCookie) {
-    console.log('[Callback] Found referral code in cookie')
-    return validatedCookie
-  }
-  
-  // Fall back to user metadata (stored during signup for cross-browser support)
+
+  // user_metadata: stored at signup time so it survives cross-browser email confirmation
   if (user?.user_metadata?.referral_code) {
     const fromMetadata = validateReferralCode(user.user_metadata.referral_code)
     if (fromMetadata) {
@@ -112,21 +99,8 @@ function getReferralCodeFromRequest(
       return fromMetadata
     }
   }
-  
-  return null
-}
 
-/**
- * Create a response that clears the referral cookie.
- */
-function clearReferralCookie(response: NextResponse): NextResponse {
-  response.cookies.set(REFERRAL_COOKIE_NAME, '', {
-    path: '/',
-    expires: new Date(0), // Expire immediately
-    httpOnly: false,
-    sameSite: 'lax',
-  })
-  return response
+  return null
 }
 
 function sanitizeNextPath(rawNext: string | null): string {
@@ -344,26 +318,34 @@ export async function GET(request: NextRequest) {
     console.log('[Callback] Error from Supabase:', errorParam, errorDescription)
   }
 
-  // Helper to redirect appropriately based on popup mode
-  // Also clears the referral cookie after processing
+  // Helper to redirect appropriately based on context
+  // Always redirects to callback-success which handles both popup and standalone modes
   const redirectTo = (path: string) => {
-    let response: NextResponse
+    // Always redirect to callback-success for unified session handling
+    // callback-success will:
+    // - If popup mode: send postMessage to parent
+    // - If standalone mode: save session to Electron (if available) and redirect to final destination
+    const callbackSuccessUrl = new URL('/auth/callback-success', requestUrl.origin)
     
-    if (isPopup) {
-      // For popups, redirect to a page that closes the popup
-      const popupUrl = new URL('/auth/callback-success', requestUrl.origin)
-      if (path.includes('error=')) {
-        // Extract the error message from the path and pass it to callback-success
-        const errorMsg = new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error'
-        popupUrl.searchParams.set('error', errorMsg)
-      }
-      response = NextResponse.redirect(popupUrl)
+    if (path.includes('error=')) {
+      // Extract the error message from the path and pass it to callback-success
+      const errorMsg = new URL(path, requestUrl.origin).searchParams.get('error') || 'Unknown error'
+      callbackSuccessUrl.searchParams.set('error', errorMsg)
     } else {
-      response = NextResponse.redirect(new URL(path, requestUrl.origin))
+      // For success, preserve the final destination in case callback-success needs it
+      const finalUrl = new URL(path, requestUrl.origin)
+      const finalPath = finalUrl.pathname + finalUrl.search
+      if (finalPath && finalPath !== '/') {
+        callbackSuccessUrl.searchParams.set('next', finalPath)
+      }
     }
     
-    // Clear the referral cookie after processing
-    return clearReferralCookie(response)
+    // Preserve popup flag if present
+    if (isPopup) {
+      callbackSuccessUrl.searchParams.set('popup', 'true')
+    }
+    
+    return NextResponse.redirect(callbackSuccessUrl)
   }
 
   // ===========================================

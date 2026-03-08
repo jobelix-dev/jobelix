@@ -1,4 +1,4 @@
-import { isAllowedApiOrigin, resolveApiPath } from './runtime';
+import { isElectronRuntime, isAllowedApiOrigin, resolveApiPath, getElectronAPI } from './runtime';
 
 function assertAllowedRequestTarget(rawUrl: string): void {
   if (typeof window === 'undefined') return;
@@ -9,20 +9,44 @@ function assertAllowedRequestTarget(rawUrl: string): void {
   }
 }
 
+async function buildDesktopHeaders(init?: RequestInit): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+
+  // Preserve any caller-provided headers
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => { headers[key] = value; });
+  }
+
+  try {
+    const session = await getElectronAPI()?.getSession?.();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+      headers['X-Client-Type'] = 'desktop';
+    }
+  } catch {
+    // ignore — request proceeds without auth header
+  }
+
+  return headers;
+}
+
 /**
- * Shared fetch helper for app API requests.
+ * Shared fetch helper for all API requests.
  *
- * Uses runtime-aware URL resolution and includes credentials by default,
- * which keeps session-based auth working across hosts.
+ * - Web: same-origin cookies (credentials: include)
+ * - Desktop: Bearer token injected from Electron session storage
  */
-export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   if (typeof input === 'string') {
     const resolved = resolveApiPath(input);
     assertAllowedRequestTarget(resolved);
-    return fetch(resolved, {
-      credentials: 'include',
-      ...init,
-    });
+
+    if (isElectronRuntime()) {
+      const headers = await buildDesktopHeaders(init);
+      return fetch(resolved, { ...init, headers, credentials: 'omit' });
+    }
+
+    return fetch(resolved, { credentials: 'include', ...init });
   }
 
   if (input instanceof URL) {
@@ -31,10 +55,7 @@ export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
     assertAllowedRequestTarget(input.url);
   }
 
-  return fetch(input, {
-    credentials: 'include',
-    ...init,
-  });
+  return fetch(input, { credentials: 'include', ...init });
 }
 
 /**

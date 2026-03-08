@@ -18,6 +18,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
+const createMockRequest = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -380,7 +382,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.credits_granted).toBe(100);
@@ -396,7 +398,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(200); // NOT 4xx — this is intentional
       const body = await res.json();
       expect(body.message).toBe('Daily credits already claimed for today');
@@ -411,7 +413,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(500);
     });
 
@@ -423,7 +425,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(500);
     });
   });
@@ -446,7 +448,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(429);
     });
   });
@@ -459,7 +461,7 @@ describe('Security: Referral System & Credits System', () => {
       authFailure();
 
       const { POST } = await import('@/app/api/student/credits/claim/route');
-      const res = await POST();
+      const res = await POST(createMockRequest());
       expect(res.status).toBe(401);
     });
   });
@@ -477,7 +479,7 @@ describe('Security: Referral System & Credits System', () => {
       mockChain.maybeSingle.mockResolvedValue({ data: null, error: null });
 
       const { GET } = await import('@/app/api/student/credits/balance/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual({
@@ -504,7 +506,7 @@ describe('Security: Referral System & Credits System', () => {
       mockChain.maybeSingle.mockResolvedValue({ data: creditData, error: null });
 
       const { GET } = await import('@/app/api/student/credits/balance/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual(creditData);
@@ -519,7 +521,7 @@ describe('Security: Referral System & Credits System', () => {
       authFailure();
 
       const { GET } = await import('@/app/api/student/credits/balance/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(401);
     });
   });
@@ -537,7 +539,7 @@ describe('Security: Referral System & Credits System', () => {
       mockChain.maybeSingle.mockResolvedValue({ data: null, error: null });
 
       const { GET } = await import('@/app/api/student/credits/can-claim/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.can_claim).toBe(true);
@@ -556,7 +558,7 @@ describe('Security: Referral System & Credits System', () => {
       });
 
       const { GET } = await import('@/app/api/student/credits/can-claim/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.can_claim).toBe(false);
@@ -574,7 +576,7 @@ describe('Security: Referral System & Credits System', () => {
       authFailure();
 
       const { GET } = await import('@/app/api/student/credits/can-claim/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(401);
     });
   });

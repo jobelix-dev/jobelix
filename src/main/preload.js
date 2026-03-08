@@ -28,10 +28,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('browser-install-progress');
   },
   
-  // Auth cache
-  saveAuthCache: (tokens) => ipcRenderer.invoke('save-auth-cache', tokens),
-  loadAuthCache: () => ipcRenderer.invoke('load-auth-cache'),
-  clearAuthCache: () => ipcRenderer.invoke('clear-auth-cache'),
+  // Session Management (Secure OS keychain storage)
+  getSession: () => ipcRenderer.invoke('get-session'),
+  setSession: (session) => ipcRenderer.invoke('set-session', session),
+  clearSession: () => ipcRenderer.invoke('clear-session'),
   
   // Bot status updates (main -> renderer)
   onBotStatus: (callback) => ipcRenderer.on('bot-status', (event, data) => callback(data)),

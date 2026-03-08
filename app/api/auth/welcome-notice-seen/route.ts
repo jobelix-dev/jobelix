@@ -12,14 +12,13 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 
-export async function POST(): Promise<NextResponse>;
-export async function POST(request: NextRequest): Promise<NextResponse>;
-export async function POST(request?: NextRequest) {
+
+export async function POST(request: NextRequest) {
   try {
     const csrfError = enforceSameOrigin(request);
     if (csrfError) return csrfError;
 
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
 
     const { user, supabase } = auth;

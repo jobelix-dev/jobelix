@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from 'playwright-core';
 
 // Import the class to test
 import { NavigationHandler } from '../navigation';

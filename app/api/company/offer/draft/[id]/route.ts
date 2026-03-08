@@ -59,7 +59,7 @@ export async function GET(
      * - user: the logged-in user (company)
      * - supabase: a Supabase client tied to that user's session (cookies)
      */
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(req);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;
@@ -124,7 +124,7 @@ export async function PUT(
     const csrfError = enforceSameOrigin(req);
     if (csrfError) return csrfError;
 
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(req);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;
@@ -232,7 +232,7 @@ export async function DELETE(
     const csrfError = enforceSameOrigin(req);
     if (csrfError) return csrfError;
 
-    const auth = await authenticateRequest();
+    const auth = await authenticateRequest(req);
     if (auth.error) return auth.error;
     
     const { user, supabase } = auth;

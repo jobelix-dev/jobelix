@@ -15,6 +15,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Helper to create mock requests for GET handlers
+const createMockRequest = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -22,6 +25,12 @@ import { NextRequest, NextResponse } from 'next/server';
 const mockAuthenticateRequest = vi.fn();
 vi.mock('@/lib/server/auth', () => ({
   authenticateRequest: (...args: unknown[]) => mockAuthenticateRequest(...args),
+}));
+
+const mockCheckRateLimit = vi.fn();
+vi.mock('@/lib/server/rateLimiting', () => ({
+  checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  logApiCall: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -51,6 +60,9 @@ function createAuthSuccess(userId = DEFAULT_USER_ID) {
     supabase: mockChain,
     error: null,
   });
+
+  // Mock rate limiting to allow requests
+  mockCheckRateLimit.mockResolvedValue({ data: { allowed: true }, error: null });
 
   return { mockChain, mockStorageUpload, mockStorageFrom };
 }
@@ -111,7 +123,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
     it('GET without auth returns 401', async () => {
       createAuthFailure();
       const { GET } = await import('@/app/api/student/resume/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(401);
       const body = await res.json();
       expect(body.error).toBe('Unauthorized');
@@ -131,7 +143,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
     it('GET with valid auth returns resume data', async () => {
       createAuthSuccess();
       const { GET } = await import('@/app/api/student/resume/route');
-      const res = await GET();
+      const res = await GET(createMockRequest());
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.data).toEqual({

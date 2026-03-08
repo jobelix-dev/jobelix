@@ -1,9 +1,11 @@
 /**
- * Status Reporter - Direct IPC communication with Electron renderer
- * 
- * Replaces the Python stdout-based IPC with direct Electron IPC.
- * Sends status updates to the renderer process in real-time.
- * 
+ * Status Reporter - Transport-agnostic status updates for the bot.
+ *
+ * Decoupled from Electron so the bot can run in a worker thread.
+ * The caller (main process or worker entry) configures the emitter:
+ *   - Main process: statusReporter.setEmitter(payload => window.webContents.send('bot-status', payload))
+ *   - Worker thread: statusReporter.setEmitter(payload => parentPort.postMessage({ type: 'status', payload }))
+ *
  * PAYLOAD FORMAT (must match useBot.ts expectations):
  * {
  *   stage: 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped',
@@ -14,7 +16,6 @@
  * }
  */
 
-import { BrowserWindow } from 'electron';
 import type { BotStats, BotActivity } from '../types';
 import { createLogger } from './logger';
 
@@ -24,7 +25,7 @@ const log = createLogger('StatusReporter');
 type BotStage = 'checking' | 'installing' | 'launching' | 'running' | 'completed' | 'failed' | 'stopped';
 
 // Payload format matching useBot.ts expectations (snake_case stats)
-interface StatusPayload {
+export interface StatusPayload {
   stage: BotStage;
   message?: string;
   activity?: string;
@@ -38,7 +39,7 @@ interface StatusPayload {
 }
 
 export class StatusReporter {
-  private mainWindow: BrowserWindow | null = null;
+  private emitFn: ((payload: StatusPayload) => void) | null = null;
   private stopped = false;
   private stats: BotStats = {
     jobsFound: 0,
@@ -47,17 +48,11 @@ export class StatusReporter {
     creditsUsed: 0,
   };
 
-  /**
-   * Set the main window for IPC communication
-   */
-  setMainWindow(window: BrowserWindow): void {
-    this.mainWindow = window;
-    log.debug('Main window set for IPC');
+  /** Configure the transport used to deliver status payloads. Must be called before starting the bot. */
+  setEmitter(fn: (payload: StatusPayload) => void): void {
+    this.emitFn = fn;
   }
 
-  /**
-   * Convert internal camelCase stats to snake_case for frontend
-   */
   private getSnakeCaseStats() {
     return {
       jobs_found: this.stats.jobsFound,
@@ -67,18 +62,13 @@ export class StatusReporter {
     };
   }
 
-  /**
-   * Emit a status message to the renderer
-   * Uses the format expected by useBot.ts
-   */
   private emit(payload: StatusPayload): void {
-    if (!this.mainWindow || this.mainWindow.isDestroyed()) {
-      log.warn('Cannot emit status - no main window');
+    if (!this.emitFn) {
+      log.warn('Cannot emit status - no emitter configured');
       return;
     }
-
     try {
-      this.mainWindow.webContents.send('bot-status', payload);
+      this.emitFn(payload);
       log.debug(`Emitted: stage=${payload.stage} activity=${payload.activity || ''}`);
     } catch (error) {
       log.error('Failed to emit status', error as Error);

@@ -12,7 +12,7 @@ export const URLS = {
 
 // File and directory names
 export const FILES = {
-  PRELOAD: 'preload.js',
+  PRELOAD: 'src/main/preload.js',
   ICON: 'icon.png',
   LOADING_HTML: 'loading.html',
   PACKAGE_JSON: 'package.json',
@@ -92,11 +92,6 @@ export const IPC_CHANNELS = {
   // Browser management
   CHECK_BROWSER: 'check-browser',
   INSTALL_BROWSER: 'install-browser',
-  
-  // Auth cache
-  SAVE_AUTH_CACHE: 'save-auth-cache',
-  LOAD_AUTH_CACHE: 'load-auth-cache',
-  CLEAR_AUTH_CACHE: 'clear-auth-cache',
   
   // Update management
   OPEN_RELEASES_PAGE: 'open-releases-page',

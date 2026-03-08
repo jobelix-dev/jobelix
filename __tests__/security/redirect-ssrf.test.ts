@@ -108,6 +108,14 @@ function getRedirectPath(response: NextResponse): string {
   const location = response.headers.get('location') ?? '';
   try {
     const url = new URL(location);
+    // New architecture: callback always goes through /auth/callback-success
+    // Extract the 'next' or 'error' parameter which contains the final destination
+    if (url.pathname === '/auth/callback-success') {
+      const error = url.searchParams.get('error');
+      if (error) return `/login?error=${encodeURIComponent(error)}`;
+      const next = url.searchParams.get('next');
+      return next ? decodeURIComponent(next) : '/dashboard';
+    }
     return url.pathname + url.search;
   } catch {
     return location;

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError
 
     // Authenticate user
-    const auth = await authenticateRequest()
+    const auth = await authenticateRequest(request)
     if (auth.error) return auth.error
     
     const { user, supabase } = auth

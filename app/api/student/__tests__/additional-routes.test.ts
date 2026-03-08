@@ -142,6 +142,8 @@ function createJsonRequest(body: unknown, url = 'http://localhost:3000/api/test'
   });
 }
 
+const createMockRequestForGET = (url = 'http://localhost:3000/api/test') => new NextRequest(url);
+
 /** Parse a Response/NextResponse body as JSON. */
 async function json(res: Response) {
   return res.json();
@@ -412,7 +414,7 @@ describe('GET /api/student/referral/leaderboard', () => {
 describe('GET /api/student/referral/list', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await getReferralList();
+    const res = await getReferralList(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -442,7 +444,7 @@ describe('GET /api/student/referral/list', () => {
       error: null,
     });
 
-    const res = await getReferralList();
+    const res = await getReferralList(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
 
@@ -474,7 +476,7 @@ describe('GET /api/student/referral/list', () => {
       error: { message: 'Only talent accounts can use referrals' },
     });
 
-    const res = await getReferralList();
+    const res = await getReferralList(createMockRequestForGET());
     expect(res.status).toBe(403);
     const body = await json(res);
     expect(body.error).toContain('talent accounts');
@@ -489,7 +491,7 @@ describe('GET /api/student/referral/list', () => {
       error: { message: 'Database connection failed' },
     });
 
-    const res = await getReferralList();
+    const res = await getReferralList(createMockRequestForGET());
     expect(res.status).toBe(500);
     const body = await json(res);
     expect(body.error).toContain('Failed to get referrals');
@@ -501,7 +503,7 @@ describe('GET /api/student/referral/list', () => {
 
     supabase.rpc.mockResolvedValue({ data: null, error: null });
 
-    const res = await getReferralList();
+    const res = await getReferralList(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.referrals).toEqual([]);
@@ -513,7 +515,7 @@ describe('GET /api/student/referral/list', () => {
 
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
-    const res = await getReferralList();
+    const res = await getReferralList(createMockRequestForGET());
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.referrals).toEqual([]);
@@ -525,7 +527,7 @@ describe('GET /api/student/referral/list', () => {
 
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
-    await getReferralList();
+    await getReferralList(createMockRequestForGET());
     expect(supabase.rpc).toHaveBeenCalledWith('get_my_referrals');
   });
 });
@@ -536,7 +538,7 @@ describe('GET /api/student/referral/list', () => {
 describe('GET /api/student/resume/download', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
-    const res = await downloadResume();
+    const res = await downloadResume(createMockRequestForGET());
     expect(res.status).toBe(401);
   });
 
@@ -549,7 +551,7 @@ describe('GET /api/student/resume/download', () => {
       download: vi.fn().mockResolvedValue({ data: pdfBlob, error: null }),
     });
 
-    const res = await downloadResume();
+    const res = await downloadResume(createMockRequestForGET());
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
     expect(res.headers.get('Content-Disposition')).toBe('attachment; filename="resume.pdf"');
@@ -570,7 +572,7 @@ describe('GET /api/student/resume/download', () => {
     });
     supabase.storage.from.mockReturnValue({ download: mockDownload });
 
-    await downloadResume();
+    await downloadResume(createMockRequestForGET());
 
     expect(supabase.storage.from).toHaveBeenCalledWith('resumes');
     expect(mockDownload).toHaveBeenCalledWith('user-123/resume.pdf');
@@ -587,7 +589,7 @@ describe('GET /api/student/resume/download', () => {
       }),
     });
 
-    const res = await downloadResume();
+    const res = await downloadResume(createMockRequestForGET());
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error).toBe('Resume not found');
@@ -601,7 +603,7 @@ describe('GET /api/student/resume/download', () => {
       download: vi.fn().mockRejectedValue(new Error('Network failure')),
     });
 
-    const res = await downloadResume();
+    const res = await downloadResume(createMockRequestForGET());
     expect(res.status).toBe(500);
     const body = await json(res);
     expect(body.error).toContain('Failed to download resume');
