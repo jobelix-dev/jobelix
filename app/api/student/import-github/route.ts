@@ -13,8 +13,8 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
-import { getGitHubConnection, updateLastSynced } from '@/lib/server/githubOAuth';
-import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/githubService';
+import { getGitHubConnection, updateLastSynced } from '@/lib/server/github/oauth';
+import { fetchGitHubRepos, transformReposForLLM } from '@/lib/server/github/api';
 import OpenAI from 'openai';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 import {
@@ -22,7 +22,7 @@ import {
   filterAndSortSignificantRepos,
   importRequestSchema,
   mergeGitHubData,
-} from '@/lib/server/githubImportService';
+} from '@/lib/server/github/import';
 import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
 export const runtime = 'nodejs';

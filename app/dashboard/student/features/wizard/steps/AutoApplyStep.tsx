@@ -15,7 +15,7 @@ import LaunchSection from '../../auto-apply/components/LaunchSection';
 import { usePreferences } from '../../job-preferences/hooks';
 import { useBot } from '../../auto-apply/hooks';
 import { useBrowserStatus } from '../../auto-apply/hooks/useBrowserStatus';
-import { useCreditsModal, CreditsModal } from '@/app/components/CreditsIndicator';
+import { useCreditsModal, CreditsModal } from '@/app/dashboard/student/features/auto-apply/components/CreditsIndicator';
 import StepHeader from '../components/StepHeader';
 import StickyActionBar from '../components/StickyActionBar';
 import type { StepNavProps } from '../components/StepHeader';

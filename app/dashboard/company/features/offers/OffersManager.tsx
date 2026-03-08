@@ -13,7 +13,7 @@ import { Plus } from 'lucide-react';
 import { CompanyOffer, CompanyOfferDraft } from '@/lib/shared/types';
 import OfferEditor from './OfferEditor';
 import OffersList from './components/OffersList';
-import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
+import { useConfirmDialog } from '@/app/components/confirm-dialog';
 import { apiFetch } from '@/lib/client/http';
 
 type ViewState = 'list' | 'editor';

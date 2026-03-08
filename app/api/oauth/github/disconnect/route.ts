@@ -10,7 +10,7 @@ import "server-only";
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
-import { deleteGitHubConnection } from '@/lib/server/githubOAuth';
+import { deleteGitHubConnection } from '@/lib/server/github/oauth';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 
 export async function POST(): Promise<NextResponse>;

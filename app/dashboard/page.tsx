@@ -27,7 +27,7 @@ import DashboardHeader from './components/DashboardHeader';
 import { useIsElectron } from '@/app/hooks/useClientSide';
 
 // Code-split role-specific views — only the active role's bundle is loaded
-const CompanyDashboard = dynamic(() => import('./company/page'), {
+const CompanyDashboard = dynamic(() => import('./company/CompanyDashboard'), {
   loading: () => <div className="flex justify-center py-12"><p className="text-muted">Loading dashboard...</p></div>,
 });
 

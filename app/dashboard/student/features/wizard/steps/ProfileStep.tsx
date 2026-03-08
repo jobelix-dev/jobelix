@@ -20,7 +20,7 @@
 import { useState, useCallback, useEffect, useRef, Dispatch, SetStateAction, MutableRefObject } from 'react';
 import ProfileEditorSection from '../../profile/sections/ProfileEditorSection/ProfileEditorSection';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
-import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
+import { useConfirmDialog } from '@/app/components/confirm-dialog';
 import { useProfileTour } from '../../profile/hooks';
 import StepHeader from '../components/StepHeader';
 import StickyActionBar from '../components/StickyActionBar';

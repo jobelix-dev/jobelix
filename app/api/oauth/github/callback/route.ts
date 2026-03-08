@@ -9,8 +9,8 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
-import { exchangeGitHubCode, saveGitHubConnection } from '@/lib/server/githubOAuth';
-import { fetchGitHubUser } from '@/lib/server/githubService';
+import { exchangeGitHubCode, saveGitHubConnection } from '@/lib/server/github/oauth';
+import { fetchGitHubUser } from '@/lib/server/github/api';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 function getStateSecret(): string {

@@ -17,7 +17,7 @@ import JobTypesSection from './components/JobTypesSection';
 import JobOfferRecencySection from './components/JobOfferRecencySection';
 import PersonalInfoSection from './components/PersonalInfoSection';
 import WorkAuthorizationSection from './components/WorkAuthorizationSection';
-import WorkPreferencesSubSection from './components/WorkPreferencesSection';
+import WorkPreferencesSubSection from './components/WorkPreferencesSubSection';
 import BlacklistSection, { BlacklistSectionRef } from './components/BlacklistSection';
 import { PreferenceCard } from './components/PreferenceCard';
 import { useWorkPreferences, useWorkPreferencesTour, useSavePreferences } from './hooks';

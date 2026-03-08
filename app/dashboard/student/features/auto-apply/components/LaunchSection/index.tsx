@@ -22,7 +22,7 @@ import {
   XCircle,
   Download,
 } from 'lucide-react';
-import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
+import { useConfirmDialog } from '@/app/components/confirm-dialog';
 import { useSimulatedProgress } from '@/app/hooks';
 import type { BotState, LaunchProgress, SessionStats, HistoricalTotals } from '../../hooks/useBot';
 import {

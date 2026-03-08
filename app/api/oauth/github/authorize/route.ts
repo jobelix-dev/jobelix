@@ -9,7 +9,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
-import { getGitHubAuthUrl } from '@/lib/server/githubOAuth';
+import { getGitHubAuthUrl } from '@/lib/server/github/oauth';
 import { randomBytes, createHmac } from 'crypto';
 
 function getStateSecret(): string {

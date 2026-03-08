@@ -9,7 +9,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server/supabaseServer';
-import { getGitHubConnection } from '@/lib/server/githubOAuth';
+import { getGitHubConnection } from '@/lib/server/github/oauth';
 
 // Disable caching for this endpoint - always fetch fresh status
 export const dynamic = 'force-dynamic';
