@@ -46,7 +46,7 @@ async function authenticateWithToken(token: string): Promise<AuthResult> {
 /**
  * Authenticate the current request and return the authenticated user.
  *
- * @param request - The incoming request (required so Bearer tokens work for desktop)
+ * @param request - The incoming request. Optional for cookie-authenticated flows.
  * @returns Object containing user and supabase client, or error response
  *
  * @example
@@ -59,9 +59,9 @@ async function authenticateWithToken(token: string): Promise<AuthResult> {
  * }
  * ```
  */
-export async function authenticateRequest(request: Request): Promise<AuthResult> {
+export async function authenticateRequest(request?: Pick<Request, 'headers'> | null): Promise<AuthResult> {
   // Desktop app: Check for Bearer token
-  const authHeader = request.headers.get('Authorization');
+  const authHeader = request?.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.replace('Bearer ', '');
     return authenticateWithToken(token);
