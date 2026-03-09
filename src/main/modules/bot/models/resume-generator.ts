@@ -78,12 +78,6 @@ interface SkillSection {
   keywords?: string[];
 }
 
-interface ContactItem {
-  icon: string;
-  text: string;
-  href?: string;
-}
-
 interface ResumeConfig {
   basics?: BasicsSection;
   personal_information?: BasicsSection;
@@ -285,258 +279,179 @@ async function generatePdfWithHtml(
 }
 
 /**
- * Generate HTML resume from config
- * 
- * Enterprise-grade two-column layout with:
- * - Professional typography with Inter font
- * - Clear visual hierarchy
- * - Consistent spacing system
- * - ATS-friendly structure
+ * Generate HTML resume from config.
+ *
+ * Single-column, ATS-friendly layout:
+ * - No sidebar, no tables, no icons, no decorative graphics
+ * - Contact info on one line under the name
+ * - Section headings: small-caps uppercase with a thin rule
+ * - Experience/education: title | org on one line, date right-aligned
+ * - Skills: "Category: item, item, item" plain text rows
  */
 function generateResumeHtml(config: ResumeConfig, companyName: string, jobTitle: string, language = 'en'): string {
-  // Get translated section labels
   const labels = getResumeSectionLabels(language);
-  
+
   const basics = config.basics || config.personal_information || {};
   const work = config.work || config.experience_details || [];
   const education = config.education || config.education_details || [];
   const projects = config.projects || [];
   const skills = config.skills || [];
   const certificates = config.certificates || [];
-  const languages = skills.find((s: SkillSection) => s.name === 'Languages')?.keywords || [];
+
+  // Separate language entries from technical skill groups
+  const languageGroup = skills.find((s: SkillSection) => s.name === 'Languages');
+  const languageEntries = languageGroup?.keywords || [];
   const technicalSkills = skills.filter((s: SkillSection) => s.name !== 'Languages');
 
-  // Build contact items for sidebar
-  const contactItems: ContactItem[] = [
-    basics.email ? { icon: '✉', text: basics.email, href: `mailto:${basics.email}` } : null,
-    basics.phone ? { icon: '📱', text: basics.phone } : null,
-    basics.location?.city ? { icon: '📍', text: basics.location.city } : null,
-  ].filter((item): item is ContactItem => item !== null);
+  // ── Contact line ─────────────────────────────────────────────────────────
+  const contactParts: string[] = [];
+  if (basics.email) contactParts.push(`<a href="mailto:${escapeHtml(basics.email)}">${escapeHtml(basics.email)}</a>`);
+  if (basics.phone) contactParts.push(escapeHtml(basics.phone));
+  if (basics.location?.city) contactParts.push(escapeHtml(basics.location.city));
+  for (const p of (basics.profiles || [])) {
+    const label = escapeHtml(p.network);
+    const url = escapeHtml(p.url);
+    contactParts.push(`<a href="${url}">${label}</a>`);
+  }
+  const contactHtml = contactParts.join('<span class="contact-sep">·</span>');
 
-  // Build profile links
-  const profileLinks = (basics.profiles || []).map((p: ProfileLink) => ({
-    network: p.network,
-    url: p.url,
-    icon: getNetworkIcon(p.network),
-  }));
-
-  // Build skills HTML for sidebar
-  const skillsHtml = technicalSkills.map((skillGroup: SkillSection) => {
-    const keywords = skillGroup.keywords || [];
-    if (keywords.length === 0) return '';
+  // ── Experience ────────────────────────────────────────────────────────────
+  const workHtml = work.map((job: WorkItem) => {
+    const title = escapeHtml(job.position || job.title || '');
+    const org = escapeHtml(job.company || job.name || '');
+    const location = job.location ? escapeHtml(job.location) : '';
+    const metaParts = [location, formatDateRange(job.startDate, job.endDate)].filter(Boolean);
+    const summary = job.summary || job.description || '';
+    const highlightsHtml = job.highlights && job.highlights.length > 0
+      ? `<ul class="bullets">${job.highlights.map((h: string) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`
+      : '';
+    const summaryHtml = summary && !highlightsHtml
+      ? `<p class="entry-summary">${escapeHtml(summary)}</p>`
+      : '';
     return `
-      <div class="skill-category">
-        <div class="skill-title">${escapeHtml(skillGroup.name || 'Technical Skills')}</div>
-        <div class="skill-tags">
-          ${keywords.slice(0, 12).map((k: string) => `<span class="skill-tag">${escapeHtml(k)}</span>`).join('')}
-        </div>
-      </div>
-    `;
-  }).filter(Boolean).join('');
-
-  // Build languages HTML
-  const languagesHtml = languages.length > 0 ? `
-    <div class="sidebar-section">
-      <h3 class="sidebar-heading">
-        <span class="heading-icon">🌐</span>
-        ${labels.languages}
-      </h3>
-      <div class="languages-list">
-        ${languages.map((lang: string) => `<div class="language-item">${escapeHtml(lang)}</div>`).join('')}
-      </div>
-    </div>
-  ` : '';
-
-  // Build work experience HTML
-  const workHtml = work.map((job: WorkItem, index: number) => `
-    <div class="experience-item${index > 0 ? ' mt-item' : ''}">
-      <div class="experience-header">
-        <div class="experience-title-row">
-          <h3 class="experience-title">${escapeHtml(job.position || job.title || '')}</h3>
-          <span class="experience-date">${formatDateRange(job.startDate, job.endDate)}</span>
-        </div>
-        <div class="experience-company">${escapeHtml(job.company || job.name || '')}</div>
-      </div>
-      ${job.summary || job.description ? `<p class="experience-summary">${escapeHtml(job.summary || job.description || '')}</p>` : ''}
-      ${job.highlights && job.highlights.length > 0 ? `
-        <ul class="experience-highlights">
-          ${job.highlights.map((h: string) => `<li>${escapeHtml(h)}</li>`).join('')}
-        </ul>
-      ` : ''}
-    </div>
-  `).join('');
-
-  // Build education HTML
-  const educationHtml = education.map((edu: EducationItem, index: number) => `
-    <div class="education-item${index > 0 ? ' mt-item' : ''}">
-      <div class="education-header">
-        <div class="education-title-row">
-          <h3 class="education-title">${escapeHtml(edu.area || edu.studyType || '')}</h3>
-          <span class="education-date">${formatDateRange(edu.startDate, edu.endDate)}</span>
-        </div>
-        <div class="education-institution">${escapeHtml(edu.institution || '')}</div>
-      </div>
-      ${edu.score ? `<div class="education-score">GPA: ${escapeHtml(edu.score)}</div>` : ''}
-    </div>
-  `).join('');
-
-  // Build projects HTML (compact, 2 per row visual feel)
-  const projectsHtml = projects.slice(0, 6).map((proj: ProjectItem, index: number) => `
-    <div class="project-item${index > 0 ? ' mt-item-sm' : ''}">
-      <div class="project-header">
-        <h3 class="project-title">${escapeHtml(proj.name || '')}</h3>
-        ${proj.url ? `<a href="${escapeHtml(proj.url)}" class="project-link">↗</a>` : ''}
-      </div>
-      <p class="project-description">${escapeHtml(truncateText(proj.description || '', 150))}</p>
-    </div>
-  `).join('');
-
-  // Build certifications HTML
-  const certificationsHtml = certificates.length > 0 ? `
-    <div class="sidebar-section">
-      <h3 class="sidebar-heading">
-        <span class="heading-icon">🏆</span>
-        ${labels.certifications}
-      </h3>
-      <div class="certifications-list">
-        ${certificates.slice(0, 4).map((cert: CertificateItem) => `
-          <div class="certification-item">
-            <div class="cert-name">${escapeHtml(cert.name || cert.title || '')}</div>
-            ${cert.issuer ? `<div class="cert-issuer">${escapeHtml(cert.issuer)}</div>` : ''}
+      <div class="entry">
+        <div class="entry-header">
+          <div class="entry-left">
+            <span class="entry-title">${title}</span>
+            ${org ? `<span class="entry-title-sep">·</span><span class="entry-org">${org}</span>` : ''}
           </div>
-        `).join('')}
-      </div>
-    </div>
-  ` : '';
+          <span class="entry-meta">${escapeHtml(metaParts.join(' · '))}</span>
+        </div>
+        ${summaryHtml}${highlightsHtml}
+      </div>`;
+  }).join('');
 
-  return `
-<!DOCTYPE html>
+  // ── Education ─────────────────────────────────────────────────────────────
+  const educationHtml = education.map((edu: EducationItem) => {
+    const degree = [edu.studyType, edu.area].filter((s): s is string => Boolean(s)).map(escapeHtml).join(', ');
+    const institution = escapeHtml(edu.institution || '');
+    const date = formatDateRange(edu.startDate, edu.endDate);
+    const score = edu.score ? ` — GPA ${escapeHtml(edu.score)}` : '';
+    return `
+      <div class="entry">
+        <div class="entry-header">
+          <div class="entry-left">
+            <span class="entry-title">${degree}</span>
+            ${institution ? `<span class="entry-title-sep">·</span><span class="entry-org">${institution}${score}</span>` : ''}
+          </div>
+          <span class="entry-meta">${escapeHtml(date)}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Skills ────────────────────────────────────────────────────────────────
+  const skillRowsHtml = technicalSkills
+    .filter((g: SkillSection) => g.keywords && g.keywords.length > 0)
+    .map((g: SkillSection) => `
+      <div class="skills-row">
+        <span class="skill-cat">${escapeHtml(g.name || 'Skills')}:</span>
+        ${g.keywords!.map((k: string) => escapeHtml(k)).join(', ')}
+      </div>`)
+    .join('');
+
+  // Append languages as a skills row if present
+  const langRowHtml = languageEntries.length > 0
+    ? `<div class="skills-row"><span class="skill-cat">${escapeHtml(labels.languages)}:</span> ${languageEntries.map((l: string) => escapeHtml(l)).join(', ')}</div>`
+    : '';
+
+  const allSkillsHtml = skillRowsHtml + langRowHtml;
+
+  // ── Projects ─────────────────────────────────────────────────────────────
+  const projectsHtml = projects.slice(0, 6).map((proj: ProjectItem) => {
+    const linkHtml = proj.url
+      ? ` <span class="project-link">${escapeHtml(proj.url)}</span>`
+      : '';
+    return `
+      <div class="project-entry">
+        <span class="project-name">${escapeHtml(proj.name || '')}</span>${linkHtml}
+        ${proj.description ? `<div class="project-desc">${escapeHtml(truncateText(proj.description, 160))}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  // ── Certifications ────────────────────────────────────────────────────────
+  const certRowsHtml = certificates.slice(0, 6).map((cert: CertificateItem) => {
+    const parts = [cert.name || cert.title, cert.issuer].filter(Boolean).map(s => escapeHtml(s!));
+    return `<div class="skills-row">${parts.join('<span class="contact-sep">·</span>')}</div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
 <html lang="${language}">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resume - ${escapeHtml(basics.name || '')} - ${escapeHtml(companyName)}</title>
+  <title>${escapeHtml(basics.name || '')} — ${escapeHtml(companyName)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>${RESUME_CSS}</style>
 </head>
 <body>
-  <div class="resume-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <!-- Contact -->
-      <div class="sidebar-section">
-        <h3 class="sidebar-heading">
-          <span class="heading-icon">📧</span>
-          ${labels.contact}
-        </h3>
-        <div class="contact-list">
-          ${contactItems.map((item: ContactItem) => `
-            <div class="contact-item">
-              <span class="contact-icon">${item.icon}</span>
-              ${item.href ? `<a href="${escapeHtml(item.href)}">${escapeHtml(item.text)}</a>` : `<span>${escapeHtml(item.text)}</span>`}
-            </div>
-          `).join('')}
-        </div>
-      </div>
+<div class="resume">
 
-      <!-- Profile Links -->
-      ${profileLinks.length > 0 ? `
-        <div class="sidebar-section">
-          <h3 class="sidebar-heading">
-            <span class="heading-icon">🔗</span>
-            ${labels.profiles}
-          </h3>
-          <div class="profile-links">
-            ${profileLinks.map((link: { network: string; url: string; icon: string }) => `
-              <a href="${escapeHtml(link.url)}" class="profile-link">
-                <span>${link.icon}</span>
-                <span>${escapeHtml(link.network)}</span>
-              </a>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
+  <header class="resume-header">
+    <h1 class="name">${escapeHtml(basics.name || '')}</h1>
+    ${basics.label || jobTitle ? `<div class="headline">${escapeHtml(basics.label || jobTitle)}</div>` : ''}
+    ${contactHtml ? `<div class="contact-line">${contactHtml}</div>` : ''}
+  </header>
 
-      <!-- Skills -->
-      ${skillsHtml ? `
-        <div class="sidebar-section">
-          <h3 class="sidebar-heading">
-            <span class="heading-icon">⚡</span>
-            ${labels.skills}
-          </h3>
-          ${skillsHtml}
-        </div>
-      ` : ''}
+  ${basics.summary ? `
+  <section class="section">
+    <h2 class="section-heading">${escapeHtml(labels.professionalSummary)}</h2>
+    <p class="entry-summary">${escapeHtml(basics.summary)}</p>
+  </section>` : ''}
 
-      <!-- Languages -->
-      ${languagesHtml}
+  ${workHtml ? `
+  <section class="section">
+    <h2 class="section-heading">${escapeHtml(labels.experience)}</h2>
+    ${workHtml}
+  </section>` : ''}
 
-      <!-- Certifications -->
-      ${certificationsHtml}
-    </aside>
+  ${educationHtml ? `
+  <section class="section">
+    <h2 class="section-heading">${escapeHtml(labels.education)}</h2>
+    ${educationHtml}
+  </section>` : ''}
 
-    <!-- Main Content -->
-    <main class="main-content">
-      <!-- Header -->
-      <header class="header">
-        <h1 class="name">${escapeHtml(basics.name || '')}</h1>
-        ${basics.label || jobTitle ? `<div class="headline">${escapeHtml(basics.label || jobTitle)}</div>` : ''}
-      </header>
+  ${allSkillsHtml ? `
+  <section class="section">
+    <h2 class="section-heading">${escapeHtml(labels.skills)}</h2>
+    ${allSkillsHtml}
+  </section>` : ''}
 
-      <!-- Summary -->
-      ${basics.summary ? `
-        <section class="section">
-          <h2 class="section-heading">${labels.professionalSummary}</h2>
-          <p style="font-size: var(--font-size-sm); color: var(--color-text-muted);">${escapeHtml(basics.summary)}</p>
-        </section>
-      ` : ''}
+  ${projectsHtml ? `
+  <section class="section">
+    <h2 class="section-heading">${escapeHtml(labels.projects)}</h2>
+    ${projectsHtml}
+  </section>` : ''}
 
-      <!-- Experience -->
-      ${workHtml ? `
-        <section class="section">
-          <h2 class="section-heading">${labels.experience}</h2>
-          ${workHtml}
-        </section>
-      ` : ''}
+  ${certRowsHtml ? `
+  <section class="section">
+    <h2 class="section-heading">${escapeHtml(labels.certifications)}</h2>
+    ${certRowsHtml}
+  </section>` : ''}
 
-      <!-- Education -->
-      ${educationHtml ? `
-        <section class="section">
-          <h2 class="section-heading">${labels.education}</h2>
-          ${educationHtml}
-        </section>
-      ` : ''}
-
-      <!-- Projects -->
-      ${projectsHtml ? `
-        <section class="section">
-          <h2 class="section-heading">${labels.projects}</h2>
-          ${projectsHtml}
-        </section>
-      ` : ''}
-    </main>
-  </div>
+</div>
 </body>
-</html>
-  `.trim();
-}
-
-/**
- * Get icon for social network
- */
-function getNetworkIcon(network: string): string {
-  const icons: Record<string, string> = {
-    'LinkedIn': '💼',
-    'GitHub': '🐙',
-    'Twitter': '🐦',
-    'Portfolio': '🌐',
-    'Website': '🌐',
-    'Kaggle': '📊',
-    'StackOverflow': '📚',
-  };
-  return icons[network] || '🔗';
+</html>`;
 }
 
 /**

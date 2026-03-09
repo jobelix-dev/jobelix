@@ -50,6 +50,10 @@ export async function checkRateLimit(
   userId: string,
   config: RateLimitConfig
 ): Promise<{ data: RateLimitResult; error: null } | { data: null; error: NextResponse }> {
+  if (process.env.NODE_ENV === 'development') {
+    return { data: { allowed: true, hourly_count: 0, daily_count: 0, hourly_remaining: config.hourlyLimit, daily_remaining: config.dailyLimit }, error: null }
+  }
+
   const serviceSupabase = getServiceSupabase()
 
   const { data, error } = await serviceSupabase.rpc('check_api_rate_limit', {

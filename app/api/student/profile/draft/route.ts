@@ -14,6 +14,9 @@ import { NextRequest } from 'next/server'
 import { authenticateRequest } from '@/lib/server/auth'
 import { enforceSameOrigin } from '@/lib/server/csrf'
 
+// Explicit column list — avoids returning internal/future admin-only columns
+const DRAFT_COLS = 'id, student_id, student_name, phone_number, email, address, education, experience, projects, skills, languages, publications, certifications, social_links, status, updated_at'
+
 /**
  * SECURITY: Whitelist of allowed fields for draft updates.
  * This prevents mass assignment attacks where a malicious client
@@ -84,7 +87,7 @@ export async function GET(request: NextRequest) {
       }, {
         onConflict: 'student_id',
       })
-      .select()
+      .select(DRAFT_COLS)
       .single()
 
     if (createError || !newDraft) {
@@ -160,7 +163,7 @@ export async function PUT(req: NextRequest) {
       })
       .eq('id', draftId)
       .eq('student_id', user.id)
-      .select()
+      .select(DRAFT_COLS)
       .single()
 
     if (updateError || !draft) {

@@ -37,9 +37,21 @@ export default function LoginForm() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser()
-      .then(({ data: { user } }) => {
+      .then(async ({ data: { user } }) => {
         if (user) {
           console.log('[Login] User already authenticated, redirecting to dashboard');
+          // Re-sync session to OS keychain in case it was cleared (e.g. after a
+          // redirectOut) while browser cookies remained valid. Without this, the
+          // dashboard gets no Bearer token and redirects back here, creating a loop.
+          const electronAPI = getElectronAPI();
+          if (electronAPI?.setSession) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              await electronAPI.setSession(session).catch((err) => {
+                console.warn('[Login] Failed to re-save session to keychain:', err);
+              });
+            }
+          }
           window.location.href = '/dashboard';
         }
       })

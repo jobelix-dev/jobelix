@@ -342,130 +342,66 @@ export async function extractResumeDataBySections(params: {
   onProgress: (stepIndex: number) => void;
 }): Promise<ExtractedData> {
   const { openai, resumeText, linksInfo, existingDraft, onProgress } = params;
-  const extractedData = initializeExtractedData(existingDraft);
+  const base = initializeExtractedData(existingDraft);
 
-  const contactData = await extractContactInfo<ContactData>(
-    openai,
-    resumeText,
-    linksInfo,
-    ContactInfoSchema,
-    contactPrompt
-  );
+  // All 9 sections are independent — run them all in parallel.
+  // Total time ≈ slowest single call instead of sum of all calls.
+  const [
+    contactData,
+    educationData,
+    experienceData,
+    projectsData,
+    skillsData,
+    languagesData,
+    publicationsData,
+    certificationsData,
+    socialLinksData,
+  ] = await Promise.all([
+    extractContactInfo<ContactData>(openai, resumeText, linksInfo, ContactInfoSchema, contactPrompt)
+      .then(r => { onProgress(3); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'education', base.education, EducationSectionSchema, educationPrompt(base.education.length))
+      .then(r => { onProgress(4); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'experience', base.experience, ExperienceSectionSchema, experiencePrompt(base.experience.length))
+      .then(r => { onProgress(5); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'projects', base.projects, ProjectsSectionSchema, projectsPrompt(base.projects.length))
+      .then(r => { onProgress(6); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'skills', base.skills, SkillsSectionSchema, skillsPrompt(base.skills.length))
+      .then(r => { onProgress(7); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'languages', base.languages, LanguagesSectionSchema, languagesPrompt(base.languages.length))
+      .then(r => { onProgress(8); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'publications', base.publications, PublicationsSectionSchema, publicationsPrompt(base.publications.length))
+      .then(r => { onProgress(9); return r; }),
+    extractSection<SectionDataWithArray>(openai, resumeText, linksInfo, 'certifications', base.certifications, CertificationsSectionSchema, certificationsPrompt(base.certifications.length))
+      .then(r => { onProgress(10); return r; }),
+    extractSection<SocialLinksData>(openai, resumeText, linksInfo, 'social_links', base.social_links, SocialLinksSectionSchema, socialLinksPrompt)
+      .then(r => { onProgress(11); return r; }),
+  ]);
 
-  extractedData.student_name = contactData.student_name || extractedData.student_name;
-  extractedData.email = contactData.email || extractedData.email;
-  extractedData.address = contactData.address || extractedData.address;
-
+  // Merge results into final extracted data
   const rawPhone = contactData.phone_number ?? null;
-  const rawCountryCode = contactData.phone_country_code ?? extractedData.phone_country_code ?? null;
+  const rawCountryCode = contactData.phone_country_code ?? base.phone_country_code ?? null;
   const processedPhone = processExtractedPhone(rawPhone, rawCountryCode);
-  extractedData.phone_number = processedPhone.phone_number;
-  extractedData.phone_country_code = processedPhone.phone_country_code;
-  onProgress(3);
 
-  const educationData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'education',
-    extractedData.education,
-    EducationSectionSchema,
-    educationPrompt(extractedData.education.length)
-  );
-  extractedData.education = educationData.education || [];
-  onProgress(4);
+  const prevProjectsCount = base.projects.length;
+  const prevSkillsCount = base.skills.length;
+  const projects = projectsData.projects || [];
+  const skills = skillsData.skills || [];
+  if (projects.length < prevProjectsCount) console.warn('[Resume Extraction] Projects count decreased unexpectedly');
+  if (skills.length < prevSkillsCount) console.warn('[Resume Extraction] Skills count decreased unexpectedly');
 
-  const experienceData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'experience',
-    extractedData.experience,
-    ExperienceSectionSchema,
-    experiencePrompt(extractedData.experience.length)
-  );
-  extractedData.experience = experienceData.experience || [];
-  onProgress(5);
-
-  const projectsData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'projects',
-    extractedData.projects,
-    ProjectsSectionSchema,
-    projectsPrompt(extractedData.projects.length)
-  );
-  const prevProjectsCount = extractedData.projects.length;
-  extractedData.projects = projectsData.projects || [];
-  if (extractedData.projects.length < prevProjectsCount) {
-    console.warn('[Resume Extraction] Projects count decreased unexpectedly');
-  }
-  onProgress(6);
-
-  const skillsData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'skills',
-    extractedData.skills,
-    SkillsSectionSchema,
-    skillsPrompt(extractedData.skills.length)
-  );
-  const prevSkillsCount = extractedData.skills.length;
-  extractedData.skills = skillsData.skills || [];
-  if (extractedData.skills.length < prevSkillsCount) {
-    console.warn('[Resume Extraction] Skills count decreased unexpectedly');
-  }
-  onProgress(7);
-
-  const languagesData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'languages',
-    extractedData.languages,
-    LanguagesSectionSchema,
-    languagesPrompt(extractedData.languages.length)
-  );
-  extractedData.languages = languagesData.languages || [];
-  onProgress(8);
-
-  const publicationsData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'publications',
-    extractedData.publications,
-    PublicationsSectionSchema,
-    publicationsPrompt(extractedData.publications.length)
-  );
-  extractedData.publications = publicationsData.publications || [];
-  onProgress(9);
-
-  const certificationsData = await extractSection<SectionDataWithArray>(
-    openai,
-    resumeText,
-    linksInfo,
-    'certifications',
-    extractedData.certifications,
-    CertificationsSectionSchema,
-    certificationsPrompt(extractedData.certifications.length)
-  );
-  extractedData.certifications = certificationsData.certifications || [];
-  onProgress(10);
-
-  const socialLinksData = await extractSection<SocialLinksData>(
-    openai,
-    resumeText,
-    linksInfo,
-    'social_links',
-    extractedData.social_links,
-    SocialLinksSectionSchema,
-    socialLinksPrompt
-  );
-  extractedData.social_links = socialLinksData.social_links || {};
-  onProgress(11);
-
-  return extractedData;
+  return {
+    student_name: contactData.student_name || base.student_name,
+    email: contactData.email || base.email,
+    address: contactData.address || base.address,
+    phone_number: processedPhone.phone_number,
+    phone_country_code: processedPhone.phone_country_code,
+    education: educationData.education || [],
+    experience: experienceData.experience || [],
+    projects,
+    skills,
+    languages: languagesData.languages || [],
+    publications: publicationsData.publications || [],
+    certifications: certificationsData.certifications || [],
+    social_links: socialLinksData.social_links || {},
+  };
 }

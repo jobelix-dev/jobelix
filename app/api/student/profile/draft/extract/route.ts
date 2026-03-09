@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
           onConflict: 'student_id',
         }
       )
-      .select()
+      .select('id')
       .single();
 
     if (draftError) {

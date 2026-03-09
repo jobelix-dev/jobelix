@@ -7,6 +7,9 @@ import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/server/auth';
+import { checkRateLimit, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
+
+const TOKEN_RATE_LIMIT = { endpoint: 'token-fetch', hourlyLimit: 10, dailyLimit: 20 };
 
 function isElectronUserAgent(userAgent: string | null): boolean {
   return Boolean(userAgent && /electron/i.test(userAgent));
@@ -27,6 +30,10 @@ export async function GET(request?: NextRequest) {
     if (auth.error) return auth.error;
 
     const { user, supabase } = auth;
+
+    const rateLimit = await checkRateLimit(user.id, TOKEN_RATE_LIMIT);
+    if (rateLimit.error) return rateLimit.error;
+    if (!rateLimit.data.allowed) return rateLimitExceededResponse(TOKEN_RATE_LIMIT, rateLimit.data);
 
     // Fetch the API token from api_tokens table
     const { data: tokenData, error: tokenError } = await supabase

@@ -55,6 +55,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openReleasesPage: () => ipcRenderer.invoke('open-releases-page'),
   openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
 
-  // Retry launching the bundled local UI server (desktop recovery flow)
-  retryLocalUiServer: () => ipcRenderer.invoke('retry-local-ui-server'),
 });
