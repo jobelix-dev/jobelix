@@ -17,11 +17,7 @@ export function isLocalhost(hostname) {
 }
 
 export function isTrustedJobelixHost(hostname) {
-  return (
-    hostname === 'jobelix.fr' ||
-    hostname === 'www.jobelix.fr' ||
-    hostname.endsWith('.jobelix.fr')
-  );
+  return hostname === 'jobelix.fr' || hostname === 'www.jobelix.fr';
 }
 
 export function isSafeBotApiUrl(parsedUrl) {

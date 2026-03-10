@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file type
+    // Validate file type via MIME (client-supplied, but first layer of defence)
     if (file.type !== 'application/pdf') {
       return NextResponse.json(
         { error: 'Only PDF files are allowed' },
@@ -91,11 +91,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file size (max 5MB)
+    // Validate file size (max 5MB) — checked before reading bytes to fail fast
     const maxSize = 5 * 1024 * 1024
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: 'File size must be less than 5MB' },
+        { status: 400 }
+      )
+    }
+
+    // Validate via magic bytes — the MIME type above is client-controlled and
+    // trivially spoofed.  PDFs always start with the 4-byte signature %PDF (25 50 44 46).
+    const headerBytes = await file.slice(0, 4).arrayBuffer()
+    const magic = new Uint8Array(headerBytes)
+    if (magic[0] !== 0x25 || magic[1] !== 0x50 || magic[2] !== 0x44 || magic[3] !== 0x46) {
+      return NextResponse.json(
+        { error: 'Only PDF files are allowed' },
         { status: 400 }
       )
     }

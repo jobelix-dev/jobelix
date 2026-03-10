@@ -58,7 +58,6 @@ if (!app.isPackaged) {
 
 import { setupIpcHandlers } from './modules/ipc-handlers.js';
 import { createMainWindow, onMainWindowReady, getMainWindow } from './modules/window-manager.js';
-import { stopLocalUiServer } from './modules/local-ui-server.js';
 import { initAutoUpdater } from './modules/update-manager.js';
 import { logPlatformInfo, initializeDataDirectories, isMac } from './modules/platform-utils.js';
 import { waitForNextJs } from './utils/dev-utils.js';
@@ -81,15 +80,18 @@ async function initializeApp() {
   try {
     logger.info(`⏱️ [${elapsed()}ms] App ready, starting initialization`);
     
-    // Clear all caches in dev mode to prevent stale chunk issues
+    // Clear all caches in dev mode to prevent stale chunk issues.
+    // Fire-and-forget: don't block window creation on cache clearing.
     if (!app.isPackaged) {
-      const { session } = await import('electron');
-      logger.info('Development mode - clearing caches...');
-      await session.defaultSession.clearCache();
-      await session.defaultSession.clearStorageData({
-        storages: ['appcache', 'serviceworkers', 'cachestorage', 'websql', 'indexdb']
-      });
-      logger.success('Caches cleared');
+      import('electron').then(({ session }) => {
+        logger.info('Development mode - clearing caches (async)...');
+        Promise.all([
+          session.defaultSession.clearCache(),
+          session.defaultSession.clearStorageData({
+            storages: ['appcache', 'serviceworkers', 'cachestorage', 'websql', 'indexdb']
+          }),
+        ]).then(() => logger.success('Caches cleared')).catch(() => {});
+      }).catch(() => {});
     }
     
     setupIpcHandlers();
@@ -141,15 +143,12 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  stopLocalUiServer();
   if (!isMac()) {
     app.quit();
   }
 });
 
-app.on('before-quit', () => {
-  stopLocalUiServer();
-});
+app.on('before-quit', () => {});
 
 // Error handlers
 process.on('uncaughtException', (err) => logger.error('Uncaught Exception:', err));

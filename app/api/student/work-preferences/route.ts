@@ -8,6 +8,9 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server'
+
+// Explicit column list — avoids returning internal/future admin-only columns
+const WORK_PREF_COLS = 'student_id, remote_work, in_person_work, exp_internship, exp_entry, exp_associate, exp_mid_senior, exp_director, exp_executive, job_full_time, job_part_time, job_contract, job_temporary, job_internship, job_volunteer, job_other, date_24_hours, date_week, date_month, date_all_time, positions, locations, updated_at'
 import { authenticateRequest } from '@/lib/server/auth'
 import { validateRequest, workPreferencesSchema } from '@/lib/server/validation'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
@@ -23,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     const { data: preferences, error } = await supabase
       .from('student_work_preferences')
-      .select('*')
+      .select(WORK_PREF_COLS)
       .eq('student_id', user.id)
       .maybeSingle()
 
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest) {
         onConflict: 'student_id',
         ignoreDuplicates: false
       })
-      .select()
+      .select(WORK_PREF_COLS)
       .single()
 
     if (error) {

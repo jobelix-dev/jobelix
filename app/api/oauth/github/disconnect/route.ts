@@ -9,7 +9,7 @@ import "server-only";
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/server/supabaseServer';
+import { authenticateRequest } from '@/lib/server/auth';
 import { deleteGitHubConnection } from '@/lib/server/github/oauth';
 import { enforceSameOrigin } from '@/lib/server/csrf';
 
@@ -20,16 +20,9 @@ export async function POST(request?: NextRequest) {
     const csrfError = enforceSameOrigin(request);
     if (csrfError) return csrfError;
 
-    // Get authenticated user
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+    const { user } = auth;
 
     // Delete GitHub connection
     const success = await deleteGitHubConnection(user.id);

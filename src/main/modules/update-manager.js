@@ -59,7 +59,6 @@ function isAllowedExternalHost(hostname) {
   if (isLocalhost(hostname)) return true;
   if (hostname === 'github.com' || hostname === 'www.github.com') return true;
   if (hostname === 'jobelix.fr' || hostname === 'www.jobelix.fr') return true;
-  if (hostname.endsWith('.jobelix.fr')) return true;
   return false;
 }
 

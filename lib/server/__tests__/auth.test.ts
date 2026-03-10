@@ -109,6 +109,18 @@ describe('authenticateRequest', () => {
     expect(mockGetUser).toHaveBeenCalledWith(); // no token arg = cookie path
   });
 
+  it('falls back to cookie auth when no request object is provided', async () => {
+    const user = fakeUser();
+    mockGetUser.mockResolvedValueOnce({ data: { user }, error: null });
+
+    const result = await authenticateRequest();
+
+    expect(result.error).toBeNull();
+    expect(result.user).toEqual(user);
+    expect(result.supabase).toBe(mockSupabase);
+    expect(mockGetUser).toHaveBeenCalledWith();
+  });
+
   it('returns 401 when getUser returns an auth error', async () => {
     mockGetUser.mockResolvedValueOnce({
       data: { user: null },

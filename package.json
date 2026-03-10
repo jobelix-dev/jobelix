@@ -7,7 +7,7 @@
   "author": "Jobelix",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --webpack\" \"electron .\"",
+    "dev": "concurrently \"next dev\" \"electron .\"",
     "build": "next build",
     "build:bot": "node scripts/build-bot.mjs",
     "start": "next start",

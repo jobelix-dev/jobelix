@@ -8,25 +8,18 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/server/supabaseServer';
+import { authenticateRequest } from '@/lib/server/auth';
 import { getGitHubConnection } from '@/lib/server/github/oauth';
 
 // Disable caching for this endpoint - always fetch fresh status
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+    const { user } = auth;
 
     // Check for GitHub connection
     const connection = await getGitHubConnection(user.id);

@@ -203,6 +203,17 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // API routes authenticate themselves via authenticateRequest() (Bearer token or cookie).
+  // Skip the redundant Supabase getUser() call in middleware for these routes.
+  if (pathname.startsWith('/api/')) {
+    const response = NextResponse.next();
+    response.headers.set('X-RateLimit-Limit', generalLimit.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', generalLimit.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', new Date(generalLimit.reset).toISOString());
+    return response;
+  }
+
+  // Page routes: refresh Supabase session to rotate cookies and keep users logged in.
   const response = await updateSupabaseSession(request);
   response.headers.set('X-RateLimit-Limit', generalLimit.limit.toString());
   response.headers.set('X-RateLimit-Remaining', generalLimit.remaining.toString());

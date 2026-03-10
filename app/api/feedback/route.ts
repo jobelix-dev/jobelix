@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         page_url: referer,
         status: 'new',
       })
-      .select()
+      .select('id, created_at')
       .single();
 
     if (dbError) {

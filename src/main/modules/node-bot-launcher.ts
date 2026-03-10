@@ -32,6 +32,11 @@ let worker: Worker | null = null;
 let isRunning = false;
 let startedAt: number | null = null;
 
+// Monotonic launch counter — used to detect and discard stale worker events.
+// Each launch captures the current value; event handlers bail out early if
+// currentLaunchId has advanced (i.e. the worker belongs to a previous launch).
+let currentLaunchId = 0;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -41,7 +46,8 @@ function getBotWorkerPath(): string {
 }
 
 function getDataFolderPath(): string {
-  return path.join(app.getPath('userData'), 'data_folder');
+  // Files are stored under userData/data/ (matches file-system.js getConfigPath/getResumePath)
+  return path.join(app.getPath('userData'), 'data');
 }
 
 function resolveApiUrl(rawApiUrl?: string): string | null {
@@ -98,6 +104,10 @@ export async function launchNodeBot(
     return { success: false, error: `Resume file not found: ${resumePath}` };
   }
 
+  // Assign a launch ID before creating the worker so all event handlers can
+  // detect whether they belong to the current launch or a stale previous one.
+  const launchId = ++currentLaunchId;
+
   logger.info('🚀 Launching bot worker...');
 
   worker = new Worker(workerPath, {
@@ -115,6 +125,7 @@ export async function launchNodeBot(
   startedAt = Date.now();
 
   worker.on('message', (msg: { type: string; payload?: unknown; error?: string }) => {
+    if (currentLaunchId !== launchId) return; // Stale event — ignore
     if (msg.type === 'status') {
       try { sendBotStatus(msg.payload); } catch { /* renderer may be gone */ }
     } else if (msg.type === 'done') {
@@ -128,13 +139,17 @@ export async function launchNodeBot(
   });
 
   worker.on('error', (err) => {
+    if (currentLaunchId !== launchId) return; // Stale event — ignore
     logger.error('Worker error:', err.message);
     try { sendBotStatus({ stage: 'failed', message: err.message }); } catch { /* ignore */ }
     cleanup();
   });
 
   worker.on('exit', (code) => {
+    if (currentLaunchId !== launchId) return; // Stale exit from a previous launch — ignore
     if (code !== 0) logger.warn(`Bot worker exited with code ${code}`);
+    // Notify renderer immediately so UI doesn't wait for the polling cycle.
+    try { sendBotStatus({ stage: 'stopped', message: 'Bot process exited' }); } catch { /* ignore */ }
     cleanup();
   });
 

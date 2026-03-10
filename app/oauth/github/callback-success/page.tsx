@@ -40,8 +40,8 @@ function CallbackContent() {
       }, 1000);
     } else {
       // If not in popup, redirect to dashboard (fallback for direct navigation)
-      const redirectUrl = error 
-        ? `/dashboard?github_error=${error}`
+      const redirectUrl = error
+        ? `/dashboard?github_error=${encodeURIComponent(error)}`
         : '/dashboard?github_connected=true&auto_sync=true';
       
       window.location.href = redirectUrl;

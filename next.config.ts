@@ -7,7 +7,15 @@ const nextConfig: NextConfig = {
   output: isDesktopBundle ? "standalone" : undefined,
   serverExternalPackages: ["pdfjs-dist"],
   experimental: {
-    optimizePackageImports: ["lucide-react", "libphonenumber-js"],
+    optimizePackageImports: [
+      "lucide-react",
+      "libphonenumber-js",
+      "@ai-sdk/react",
+      "@ai-sdk/openai",
+      "ai",
+    ],
+    parallelServerBuildTraces: true,
+    parallelServerCompiles: true,
   },
 
   async rewrites() {

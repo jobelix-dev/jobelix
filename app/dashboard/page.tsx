@@ -17,6 +17,7 @@ import { UserProfile } from '@/lib/shared/types/auth';
 import { api } from '@/lib/client/api';
 import { apiFetch } from '@/lib/client/http';
 import { getElectronAPI } from '@/lib/client/runtime';
+import { createClient as createSupabaseClient } from '@/lib/client/supabaseClient';
 import FeedbackModal from '@/app/components/FeedbackModal';
 import WelcomeNotice from '@/app/components/WelcomeNotice';
 import OnboardingSteps from '@/app/components/OnboardingSteps';
@@ -65,6 +66,14 @@ export default function DashboardPage() {
     async function loadProfile() {
       const redirectOut = async (reason: string) => {
         console.log(`[Dashboard] ${reason}`);
+        try {
+          // Sign out from Supabase browser client to clear auth cookies.
+          // Without this, the login page detects the stale cookie session and
+          // auto-redirects back to /dashboard, creating an infinite loop.
+          await createSupabaseClient().auth.signOut({ scope: 'local' });
+        } catch (e) {
+          console.warn('[Dashboard] Failed to sign out from Supabase:', e);
+        }
         try {
           const electronAPI = getElectronAPI();
           if (electronAPI?.clearSession) await electronAPI.clearSession();

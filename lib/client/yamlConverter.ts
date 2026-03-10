@@ -86,6 +86,13 @@ interface WorkPreferences {
  * Converts preferences object to YAML string
  */
 export function preferencesToYAML(prefs: WorkPreferences): string {
+  // Guard: DB returns null for unset array columns — normalize to empty arrays.
+  const positions        = (prefs.positions        as string[] | null) ?? [];
+  const locations        = (prefs.locations         as string[] | null) ?? [];
+  const companyBlacklist = (prefs.company_blacklist as string[] | null) ?? [];
+  const titleBlacklist   = (prefs.title_blacklist   as string[] | null) ?? [];
+  const jobLanguages     = (prefs.job_languages     as string[] | null) ?? [];
+
   const yaml: string[] = [];
 
   // Remote work filter is disabled - it limits job results too much
@@ -124,10 +131,10 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 
   // Positions
   yaml.push('positions:');
-  if (prefs.positions.length === 0) {
+  if (positions.length === 0) {
     yaml.push('  []');
   } else {
-    prefs.positions.forEach(position => {
+    positions.forEach(position => {
       yaml.push(`  - ${escapeYamlArrayItem(position)}`);
     });
   }
@@ -135,10 +142,10 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 
   // Locations
   yaml.push('locations:');
-  if (prefs.locations.length === 0) {
+  if (locations.length === 0) {
     yaml.push('  []');
   } else {
-    prefs.locations.forEach(location => {
+    locations.forEach(location => {
       yaml.push(`  - ${escapeYamlArrayItem(location)}`);
     });
   }
@@ -150,10 +157,10 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 
   // Company blacklist
   yaml.push('companyBlacklist:');
-  if (prefs.company_blacklist.length === 0) {
+  if (companyBlacklist.length === 0) {
     yaml.push('  []');
   } else {
-    prefs.company_blacklist.forEach(company => {
+    companyBlacklist.forEach(company => {
       yaml.push(`  - ${escapeYamlArrayItem(company)}`);
     });
   }
@@ -161,10 +168,10 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 
   // Title blacklist
   yaml.push('titleBlacklist:');
-  if (prefs.title_blacklist.length === 0) {
+  if (titleBlacklist.length === 0) {
     yaml.push('  []');
   } else {
-    prefs.title_blacklist.forEach(title => {
+    titleBlacklist.forEach(title => {
       yaml.push(`  - ${escapeYamlArrayItem(title)}`);
     });
   }
@@ -172,7 +179,7 @@ export function preferencesToYAML(prefs: WorkPreferences): string {
 
   // Job description languages (ISO 639-1 codes)
   yaml.push('jobLanguages:');
-  const languages = prefs.job_languages.length > 0 ? prefs.job_languages : ['en'];
+  const languages = jobLanguages.length > 0 ? jobLanguages : ['en'];
   languages.forEach(lang => {
     yaml.push(`  - ${escapeYamlArrayItem(lang)}`);
   });
