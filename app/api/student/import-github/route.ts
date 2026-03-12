@@ -31,10 +31,13 @@ export const maxDuration = 60;
 let openaiInstance: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!openaiInstance) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    if (!process.env.MISTRAL_API_KEY) {
+      throw new Error('MISTRAL_API_KEY is not configured');
     }
-    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    openaiInstance = new OpenAI({
+      apiKey: process.env.MISTRAL_API_KEY,
+      baseURL: 'https://api.mistral.ai/v1',
+    });
   }
   return openaiInstance;
 }
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'GitHub not connected' }, { status: 400 });
     }
 
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 5;
 
     updateProgress({
       step: 'Fetching repositories',
@@ -94,17 +97,9 @@ export async function POST(request: NextRequest) {
     });
 
     const repos = await fetchGitHubRepos(connection.access_token, false, 50);
-    if (repos.length > 0) {
-      updateProgress({
-        step: 'Collecting repositories',
-        reposProcessed: 0,
-        reposTotal: repos.length,
-        batchRepos: repos.slice(0, BATCH_SIZE).map((repo) => repo.name || repo.full_name || 'Repository'),
-      });
-    }
 
     updateProgress({
-      step: 'Preparing repository analysis',
+      step: 'Preparing analysis',
       reposProcessed: 0,
       reposTotal: repos.length,
       batchRepos: [],
@@ -122,18 +117,27 @@ export async function POST(request: NextRequest) {
 
     const sortedRepos = filterAndSortSignificantRepos(transformedRepos);
 
+    // Send all repo names upfront so the UI can render the full chip list immediately.
+    // Subsequent onBatchProgress calls pass empty batchRepos to preserve this list.
+    updateProgress({
+      step: 'Analyzing repositories',
+      reposProcessed: 0,
+      reposTotal: sortedRepos.length,
+      batchRepos: sortedRepos.map((r) => r.name || 'Repository'),
+    });
+
     const merged = await mergeGitHubData({
       openai: getOpenAI(),
       repos: sortedRepos,
       currentProjects,
       currentSkills,
       batchSize: BATCH_SIZE,
-      onBatchProgress: (reposProcessed, reposTotal, batchRepos) => {
+      onBatchProgress: (reposProcessed, reposTotal) => {
         updateProgress({
-          step: 'Parsing repositories',
+          step: 'Analyzing repositories',
           reposProcessed,
           reposTotal,
-          batchRepos,
+          batchRepos: [], // empty = preserve the full repo list sent above
         });
       },
     });

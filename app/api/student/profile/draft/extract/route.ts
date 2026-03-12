@@ -33,10 +33,13 @@ import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 let openaiInstance: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!openaiInstance) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    if (!process.env.MISTRAL_API_KEY) {
+      throw new Error('MISTRAL_API_KEY is not configured');
     }
-    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    openaiInstance = new OpenAI({
+      apiKey: process.env.MISTRAL_API_KEY,
+      baseURL: 'https://api.mistral.ai/v1',
+    });
   }
   return openaiInstance;
 }
@@ -171,7 +174,7 @@ export async function POST(request: NextRequest) {
       type: error?.constructor?.name,
     });
 
-    if (errorMessage.includes('OPENAI_API_KEY')) {
+    if (errorMessage.includes('MISTRAL_API_KEY')) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
     }
 

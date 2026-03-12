@@ -20,38 +20,29 @@ import { getServiceSupabase } from '@/lib/server/supabaseService'
 import { checkRateLimit, logApiCall, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
 import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies'
 
-// Check if OpenAI API key is configured
-if (!process.env.OPENAI_API_KEY) {
-  console.error('[GPT4 Route] CRITICAL: OPENAI_API_KEY not set in environment variables!')
+// Check if Mistral API key is configured
+if (!process.env.MISTRAL_API_KEY) {
+  console.error('[GPT4 Route] CRITICAL: MISTRAL_API_KEY not set in environment variables!')
 }
 
 // Lazy initialization to avoid build-time errors
 let openaiInstance: OpenAI | null = null
 function getOpenAI() {
   if (!openaiInstance) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured')
+    if (!process.env.MISTRAL_API_KEY) {
+      throw new Error('MISTRAL_API_KEY is not configured')
     }
-    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    openaiInstance = new OpenAI({
+      apiKey: process.env.MISTRAL_API_KEY,
+      baseURL: 'https://api.mistral.ai/v1',
+    })
   }
   return openaiInstance
 }
 
-/**
- * OpenAI GPT-4o-mini Pricing (per 1M tokens)
- * Source: https://platform.openai.com/docs/models/gpt-4o-mini
- * Updated: January 10, 2026
- */
-const GPT4O_MINI_PRICING = {
-  input: 0.15,   // $0.15 per 1M input tokens
-  output: 0.60   // $0.60 per 1M output tokens
-}
-
-/**
- * Calculate cost for GPT-4o-mini API call
- */
+// Mistral Small: $0.10/1M input, $0.30/1M output
 function calculateCost(inputTokens: number, outputTokens: number): number {
-  return (inputTokens * GPT4O_MINI_PRICING.input + outputTokens * GPT4O_MINI_PRICING.output) / 1_000_000
+  return (inputTokens * 0.10 + outputTokens * 0.30) / 1_000_000
 }
 
 
@@ -171,7 +162,7 @@ export async function POST(req: NextRequest) {
       // Call OpenAI
       const openai = getOpenAI()
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'mistral-small-latest',
         messages,
         temperature: safeTemperature, // 🔐
       })

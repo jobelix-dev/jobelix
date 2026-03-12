@@ -47,7 +47,7 @@ export default function PrivacyModal({ onClose }: Props) {
 
             <div>
               <h3 className="font-medium text-default mb-1">Third-party services</h3>
-              <p><strong className="text-default">OpenAI:</strong> Used for resume parsing. They operate under a zero-retention API policy - they do not train on your data.</p>
+              <p><strong className="text-default">Mistral:</strong> Used for resume parsing. They operate under a zero-retention API policy - they do not train on your data.</p>
               <p className="mt-1"><strong className="text-default">Stripe:</strong> Handles payment processing only.</p>
               <p className="mt-1 text-default font-medium">We do not sell your data to recruiters, data brokers, or anyone else.</p>
             </div>

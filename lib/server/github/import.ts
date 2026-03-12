@@ -6,13 +6,15 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { setGitHubImportProgress } from '@/lib/server/github/progress';
 import type { GitHubRepoForLLM } from '@/lib/server/github/api';
 
-const GitHubMergeSchema = z.object({
-  projects: z.array(z.object({
+// Each batch returns only NEW items to add (not the full accumulated list).
+// Final merge is done deterministically after all batches complete in parallel.
+const GitHubExtractionSchema = z.object({
+  new_projects: z.array(z.object({
     project_name: z.string(),
     description: z.string().nullable(),
     link: z.string().nullable(),
   })),
-  skills: z.array(z.object({
+  new_skills: z.array(z.object({
     skill_name: z.string(),
     skill_slug: z.string(),
   })),
@@ -89,58 +91,40 @@ export function filterAndSortSignificantRepos(repos: GitHubRepoForLLM[]): GitHub
   });
 }
 
-function getMergeSystemPrompt(batchNum: number, totalBatches: number): string {
-  return `You are a profile data merge expert. Your task is to intelligently merge GitHub repository data with existing profile data.
+function getExtractionSystemPrompt(): string {
+  return `You are a developer profile extractor. Your task is to extract NEW projects and skills from GitHub repositories that are not already in the user's profile.
 
-⚠️ CRITICAL: This is an ADDITIVE merge ONLY. You must PRESERVE ALL existing data and only ADD new items.
+⚠️ IMPORTANT: ALL output text MUST be in English. Translate any non-English content.
 
-⚠️ IMPORTANT: ALL output text MUST be in English. If repository descriptions, README content, or any text is in another language, translate it to English.
+RULES FOR EXTRACTING PROJECTS:
 
-This is batch ${batchNum} of ${totalBatches}. Process EVERY repository in this batch - do not skip any.
-
-RULES FOR MERGING PROJECTS:
-
-1. **Duplicate Detection:**
+1. **Duplicate Detection — skip a repo if it already exists:**
    - Compare project names case-insensitively
-   - Detect similar names (e.g., "Portfolio Site" vs "portfolio-website")
    - Match by repository URL if available
+   - Detect similar names (e.g., "Portfolio Site" vs "portfolio-website")
 
-2. **Merging Strategy - PRESERVE EXISTING:**
-   - ✅ KEEP all existing projects exactly as they are
-   - ✅ If a project already exists (by name or URL), DO NOT modify it
-   - ✅ ADD EVERY new repository as a project (unless it's a duplicate)
-   - ✅ Preserve ALL manually entered project data
-   - ❌ NEVER remove or modify existing projects
-
-3. **New Project Fields from GitHub:**
-   - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly) - translate to English if needed
-   - description: Generate comprehensive, professional project descriptions using ALL available data:
+2. **For each NEW repository (not a duplicate), create a project entry:**
+   - project_name: Use repository name (convert hyphens/underscores to spaces, capitalize properly)
+   - description: Comprehensive, professional resume-style description using ALL available data:
      * Use README summary and repo description as foundation
-     * Include project timeline: "Developed [created_at] - [pushed_at]" showing duration and recency
-     * Analyze language_bytes to determine expertise levels: "Built with [primary_language] (primary) and [other_languages] - [X] lines of code total"
-     * Use topics for categorization: Identify project type (web app, API, library, mobile app, data analysis, etc.)
-     * Infer advanced skills from topics, languages, and README: frameworks (React, Django), tools (Docker, AWS), methodologies (TDD, CI/CD)
-     * Focus on achievements, technologies used, and outcomes in resume-style language
-     * Example: "Full-stack web application built with React and Node.js, featuring user authentication and real-time data visualization. Developed over 18 months with 15,000+ lines of code across 8 programming languages."
-   - link: Use repository URL (url field)
+     * Include project timeline from created_at to pushed_at
+     * Mention primary languages and approximate code volume from language_bytes
+     * Identify project type (web app, API, library, mobile, data analysis, etc.) from topics
+     * Infer frameworks/tools/methodologies from topics, languages, README
+     * Example: "Full-stack web application built with React and Node.js, featuring real-time data visualization. Developed over 18 months with 15,000+ lines of code."
+   - link: Repository URL (url field)
 
-RULES FOR MERGING SKILLS:
+RULES FOR EXTRACTING SKILLS:
 
-1. **Skill Extraction from GitHub:**
-   - Extract programming languages from all_languages field
-   - Extract frameworks/tools from topics field
-   - Analyze language_bytes to determine expertise levels: languages with higher byte counts indicate stronger proficiency
-   - Infer advanced skills from topics, README content, and project patterns (e.g., testing frameworks, deployment tools, cloud services)
-   - Extract technologies mentioned in README summaries and descriptions
+1. Extract from ALL repositories in the batch:
+   - Programming languages from all_languages / language_bytes
+   - Frameworks and tools from topics
+   - Technologies inferred from README content and project patterns
 
-2. **Merging Strategy - PRESERVE EXISTING:**
-   - ✅ KEEP all existing skills exactly as they are
-   - ✅ Only ADD new skills not present in current list
-   - ❌ NEVER remove existing skills
+2. Only return skills NOT already in the existing skills list (match by skill_slug).
 
-OUTPUT:
-Return the MERGED projects and skills arrays. YOUR OUTPUT MUST HAVE AT LEAST AS MANY ITEMS AS THE INPUT.
-ALL text content must be in English.`;
+OUTPUT: Return only the NEW items to add — not the full list. Return empty arrays if nothing new is found.
+ALL text must be in English.`;
 }
 
 export async function mergeGitHubData(params: {
@@ -153,74 +137,85 @@ export async function mergeGitHubData(params: {
 }): Promise<{ projects: GitHubImportProject[]; skills: GitHubImportSkill[]; batchesProcessed: number }> {
   const { openai, repos, currentProjects, currentSkills, batchSize, onBatchProgress } = params;
 
-  let mergedProjects: GitHubImportProject[] = [...currentProjects];
-  let mergedSkills: GitHubImportSkill[] = [...currentSkills];
-  const totalBatches = Math.ceil(repos.length / batchSize);
-
+  // Split into batches upfront
+  const batches: GitHubRepoForLLM[][] = [];
   for (let i = 0; i < repos.length; i += batchSize) {
-    const batch = repos.slice(i, i + batchSize);
-    const batchNum = Math.floor(i / batchSize) + 1;
-    const batchRepos = batch.map((repo) => repo.name || 'Repository');
+    batches.push(repos.slice(i, i + batchSize));
+  }
 
-    onBatchProgress(i, repos.length, batchRepos);
+  // Snapshot the existing data once — all batches check against the same baseline.
+  // Each batch only returns NEW items to add; cross-batch de-dup is deterministic below.
+  const existingProjectNames = new Set(
+    currentProjects.map((p) => (p.project_name || '').toLowerCase().trim())
+  );
+  const existingSkillSlugs = new Set(currentSkills.map((s) => s.skill_slug || ''));
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: getMergeSystemPrompt(batchNum, totalBatches),
-        },
-        {
-          role: 'user',
-          content: `Merge this batch of GitHub repos with the current profile data.
+  let reposProcessed = 0;
 
-**CURRENT PROJECTS (MUST ALL BE PRESERVED):**
-${JSON.stringify(mergedProjects, null, 2)}
-Count: ${mergedProjects.length} projects
+  // Run all batches in parallel
+  const batchResults = await Promise.all(
+    batches.map(async (batch) => {
+      const batchRepos = batch.map((repo) => repo.name || 'Repository');
 
-**CURRENT SKILLS (MUST ALL BE PRESERVED):**
-${JSON.stringify(mergedSkills, null, 2)}
-Count: ${mergedSkills.length} skills
+      const completion = await openai.chat.completions.create({
+        model: 'mistral-large-latest',
+        messages: [
+          {
+            role: 'system',
+            content: getExtractionSystemPrompt(),
+          },
+          {
+            role: 'user',
+            content: `Extract NEW projects and skills from these GitHub repositories.
 
-**GITHUB REPOSITORIES IN THIS BATCH (${batch.length} repos - ADD ALL AS NEW PROJECTS UNLESS DUPLICATE):**
+**EXISTING PROJECTS (do not add duplicates of these):**
+${JSON.stringify(currentProjects.map((p) => ({ project_name: p.project_name, link: p.link })), null, 2)}
+
+**EXISTING SKILL SLUGS (do not add these again):**
+${JSON.stringify([...existingSkillSlugs], null, 2)}
+
+**GITHUB REPOSITORIES TO PROCESS (${batch.length} repos — add each as a new project unless it duplicates an existing one):**
 ${JSON.stringify(batch, null, 2)}
 
-CRITICAL: Your output MUST contain AT LEAST ${mergedProjects.length} projects and ${mergedSkills.length} skills.
-Process ALL ${batch.length} repositories in this batch.`,
-        },
-      ],
-      response_format: zodResponseFormat(GitHubMergeSchema, 'github_merge'),
-    });
+Return only NEW items not already present. Return empty arrays if nothing new to add.`,
+          },
+        ],
+        response_format: zodResponseFormat(GitHubExtractionSchema, 'github_extraction'),
+      });
 
-    const batchResult = JSON.parse(completion.choices[0].message.content || '{}') as {
-      projects: GitHubImportProject[];
-      skills: GitHubImportSkill[];
-    };
+      reposProcessed += batch.length;
+      onBatchProgress(reposProcessed, repos.length, batchRepos);
 
-    if (batchResult.projects.length < mergedProjects.length) {
-      console.warn(`[GitHub Import] Batch ${batchNum} reduced project count unexpectedly`);
+      return JSON.parse(completion.choices[0].message.content || '{}') as {
+        new_projects: GitHubImportProject[];
+        new_skills: GitHubImportSkill[];
+      };
+    })
+  );
+
+  // Deterministic merge: combine currentProjects/Skills + all new items, de-duping across batches
+  const mergedProjects: GitHubImportProject[] = [...currentProjects];
+  const mergedSkills: GitHubImportSkill[] = [...currentSkills];
+
+  for (const result of batchResults) {
+    for (const project of result.new_projects || []) {
+      const key = (project.project_name || '').toLowerCase().trim();
+      if (key && !existingProjectNames.has(key)) {
+        existingProjectNames.add(key);
+        mergedProjects.push(project);
+      }
     }
-    if (batchResult.skills.length < mergedSkills.length) {
-      console.warn(`[GitHub Import] Batch ${batchNum} reduced skill count unexpectedly`);
+    for (const skill of result.new_skills || []) {
+      if (skill.skill_slug && !existingSkillSlugs.has(skill.skill_slug)) {
+        existingSkillSlugs.add(skill.skill_slug);
+        mergedSkills.push(skill);
+      }
     }
-
-    mergedProjects = batchResult.projects;
-    mergedSkills = batchResult.skills;
-
-    onBatchProgress(Math.min(i + batch.length, repos.length), repos.length, batchRepos);
-  }
-
-  if (mergedProjects.length < currentProjects.length) {
-    console.warn('[GitHub Import] Final merge reduced project count unexpectedly');
-  }
-  if (mergedSkills.length < currentSkills.length) {
-    console.warn('[GitHub Import] Final merge reduced skill count unexpectedly');
   }
 
   return {
     projects: mergedProjects,
     skills: mergedSkills,
-    batchesProcessed: totalBatches,
+    batchesProcessed: batches.length,
   };
 }
