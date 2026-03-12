@@ -62,7 +62,7 @@ class BotLogger {
       this.logStream.write(initMsg);
 
       console.info(`[BotLogger] Logging to: ${this.logFilePath}`);
-    } catch (error) {
+    } catch (_error) {
       // setUserDataPath not called yet — will retry on first write
       this.logFilePath = null;
       this.logStream = null;
