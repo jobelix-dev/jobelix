@@ -19,12 +19,13 @@ export const EASY_APPLY_BUTTON_SELECTORS = [
 /** Already applied indicators (international support) */
 export const ALREADY_APPLIED_SELECTORS = [
   '.jobs-details-top-card__apply-status--applied',
-  'span:has-text("Applied")',
+  // Note: avoid bare span:has-text("Applied") — too broad, matches sidebar job titles
+  // like "Applied AI Engineer" and causes false positives on every job page.
   'span:has-text("Application sent")',
   'span:has-text("Candidature envoyée")',          // French
   'span:has-text("Candidatura enviada")',          // Spanish
   'span:has-text("Bewerbung gesendet")',           // German
-  '.artdeco-inline-feedback--success:has-text("Applied")',
+  '.artdeco-inline-feedback--success',             // Success feedback element (any language)
 ];
 
 /** Job description selectors (in order of priority) */

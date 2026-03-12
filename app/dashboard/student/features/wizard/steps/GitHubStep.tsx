@@ -148,28 +148,59 @@ export default function GitHubStep({
             <div className="p-6">
               {importingGitHub ? (
                 /* Import in progress */
-                <div className="text-center py-4">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-                  <p className="text-sm font-medium text-default mb-1">
-                    Analyzing your repositories...
-                  </p>
-                  {githubImportProgress && (
-                    <>
-                      <p className="text-xs text-muted mb-3">
-                        {githubImportProgress.step}
-                        {githubImportProgress.reposTotal > 0 && (
-                          <> ({githubImportProgress.reposProcessed}/{githubImportProgress.reposTotal} repos)</>
-                        )}
-                      </p>
-                      <div className="w-full max-w-xs mx-auto">
-                        <div className="h-2 rounded-full bg-primary-subtle/60 overflow-hidden">
-                          <div
-                            className="h-full bg-primary transition-all duration-500"
-                            style={{ width: `${githubImportProgress.progress}%` }}
-                          />
-                        </div>
+                <div className="py-2 space-y-3">
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                      <span className="text-sm font-medium text-default">
+                        {githubImportProgress?.step ?? 'Analyzing your repositories...'}
+                      </span>
+                    </div>
+                    {githubImportProgress && githubImportProgress.reposTotal > 0 && (
+                      <span className="text-xs font-medium text-muted tabular-nums shrink-0">
+                        {githubImportProgress.reposProcessed}/{githubImportProgress.reposTotal}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-1.5 rounded-full bg-primary-subtle/40 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
+                      style={{ width: `${githubImportProgress?.progress ?? 0}%` }}
+                    />
+                  </div>
+
+                  {/* Repo chips — all repos shown upfront, animate done → pending */}
+                  {githubImportProgress && githubImportProgress.batchRepos.length > 0 && (
+                    <div className="max-h-28 overflow-y-auto pr-1">
+                      <div className="flex flex-wrap gap-1.5">
+                        {githubImportProgress.batchRepos.map((repo, i) => {
+                          const done = i < githubImportProgress.reposProcessed;
+                          return (
+                            <span
+                              key={repo}
+                              className={`text-xs px-2 py-0.5 rounded-md border transition-all duration-500 ${
+                                done
+                                  ? 'border-primary/25 bg-primary-subtle/25 text-primary/80'
+                                  : 'border-border/25 bg-background text-muted animate-pulse'
+                              }`}
+                            >
+                              {done && <span className="mr-0.5 text-primary/60">✓</span>}
+                              {repo}
+                            </span>
+                          );
+                        })}
                       </div>
-                    </>
+                    </div>
+                  )}
+
+                  {/* Parallel hint — shown only while waiting for first results */}
+                  {githubImportProgress && githubImportProgress.reposTotal > 0 && githubImportProgress.reposProcessed === 0 && (
+                    <p className="text-xs text-muted/70 text-center">
+                      Analyzing batches in parallel…
+                    </p>
                   )}
                 </div>
               ) : importDone ? (

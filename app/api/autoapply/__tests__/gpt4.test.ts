@@ -17,7 +17,7 @@ import { NextRequest } from 'next/server';
 // ---------------------------------------------------------------------------
 // Environment variables — must be set BEFORE module import
 // ---------------------------------------------------------------------------
-process.env.OPENAI_API_KEY = 'sk-test-fake';
+process.env.MISTRAL_API_KEY = 'sk-test-fake';
 
 // ---------------------------------------------------------------------------
 // Mock: OpenAI
@@ -93,7 +93,7 @@ const happyRateLimit = {
 const happyCompletion = {
   choices: [{ message: { content: 'Hello from GPT!' }, finish_reason: 'stop' }],
   usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
-  model: 'gpt-4o-mini',
+  model: 'mistral-small-latest',
 };
 
 /** Set up all mocks for a successful end-to-end call */
@@ -422,7 +422,7 @@ describe('POST /api/autoapply/gpt4', () => {
 
       const body = await res.json();
       expect(body.content).toBe('Hello from GPT!');
-      expect(body.model).toBe('gpt-4o-mini');
+      expect(body.model).toBe('mistral-small-latest');
       expect(body.finish_reason).toBe('stop');
       expect(body.usage).toEqual({
         input_tokens: 10,
@@ -432,14 +432,14 @@ describe('POST /api/autoapply/gpt4', () => {
       });
     });
 
-    it('calls OpenAI with gpt-4o-mini model', async () => {
+    it('calls Mistral with mistral-small-latest model', async () => {
       setupHappyPath();
       const msgs = [{ role: 'user', content: 'hello' }];
       const req = createRequest({ token: MOCK_TOKEN, messages: msgs });
       await POST(req);
 
       expect(mockChatCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-4o-mini' })
+        expect.objectContaining({ model: 'mistral-small-latest' })
       );
     });
 

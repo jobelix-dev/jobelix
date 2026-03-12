@@ -26,18 +26,24 @@ class BotLogger {
   private prefix = '[Bot]';
   private logFilePath: string | null = null;
   private logStream: fs.WriteStream | null = null;
+  private logFileReady = false;
 
   constructor() {
+    // Attempt early init — succeeds when setUserDataPath() was called first,
+    // silently defers otherwise (writeToFile retries lazily).
     this.initializeLogFile();
   }
 
   /**
-   * Initialize the log file with proper path and rotation
+   * Initialize the log file with proper path and rotation.
+   * Called eagerly in the constructor and lazily on first write so that
+   * worker-thread startup order (setUserDataPath → import logger) doesn't matter.
    */
   private initializeLogFile(): void {
+    if (this.logFileReady) return;
     try {
       const logDir = path.join(getUserDataPath(), 'logs');
-      
+
       // Ensure logs directory exists
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
@@ -49,23 +55,27 @@ class BotLogger {
 
       // Create write stream in append mode
       this.logStream = fs.createWriteStream(this.logFilePath, { flags: 'a' });
+      this.logFileReady = true;
 
       // Log initialization
       const initMsg = `\n${'='.repeat(80)}\nBot Logger Initialized: ${new Date().toISOString()}\nLog file: ${this.logFilePath}\n${'='.repeat(80)}\n`;
       this.logStream.write(initMsg);
 
       console.info(`[BotLogger] Logging to: ${this.logFilePath}`);
-    } catch (error) {
-      console.error('[BotLogger] Failed to initialize log file:', error);
+    } catch (_error) {
+      // setUserDataPath not called yet — will retry on first write
       this.logFilePath = null;
       this.logStream = null;
     }
   }
 
   /**
-   * Write message to log file
+   * Write message to log file, initialising lazily if needed
    */
   private writeToFile(message: string): void {
+    if (!this.logFileReady) {
+      this.initializeLogFile();
+    }
     if (this.logStream && !this.logStream.destroyed) {
       this.logStream.write(message + '\n');
     }

@@ -56,7 +56,7 @@ vi.mock('@/lib/server/supabaseService', () => ({
 const mockOpenAICreate = vi.fn().mockResolvedValue({
   choices: [{ message: { content: 'test reply' }, finish_reason: 'stop' }],
   usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
-  model: 'gpt-4o-mini',
+  model: 'mistral-small-latest',
 });
 vi.mock('openai', () => ({
   default: function MockOpenAI() {
@@ -66,7 +66,7 @@ vi.mock('openai', () => ({
   },
 }));
 
-process.env.OPENAI_API_KEY = 'test-key';
+process.env.MISTRAL_API_KEY = 'test-key';
 
 // ---------------------------------------------------------------------------
 // Helpers

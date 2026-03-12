@@ -144,7 +144,7 @@ function rateLimitAllow() {
 
 /** Sets up mocks so the GPT4 route succeeds through token + credit checks. */
 function setupGpt4Mocks() {
-  process.env.OPENAI_API_KEY = 'test-key';
+  process.env.MISTRAL_API_KEY = 'test-key';
   // Token validation: serviceSupabase.from('api_tokens').select('user_id').eq('token', ...).maybeSingle()
   mockServiceFrom.mockReturnValue({
     select: vi.fn().mockReturnValue({
