@@ -17,7 +17,7 @@ import { NextRequest } from 'next/server';
 // ---------------------------------------------------------------------------
 // Environment variables — must be set BEFORE module import
 // ---------------------------------------------------------------------------
-process.env.OPENAI_API_KEY = 'sk-test-fake';
+process.env.MISTRAL_API_KEY = 'sk-test-fake';
 
 // ---------------------------------------------------------------------------
 // Mock: OpenAI
