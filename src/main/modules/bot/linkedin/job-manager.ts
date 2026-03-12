@@ -27,6 +27,7 @@ const log = createLogger('JobManager');
 
 export class LinkedInJobManager {
   private seenJobs = new Set<string>();
+  private titleRelevanceCache = new Map<string, boolean>();
   private oldAnswers: SavedAnswer[] = [];
   private baseSearchUrl = '';
   private companyBlacklist: string[] = [];
@@ -275,13 +276,33 @@ export class LinkedInJobManager {
       for (const job of jobs) {
         if (isBlacklisted(job, this.companyBlacklist, this.titleBlacklist, this.seenJobs)) {
           log.warn(`Blacklisted ${job.title} at ${job.company}, skipping...`);
-          this.reporter?.sendHeartbeat('skipping_job', { 
-            company: job.company, 
+          this.reporter?.sendHeartbeat('skipping_job', {
+            company: job.company,
             job_title: job.title,
             reason: 'Blacklisted company or title'
           });
           this.writeToFile(job, 'skipped');
           continue;
+        }
+
+        // Title relevance check — binary LLM call before any navigation
+        if (this.gptAnswerer && this.positions.length > 0) {
+          const cacheKey = job.title.toLowerCase().trim();
+          let relevant = this.titleRelevanceCache.get(cacheKey);
+          if (relevant === undefined) {
+            relevant = await this.gptAnswerer.isJobTitleRelevant(job.title, this.positions);
+            this.titleRelevanceCache.set(cacheKey, relevant);
+          }
+          if (!relevant) {
+            log.info(`⏭️ Title mismatch: "${job.title}" at ${job.company}`);
+            this.reporter?.sendHeartbeat('skipping_job', {
+              company: job.company,
+              job_title: job.title,
+              reason: 'Title not relevant to target positions',
+            });
+            this.writeToFile(job, 'skipped', 'title_mismatch');
+            continue;
+          }
         }
 
         try {

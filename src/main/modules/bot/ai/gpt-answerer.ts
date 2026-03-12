@@ -315,8 +315,29 @@ Respond with ONLY a number (no explanation, no text, just the number).`;
   }
 
   /**
+   * Check whether a job title is relevant to any of the user's target positions.
+   * Binary YES/NO call — runs before navigation to avoid wasting time on irrelevant jobs.
+   * On any API error, returns true (permissive) so the job is not wrongly skipped.
+   */
+  async isJobTitleRelevant(jobTitle: string, targetPositions: string[]): Promise<boolean> {
+    const positions = targetPositions.map(p => `- ${p}`).join('\n');
+    const prompt =
+      `Is the job title "${jobTitle}" relevant to any of these target positions?\n\n${positions}\n\n` +
+      `Consider seniority variations (junior/senior/lead), closely related roles, and equivalent titles in other languages.\n` +
+      `Reply with exactly YES or NO.`;
+
+    try {
+      const response = await this.chatCompletion([{ role: 'user', content: prompt }], 0);
+      return response.trim().toUpperCase().startsWith('YES');
+    } catch (error) {
+      log.warn(`Title relevance check failed for "${jobTitle}" — allowing job: ${error}`);
+      return true;
+    }
+  }
+
+  /**
    * Tailor resume to a specific job using 4-stage pipeline (MATCHES PYTHON)
-   * 
+   *
    * Pipeline stages:
    * 1. Extract keywords from job description
    * 2. Score all resume items by relevance

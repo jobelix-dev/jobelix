@@ -10,7 +10,7 @@ import "server-only";
 import { NextRequest, NextResponse } from 'next/server'
 
 // Explicit column list — avoids returning internal/future admin-only columns
-const WORK_PREF_COLS = 'student_id, remote_work, in_person_work, exp_internship, exp_entry, exp_associate, exp_mid_senior, exp_director, exp_executive, job_full_time, job_part_time, job_contract, job_temporary, job_internship, job_volunteer, job_other, date_24_hours, date_week, date_month, date_all_time, positions, locations, updated_at'
+const WORK_PREF_COLS = 'student_id, remote_work, in_person_work, exp_internship, exp_entry, exp_associate, exp_mid_senior, exp_director, exp_executive, job_full_time, job_part_time, job_contract, job_temporary, job_internship, job_volunteer, job_other, date_24_hours, date_week, date_month, date_all_time, positions, locations, company_blacklist, title_blacklist, job_languages, date_of_birth, pronouns, gender, is_veteran, has_disability, ethnicity, eu_work_authorization, us_work_authorization, open_to_relocation, willing_to_complete_assessments, willing_to_undergo_drug_tests, willing_to_undergo_background_checks, notice_period, salary_expectation_usd, updated_at'
 import { authenticateRequest } from '@/lib/server/auth'
 import { validateRequest, workPreferencesSchema } from '@/lib/server/validation'
 import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting'
