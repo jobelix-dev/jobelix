@@ -17,18 +17,23 @@ export interface ProxyDualWindowPolicy {
 export const API_RATE_LIMIT_POLICIES = {
   gpt4: {
     endpoint: 'gpt4',
-    hourlyLimit: 200,
-    dailyLimit: 1000,
+    hourlyLimit: 500,
+    dailyLimit: 2000,
+  },
+  resumeUpload: {
+    endpoint: 'resume-upload',
+    hourlyLimit: 10,
+    dailyLimit: 20,
   },
   resumeExtraction: {
     endpoint: 'resume-extraction',
-    hourlyLimit: 2,
-    dailyLimit: 5,
+    hourlyLimit: 10,
+    dailyLimit: 20,
   },
   githubImport: {
     endpoint: 'github-import',
-    hourlyLimit: 3,
-    dailyLimit: 6,
+    hourlyLimit: 5,
+    dailyLimit: 10,
   },
   newsletterSubscribe: {
     endpoint: 'newsletter-subscribe',
@@ -64,15 +69,15 @@ export const API_RATE_LIMIT_POLICIES = {
 
 export const PROXY_RATE_LIMIT_POLICIES = {
   general: {
-    limit: 70,
+    limit: 200,
     windowMs: 60 * 1000,
   },
   resumeUpload: {
-    limit: 5,
+    limit: 20,
     windowMs: 24 * 60 * 60 * 1000,
   },
   resumeExtract: {
-    limit: 5,
+    limit: 20,
     windowMs: 24 * 60 * 60 * 1000,
   },
   authAttempts: {

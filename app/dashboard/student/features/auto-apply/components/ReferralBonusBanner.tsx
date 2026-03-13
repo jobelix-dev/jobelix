@@ -87,7 +87,7 @@ export default function ReferralBonusBanner() {
             <div className="flex items-center gap-2 mt-2">
               <Zap className="w-3 h-3 text-warning" />
               <span className="text-xs text-warning font-medium">
-                Credits are added after your first bot run
+                Credits are added after the bot applies to your first job
               </span>
             </div>
           </div>
