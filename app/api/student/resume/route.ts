@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
     
     const { user, supabase } = auth
 
-    // Rate limit check - reuse resume extraction limits (5 per day is reasonable)
-    const rateLimitConfig = API_RATE_LIMIT_POLICIES.resumeExtraction
+    // Rate limit check - file upload only, no AI cost, so limits are more lenient
+    const rateLimitConfig = API_RATE_LIMIT_POLICIES.resumeUpload
     const rateLimitResult = await checkRateLimit(user.id, rateLimitConfig)
     if (rateLimitResult.error) return rateLimitResult.error
     if (!rateLimitResult.data.allowed) {

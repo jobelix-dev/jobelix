@@ -121,6 +121,12 @@ export default function DashboardPage() {
   const handleLogout = useCallback(async () => {
     try {
       await api.logout();
+      // In Electron, apiFetch uses credentials:'omit' so the server's Set-Cookie
+      // clearing headers are ignored by Chromium — browser cookies aren't cleared.
+      // Explicitly sign out client-side to clear Supabase's browser-stored session,
+      // otherwise the login page detects the stale cookie and auto-redirects to
+      // /dashboard on next login attempt.
+      await createSupabaseClient().auth.signOut({ scope: 'local' });
       router.push(isElectron ? '/desktop' : '/');
     } catch (error) {
       console.error('[Dashboard] Logout failed:', error);
