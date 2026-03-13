@@ -52,17 +52,16 @@ export default function StickyActionBar({
   return (
     <div className="fixed bottom-0 left-0 right-0 z-30">
       <div className="bg-surface/90 backdrop-blur-md border-t border-border/30 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          {/* Back button — blue outline for visibility */}
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+          {/* Back button — ghost style, subordinate to primary action */}
           <div className="w-auto flex-shrink-0">
             {onBack ? (
               <button
                 type="button"
                 onClick={onBack}
                 disabled={allDisabled}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium
-                  text-primary border border-primary/30 bg-primary/5
-                  hover:bg-primary/10 hover:border-primary/50 rounded-lg
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium
+                  text-muted hover:text-default rounded-lg
                   transition-colors cursor-pointer
                   disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -89,7 +88,7 @@ export default function StickyActionBar({
                 type="button"
                 onClick={onAction}
                 disabled={actionDisabled || allDisabled || loading}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium
                   bg-primary hover:bg-primary-hover text-white rounded-lg
                   transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
                   shadow-sm shadow-primary/20"

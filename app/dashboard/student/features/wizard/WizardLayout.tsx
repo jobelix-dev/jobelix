@@ -1,14 +1,11 @@
 /**
  * WizardLayout Component
- * 
+ *
  * Main shell for the wizard. Contains:
- * - Top bar with logo and dropdown menu
- * - Step progress indicator
+ * - Top bar: logo (left) | step indicator (center) | menu (right)
  * - Central content area for step components
- * 
+ *
  * Navigation (back/continue) is handled by each step via StickyActionBar.
- * Credits management is accessed from within the AutoApply step.
- * The dropdown menu provides access to Feedback, Privacy, Settings, and Logout.
  */
 
 'use client';
@@ -21,15 +18,10 @@ interface WizardLayoutProps {
   currentStep: number;
   completedSteps: Set<number>;
   onStepClick: (step: number) => void;
-  /** When true, ALL stepper buttons are disabled (e.g., during extraction) */
   stepsDisabled?: boolean;
-  /** Step indices that are individually disabled in stepper */
   disabledSteps?: Set<number>;
-  /** Step indices with warning state in stepper */
   warningSteps?: Set<number>;
-  /** Tooltip messages per step index */
   stepTooltips?: Record<number, string>;
-  /** Header dropdown callbacks */
   onFeedback?: () => void;
   onPrivacy?: () => void;
   onSettings?: () => void;
@@ -54,19 +46,16 @@ export default function WizardLayout({
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
       }
     }
-
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('touchstart', handleClickOutside);
     }
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
@@ -75,16 +64,28 @@ export default function WizardLayout({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Top bar */}
+      {/* Top bar — logo | stepper | menu in one compact row */}
       <div className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-border/20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-14">
+          <div className="flex items-center h-14 gap-4">
             {/* Left: Logo */}
-            <h1 className="text-lg font-bold text-default">Jobelix</h1>
+            <h1 className="text-base font-bold text-default shrink-0 w-20">Jobelix</h1>
+
+            {/* Center: Stepper */}
+            <div className="flex-1 flex justify-center">
+              <WizardStepper
+                currentStep={currentStep}
+                completedSteps={completedSteps}
+                onStepClick={onStepClick}
+                disabledSteps={disabledSteps}
+                warningSteps={warningSteps}
+                stepTooltips={stepTooltips}
+                allDisabled={stepsDisabled}
+              />
+            </div>
 
             {/* Right: Dropdown menu */}
-            <div className="flex items-center gap-2">
-              {/* Dropdown menu */}
+            <div className="shrink-0 w-20 flex justify-end">
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
@@ -99,7 +100,7 @@ export default function WizardLayout({
                     {onFeedback && (
                       <button
                         onClick={() => { onFeedback(); setShowMenu(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default hover:bg-primary-subtle/50 active:bg-primary-subtle/50 transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
                       >
                         <MessageSquare className="w-4 h-4 text-muted" />
                         Feedback
@@ -108,7 +109,7 @@ export default function WizardLayout({
                     {onPrivacy && (
                       <button
                         onClick={() => { onPrivacy(); setShowMenu(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default hover:bg-primary-subtle/50 active:bg-primary-subtle/50 transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
                       >
                         <Shield className="w-4 h-4 text-muted" />
                         Privacy
@@ -117,7 +118,7 @@ export default function WizardLayout({
                     {onSettings && (
                       <button
                         onClick={() => { onSettings(); setShowMenu(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default hover:bg-primary-subtle/50 active:bg-primary-subtle/50 transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-default hover:bg-primary-subtle/50 transition-colors cursor-pointer"
                       >
                         <Settings className="w-4 h-4 text-muted" />
                         Settings
@@ -128,7 +129,7 @@ export default function WizardLayout({
                         <div className="h-px bg-border/20 my-1" />
                         <button
                           onClick={() => { onLogout(); setShowMenu(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-error hover:bg-error-subtle/30 active:bg-error-subtle/30 transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-error hover:bg-error-subtle/30 transition-colors cursor-pointer"
                         >
                           <LogOut className="w-4 h-4" />
                           Log out
@@ -143,21 +144,8 @@ export default function WizardLayout({
         </div>
       </div>
 
-      {/* Stepper — relative + z-20 ensures it sits above the content area */}
-      <div className="relative z-20 py-6 sm:py-8 px-4">
-        <WizardStepper
-          currentStep={currentStep}
-          completedSteps={completedSteps}
-          onStepClick={onStepClick}
-          disabledSteps={disabledSteps}
-          warningSteps={warningSteps}
-          stepTooltips={stepTooltips}
-          allDisabled={stepsDisabled}
-        />
-      </div>
-
-      {/* Central content area — z-0 isolates it below the stepper's z-20 */}
-      <div className="relative z-0 flex-1 flex flex-col items-center px-4 sm:px-6 pb-6">
+      {/* Content area */}
+      <div className="flex-1 flex flex-col items-center px-4 sm:px-6 pt-8 pb-6">
         <div className="w-full max-w-2xl">
           {children}
         </div>
