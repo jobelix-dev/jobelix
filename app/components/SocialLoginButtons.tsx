@@ -345,6 +345,11 @@ export default function SocialLoginButtons({
           redirectTo,
           scopes,
           skipBrowserRedirect: true, // Don't redirect, we'll open a popup
+          queryParams: {
+            // Force the account chooser so users can pick between multiple accounts.
+            // Without this, Google/LinkedIn silently re-use the last signed-in account.
+            prompt: 'select_account',
+          },
         },
       });
 

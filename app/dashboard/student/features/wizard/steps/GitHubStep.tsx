@@ -8,8 +8,8 @@
 
 'use client';
 
-import { useState, useCallback, Dispatch, SetStateAction } from 'react';
-import { Github, RefreshCw, Check, AlertCircle, Loader2, Code2, Wrench } from 'lucide-react';
+import { useState, useCallback, Fragment, Dispatch, SetStateAction } from 'react';
+import { Github, RefreshCw, Check, AlertCircle, Loader2, Code2, Wrench, CheckCircle2 } from 'lucide-react';
 import { useGitHubConnection } from '../../../hooks';
 import StepHeader from '../components/StepHeader';
 import StickyActionBar from '../components/StickyActionBar';
@@ -148,28 +148,82 @@ export default function GitHubStep({
             <div className="p-6">
               {importingGitHub ? (
                 /* Import in progress */
-                <div className="py-2 space-y-3">
-                  {/* Header row */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-                      <span className="text-sm font-medium text-default">
-                        {githubImportProgress?.step ?? 'Analyzing your repositories...'}
-                      </span>
+                <div className="py-2 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Github className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-default">Importing from GitHub</p>
+                      <p className="text-xs text-muted truncate">
+                        {githubImportProgress?.step ?? 'Connecting\u2026'}
+                      </p>
                     </div>
                     {githubImportProgress && githubImportProgress.reposTotal > 0 && (
-                      <span className="text-xs font-medium text-muted tabular-nums shrink-0">
-                        {githubImportProgress.reposProcessed}/{githubImportProgress.reposTotal}
+                      <span className="text-xs font-medium text-muted tabular-nums shrink-0 bg-primary-subtle/20 rounded px-2 py-0.5">
+                        {githubImportProgress.reposProcessed}/{githubImportProgress.reposTotal} repos
                       </span>
                     )}
                   </div>
 
+                  {/* Phase stepper */}
+                  {(() => {
+                    const total = githubImportProgress?.reposTotal ?? 0;
+                    const processed = githubImportProgress?.reposProcessed ?? 0;
+                    const phases = [
+                      { label: 'Fetching',    done: total > 0 },
+                      { label: 'Analysing',   done: total > 0 && processed >= total },
+                      { label: 'Finalizing',  done: false },
+                    ];
+                    return (
+                      <div className="flex items-start">
+                        {phases.map((phase, i) => {
+                          const isActive = !phase.done && (i === 0 || phases[i - 1].done);
+                          return (
+                            <Fragment key={i}>
+                              <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                                  phase.done  ? 'border-primary bg-primary' :
+                                  isActive    ? 'border-primary bg-primary/10' :
+                                               'border-border/30 bg-background'
+                                }`}>
+                                  {phase.done   && <Check className="w-3 h-3 text-white" />}
+                                  {isActive     && <Loader2 className="w-3 h-3 text-primary animate-spin" />}
+                                </div>
+                                <span className={`text-xs whitespace-nowrap ${
+                                  phase.done  ? 'text-primary/80' :
+                                  isActive    ? 'text-default font-medium' :
+                                               'text-muted/40'
+                                }`}>{phase.label}</span>
+                              </div>
+                              {i < phases.length - 1 && (
+                                <div className={`flex-1 h-0.5 mt-3 mx-1 transition-all duration-300 ${
+                                  phases[i].done ? 'bg-primary/40' : 'bg-border/20'
+                                }`} />
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
                   {/* Progress bar */}
-                  <div className="h-1.5 rounded-full bg-primary-subtle/40 overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
-                      style={{ width: `${githubImportProgress?.progress ?? 0}%` }}
-                    />
+                  <div>
+                    <div className="h-2 rounded-full bg-primary-subtle/40 overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
+                        style={{ width: `${Math.max(githubImportProgress?.progress ?? 0, 3)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted mt-1.5">
+                      <span>0%</span>
+                      <span className="tabular-nums font-medium text-default">
+                        {Math.round(githubImportProgress?.progress ?? 0)}%
+                      </span>
+                      <span>100%</span>
+                    </div>
                   </div>
 
                   {/* Repo chips — all repos shown upfront, animate done → pending */}
@@ -181,26 +235,21 @@ export default function GitHubStep({
                           return (
                             <span
                               key={repo}
-                              className={`text-xs px-2 py-0.5 rounded-md border transition-all duration-500 ${
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition-all duration-500 ${
                                 done
                                   ? 'border-primary/25 bg-primary-subtle/25 text-primary/80'
                                   : 'border-border/25 bg-background text-muted animate-pulse'
                               }`}
                             >
-                              {done && <span className="mr-0.5 text-primary/60">✓</span>}
+                              {done
+                                ? <CheckCircle2 className="w-3 h-3 text-primary/60 shrink-0" />
+                                : <div className="w-3 h-3 rounded-full border border-border/40 shrink-0" />}
                               {repo}
                             </span>
                           );
                         })}
                       </div>
                     </div>
-                  )}
-
-                  {/* Parallel hint — shown only while waiting for first results */}
-                  {githubImportProgress && githubImportProgress.reposTotal > 0 && githubImportProgress.reposProcessed === 0 && (
-                    <p className="text-xs text-muted/70 text-center">
-                      Analyzing batches in parallel…
-                    </p>
                   )}
                 </div>
               ) : importDone ? (
