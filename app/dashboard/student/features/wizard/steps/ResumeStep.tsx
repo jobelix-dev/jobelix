@@ -1,6 +1,6 @@
 /**
  * ResumeStep Component
- * 
+ *
  * Step 0 of the wizard — Resume Upload.
  * Upload a PDF resume for AI extraction. Shows extraction progress.
  * On extraction complete, signals parent to auto-advance to GitHub step.
@@ -9,29 +9,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Upload, FileText, Loader2, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
 import StepHeader from '../components/StepHeader';
 import StickyActionBar from '../components/StickyActionBar';
 import type { StepNavProps } from '../components/StepHeader';
 
-/** Visual milestone groups for the extraction step list */
-const EXTRACTION_MILESTONES = [
-  'Reading resume file',
-  'Extracting contact & education',
-  'Extracting experience & projects',
-  'Extracting skills & extras',
-  'Saving your profile',
-];
-
-/** Map a raw step index (0–13) to a milestone index (0–4) */
-function stepToMilestone(stepIndex: number): number {
-  if (stepIndex <= 2) return 0;
-  if (stepIndex <= 4) return 1;
-  if (stepIndex <= 6) return 2;
-  if (stepIndex <= 11) return 3;
-  return 4;
-}
 
 interface ResumeStepProps extends StepNavProps {
   /** Resume file info (if previously uploaded) */
@@ -87,7 +70,7 @@ export default function ResumeStep({
     }
   }, [extracting, uploadError, onExtractionComplete]);
 
-  const extractionStepIndex = extractionProgress?.stepIndex;
+  const extractionStepIndex = extractionProgress?.stepIndex ?? 0;
   const extractionPercent = extractionProgress?.progress;
 
   return (
@@ -104,67 +87,29 @@ export default function ResumeStep({
       <div className="relative">
         {/* Processing overlay */}
         {isProcessing && (
-          <div className="absolute inset-0 z-10 bg-surface/95 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center p-6 gap-0">
-            {/* Icon */}
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-              {extracting
-                ? <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-                : <Loader2 className="w-6 h-6 text-primary animate-spin" />}
-            </div>
-
-            {/* Title & current step */}
-            <p className="text-sm font-semibold text-default mb-0.5">
+          <div className="absolute inset-0 z-10 bg-surface/95 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center px-8 gap-3">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            <p className="text-sm font-semibold text-default">
               {extracting ? 'Extracting your profile' : 'Uploading your resume'}
             </p>
-            <p className="text-xs text-muted mb-5">
-              {extracting
-                ? (RESUME_EXTRACTION_STEPS[extractionStepIndex ?? 0] ?? 'Processing\u2026')
-                : 'Preparing for AI analysis\u2026'}
-            </p>
-
-            {/* Progress bar */}
-            <div className="w-full max-w-xs mb-5">
-              <div className="h-2 w-full rounded-full bg-primary-subtle/50 overflow-hidden">
+            <div className="w-full max-w-xs">
+              <div className="h-1.5 w-full rounded-full bg-primary-subtle/40 overflow-hidden">
                 <div
                   className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${extractionPercent ?? (uploading ? 20 : 0)}%` }}
                 />
               </div>
               <div className="flex justify-between text-xs text-muted mt-1.5">
-                <span className="truncate max-w-[160px]">
+                <span>
                   {extracting
-                    ? (RESUME_EXTRACTION_STEPS[extractionStepIndex ?? 0] ?? 'Starting\u2026')
+                    ? (RESUME_EXTRACTION_STEPS[extractionStepIndex] ?? 'Processing\u2026')
                     : 'Uploading\u2026'}
                 </span>
-                <span className="tabular-nums shrink-0">
-                  {extractionPercent ? `${Math.round(extractionPercent)}%` : ''}
-                </span>
+                {extractionPercent != null && (
+                  <span className="tabular-nums">{Math.round(extractionPercent)}%</span>
+                )}
               </div>
             </div>
-
-            {/* Milestone step list — only shown during extraction */}
-            {extracting && (
-              <div className="w-full max-w-xs space-y-2.5">
-                {EXTRACTION_MILESTONES.map((label, i) => {
-                  const activeMilestone = stepToMilestone(extractionStepIndex ?? 0);
-                  const status = i < activeMilestone ? 'done' : i === activeMilestone ? 'active' : 'pending';
-                  return (
-                    <div key={i} className="flex items-center gap-2.5">
-                      {status === 'done' && <CheckCircle2 className="w-4 h-4 text-primary/70 shrink-0" />}
-                      {status === 'active' && <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />}
-                      {status === 'pending' && <div className="w-4 h-4 rounded-full border-2 border-border/30 shrink-0" />}
-                      <span className={`text-xs ${
-                        status === 'active' ? 'text-default font-medium' :
-                        status === 'done'   ? 'text-muted' :
-                        'text-muted/40'
-                      }`}>
-                        {label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         )}
 

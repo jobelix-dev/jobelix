@@ -161,10 +161,10 @@ export default function SetupWizard({
 
   const warningSteps = useMemo(() => {
     const warnings = new Set<number>();
-    if (!wizard.profilePublished && wizard.currentStep !== STEP.PROFILE) {
+    if (!wizard.profilePublished && wizard.currentStep > STEP.PROFILE) {
       warnings.add(STEP.PROFILE);
     }
-    if (!wizard.preferencesComplete && wizard.currentStep !== STEP.PREFERENCES) {
+    if (!wizard.preferencesComplete && wizard.currentStep > STEP.PREFERENCES) {
       warnings.add(STEP.PREFERENCES);
     }
     return warnings;
