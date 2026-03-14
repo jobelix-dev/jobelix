@@ -22,6 +22,12 @@ export interface SignupResponse {
   message?: string;
   loggedIn?: boolean;
   profile?: UserProfile;
+  session?: {
+    access_token: string;
+    refresh_token: string;
+    expires_at?: number;
+    user?: unknown;
+  };
 }
 
 export interface LoginPayload {

@@ -22,6 +22,8 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { api } from '@/lib/client/api';
 import { apiFetch } from '@/lib/client/http';
 import { getHCaptchaSiteKey, isHCaptchaConfigured } from '@/lib/client/config';
+import { getElectronAPI } from '@/lib/client/runtime';
+import { createClient } from '@/lib/client/supabaseClient';
 import SocialLoginButtons from '@/app/components/SocialLoginButtons';
 import { storeReferralCode, validateReferralCode, getStoredReferralCode } from '@/lib/shared/referral';
 
@@ -148,6 +150,24 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
           if (effectiveReferralCode) {
             console.log('[Signup] User logged in immediately, applying referral code');
             await applyReferralCode(effectiveReferralCode);
+          }
+          // In Electron, API calls use Bearer tokens (credentials: 'omit'), not cookies.
+          // The signup API sets cookies server-side but those are invisible to apiFetch.
+          // The API returns session tokens so we can set the client-side SDK session
+          // and save to the Electron keychain for Bearer auth.
+          if (response.session) {
+            try {
+              await createClient().auth.setSession({
+                access_token: response.session.access_token,
+                refresh_token: response.session.refresh_token,
+              });
+              const electronAPI = getElectronAPI();
+              if (electronAPI?.setSession) {
+                await electronAPI.setSession(response.session);
+              }
+            } catch {
+              // Non-fatal — cookies will work as fallback on web
+            }
           }
           router.refresh();
           await new Promise(resolve => setTimeout(resolve, 100));

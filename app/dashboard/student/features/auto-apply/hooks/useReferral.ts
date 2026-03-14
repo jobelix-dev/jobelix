@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/client/http';
 
 export interface ReferralStats {
@@ -35,19 +36,25 @@ export function useReferral(): UseReferralReturn {
   const [referrals, setReferrals] = useState<ReferralItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const fetchReferralData = useCallback(async () => {
     try {
       setError(null);
-      
+
       // Fetch both code/stats and referrals list in parallel
       const [codeResponse, listResponse] = await Promise.all([
         apiFetch('/api/student/referral/code'),
         apiFetch('/api/student/referral/list'),
       ]);
-      
+
       // Handle code/stats response
       if (!codeResponse.ok) {
+        // Session expired — redirect to login instead of showing an error
+        if (codeResponse.status === 401) {
+          router.push('/login');
+          return;
+        }
         // Non-students get 403, don't show error
         if (codeResponse.status === 403) {
           setStats(null);
