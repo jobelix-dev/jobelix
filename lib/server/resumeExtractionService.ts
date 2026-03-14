@@ -195,7 +195,7 @@ async function extractSection<T>(
   const existingCount = Array.isArray(existingSectionData) ? existingSectionData.length : 0;
 
   const completion = await openai.chat.completions.create({
-    model: 'mistral-large-latest',
+    model: 'mistral-small-latest',
     messages: [
       {
         role: 'system',
@@ -230,7 +230,7 @@ async function extractContactInfo<T>(
   systemPrompt: string
 ): Promise<T> {
   const completion = await openai.chat.completions.create({
-    model: 'mistral-large-latest',
+    model: 'mistral-small-latest',
     messages: [
       {
         role: 'system',

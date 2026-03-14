@@ -6,6 +6,8 @@ interface Props {
   isDeleting: boolean;
   deletePassword: string;
   deleteError: string | null;
+  /** When true the user authenticated via OAuth and has no password to verify */
+  isOAuthUser?: boolean;
   onPasswordChange: (value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -15,6 +17,7 @@ export default function DeleteAccountModal({
   isDeleting,
   deletePassword,
   deleteError,
+  isOAuthUser = false,
   onPasswordChange,
   onConfirm,
   onCancel,
@@ -45,20 +48,22 @@ export default function DeleteAccountModal({
             This action cannot be undone.
           </p>
 
-          <div className="text-left mb-4">
-            <label htmlFor="delete-account-password" className="block text-xs text-muted mb-1">
-              Password (required for email/password accounts)
-            </label>
-            <input
-              id="delete-account-password"
-              type="password"
-              autoComplete="current-password"
-              value={deletePassword}
-              onChange={(e) => onPasswordChange(e.target.value)}
-              disabled={isDeleting}
-              className="w-full px-3 py-2 bg-background border border-border/30 rounded-lg text-sm text-default focus:outline-none focus:ring-2 focus:ring-error/40"
-            />
-          </div>
+          {!isOAuthUser && (
+            <div className="text-left mb-4">
+              <label htmlFor="delete-account-password" className="block text-xs text-muted mb-1">
+                Confirm your password
+              </label>
+              <input
+                id="delete-account-password"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => onPasswordChange(e.target.value)}
+                disabled={isDeleting}
+                className="w-full px-3 py-2 bg-background border border-border/30 rounded-lg text-sm text-default focus:outline-none focus:ring-2 focus:ring-error/40"
+              />
+            </div>
+          )}
 
           {deleteError && (
             <p className="text-xs text-error mb-4 text-left">{deleteError}</p>
