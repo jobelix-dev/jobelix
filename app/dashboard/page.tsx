@@ -60,6 +60,7 @@ export default function DashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isOAuthUser, setIsOAuthUser] = useState(false);
 
   // Load profile and redirect if unauthenticated / on error
   useEffect(() => {
@@ -91,6 +92,11 @@ export default function DashboardPage() {
         }
 
         setProfile(response.profile);
+
+        // Detect OAuth-only accounts — they have no password and shouldn't see the password field
+        const { data: { user } } = await createSupabaseClient().auth.getUser();
+        const providers: unknown[] = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
+        setIsOAuthUser(providers.length > 0 && !providers.includes('email'));
 
         if (response.profile.role === 'company' && !response.profile.has_seen_welcome_notice) {
           setShowWelcomeNotice(true);
@@ -197,6 +203,7 @@ export default function DashboardPage() {
           isDeleting={isDeleting}
           deletePassword={deletePassword}
           deleteError={deleteError}
+          isOAuthUser={isOAuthUser}
           onPasswordChange={setDeletePassword}
           onConfirm={handleDeleteAccount}
           onCancel={closeDeleteConfirm}

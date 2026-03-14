@@ -11,7 +11,7 @@
 
 import "server-only";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Must run before PDF.js is loaded.
 import '@/lib/server/pdfPolyfills';
