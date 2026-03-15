@@ -17,8 +17,8 @@ export interface ProxyDualWindowPolicy {
 export const API_RATE_LIMIT_POLICIES = {
   gpt4: {
     endpoint: 'gpt4',
-    hourlyLimit: 500,
-    dailyLimit: 2000,
+    hourlyLimit: 100,
+    dailyLimit: 500,
   },
   resumeUpload: {
     endpoint: 'resume-upload',
@@ -63,6 +63,11 @@ export const API_RATE_LIMIT_POLICIES = {
   referralApply: {
     endpoint: 'referral-apply',
     hourlyLimit: 5,
+    dailyLimit: 20,
+  },
+  newsletterUnsubscribe: {
+    endpoint: 'newsletter-unsubscribe',
+    hourlyLimit: 10,
     dailyLimit: 20,
   },
 } as const satisfies Record<string, ApiRateLimitPolicy>;

@@ -162,8 +162,8 @@ export default function SignupForm({ role, referralCode }: SignupFormProps) {
                 refresh_token: response.session.refresh_token,
               });
               const electronAPI = getElectronAPI();
-              if (electronAPI?.setSession) {
-                await electronAPI.setSession(response.session);
+              if (electronAPI?.setSession && response.session.user) {
+                await electronAPI.setSession({ ...response.session, user: response.session.user });
               }
             } catch {
               // Non-fatal — cookies will work as fallback on web

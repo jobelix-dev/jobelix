@@ -13,7 +13,6 @@ import { useState, Dispatch, SetStateAction, Suspense } from 'react';
 import ProfileEditorSection from './sections/ProfileEditorSection';
 import HeaderSection from './sections/HeaderSection';
 import type { ExtractedResumeData, ProjectEntry, SkillEntry } from '@/lib/shared/types';
-import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
 import { ProfileValidationResult } from '@/lib/client/profileValidation';
 import ValidationTour from '@/app/dashboard/student/components/ValidationTour';
 import { useConfirmDialog } from '@/app/components/confirm-dialog';
@@ -84,13 +83,23 @@ export default function ProfileTab({
     'Preparing extraction',
   ];
 
-  const resumeExtractionSteps = RESUME_EXTRACTION_STEPS;
+  const resumeExtractionSteps = [
+    'Reading your resume\u2026',
+    'Analyzing profile sections\u2026',
+    'Saving your profile\u2026',
+  ];
+
+  const extractionStepIndex = extractionProgress?.stepIndex;
+  const extractionProgressPercent = extractionProgress?.progress;
+
+  const extractionPhaseIndex = extractionStepIndex === undefined ? undefined
+    : extractionStepIndex <= 2 ? 0
+    : extractionStepIndex <= 11 ? 1
+    : 2;
 
   const _githubImportSteps = ['Analyzing repositories'];
 
   const loadingEstimatedMs = extracting ? 45000 : uploading ? 7000 : importingGitHub ? 12000 : undefined;
-  const extractionStepIndex = extractionProgress?.stepIndex;
-  const extractionProgressPercent = extractionProgress?.progress;
   const githubProgressPercent = importingGitHub ? (githubImportProgress?.progress ?? 0) : undefined;
   const githubRepos = githubImportProgress?.batchRepos || [];
   
@@ -201,7 +210,7 @@ export default function ProfileTab({
         loadingSubmessage={extracting ? 'This can take a few minutes. Extracting section by section.' : uploading ? 'Uploading your PDF securely' : importingGitHub ? 'Reviewing code and README files to build projects and skills' : undefined}
         loadingSteps={loadingSteps}
         loadingEstimatedMs={loadingEstimatedMs}
-        loadingStepIndex={extracting ? extractionStepIndex : undefined}
+        loadingStepIndex={extracting ? extractionPhaseIndex : undefined}
         loadingProgress={extracting ? extractionProgressPercent : importingGitHub ? githubProgressPercent : undefined}
         saveSuccess={saveSuccess}
         editingProjectIndex={editingProjectIndex}

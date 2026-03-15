@@ -407,8 +407,8 @@ describe('GPT4 route: auth before rate limit ordering', () => {
 
     expect(mockCheckRateLimit).toHaveBeenCalledWith(userId, {
       endpoint: 'gpt4',
-      hourlyLimit: 500,
-      dailyLimit: 2000,
+      hourlyLimit: 100,
+      dailyLimit: 500,
     });
   });
 });

@@ -11,7 +11,7 @@
 
 import { useEffect, useState, useCallback, Dispatch, SetStateAction, useRef } from 'react';
 import { api } from '@/lib/client/api';
-import { apiEventSource } from '@/lib/client/http';
+import { apiFetch } from '@/lib/client/http';
 import type { ExtractedResumeData } from '@/lib/shared/types';
 
 interface ResumeInfo {
@@ -42,14 +42,14 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
-  const progressSourceRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load existing resume metadata on mount
   useEffect(() => {
     async function loadResumeInfo() {
       try {
         const response = await api.getResume();
-        
+
         if (response.data) {
           setResumeInfo({
             filename: response.data.file_name,
@@ -64,12 +64,12 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
     loadResumeInfo();
   }, []);
 
-  // Cleanup EventSource on unmount
+  // Cleanup poll on unmount
   useEffect(() => {
     return () => {
-      if (progressSourceRef.current) {
-        progressSourceRef.current.close();
-        progressSourceRef.current = null;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
   }, []);
@@ -78,52 +78,59 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
   const extractResumeData = useCallback(async () => {
     setExtracting(true);
     setUploadError('');
-    setExtractionProgress(null);
+    // Seed a non-zero initial state so the bar starts at 2% immediately
+    // instead of sitting at 0% until the first DB write arrives (~500ms).
+    setExtractionProgress({ stepIndex: 0, step: 'Preparing extraction', progress: 2, updatedAt: new Date().toISOString() });
 
-    if (progressSourceRef.current) {
-      progressSourceRef.current.close();
-      progressSourceRef.current = null;
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
 
-    const progressSource = apiEventSource('/api/student/profile/draft/extract/progress');
-    progressSourceRef.current = progressSource;
-
-    progressSource.onmessage = (event) => {
+    // Poll the progress endpoint every 500 ms while extraction runs.
+    // Works across all environments (web, Electron, serverless) because
+    // progress is stored in the DB, not in-process memory.
+    pollIntervalRef.current = setInterval(async () => {
       try {
-        const data = JSON.parse(event.data) as ExtractionProgress;
-        setExtractionProgress(data);
-        if (data.complete) {
-          progressSource.close();
-          progressSourceRef.current = null;
-        }
-      } catch (error) {
-        console.warn('Failed to parse extraction progress event', error);
+        const res = await apiFetch('/api/student/profile/draft/extract/progress');
+        if (!res.ok) return;
+        const data = await res.json() as ExtractionProgress | null;
+        if (data) setExtractionProgress(prev =>
+          !prev || data.progress >= prev.progress ? data : prev
+        );
+      } catch {
+        // Ignore transient network errors — next tick will retry.
       }
-    };
-
-    progressSource.onerror = () => {
-      progressSource.close();
-      progressSourceRef.current = null;
-    };
+    }, 500);
 
     try {
       const response = await api.extractResumeData();
-      
+
       // Replace profile data with freshly extracted data (no merging)
       setProfileData({
         ...response.extracted,
       });
-      
+
       setDraftId(response.draftId);
       setIsDataLoaded(true);
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : 'Failed to extract resume data');
     } finally {
-      setExtracting(false);
-      if (progressSourceRef.current) {
-        progressSourceRef.current.close();
-        progressSourceRef.current = null;
+      // One final poll to capture the complete:true state before stopping.
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
+      try {
+        const res = await apiFetch('/api/student/profile/draft/extract/progress');
+        if (res.ok) {
+          const data = await res.json() as ExtractionProgress | null;
+          if (data) setExtractionProgress(prev =>
+            !prev || data.progress >= prev.progress ? data : prev
+          );
+        }
+      } catch { /* best-effort */ }
+      setExtracting(false);
     }
   }, [setProfileData, setDraftId, setIsDataLoaded]);
 

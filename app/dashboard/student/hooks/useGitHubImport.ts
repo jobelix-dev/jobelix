@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ProjectEntry, SkillEntry } from '@/lib/shared/types';
-import { apiEventSource, apiFetch } from '@/lib/client/http';
+import { apiFetch } from '@/lib/client/http';
 
 // ============================================================================
 // Types
@@ -157,7 +157,7 @@ export function useGitHubImportDashboard(
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
-  const progressSourceRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(true);
 
   // Track mounted state for safe state updates
@@ -165,10 +165,9 @@ export function useGitHubImportDashboard(
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // Cleanup EventSource on unmount
-      if (progressSourceRef.current) {
-        progressSourceRef.current.close();
-        progressSourceRef.current = null;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
   }, []);
@@ -182,38 +181,31 @@ export function useGitHubImportDashboard(
       setImporting(true);
       setError(null);
       setSuccess(false);
-      setProgress(null);
+      // Seed a non-zero initial state so the bar starts at 2% immediately
+      // instead of sitting at 0% until the first DB write arrives (~500ms).
+      setProgress({ step: 'Starting import', progress: 2, reposProcessed: 0, reposTotal: 0, batchRepos: [], updatedAt: new Date().toISOString() });
 
-      // Close any existing progress connection
-      if (progressSourceRef.current) {
-        progressSourceRef.current.close();
-        progressSourceRef.current = null;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
 
-      // Start SSE for progress tracking
-      const progressSource = apiEventSource('/api/student/import-github/progress');
-      progressSourceRef.current = progressSource;
-
-      progressSource.onmessage = (event) => {
+      // Poll progress every 500 ms while import runs.
+      // Works across all environments (web, Electron, serverless) because
+      // progress is stored in the DB, not in-process memory.
+      pollIntervalRef.current = setInterval(async () => {
         if (!isMountedRef.current) return;
-        
         try {
-          const data = JSON.parse(event.data) as ImportProgress;
-          setProgress(data);
-          
-          if (data.complete) {
-            progressSource.close();
-            progressSourceRef.current = null;
-          }
-        } catch (parseError) {
-          console.warn('Failed to parse GitHub import progress event', parseError);
+          const res = await apiFetch('/api/student/import-github/progress');
+          if (!res.ok) return;
+          const data = await res.json() as ImportProgress | null;
+          if (data && isMountedRef.current) setProgress(prev =>
+            !prev || data.progress >= prev.progress ? data : prev
+          );
+        } catch {
+          // Ignore transient network errors — next tick will retry.
         }
-      };
-
-      progressSource.onerror = () => {
-        progressSource.close();
-        progressSourceRef.current = null;
-      };
+      }, 500);
 
       // Perform the import
       const data = await fetchGitHubImport(currentProjects, currentSkills);
@@ -234,13 +226,22 @@ export function useGitHubImportDashboard(
       }
       return null;
     } finally {
-      if (isMountedRef.current) {
-        setImporting(false);
+      // One final poll to capture the complete:true state before stopping.
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
-      // Ensure progress source is closed
-      if (progressSourceRef.current) {
-        progressSourceRef.current.close();
-        progressSourceRef.current = null;
+      if (isMountedRef.current) {
+        try {
+          const res = await apiFetch('/api/student/import-github/progress');
+          if (res.ok) {
+            const data = await res.json() as ImportProgress | null;
+            if (data) setProgress(prev =>
+              !prev || data.progress >= prev.progress ? data : prev
+            );
+          }
+        } catch { /* best-effort */ }
+        setImporting(false);
       }
     }
   }, [options]);

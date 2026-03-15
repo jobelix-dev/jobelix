@@ -37,7 +37,22 @@ export async function POST(request: NextRequest) {
     const { user, supabase } = auth;
 
     /**
-     * 2) Build the "empty" draft object
+     * 2) Verify the authenticated user is a company
+     * Defense-in-depth: RLS also enforces this, but checking here produces
+     * a clear 403 instead of a silent insert failure or orphaned row.
+     */
+    const { data: company } = await supabase
+      .from('company')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!company) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    /**
+     * 3) Build the "empty" draft object
      *
      * Beginner note:
      * - This draft is like a saved form that starts blank.
@@ -81,7 +96,7 @@ export async function POST(request: NextRequest) {
     };
 
     /**
-     * 3) Insert the draft
+     * 4) Insert the draft
      *
      * 🔐 SECURITY:
      * - Avoid `.select()` with no column list, because it returns ALL columns.
@@ -102,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     /**
-     * 4) Return the created draft
+     * 5) Return the created draft
      * The frontend can now redirect to the edit page for this draft.
      */
     return NextResponse.json({ 

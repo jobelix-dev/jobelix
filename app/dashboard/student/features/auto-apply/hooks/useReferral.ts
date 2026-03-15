@@ -89,7 +89,7 @@ export function useReferral(): UseReferralReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   const refresh = useCallback(async () => {
     setLoading(true);

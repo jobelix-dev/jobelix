@@ -9,6 +9,7 @@
 
 import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useSmoothProgress } from '@/lib/client/useSmoothProgress';
 
 interface LoadingOverlayProps {
   /** Main loading message displayed at the top */
@@ -137,6 +138,10 @@ export default function LoadingOverlay({
     return Math.round(raw * 100);
   }, [currentStepIndex, elapsedMs, hasSteps, progressPercent, stepDurationMs, steps]);
 
+  // Smooth the progress value so discrete poll jumps (e.g. 28%→57%) animate
+  // at ~35%/s instead of jumping instantly.
+  const smoothPercent = useSmoothProgress(derivedProgressPercent);
+
   return (
     <div className="absolute -inset-2 z-10 bg-surface/80/80 backdrop-blur-sm rounded-lg flex flex-col items-center pt-8 px-6">
       <div className="text-center mb-5">
@@ -157,12 +162,12 @@ export default function LoadingOverlay({
           </div>
           <div className="flex items-center justify-between text-xs text-muted mb-2">
             <span>Progress</span>
-            <span>{derivedProgressPercent}%</span>
+            <span>{smoothPercent}%</span>
           </div>
           <div className="h-2 w-full rounded-full bg-primary-subtle/60 overflow-hidden">
             <div
-              className="h-full bg-primary transition-all duration-300"
-              style={{ width: `${derivedProgressPercent}%` }}
+              className="h-full bg-primary"
+              style={{ width: `${smoothPercent}%` }}
             />
           </div>
         </div>

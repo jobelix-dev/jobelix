@@ -25,7 +25,7 @@
     "buildDependenciesFromSource": false,
     "nodeGypRebuild": false,
     "npmRebuild": false,
-    "compression": "maximum",
+    "compression": "normal",
     "publish": [
       {
         "provider": "github",
@@ -217,7 +217,7 @@
       "deleteAppDataOnUninstall": false,
       "perMachine": false,
       "allowElevation": true,
-      "differentialPackage": false
+      "differentialPackage": true
     },
     "mac": {
       "target": [

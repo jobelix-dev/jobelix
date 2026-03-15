@@ -10,7 +10,12 @@
 
 import { useEffect, useRef } from 'react';
 import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
-import { RESUME_EXTRACTION_STEPS } from '@/lib/shared/extractionSteps';
+import { useSmoothProgress } from '@/lib/client/useSmoothProgress';
+function extractionPhase(stepIndex: number): string {
+  if (stepIndex <= 2) return 'Reading your resume\u2026';
+  if (stepIndex <= 11) return 'Analyzing profile sections\u2026';
+  return 'Saving your profile\u2026';
+}
 import StepHeader from '../components/StepHeader';
 import StickyActionBar from '../components/StickyActionBar';
 import type { StepNavProps } from '../components/StepHeader';
@@ -72,6 +77,7 @@ export default function ResumeStep({
 
   const extractionStepIndex = extractionProgress?.stepIndex ?? 0;
   const extractionPercent = extractionProgress?.progress;
+  const smoothPercent = useSmoothProgress(extractionPercent ?? (uploading ? 20 : 0));
 
   return (
     <div className="space-y-6">
@@ -95,18 +101,18 @@ export default function ResumeStep({
             <div className="w-full max-w-xs">
               <div className="h-1.5 w-full rounded-full bg-primary-subtle/40 overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{ width: `${extractionPercent ?? (uploading ? 20 : 0)}%` }}
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${smoothPercent}%` }}
                 />
               </div>
               <div className="flex justify-between text-xs text-muted mt-1.5">
                 <span>
                   {extracting
-                    ? (RESUME_EXTRACTION_STEPS[extractionStepIndex] ?? 'Processing\u2026')
+                    ? extractionPhase(extractionStepIndex)
                     : 'Uploading\u2026'}
                 </span>
-                {extractionPercent != null && (
-                  <span className="tabular-nums">{Math.round(extractionPercent)}%</span>
+                {extracting && (
+                  <span className="tabular-nums">{smoothPercent}%</span>
                 )}
               </div>
             </div>

@@ -129,9 +129,20 @@ describe('POST /api/company/offer/draft/new', () => {
     expect(await res.json()).toEqual({ error: 'Unauthorized' });
   });
 
+  it('returns 403 when user is not a company', async () => {
+    const mockSb = createMockSupabase();
+    mockSb._chain.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    mockAuthSuccess(mockSb);
+
+    const res = await createDraft(createRequest());
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'Forbidden' });
+  });
+
   it('creates a new empty draft and returns it', async () => {
     const mockSb = createMockSupabase();
     const fakeDraft = { id: VALID_UUID, company_id: MOCK_USER_ID, status: 'editing' };
+    mockSb._chain.maybeSingle.mockResolvedValueOnce({ data: { id: MOCK_USER_ID }, error: null });
     mockSb._chain.single.mockResolvedValueOnce({ data: fakeDraft, error: null });
     mockAuthSuccess(mockSb);
 
@@ -153,6 +164,7 @@ describe('POST /api/company/offer/draft/new', () => {
 
   it('returns 500 when insert fails', async () => {
     const mockSb = createMockSupabase();
+    mockSb._chain.maybeSingle.mockResolvedValueOnce({ data: { id: MOCK_USER_ID }, error: null });
     mockSb._chain.single.mockResolvedValueOnce({
       data: null,
       error: { message: 'DB error' },
@@ -166,6 +178,7 @@ describe('POST /api/company/offer/draft/new', () => {
 
   it('returns 500 when insert returns null data without error', async () => {
     const mockSb = createMockSupabase();
+    mockSb._chain.maybeSingle.mockResolvedValueOnce({ data: { id: MOCK_USER_ID }, error: null });
     mockSb._chain.single.mockResolvedValueOnce({ data: null, error: null });
     mockAuthSuccess(mockSb);
 

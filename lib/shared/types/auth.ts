@@ -26,7 +26,7 @@ export interface SignupResponse {
     access_token: string;
     refresh_token: string;
     expires_at?: number;
-    user?: unknown;
+    user?: { id: string };
   };
 }
 
