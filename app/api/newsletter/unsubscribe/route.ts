@@ -18,6 +18,9 @@ import {
   assertUnsubscribeSecretConfigured,
   verifyUnsubscribeToken,
 } from './helpers';
+import { checkRateLimit, logApiCall, rateLimitExceededResponse } from '@/lib/server/rateLimiting';
+import { getClientIp, hashToPseudoUuid } from '@/lib/server/requestSecurity';
+import { API_RATE_LIMIT_POLICIES } from '@/lib/shared/rateLimitPolicies';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -56,6 +59,13 @@ export async function GET(request: NextRequest) {
   } catch {
     return new NextResponse('Unsubscribe service unavailable', { status: 503 });
   }
+
+  const rateLimitConfig = API_RATE_LIMIT_POLICIES.newsletterUnsubscribe;
+  const identity = await hashToPseudoUuid('newsletter-unsubscribe', getClientIp(request));
+  const rateLimitResult = await checkRateLimit(identity, rateLimitConfig);
+  if (rateLimitResult.error) return rateLimitResult.error;
+  if (!rateLimitResult.data.allowed) return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data);
+  await logApiCall(identity, rateLimitConfig.endpoint);
 
   const email = request.nextUrl.searchParams.get('email');
   const token = request.nextUrl.searchParams.get('token');
@@ -130,6 +140,13 @@ export async function POST(request: NextRequest) {
   } catch {
     return new NextResponse(null, { status: 503 });
   }
+
+  const rateLimitConfig = API_RATE_LIMIT_POLICIES.newsletterUnsubscribe;
+  const identity = await hashToPseudoUuid('newsletter-unsubscribe', getClientIp(request));
+  const rateLimitResult = await checkRateLimit(identity, rateLimitConfig);
+  if (rateLimitResult.error) return rateLimitResult.error;
+  if (!rateLimitResult.data.allowed) return rateLimitExceededResponse(rateLimitConfig, rateLimitResult.data);
+  await logApiCall(identity, rateLimitConfig.endpoint);
 
   const email = request.nextUrl.searchParams.get('email');
   const token = request.nextUrl.searchParams.get('token');

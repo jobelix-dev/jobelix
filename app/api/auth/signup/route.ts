@@ -221,7 +221,19 @@ export async function POST(request: NextRequest) {
       }
       
       console.log('[Signup] Session established successfully')
-      return NextResponse.json({ success: true, userId: data.user.id, loggedIn: true })
+      // Return session tokens so the client (especially Electron, which uses Bearer auth
+      // rather than cookies) can immediately authenticate API calls after signup.
+      return NextResponse.json({
+        success: true,
+        userId: data.user.id,
+        loggedIn: true,
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at,
+          user: data.session.user,
+        },
+      })
     }
 
     return NextResponse.json({

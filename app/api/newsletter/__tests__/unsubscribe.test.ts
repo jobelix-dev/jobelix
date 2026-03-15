@@ -18,6 +18,15 @@ process.env.RESEND_API_KEY = 'test-api-key';
 process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = 'test-secret';
 
 // ---------------------------------------------------------------------------
+// Mock: Rate limiting (uses getServiceSupabase which needs real env vars)
+// ---------------------------------------------------------------------------
+vi.mock('@/lib/server/rateLimiting', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ data: { allowed: true }, error: null }),
+  logApiCall: vi.fn().mockResolvedValue(undefined),
+  rateLimitExceededResponse: vi.fn().mockReturnValue(new Response('Rate limit exceeded', { status: 429 })),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock: Resend
 // ---------------------------------------------------------------------------
 const mockContactsList = vi.fn();

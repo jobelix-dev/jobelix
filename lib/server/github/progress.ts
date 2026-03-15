@@ -1,22 +1,17 @@
 /**
- * In-memory GitHub import progress emitter (per user).
- * Used to stream progress via SSE during GitHub sync.
- * 
- * ARCHITECTURE NOTE:
- * This uses in-memory state which works because:
- * 1. SSE streaming happens within a single long-running request
- * 2. The import POST and progress SSE requests hit the same serverless instance
- *    during the same import operation (within seconds of each other)
- * 
- * LIMITATIONS:
- * - Progress state is lost on serverless cold start (acceptable - user retries)
- * - Multi-instance deployments won't share progress (rare edge case)
- * 
- * For production at scale, consider using Redis pub/sub instead.
- * For current use case (single-user imports), in-memory is sufficient.
+ * GitHub import progress tracking — DB-backed.
+ *
+ * Progress is upserted into the `github_import_progress` table via the service
+ * role so it is visible across all server instances. The frontend polls
+ * GET /api/student/import-github/progress every 500 ms.
+ *
+ * A dedicated table (not `student`) is used because the student row doesn't
+ * exist yet during the wizard phase (before the user finalises their profile).
  */
 
-import { EventEmitter } from 'events';
+import "server-only";
+
+import { getServiceSupabase } from '../supabaseService';
 
 export interface GitHubImportProgressState {
   step: string;
@@ -28,9 +23,10 @@ export interface GitHubImportProgressState {
   updatedAt: string;
 }
 
-const emitter = new EventEmitter();
-const progressByUser = new Map<string, GitHubImportProgressState>();
-
+/**
+ * Write the current import step to the DB (fire-and-forget).
+ * Called synchronously by the import service — does not block import.
+ */
 export function setGitHubImportProgress(
   userId: string,
   next: Omit<GitHubImportProgressState, 'updatedAt'>
@@ -40,24 +36,39 @@ export function setGitHubImportProgress(
     updatedAt: new Date().toISOString(),
   };
 
-  progressByUser.set(userId, state);
-  emitter.emit(userId, state);
+  getServiceSupabase()
+    .from('github_import_progress')
+    .upsert({ user_id: userId, data: state, updated_at: state.updatedAt })
+    .then(({ error }) => {
+      if (error) console.error('[GitHubProgress] write failed:', error);
+      else console.log('[GitHubProgress] wrote step', JSON.stringify(state.step), 'for', userId);
+    });
 
   if (state.complete) {
+    // Clear the row after a short delay so late polls still see the final state.
     setTimeout(() => {
-      progressByUser.delete(userId);
-    }, 120000);
+      void getServiceSupabase()
+        .from('github_import_progress')
+        .delete()
+        .eq('user_id', userId);
+    }, 120_000);
   }
 }
 
-export function getGitHubImportProgress(userId: string) {
-  return progressByUser.get(userId) || null;
-}
+/**
+ * Read the current GitHub import progress for a user from the DB.
+ */
+export async function getGitHubImportProgress(
+  userId: string
+): Promise<GitHubImportProgressState | null> {
+  const { data, error } = await getServiceSupabase()
+    .from('github_import_progress')
+    .select('data')
+    .eq('user_id', userId)
+    .maybeSingle();
 
-export function subscribeGitHubImportProgress(
-  userId: string,
-  listener: (state: GitHubImportProgressState) => void
-) {
-  emitter.on(userId, listener);
-  return () => emitter.off(userId, listener);
+  if (error) console.error('[GitHubProgress] read failed:', error);
+  else console.log('[GitHubProgress] read for', userId, '→', data ? data.data : 'null');
+
+  return (data?.data as GitHubImportProgressState | null) ?? null;
 }

@@ -1866,8 +1866,9 @@ drop trigger if exists "prefixes_create_hierarchy" on "storage"."prefixes";
 
 drop trigger if exists "prefixes_delete_hierarchy" on "storage"."prefixes";
 
-CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
-
-CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
+-- protect_buckets_delete and protect_objects_delete triggers omitted:
+-- storage.protect_delete() is a hosted-Supabase-only function and does not
+-- exist in the local Docker image. These triggers are managed by Supabase
+-- infrastructure and do not need to be in project migrations.
 
 
