@@ -32,17 +32,14 @@ jobs:
             artifact_name: Jobelix-linux-arm64
             linux_label: ubuntu-22.04-arm
 
-          # Windows Intel (x64)
+          # Windows: x64 + ARM64 built in one job so electron-builder emits a
+          # single latest.yml that covers both architectures. Two separate
+          # jobs each produce their own latest.yml, and the release upload
+          # clobbers one of them, breaking auto-update for the losing arch.
           - os: windows-2022
             platform: win32
             arch: x64
-            artifact_name: Jobelix-windows-x64
-
-          # Windows ARM64
-          - os: windows-2022
-            platform: win32
-            arch: arm64
-            artifact_name: Jobelix-windows-arm64
+            artifact_name: Jobelix-windows
 
           # # macOS Intel (x64) - DISABLED: Code signing not configured
           # - os: macos-15
@@ -156,7 +153,10 @@ jobs:
         if: matrix.platform == 'win32'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --${{ matrix.arch }}
+        # Build x64 + arm64 together so electron-builder produces a single
+        # latest.yml listing both architectures. Separate jobs would each
+        # emit their own latest.yml and the release upload would clobber one.
+        run: npx electron-builder --win --x64 --arm64
 
       - name: Build Electron app (macOS)
         if: matrix.platform == 'darwin'
