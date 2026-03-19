@@ -119,10 +119,12 @@ export async function getLatestRelease(): Promise<ReleaseInfo> {
       };
       
       // Windows: .exe installer
+      // The combined (universal) installer has no arch in the name — skip it
+      // so it doesn't overwrite the explicit x64 entry.
       if (name.endsWith('.exe') && name.includes('setup')) {
         if (isArmAsset(name)) {
           assets['windows-arm64'] = assetInfo;
-        } else {
+        } else if (name.includes('x64') || name.includes('x86') || name.includes('ia32')) {
           assets['windows-x64'] = assetInfo;
         }
       }

@@ -12,8 +12,47 @@ on:
     branches:
       - main
 
+# Prevent two release jobs running in parallel on rapid pushes to main.
+# cancel-in-progress: false means the second run queues instead of being killed
+# mid-upload (a cancelled upload leaves a partial release).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # Compute the release version exactly once so every build matrix job and the
+  # release job all agree on the same number. Without this, each job queries
+  # GitHub independently — if a release lands between job starts they diverge,
+  # producing mismatched artifact filenames and release tags.
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Determine version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
+          VERSION=${LATEST#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          PATCH=$((PATCH + 1))
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            VERSION="${MAJOR}.${MINOR}.${PATCH}-pr.${{ github.event.pull_request.number }}"
+          else
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          TAG="v${MAJOR}.${MINOR}.${PATCH}"
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG"         >> $GITHUB_OUTPUT
+          echo "Resolved version: $VERSION (release tag: $TAG)"
+
   build:
+    needs: compute-version
     strategy:
       fail-fast: false
       matrix:
@@ -33,12 +72,11 @@ jobs:
             linux_label: ubuntu-22.04-arm
 
           # Windows: x64 + ARM64 built in one job so electron-builder emits a
-          # single latest.yml that covers both architectures. Two separate
-          # jobs each produce their own latest.yml, and the release upload
-          # clobbers one of them, breaking auto-update for the losing arch.
+          # single latest.yml covering both architectures. Two separate jobs
+          # each produce their own latest.yml; the release upload clobbers one,
+          # breaking auto-update for the losing arch.
           - os: windows-2022
             platform: win32
-            arch: x64
             artifact_name: Jobelix-windows
 
           # # macOS Intel (x64) - DISABLED: Code signing not configured
@@ -60,35 +98,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Determine build version
-        id: version
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
-          VERSION=${LATEST#v}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          PATCH=$((PATCH + 1))
-
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            VERSION="${MAJOR}.${MINOR}.${PATCH}-pr.${{ github.event.pull_request.number }}"
-          else
-            VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
-
       - name: Update package.json version
         shell: bash
         run: |
-          npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+          npm version ${{ needs.compute-version.outputs.version }} --no-git-tag-version --allow-same-version
           cat package.json | grep '"version"'
 
       - name: Setup Node.js
@@ -141,7 +159,6 @@ jobs:
       - name: Build bot TypeScript
         run: npm run build:bot
 
-      # Build electron app
       - name: Build Electron app (Linux)
         if: matrix.platform == 'linux'
         env:
@@ -154,8 +171,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Build x64 + arm64 together so electron-builder produces a single
-        # latest.yml listing both architectures. Separate jobs would each
-        # emit their own latest.yml and the release upload would clobber one.
+        # latest.yml listing both architectures.
         run: npx electron-builder --win --x64 --arm64
 
       - name: Build Electron app (macOS)
@@ -164,7 +180,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --mac --${{ matrix.arch }}
 
-      # Upload artifacts
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -174,35 +189,17 @@ jobs:
             dist/*.dmg
             dist/*.AppImage
             dist/*.zip
-            dist/*.yml
-            dist/*.yaml
             dist/latest*.yml
           if-no-files-found: warn
           retention-days: 7
 
   # Publishes to jobelix-dev/jobelix-releases (separate repo for releases)
   release:
-    needs: build
+    needs: [build, compute-version]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Determine version tag
-        id: version
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-        run: |
-          LATEST=$(gh release view --repo jobelix-dev/jobelix-releases --json tagName -q '.tagName' 2>/dev/null || echo "v0.0.0")
-          echo "Latest release: $LATEST"
-
-          VERSION=${LATEST#v}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          PATCH=$((PATCH + 1))
-          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
-
-          echo "New version: $NEW_VERSION"
-          echo "tag=$NEW_VERSION" >> $GITHUB_OUTPUT
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -216,10 +213,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
-          TAG=${{ steps.version.outputs.tag }}
+          TAG=${{ needs.compute-version.outputs.tag }}
           REPO="jobelix-dev/jobelix-releases"
-          
-          # Check if release exists
+
           if gh release view "$TAG" --repo "$REPO" &>/dev/null; then
             echo "Release $TAG exists, uploading artifacts..."
             gh release upload "$TAG" dist/* --repo "$REPO" --clobber
