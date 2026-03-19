@@ -143,7 +143,7 @@ export default function LoadingOverlay({
   const smoothPercent = useSmoothProgress(derivedProgressPercent);
 
   return (
-    <div className="absolute -inset-2 z-10 bg-surface/80/80 backdrop-blur-sm rounded-lg flex flex-col items-center pt-8 px-6">
+    <div className="absolute -inset-2 z-10 bg-surface/80 backdrop-blur-sm rounded-lg flex flex-col items-center pt-8 px-6">
       <div className="text-center mb-5">
         <p className="text-sm font-medium text-muted">
           {message}
