@@ -217,7 +217,7 @@
       "deleteAppDataOnUninstall": false,
       "perMachine": false,
       "allowElevation": true,
-      "differentialPackage": true
+      "differentialPackage": false
     },
     "mac": {
       "target": [
