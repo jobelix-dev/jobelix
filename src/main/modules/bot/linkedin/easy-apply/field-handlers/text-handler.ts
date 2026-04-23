@@ -10,7 +10,6 @@
 import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
-import { TIMEOUTS } from '../selectors';
 import { humanType, randomDelay } from '../../../utils/delays';
 
 const log = createLogger('TextHandler');
