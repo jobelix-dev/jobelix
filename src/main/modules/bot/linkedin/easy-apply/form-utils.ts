@@ -11,6 +11,7 @@
 import type { Page, Locator } from 'playwright-core';
 import type { SavedAnswer } from '../../types';
 import { createLogger } from '../../utils/logger';
+import { randomDelay } from '../../utils/delays';
 
 const log = createLogger('FormUtils');
 
@@ -195,6 +196,9 @@ export class FormUtils {
       try {
         await element.scrollIntoViewIfNeeded();
         await element.waitFor({ state: 'visible', timeout: 5000 });
+        // Hover briefly before clicking — sends realistic mouse-move events
+        await element.hover();
+        await this.page.waitForTimeout(randomDelay(60, 180));
         await element.click();
         return;
       } catch (error) {

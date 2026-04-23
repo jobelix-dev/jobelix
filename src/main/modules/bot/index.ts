@@ -276,12 +276,22 @@ export class LinkedInBot {
       executablePath: chromiumPath,
       headless: false, // Must be visible for manual login
       viewport: { width: 1280, height: 800 },
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      // No userAgent override — the real Chromium binary reports its own UA.
+      // Overriding it creates a mismatch with the binary version detectable via JS
+      // feature probing and HTTP/2 fingerprinting, especially across a persistent profile.
       args: [
         '--disable-blink-features=AutomationControlled',
         '--disable-infobars',
         '--no-sandbox',
+        // Disable site-isolation so iframes inside LinkedIn modals behave normally
+        '--disable-features=IsolateOrigins,site-per-process',
       ],
+    });
+
+    // Silently close any popup windows LinkedIn opens (e.g. OAuth, job alerts)
+    // without waiting for the tab-cleanup loop in closeExtraPages()
+    this.context.on('page', async (newPage) => {
+      try { await newPage.close(); } catch { /* ignore race */ }
     });
 
     // Extract browser PID for force-kill capability

@@ -17,7 +17,7 @@ import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
 import { getOutputFolderPath, getOldQuestionsPath } from '../utils/paths';
 import { saveDebugHtml } from '../utils/debug-html';
-import { waitRandom, DELAYS } from '../utils/delays';
+import { waitRandom, DELAYS, waitReadingJob, fatigueFactor } from '../utils/delays';
 import { buildSearchUrl } from '../core/config-validator';
 import { LinkedInEasyApplier } from './easy-apply/easy-applier';
 import { loadSavedAnswers, saveAnswer, appendJobResult } from '../utils/csv-utils';
@@ -273,6 +273,7 @@ export class LinkedInJobManager {
       log.debug(`Extracted ${jobs.length} jobs`);
 
       // Process each job
+      let jobsApplied = 0;
       for (const job of jobs) {
         if (isBlacklisted(job, this.companyBlacklist, this.titleBlacklist, this.seenJobs)) {
           log.warn(`Blacklisted ${job.title} at ${job.company}, skipping...`);
@@ -307,6 +308,9 @@ export class LinkedInJobManager {
 
         try {
           if (!['Continue', 'Applied', 'Apply'].includes(job.applyMethod)) {
+            // Pause as if reading the job card before clicking Easy Apply
+            await waitReadingJob(this.page);
+
             const result = await this.easyApplier!.apply(job);
 
             // Check if user is out of credits - STOP THE BOT
@@ -355,6 +359,14 @@ export class LinkedInJobManager {
           }
           this.writeToFile(job, 'success');
           this.seenJobs.add(job.link);
+          jobsApplied++;
+
+          // Fatigue-adjusted pause between jobs — grows slowly over a long session
+          const fatigue = fatigueFactor(jobsApplied);
+          await waitRandom(this.page, {
+            min: Math.round(DELAYS.BETWEEN_JOBS.min * fatigue),
+            max: Math.round(DELAYS.BETWEEN_JOBS.max * fatigue),
+          });
         } catch (error) {
           await saveDebugHtml(this.page, `job_apply_error_${job.company.replace(/\s+/g, '_')}`);
           this.writeToFile(job, 'failed');
