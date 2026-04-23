@@ -10,7 +10,7 @@
 import type { Locator } from 'playwright-core';
 import { BaseFieldHandler } from './base-handler';
 import { createLogger } from '../../../utils/logger';
-import { TIMEOUTS } from '../selectors';
+import { humanType, randomDelay } from '../../../utils/delays';
 
 const log = createLogger('TextHandler');
 
@@ -121,13 +121,19 @@ export class TextInputHandler extends BaseFieldHandler {
   }
 
   /**
-   * Fill an input field
+   * Fill an input field.
+   * Short values (≤60 chars) are typed character-by-character to look human.
+   * Long values (URLs, long answers) are filled instantly — nobody hand-types essays.
    */
   private async fillInput(input: Locator, value: string): Promise<void> {
     await input.click();
     await input.fill('');
-    await input.fill(value);
-    await this.page.waitForTimeout(TIMEOUTS.short);
+    if (value.length <= 60) {
+      await humanType(this.page, input, value);
+    } else {
+      await input.fill(value);
+      await this.page.waitForTimeout(randomDelay(150, 350));
+    }
   }
 
   /**

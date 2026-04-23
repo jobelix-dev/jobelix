@@ -43,6 +43,7 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
   const [uploadError, setUploadError] = useState('');
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isMountedRef = useRef(true);
 
   // Load existing resume metadata on mount
   useEffect(() => {
@@ -66,7 +67,9 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
 
   // Cleanup poll on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
@@ -91,11 +94,12 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
     // Works across all environments (web, Electron, serverless) because
     // progress is stored in the DB, not in-process memory.
     pollIntervalRef.current = setInterval(async () => {
+      if (!isMountedRef.current) return;
       try {
         const res = await apiFetch('/api/student/profile/draft/extract/progress');
         if (!res.ok) return;
         const data = await res.json() as ExtractionProgress | null;
-        if (data) setExtractionProgress(prev =>
+        if (data && isMountedRef.current) setExtractionProgress(prev =>
           !prev || data.progress >= prev.progress ? data : prev
         );
       } catch {
@@ -121,16 +125,18 @@ export function useResumeUpload({ setProfileData, setDraftId, setIsDataLoaded }:
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      try {
-        const res = await apiFetch('/api/student/profile/draft/extract/progress');
-        if (res.ok) {
-          const data = await res.json() as ExtractionProgress | null;
-          if (data) setExtractionProgress(prev =>
-            !prev || data.progress >= prev.progress ? data : prev
-          );
-        }
-      } catch { /* best-effort */ }
-      setExtracting(false);
+      if (isMountedRef.current) {
+        try {
+          const res = await apiFetch('/api/student/profile/draft/extract/progress');
+          if (res.ok) {
+            const data = await res.json() as ExtractionProgress | null;
+            if (data) setExtractionProgress(prev =>
+              !prev || data.progress >= prev.progress ? data : prev
+            );
+          }
+        } catch { /* best-effort */ }
+        setExtracting(false);
+      }
     }
   }, [setProfileData, setDraftId, setIsDataLoaded]);
 

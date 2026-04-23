@@ -1,5 +1,5 @@
 /**
- * Next.js middleware.
+ * Next.js proxy (formerly middleware).
  *
  * Responsibilities:
  * 1. Supabase auth session refresh (keeps users logged in)
@@ -32,15 +32,18 @@ const feedbackHourlyStore = createRateLimitStore();
 const feedbackDailyStore = createRateLimitStore();
 
 function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const real = request.headers.get('x-real-ip');
+  // cf-connecting-ip is set by Cloudflare and cannot be spoofed by the end user.
+  // x-real-ip is set by trusted reverse proxies (nginx, etc.).
+  // x-forwarded-for is last because it is end-user-controllable.
   const cfConnecting = request.headers.get('cf-connecting-ip');
-
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
   if (cfConnecting) return cfConnecting;
+
+  const real = request.headers.get('x-real-ip');
   if (real) return real;
+
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+
   return 'unknown';
 }
 
@@ -83,6 +86,10 @@ function checkFeedbackRateLimit(ip: string) {
   );
 }
 
+function hasSessionCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some(({ name }) => name.startsWith('sb-'));
+}
+
 /**
  * Refresh Supabase auth session.
  * Required for cookie rotation and session longevity.
@@ -113,7 +120,7 @@ async function updateSupabaseSession(request: NextRequest): Promise<NextResponse
   return supabaseResponse;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const ip = getClientIP(request);
   const pathname = request.nextUrl.pathname;
 
@@ -204,7 +211,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // API routes authenticate themselves via authenticateRequest() (Bearer token or cookie).
-  // Skip the redundant Supabase getUser() call in middleware for these routes.
+  // Skip the redundant Supabase getUser() call in proxy for these routes.
   if (pathname.startsWith('/api/')) {
     const response = NextResponse.next();
     response.headers.set('X-RateLimit-Limit', generalLimit.limit.toString());
@@ -214,7 +221,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Page routes: refresh Supabase session to rotate cookies and keep users logged in.
-  const response = await updateSupabaseSession(request);
+  // Skip if no session cookie exists — calling getUser() with no session causes noisy
+  // fetch errors when Supabase is unreachable (e.g., local dev without supabase start).
+  let response: NextResponse;
+  if (hasSessionCookie(request)) {
+    response = await updateSupabaseSession(request);
+  } else {
+    response = NextResponse.next({ request });
+  }
   response.headers.set('X-RateLimit-Limit', generalLimit.limit.toString());
   response.headers.set('X-RateLimit-Remaining', generalLimit.remaining.toString());
   response.headers.set('X-RateLimit-Reset', new Date(generalLimit.reset).toISOString());

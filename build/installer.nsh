@@ -45,12 +45,9 @@
 ; This macro runs AFTER files are installed
 ; Ensures shortcuts are created with the correct paths
 !macro customInstall
-  ; Create Start Menu shortcut
-  SetShellVarContext current
-  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0
-  
-  ; Note: Desktop shortcut is handled by electron-builder's nsis.createDesktopShortcut option
-  ; We only need to ensure Start Menu shortcut exists since that's often where issues occur
+  ; Shortcuts are fully managed by electron-builder via nsis.createDesktopShortcut
+  ; and nsis.createStartMenuShortcut — no custom creation needed here.
+  ; (Previously duplicated Start Menu shortcut creation, which could conflict.)
 !macroend
 
 ; ============================================================================

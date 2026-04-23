@@ -17,7 +17,7 @@ import { createLogger } from '../utils/logger';
 import { StatusReporter } from '../utils/status-reporter';
 import { getOutputFolderPath, getOldQuestionsPath } from '../utils/paths';
 import { saveDebugHtml } from '../utils/debug-html';
-import { waitRandom, DELAYS } from '../utils/delays';
+import { waitRandom, DELAYS, waitReadingJob, fatigueFactor } from '../utils/delays';
 import { buildSearchUrl } from '../core/config-validator';
 import { LinkedInEasyApplier } from './easy-apply/easy-applier';
 import { loadSavedAnswers, saveAnswer, appendJobResult } from '../utils/csv-utils';
@@ -273,6 +273,7 @@ export class LinkedInJobManager {
       log.debug(`Extracted ${jobs.length} jobs`);
 
       // Process each job
+      let jobsApplied = 0;
       for (const job of jobs) {
         if (isBlacklisted(job, this.companyBlacklist, this.titleBlacklist, this.seenJobs)) {
           log.warn(`Blacklisted ${job.title} at ${job.company}, skipping...`);
@@ -307,24 +308,27 @@ export class LinkedInJobManager {
 
         try {
           if (!['Continue', 'Applied', 'Apply'].includes(job.applyMethod)) {
+            // Pause as if reading the job card before clicking Easy Apply
+            await waitReadingJob(this.page);
+
             const result = await this.easyApplier!.apply(job);
-            
+
             // Check if user is out of credits - STOP THE BOT
             if (result.outOfCredits) {
               log.error('💳 OUT OF CREDITS - Stopping bot');
               log.error('Please claim your daily credits or purchase more credits to continue');
-              
+
               if (this.reporter) {
                 this.reporter.completeSession(
-                  false, 
+                  false,
                   '💳 Insufficient credits. Please claim daily credits or purchase more to continue.'
                 );
               }
-              
+
               // Stop processing immediately
               return jobs.length;
             }
-            
+
             // If already applied, skip gracefully
             if (result.alreadyApplied) {
               log.info(`Already applied to ${job.title} at ${job.company}, skipping`);
@@ -340,14 +344,14 @@ export class LinkedInJobManager {
               this.seenJobs.add(job.link);
               continue;
             }
-            
+
             // If modal didn't open (no Easy Apply button), skip and don't count as failure
             if (!result.success && result.error?.includes('Could not open Easy Apply modal')) {
               log.warn(`No Easy Apply available for ${job.title} at ${job.company}, skipping`);
               this.writeToFile(job, 'skipped');
               continue;
             }
-            
+
             // If application failed for other reasons
             if (!result.success) {
               throw new Error(result.error || 'Application failed');
@@ -355,13 +359,25 @@ export class LinkedInJobManager {
           }
           this.writeToFile(job, 'success');
           this.seenJobs.add(job.link);
+          jobsApplied++;
+
+          // Fatigue-adjusted pause between jobs — grows slowly over a long session
+          const fatigue = fatigueFactor(jobsApplied);
+          await waitRandom(this.page, {
+            min: Math.round(DELAYS.BETWEEN_JOBS.min * fatigue),
+            max: Math.round(DELAYS.BETWEEN_JOBS.max * fatigue),
+          });
         } catch (error) {
           await saveDebugHtml(this.page, `job_apply_error_${job.company.replace(/\s+/g, '_')}`);
           this.writeToFile(job, 'failed');
           log.error(`apply_jobs failed for ${job.title} at ${job.company}: ${error}`);
-          
+
           // Wait before continuing to next job (like Python: random.uniform(3, 5))
           await this.page.waitForTimeout(3000 + Math.random() * 2000);
+        } finally {
+          // LinkedIn's JS occasionally opens new tabs (window.open) during form navigation.
+          // Close any extra pages after each job so they don't accumulate and leak RAM.
+          await this.closeExtraPages();
         }
       }
 
@@ -535,6 +551,24 @@ export class LinkedInJobManager {
     appendJobResult(filePath, job.company, job.title, job.link, job.location, reason);
   }
 
+
+  /**
+   * Close any extra browser pages that accumulated during a job application.
+   * LinkedIn's JS can call window.open() on certain job types, creating stray
+   * tabs that are never tracked by the bot. Left unchecked they leak RAM.
+   */
+  private async closeExtraPages(): Promise<void> {
+    try {
+      const pages = this.page.context().pages();
+      for (const p of pages) {
+        if (p !== this.page && !p.isClosed()) {
+          await p.close();
+        }
+      }
+    } catch (e) {
+      log.warn(`closeExtraPages: ${e}`);
+    }
+  }
 
   /**
    * Check if error indicates browser was closed

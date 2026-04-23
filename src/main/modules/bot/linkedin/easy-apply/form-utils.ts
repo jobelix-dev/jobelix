@@ -11,6 +11,7 @@
 import type { Page, Locator } from 'playwright-core';
 import type { SavedAnswer } from '../../types';
 import { createLogger } from '../../utils/logger';
+import { randomDelay } from '../../utils/delays';
 
 const log = createLogger('FormUtils');
 
@@ -195,6 +196,9 @@ export class FormUtils {
       try {
         await element.scrollIntoViewIfNeeded();
         await element.waitFor({ state: 'visible', timeout: 5000 });
+        // Hover briefly before clicking — sends realistic mouse-move events
+        await element.hover();
+        await this.page.waitForTimeout(randomDelay(60, 180));
         await element.click();
         return;
       } catch (error) {
@@ -252,14 +256,21 @@ export class FormUtils {
    */
   async stableKey(element: Locator): Promise<string> {
     try {
-      // Try to get a unique identifier from the element
       const id = await element.getAttribute('id');
       if (id) return `id:${id}`;
-      
+
       const name = await element.locator('input, select, textarea').first().getAttribute('name');
       if (name) return `name:${name}`;
-      
-      // Fall back to text content hash
+
+      // Use label text only — stable even after the field is filled.
+      // textContent() includes the textarea value and changes on every pass, breaking deduplication.
+      const label = element.locator('label, [data-test-form-element-label], .fb-form-element-label').first();
+      if (await label.count() > 0) {
+        const labelText = (await label.textContent())?.trim();
+        if (labelText) return `label:${labelText.substring(0, 100)}`;
+      }
+
+      // Last resort: read only the first child text node (the question), not descendant values
       const text = await element.textContent();
       return `text:${text?.substring(0, 100)}`;
     } catch {
