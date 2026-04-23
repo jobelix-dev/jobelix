@@ -171,8 +171,8 @@ export async function POST(req: NextRequest) {
         })
       } catch (llmError) {
         // Refund the credit — best-effort, failure is logged but not surfaced.
-        await serviceSupabase.rpc('refund_credit', { p_user_id: user_id, p_amount: 1 }).catch(
-          (e) => console.error('[GPT4 Route] Failed to refund credit after LLM error:', e)
+        await Promise.resolve(serviceSupabase.rpc('refund_credit', { p_user_id: user_id, p_amount: 1 })).catch(
+          (e: unknown) => console.error('[GPT4 Route] Failed to refund credit after LLM error:', e)
         )
         throw llmError // rethrow → caught by outer catch → 500 response
       }
