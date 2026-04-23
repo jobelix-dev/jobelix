@@ -326,7 +326,7 @@ describe('Security: IDOR (Insecure Direct Object Reference)', () => {
 
       const { GET } = await import('@/app/api/student/token/route');
       await GET(new NextRequest('http://localhost:3000/api/student/token', {
-        headers: { 'user-agent': 'Mozilla/5.0 Electron/1.0' },
+        headers: { 'x-client-type': 'desktop' },
       }));
 
       expect(chain.eq).toHaveBeenCalledWith('user_id', USER_A);

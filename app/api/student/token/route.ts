@@ -11,15 +11,18 @@ import { checkRateLimit, rateLimitExceededResponse } from '@/lib/server/rateLimi
 
 const TOKEN_RATE_LIMIT = { endpoint: 'token-fetch', hourlyLimit: 10, dailyLimit: 20 };
 
-function isElectronUserAgent(userAgent: string | null): boolean {
-  return Boolean(userAgent && /electron/i.test(userAgent));
+// Soft gate: apiFetch() in Electron automatically sends X-Client-Type: desktop
+// (see lib/client/http.ts buildDesktopHeaders). This prevents accidental browser
+// calls but is not a security boundary — the token belongs to the authenticated user.
+function isDesktopRequest(request: NextRequest): boolean {
+  return request.headers.get('x-client-type') === 'desktop';
 }
 
 export async function GET(): Promise<NextResponse>;
 export async function GET(request: NextRequest): Promise<NextResponse>;
 export async function GET(request?: NextRequest) {
   try {
-    if (request && !isElectronUserAgent(request.headers.get('user-agent'))) {
+    if (request && !isDesktopRequest(request)) {
       return NextResponse.json(
         { error: 'This endpoint is only available in the desktop app' },
         { status: 403 }

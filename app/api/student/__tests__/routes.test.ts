@@ -917,16 +917,14 @@ describe('GET /api/student/token', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuthFailure();
     const req = new NextRequest(tokenUrl, {
-      headers: { 'user-agent': 'Electron/30.0.0' },
+      headers: { 'x-client-type': 'desktop' },
     });
     const res = await getToken(req);
     expect(res.status).toBe(401);
   });
 
-  it('returns 403 when called from non-Electron user-agent', async () => {
-    const req = new NextRequest(tokenUrl, {
-      headers: { 'user-agent': 'Mozilla/5.0' },
-    });
+  it('returns 403 when called without desktop client header', async () => {
+    const req = new NextRequest(tokenUrl);
     const res = await getToken(req);
     expect(res.status).toBe(403);
   });
@@ -941,7 +939,7 @@ describe('GET /api/student/token', () => {
     });
 
     const req = new NextRequest(tokenUrl, {
-      headers: { 'user-agent': 'Electron/30.0.0' },
+      headers: { 'x-client-type': 'desktop' },
     });
     const res = await getToken(req);
     expect(res.status).toBe(200);
@@ -960,7 +958,7 @@ describe('GET /api/student/token', () => {
     });
 
     const req = new NextRequest(tokenUrl, {
-      headers: { 'user-agent': 'Electron/30.0.0' },
+      headers: { 'x-client-type': 'desktop' },
     });
     const res = await getToken(req);
     expect(res.status).toBe(404);

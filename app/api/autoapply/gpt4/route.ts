@@ -156,16 +156,26 @@ export async function POST(req: NextRequest) {
         }, { status: 402 }) // 🔐
       }
 
-      // At this point, 1 credit has been reserved/deducted successfully
+      // At this point, 1 credit has been reserved/deducted successfully.
       console.log('[GPT4 Route] Credit deducted, calling OpenAI...') // 🔐 (log ok, no user_id)
 
-      // Call OpenAI
+      // Call OpenAI — if this throws, refund the credit so the user isn't charged
+      // for a call that returned no result.
       const openai = getOpenAI()
-      const completion = await openai.chat.completions.create({
-        model: 'mistral-small-latest',
-        messages,
-        temperature: safeTemperature, // 🔐
-      })
+      let completion: Awaited<ReturnType<typeof openai.chat.completions.create>>
+      try {
+        completion = await openai.chat.completions.create({
+          model: 'mistral-small-latest',
+          messages,
+          temperature: safeTemperature, // 🔐
+        })
+      } catch (llmError) {
+        // Refund the credit — best-effort, failure is logged but not surfaced.
+        await serviceSupabase.rpc('refund_credit', { p_user_id: user_id, p_amount: 1 }).catch(
+          (e) => console.error('[GPT4 Route] Failed to refund credit after LLM error:', e)
+        )
+        throw llmError // rethrow → caught by outer catch → 500 response
+      }
 
     const inputTokens = completion.usage?.prompt_tokens || 0
     const outputTokens = completion.usage?.completion_tokens || 0

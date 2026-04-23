@@ -32,15 +32,18 @@ const feedbackHourlyStore = createRateLimitStore();
 const feedbackDailyStore = createRateLimitStore();
 
 function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const real = request.headers.get('x-real-ip');
+  // cf-connecting-ip is set by Cloudflare and cannot be spoofed by the end user.
+  // x-real-ip is set by trusted reverse proxies (nginx, etc.).
+  // x-forwarded-for is last because it is end-user-controllable.
   const cfConnecting = request.headers.get('cf-connecting-ip');
-
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
   if (cfConnecting) return cfConnecting;
+
+  const real = request.headers.get('x-real-ip');
   if (real) return real;
+
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+
   return 'unknown';
 }
 
